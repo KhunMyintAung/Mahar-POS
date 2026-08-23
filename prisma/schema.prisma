@@ -1,0 +1,719 @@
+// Wallet Note — database schema
+// Money amounts are stored as BigInt in minor units (1/100 of the currency unit)
+// to avoid floating-point errors. Rates/percentages are stored as decimal strings
+// and computed with decimal.js in the service layer.
+// PostgreSQL is used for development and production.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  telegram  String?
+  website   String?
+  logoUrl   String?
+  currency  String   @default("MMK")
+  timezone  String   @default("Asia/Yangon")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches Branch[]
+  users    User[]
+  roles    Role[]
+  settings SystemSetting[]
+}
+
+model Branch {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  name       String
+  code       String
+  address    String?
+  phone      String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  userBranches UserBranch[]
+
+  @@unique([businessId, code])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  name        String
+  description String?
+  // JSON array of permission keys, e.g. ["three_d.view","wallet.transfer"]
+  permissions String
+  isSystem    Boolean  @default(false)
+  users       User[]
+
+  @@unique([businessId, name])
+}
+
+model User {
+  id             String    @id @default(uuid())
+  businessId     String
+  business       Business  @relation(fields: [businessId], references: [id])
+  name           String
+  username       String    @unique
+  email          String?   @unique
+  phone          String?
+  passwordHash   String
+  roleId         String
+  role           Role      @relation(fields: [roleId], references: [id])
+  allBranches    Boolean   @default(false)
+  active         Boolean   @default(true)
+  // 3D commission rate as decimal string percent, e.g. "10" = 10%
+  commissionRate String    @default("0")
+  failedLogins   Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  telegramBotToken      String? @unique
+  telegramBotUsername   String?
+  telegramWebhookSecret String? @unique
+  telegramChatId        String?
+
+  branches      UserBranch[]
+  sessions      AuthSession[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+}
+
+model TelegramSession {
+  ownerUserId String
+  chatId      String
+  step        String
+  data        String   @default("{}")
+  updatedAt   DateTime @updatedAt
+
+  @@id([ownerUserId, chatId])
+}
+
+/**
+ * A device left in for repair.
+ * The shop's promise to a customer: what was handed over, what is wrong with it, what it
+ * will cost and when it will be ready. Money only moves when the phone goes back out, so
+ * a deposit and the final charge are held here until then.
+ */
+model RepairJob {
+  id         String @id @default(uuid())
+  jobNo      String
+  businessId String
+  branchId   String
+
+  customerId    String?
+  customerName  String?
+  customerPhone String?
+
+  deviceBrand String
+  deviceModel String
+  /**
+   * Serial or IMEI, as read off the device.
+   */
+  imei        String?
+  /**
+   * What came in with it — case, SIM, memory card — so a dispute has an answer.
+   */
+  accessories String?
+  problem     String
+
+  status        String @default("RECEIVED") // RECEIVED IN_PROGRESS WAITING_PARTS DONE DELIVERED CANCELLED
+  /**
+   * Quoted up front; the final charge may differ once it is opened up.
+   */
+  estimatedCost BigInt @default(0)
+  partsCost     BigInt @default(0)
+  finalCost     BigInt @default(0)
+  /**
+   * Taken at drop-off and set against the final charge.
+   */
+  depositAmount BigInt @default(0)
+  paidAmount    BigInt @default(0)
+
+  technicianId String?
+  notes        String?
+
+  receivedAt  DateTime  @default(now())
+  promisedAt  DateTime?
+  completedAt DateTime?
+  deliveredAt DateTime?
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  @@unique([businessId, jobNo])
+  @@index([businessId, status])
+  @@index([businessId, receivedAt])
+  @@index([customerId])
+}
+
+/**
+ * A top-up biller — the float a phone shop holds with an operator.
+ * Deliberately not a wallet. A wallet holds the shop's own money and can be transferred,
+ * withdrawn and reconciled against a drawer; a float is stock bought from an operator that
+ * can only be sold on as air-time. Modelling it as a wallet made every transfer screen
+ * offer to move kyat into Mytel, which is not a thing a shop can do.
+ * The balance is allowed to go negative: an operator that lets the shop sell on credit
+ * leaves the float below zero until it is settled, and the shop's own records show that.
+ */
+model Biller {
+  id             String    @id @default(uuid())
+  businessId     String
+  branchId       String?
+  name           String
+  /**
+   * TOPUP_CARD sells pin-code cards; ELOAD sends credit straight to a number.
+   */
+  type           String    @default("TOPUP_CARD")
+  currency       String    @default("MMK")
+  openingBalance BigInt    @default(0)
+  currentBalance BigInt    @default(0)
+  active         Boolean   @default(true)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  transactions BillerTxn[]
+
+  @@unique([businessId, name])
+  @@index([businessId, active])
+}
+
+/**
+ * One movement of a float: buying more of it, selling some of it, or correcting it.
+ * `faceAmount` is what the float moves by and `cashAmount` is what the drawer moves by.
+ * They are separate because the two are rarely equal — an operator sells 100,000 of credit
+ * for 98,000, and that 2,000 is the shop's whole margin on the trade. Recording only one
+ * figure loses it.
+ */
+model BillerTxn {
+  id            String   @id @default(uuid())
+  txnNo         String
+  businessId    String
+  branchId      String?
+  billerId      String
+  /**
+   * TOPUP buys float, SALE sells it on, ADJUST corrects it after a count.
+   */
+  kind          String
+  faceAmount    BigInt   @default(0)
+  cashAmount    BigInt   @default(0)
+  /**
+   * Worked out once, at the point of sale, so a report never has to re-derive the sign.
+   */
+  profit        BigInt   @default(0)
+  /**
+   * The wallet the cash moved through; absent for an adjustment.
+   */
+  walletId      String?
+  balanceAfter  BigInt   @default(0)
+  customerPhone String?
+  note          String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  biller Biller @relation(fields: [billerId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, txnNo])
+  @@index([billerId, createdAt])
+  @@index([businessId, createdAt])
+}
+
+model UserBranch {
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+}
+
+model AuthSession {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([userId])
+}
+
+// Shared contact directory: customers, suppliers, agents, creditors, debtors
+model Contact {
+  id          String    @id @default(uuid())
+  businessId  String
+  branchId    String?
+  name        String
+  phone       String?
+  telegram    String?
+  address     String?
+  type        String    @default("CUSTOMER") // CUSTOMER SUPPLIER AGENT CREDITOR DEBTOR OTHER
+  currency    String    @default("MMK")
+  creditLimit BigInt    @default(0)
+  notes       String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  receivables Receivable[]
+  payables    Payable[]
+
+  @@index([businessId, type])
+  @@index([businessId, name])
+}
+
+model Wallet {
+  id             String    @id @default(uuid())
+  businessId     String
+  branchId       String?
+  name           String
+  code           String
+  type           String    @default("CASH") // CASH BANK MOBILE AGENT CUSTOMER EXPENSE CLEARING CUSTOM
+  currency       String    @default("MMK")
+  openingBalance BigInt    @default(0)
+  currentBalance BigInt    @default(0)
+  minBalance     BigInt    @default(0)
+  active         Boolean   @default(true)
+  description    String?
+  version        Int       @default(0) // optimistic locking
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  ledger WalletLedgerEntry[]
+
+  @@unique([businessId, code])
+}
+
+model WalletLedgerEntry {
+  id           String   @id @default(uuid())
+  walletId     String
+  wallet       Wallet   @relation(fields: [walletId], references: [id])
+  businessId   String
+  branchId     String?
+  direction    String // DEBIT (money in) | CREDIT (money out)
+  amount       BigInt // always positive, minor units of wallet currency
+  balanceAfter BigInt
+  refType      String // OPENING CASH_IN CASH_OUT TRANSFER_IN TRANSFER_OUT EXCHANGE_IN EXCHANGE_OUT THREE_D_SETTLE CREDIT_COLLECT PAYABLE_PAY INCOME EXPENSE ADJUSTMENT REVERSAL
+  refId        String?
+  description  String?
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([refType, refId])
+}
+
+model WalletTransfer {
+  id             String   @id @default(uuid())
+  txnNo          String
+  businessId     String
+  branchId       String?
+  sourceWalletId String
+  destWalletId   String
+  sourceAmount   BigInt
+  destAmount     BigInt
+  rate           String? // required when currencies differ
+  fee            BigInt   @default(0)
+  reference      String?
+  notes          String?
+  status         String   @default("COMPLETED") // COMPLETED REVERSED
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  @@unique([businessId, txnNo])
+}
+
+model WalletReconciliation {
+  id             String   @id @default(uuid())
+  businessId     String
+  walletId       String
+  systemBalance  BigInt
+  countedBalance BigInt
+  difference     BigInt
+  date           String // YYYY-MM-DD
+  notes          String?
+  reconciledById String
+  createdAt      DateTime @default(now())
+}
+
+model Receivable {
+  id              String    @id @default(uuid())
+  txnNo           String
+  businessId      String
+  branchId        String
+  customerId      String
+  customer        Contact   @relation(fields: [customerId], references: [id])
+  reference       String?
+  originalAmount  BigInt
+  paidAmount      BigInt    @default(0)
+  remainingAmount BigInt
+  currency        String    @default("MMK")
+  creditDate      String // YYYY-MM-DD
+  dueDate         String?
+  agentId         String?
+  status          String    @default("UNPAID") // UNPAID PARTIAL PAID OVERDUE WRITTEN_OFF CANCELLED
+  notes           String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  payments ReceivablePayment[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, status])
+}
+
+model ReceivablePayment {
+  id           String     @id @default(uuid())
+  receivableId String
+  receivable   Receivable @relation(fields: [receivableId], references: [id])
+  amount       BigInt
+  walletId     String
+  date         String
+  notes        String?
+  createdById  String
+  createdAt    DateTime   @default(now())
+}
+
+model Payable {
+  id              String    @id @default(uuid())
+  txnNo           String
+  businessId      String
+  branchId        String
+  supplierId      String
+  supplier        Contact   @relation(fields: [supplierId], references: [id])
+  reference       String?
+  originalAmount  BigInt
+  paidAmount      BigInt    @default(0)
+  remainingAmount BigInt
+  currency        String    @default("MMK")
+  payableDate     String
+  dueDate         String?
+  category        String?
+  status          String    @default("UNPAID")
+  notes           String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  payments PayablePayment[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, status])
+}
+
+model PayablePayment {
+  id          String   @id @default(uuid())
+  payableId   String
+  payable     Payable  @relation(fields: [payableId], references: [id])
+  amount      BigInt
+  walletId    String
+  date        String
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+}
+
+model Category {
+  id         String  @id @default(uuid())
+  businessId String
+  type       String // INCOME | EXPENSE
+  name       String
+  active     Boolean @default(true)
+
+  @@unique([businessId, type, name])
+}
+
+model IncomeExpense {
+  id           String    @id @default(uuid())
+  txnNo        String
+  businessId   String
+  branchId     String
+  type         String // INCOME | EXPENSE | WITHDRAW
+  categoryId   String?
+  categoryName String?
+  amount       BigInt
+  currency     String    @default("MMK")
+  walletId     String
+  date         String // YYYY-MM-DD
+  reference    String?
+  description  String?
+  status       String    @default("COMPLETED") // COMPLETED REVERSED
+  createdById  String
+  approvedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, type, date])
+}
+
+model DailyClose {
+  id            String    @id @default(uuid())
+  businessId    String
+  branchId      String
+  date          String // YYYY-MM-DD
+  status        String    @default("OPEN") // OPEN SUBMITTED APPROVED CLOSED REOPENED
+  summary       String // JSON snapshot of all computed totals
+  countedNotes  String?
+  submittedById String?
+  approvedById  String?
+  closedAt      DateTime?
+  reopenedById  String?
+  reopenedAt    DateTime?
+  reopenReason  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([branchId, date])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  businessId   String
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  branchId     String?
+  action       String // LOGIN LOGIN_FAILED CREATE UPDATE DELETE RESTORE APPROVE SETTLE REOPEN REVERSE ADJUST PERMISSION_CHANGE RATE_CHANGE DAILY_CLOSE
+  module       String
+  resourceType String?
+  resourceId   String?
+  before       String? // JSON
+  after        String? // JSON
+  ip           String?
+  userAgent    String?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([resourceType, resourceId])
+}
+
+model SystemSetting {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  key        String
+  value      String // JSON
+  updatedAt  DateTime @updatedAt
+
+  @@unique([businessId, key])
+}
+
+model NumberSequence {
+  id         String @id @default(uuid())
+  businessId String
+  key        String // THREE_D EXCHANGE TRANSFER CREDIT PAYABLE INCOME EXPENSE CLOSE
+  prefix     String
+  next       Int    @default(1)
+
+  @@unique([businessId, key])
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  businessId String
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id])
+  type       String
+  title      String
+  body       String?
+  link       String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ===== POS & Inventory (merged from ERP POS SYSTEM) =====
+
+model ItemCategory {
+  id         String  @id @default(uuid())
+  businessId String
+  name       String
+  parentId   String? // set for sub-categories
+  active     Boolean @default(true)
+
+  items Item[]
+
+  @@unique([businessId, name, parentId])
+}
+
+model Unit {
+  id         String  @id @default(uuid())
+  businessId String
+  name       String // pcs, kg, box…
+  active     Boolean @default(true)
+
+  items Item[]
+
+  @@unique([businessId, name])
+}
+
+model Item {
+  id           String        @id @default(uuid())
+  businessId   String
+  name         String
+  sku          String
+  barcode      String?
+  categoryId   String?
+  category     ItemCategory? @relation(fields: [categoryId], references: [id])
+  unitId       String?
+  unit         Unit?         @relation(fields: [unitId], references: [id])
+  costPrice    BigInt        @default(0) // minor units
+  sellingPrice BigInt        @default(0)
+  currency     String        @default("MMK")
+  minStock     Int           @default(0)
+  active       Boolean       @default(true)
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  stockLevels   StockLevel[]
+  movements     StockMovement[]
+  purchaseLines PurchaseLine[]
+  saleLines     SaleLine[]
+
+  @@unique([businessId, sku])
+  @@index([businessId, name])
+}
+
+model StockLevel {
+  id       String @id @default(uuid())
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id])
+  branchId String
+  quantity Int    @default(0)
+
+  @@unique([itemId, branchId])
+}
+
+model StockMovement {
+  id          String   @id @default(uuid())
+  businessId  String
+  itemId      String
+  item        Item     @relation(fields: [itemId], references: [id])
+  branchId    String
+  type        String // PURCHASE SALE ADJUSTMENT PURCHASE_RETURN SALE_RETURN TRANSFER_IN TRANSFER_OUT
+  quantity    Int // signed: positive = stock in, negative = stock out
+  qtyAfter    Int
+  refType     String?
+  refId       String?
+  notes       String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@index([itemId, branchId, createdAt])
+  @@index([refType, refId])
+}
+
+model Purchase {
+  id            String    @id @default(uuid())
+  txnNo         String
+  businessId    String
+  branchId      String
+  supplierId    String?
+  subtotal      BigInt
+  discount      BigInt    @default(0)
+  total         BigInt
+  paidAmount    BigInt    @default(0)
+  paymentStatus String    @default("UNPAID") // UNPAID PARTIAL PAID
+  status        String    @default("COMPLETED") // COMPLETED CANCELLED
+  walletId      String?
+  payableId     String?
+  date          String // YYYY-MM-DD
+  reference     String?
+  notes         String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  lines PurchaseLine[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, branchId, date])
+}
+
+model PurchaseLine {
+  id         String   @id @default(uuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  quantity   Int
+  unitCost   BigInt
+  lineTotal  BigInt
+}
+
+model Sale {
+  id            String    @id @default(uuid())
+  txnNo         String
+  businessId    String
+  branchId      String
+  customerId    String?
+  subtotal      BigInt
+  discount      BigInt    @default(0)
+  total         BigInt
+  paidAmount    BigInt    @default(0)
+  paymentStatus String    @default("PAID") // PAID PARTIAL UNPAID
+  status        String    @default("COMPLETED") // COMPLETED CANCELLED
+  walletId      String?
+  receivableId  String?
+  totalCost     BigInt    @default(0)
+  profit        BigInt    @default(0) // total - discount... = revenue - cost
+  date          String
+  reference     String?
+  notes         String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  lines SaleLine[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, branchId, date])
+}
+
+model SaleLine {
+  id        String @id @default(uuid())
+  saleId    String
+  sale      Sale   @relation(fields: [saleId], references: [id])
+  itemId    String
+  item      Item   @relation(fields: [itemId], references: [id])
+  quantity  Int
+  unitPrice BigInt
+  unitCost  BigInt
+  lineTotal BigInt
+}

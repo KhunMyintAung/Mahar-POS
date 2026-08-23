@@ -1,0 +1,43 @@
+name: Build standalone release
+
+# Manual only — produces a downloadable Linux-built standalone artifact for
+# deployment to the VPS. Building on Linux (matching the production runtime)
+# avoids a cross-platform Prisma/Turbopack external-module bundling mismatch
+# seen when building on Windows and running on Linux. No deployment step,
+# no secrets used — just build and upload as an artifact.
+#
+# Pinned to ubuntu-22.04 (not ubuntu-latest) to match the VPS's exact OS
+# (Ubuntu 22.04.5 LTS) — "latest" can silently drift to a newer Ubuntu with a
+# different glibc/OpenSSL ABI, which is exactly the kind of mismatch that
+# caused the Prisma external-module bug this workflow exists to avoid.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-build-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-${{ hashFiles('package-lock.json') }}-
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx next build
+      - name: Assemble standalone package
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          tar -czf mahar-mini-pos-standalone.tar.gz -C .next standalone
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mahar-mini-pos-standalone
+          path: mahar-mini-pos-standalone.tar.gz
+          retention-days: 3

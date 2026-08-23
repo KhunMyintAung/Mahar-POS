@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #171717;
+}
+
+.dark {
+  --background: #0b0f17;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Pyidaungsu", "Myanmar Text", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+
+  /* Printing a sale slip prints the slip and nothing else.
+     Keyed off the slip simply being in the document, not off a class switched on for the
+     duration of the print. A phone renders the page for the printer only after a printer
+     has been chosen, so anything switched on for "the print" was a race against how long
+     someone takes to tap — and it lost, printing the app screen instead.
+     The slip is portalled to be a direct child of <body>, so hiding its siblings leaves it
+     alone. Nothing is positioned: earlier attempts moved it out of flow with absolute and
+     then fixed, and a fixed box is laid out against a single page box — with an
+     auto-height sheet that clipped the slip after the header, so a basket of items printed
+     a shop name and nothing else. In normal flow the content sizes the page itself and a
+     long basket runs on. */
+  body:has(#sale-receipt) > *:not(#sale-receipt) { display: none !important; }
+  #sale-receipt { display: block !important; }
+
+  /* A till roll is a continuous strip; margins push the slip onto a second one. */
+  @page { margin: 0; }
+
+  /* No named page, and no size.
+     There was a `@page receipt { size: 58mm auto }` here with `page: receipt` on the slip,
+     meant to make the sheet the width of the roll. Chrome drops `size` when the second
+     value is `auto` — checked by parsing it and reading the rule back, which returns
+     `@page receipt { margin: 0px }` with the size gone, while `58mm 200mm` survives. So
+     the slip was being assigned to a named page carrying nothing, and what came out was
+     two blank sheets: no fonts, no text operators, nothing.
+     Fixing the size is not worth it either. A fixed height would feed that much paper on
+     every print, and the printers this was for are Bluetooth roll printers that a browser
+     cannot drive at all — those go through RawBT. What is left is what actually works:
+     hide everything else, print the slip, let the dialog pick the paper. */
+}
