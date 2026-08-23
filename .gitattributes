@@ -1,0 +1,8 @@
+# Windows checkouts get CRLF, the repository always stores LF, so a file edited on
+# Windows does not come back as a whole-file diff.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.webmanifest text
