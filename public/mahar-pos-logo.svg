@@ -1,16 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Mahar POS logo">
-  <defs>
-    <linearGradient id="g" x1="20" x2="108" y1="18" y2="112" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#60A5FA"/>
-      <stop offset="0.52" stop-color="#2563EB"/>
-      <stop offset="1" stop-color="#1E40AF"/>
-    </linearGradient>
-    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#1E40AF" flood-opacity="0.25"/>
-    </filter>
-  </defs>
-  <rect x="12" y="12" width="104" height="104" rx="28" fill="url(#g)" filter="url(#s)"/>
-  <path d="M34 82V45c0-5 4-9 9-9h10l12 27 12-27h10c5 0 9 4 9 9v37" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M43 88h42" stroke="#DBEAFE" stroke-width="9" stroke-linecap="round"/>
-  <circle cx="95" cy="34" r="9" fill="#DBEAFE"/>
+  <!-- Left leg of the "M" -->
+  <rect x="18" y="28" width="18" height="68" rx="9" fill="#12A150"/>
+
+  <!-- Right half of the "M", drawn as a chevron running into the card -->
+  <path d="M40 32 L61 64 L82 32" fill="none" stroke="#F7941D" stroke-width="16"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Small ascending bar chart sitting in the valley of the "M" -->
+  <rect x="46" y="94" width="7" height="10" rx="1.5" fill="#8AD9AE"/>
+  <rect x="56" y="86" width="7" height="18" rx="1.5" fill="#12A150"/>
+  <rect x="66" y="78" width="7" height="26" rx="1.5" fill="#0C7A3B"/>
+
+  <!-- Receipt / phone card -->
+  <rect x="76" y="20" width="36" height="64" rx="9" fill="#FFFFFF" stroke="#F7941D" stroke-width="4"/>
+  <rect x="84" y="32" width="20" height="3" rx="1.5" fill="#D6DBE1"/>
+  <rect x="84" y="42" width="9" height="9" rx="2" fill="#12A150"/>
+  <rect x="97" y="42" width="9" height="9" rx="2" fill="#F7941D"/>
+  <rect x="84" y="55" width="9" height="9" rx="2" fill="#F7941D"/>
+  <rect x="97" y="55" width="9" height="9" rx="2" fill="#12A150"/>
+  <rect x="84" y="70" width="20" height="3" rx="1.5" fill="#D6DBE1"/>
+
+  <!-- Torn receipt tab under the card -->
+  <path d="M80 84 L100 84 L90 96 Z" fill="#0C7A3B"/>
 </svg>

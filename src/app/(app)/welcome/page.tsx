@@ -1,19 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, Input, Select, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
-import { BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
+import { SELECTABLE_BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
 
 /** The one question signing up through Google cannot answer.
  *
  *  Google supplies a name and an email, so the registration form's other fields are not
- *  worth asking for — but nothing about a Google account says whether this is a shop, a
- *  personal wallet, and that choice is what decides which modules
- *  appear. Left unasked, a new account lands on a default that fits nobody in particular.
+ *  worth asking for — but nothing about a Google account says whether this is a mini mart or
+ *  a mobile shop, and that choice is what decides which modules appear. Left unasked, a new
+ *  account lands on a default that fits nobody in particular.
  */
 export default function WelcomePage() {
   const router = useRouter();
@@ -49,8 +49,8 @@ export default function WelcomePage() {
     <div className="mx-auto max-w-lg">
       <Card>
         <div className="mb-6 flex flex-col items-center gap-2 pt-2 text-center">
-          <div className="rounded-2xl bg-blue-600 p-3 text-white">
-            <Wallet size={26} />
+          <div className="rounded-2xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">
+            <Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={44} height={44} />
           </div>
           <h1 className="text-xl font-bold">Welcome{me?.user.name ? `, ${me.user.name}` : ""}</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -71,7 +71,7 @@ export default function WelcomePage() {
             onChange={(e) => setCategory(e.target.value)}
           >
             <option value="">Choose one…</option>
-            {BUSINESS_CATEGORIES.map((key) => (
+            {SELECTABLE_BUSINESS_CATEGORIES.map((key) => (
               <option key={key} value={key}>
                 {BUSINESS_CATEGORY_LABELS[key]}
               </option>

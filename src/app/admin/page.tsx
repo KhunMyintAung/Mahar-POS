@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Building2, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users, Wallet } from "lucide-react";
+import Image from "next/image";
+import { Building2, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { Button, Card, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
@@ -164,7 +165,7 @@ export default function AdminPage() {
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-950">
         <Card className="w-full max-w-sm space-y-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-600 p-2 text-white"><Wallet size={20} /></div>
+            <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={28} height={28} /></div>
             <div>
               <h1 className="font-bold">Grand Admin Portal</h1>
               <p className="text-xs text-gray-500">Enter the passcode to continue</p>
@@ -201,8 +202,8 @@ export default function AdminPage() {
       <div className="mx-auto max-w-[1600px] space-y-4">
         <header className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-4 dark:border-gray-800">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="rounded-lg bg-blue-600 p-2 text-white">
-              <Wallet size={20} />
+            <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100">
+              <Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={28} height={28} />
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-bold">Mahar Mini POS Admin</h1>

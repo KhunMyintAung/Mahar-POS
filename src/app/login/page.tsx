@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { Button, Input, Card } from "@/components/ui";
 import { PwaInstall } from "@/components/PwaInstall";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
@@ -61,8 +61,8 @@ export default function LoginPage() {
       <LanguageSwitch className="absolute right-4 top-4" />
       <Card className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 pt-2">
-          <div className="rounded-2xl bg-blue-600 p-3 text-white">
-            <Wallet size={28} />
+          <div className="rounded-2xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">
+            <Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={48} height={48} />
           </div>
           <h1 className="text-xl font-bold">Mahar Mini POS</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Sign in to your account</p>

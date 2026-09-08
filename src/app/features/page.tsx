@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   Boxes, FileBarChart, HandCoins, MinusCircle,
@@ -104,8 +105,8 @@ export default function FeaturesPage() {
       <LanguageSwitch className="absolute right-4 top-4" />
 
       <div className="flex flex-col items-center text-center">
-        <div className="rounded-2xl bg-blue-600 p-3 text-white">
-          <Wallet size={30} />
+        <div className="rounded-2xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">
+          <Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={52} height={52} />
         </div>
         <h1 className="mt-4 text-3xl font-bold">What is Mahar Mini POS?</h1>
         {/* A constant, not JSX text: the translator matches whole strings, and JSX would

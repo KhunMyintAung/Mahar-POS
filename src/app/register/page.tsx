@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { Button, Card, Input, Select } from "@/components/ui";
 import { PwaInstall } from "@/components/PwaInstall";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
-import { BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
+import { SELECTABLE_BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
 import { LanguageSwitch } from "@/components/LanguageProvider";
 import { api } from "@/lib/client";
 
@@ -21,7 +21,7 @@ import { api } from "@/lib/client";
 function categoryFromUrl(): string {
   if (typeof window === "undefined") return "";
   const raw = new URLSearchParams(window.location.search).get("type")?.toUpperCase() ?? "";
-  return (BUSINESS_CATEGORIES as readonly string[]).includes(raw) ? raw : "";
+  return (SELECTABLE_BUSINESS_CATEGORIES as readonly string[]).includes(raw) ? raw : "";
 }
 
 export default function RegisterPage() {
@@ -95,8 +95,8 @@ export default function RegisterPage() {
       <LanguageSwitch className="absolute right-4 top-4" />
       <Card className="w-full max-w-xl">
         <div className="mb-6 flex flex-col items-center gap-2 pt-2">
-          <div className="rounded-xl bg-blue-600 p-3 text-white">
-            <Wallet size={28} />
+          <div className="rounded-xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">
+            <Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={48} height={48} />
           </div>
           <h1 className="text-xl font-bold">Create your Mahar Mini POS</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Free private workspace for your business</p>
@@ -126,7 +126,7 @@ export default function RegisterPage() {
             <option value="">Choose category...</option>
             {/* Driven by the shared list: these were written out by hand and a new business
                 type was added without appearing here. */}
-            {BUSINESS_CATEGORIES.map((category) => (
+            {SELECTABLE_BUSINESS_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {BUSINESS_CATEGORY_LABELS[category]}
               </option>

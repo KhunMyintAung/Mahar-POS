@@ -66,6 +66,17 @@ export const BUSINESS_CATEGORY_LABELS: Record<BusinessCategory, string> = {
   ALL_IN_ONE: "All-in-one business",
 };
 
+/** What a new business is offered when picking a category.
+ *
+ *  PERSONAL and ALL_IN_ONE stay in BUSINESS_CATEGORIES so existing businesses already on
+ *  one of them keep working (categoryPreset, the settings API schema, and stored data all
+ *  still cover the full set) — they are just no longer offered to new sign-ups.
+ */
+export const SELECTABLE_BUSINESS_CATEGORIES = BUSINESS_CATEGORIES.filter(
+  (category): category is Exclude<BusinessCategory, "PERSONAL" | "ALL_IN_ONE"> =>
+    category !== "PERSONAL" && category !== "ALL_IN_ONE"
+);
+
 const MINI_MART_FEATURES: FeatureKey[] = ["pos", "purchases", "items", "stock", "suppliers", "repair", "biller"];
 const WALLET_FEATURES: FeatureKey[] = [
   "wallets",

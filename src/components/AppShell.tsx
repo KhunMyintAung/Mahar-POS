@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -237,7 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Desktop sidebar */}
           <aside className="no-print hidden w-60 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:block">
             <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-800">
-              <div className="rounded-lg bg-blue-600 p-1.5 text-white"><Wallet size={18} /></div>
+              <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100 dark:ring-gray-800"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
               <span className="font-bold">Mahar Mini POS</span>
             </div>
             {sidebar}
