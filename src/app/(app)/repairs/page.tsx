@@ -160,6 +160,7 @@ export default function RepairsPage() {
       jobNo: job.jobNo,
       at: job.receivedAt,
       shopName: me?.business?.name ?? "Mahar Mini POS",
+      shopLogo: me?.business?.logoUrl ?? undefined,
       shopPhone: me?.business?.phone ?? undefined,
       shopAddress: me?.business?.address ?? undefined,
       customerName: job.customerName ?? undefined,

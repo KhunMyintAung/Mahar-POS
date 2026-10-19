@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
+import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -15,7 +16,7 @@ import {
   type FeatureVisibility,
 } from "@/lib/modules";
 interface SettingsData {
-  business: { id: string; name: string; phone?: string; address?: string; telegram?: string; website?: string; currency: string; timezone: string };
+  business: { id: string; name: string; logoUrl?: string | null; phone?: string; address?: string; telegram?: string; website?: string; currency: string; timezone: string };
   settings: Record<string, Record<string, unknown>>;
 }
 
@@ -104,6 +105,8 @@ export default function SettingsPage() {
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>
       </Card>
+
+      <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
 
       {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 

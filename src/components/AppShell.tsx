@@ -23,7 +23,7 @@ interface Me {
     id: string; name: string; username: string; roleName: string;
     permissions: string[]; allBranches: boolean; branchIds: string[];
   };
-  business: { name: string; phone: string | null; address: string | null; currency: string } | null;
+  business: { name: string; phone: string | null; address: string | null; currency: string; logoUrl: string | null } | null;
   branches: { id: string; name: string; code: string }[];
   modules: {
     mode: ModuleMode;

@@ -56,6 +56,14 @@ const bizSchema = z.object({
   address: z.string().optional(),
   telegram: z.string().optional(),
   website: z.string().optional(),
+  // The logo is kept as a small data URL (the settings page shrinks it first), so it needs
+  // no file storage and prints from anywhere. Empty removes it.
+  logoUrl: z
+    .string()
+    .max(400_000, "Logo is too large")
+    .refine((v) => v === "" || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v), "Logo must be a PNG, JPEG or WebP image")
+    .transform((v) => (v === "" ? null : v))
+    .optional(),
 });
 
 export const PATCH = withAuth("settings.manage", async ({ req, user }) => {
@@ -66,7 +74,8 @@ export const PATCH = withAuth("settings.manage", async ({ req, user }) => {
     await audit(tx, {
       businessId: user.businessId, userId: user.id,
       action: "UPDATE", module: "settings", resourceType: "Business", resourceId: b.id,
-      after: body,
+      // The image itself would bloat every audit row; that it changed is what matters.
+      after: body.logoUrl === undefined ? body : { ...body, logoUrl: body.logoUrl ? "(new logo)" : "(removed)" },
     });
     return b;
   });

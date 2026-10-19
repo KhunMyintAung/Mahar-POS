@@ -28,7 +28,7 @@ export default async function TrackPage({ params }: { params: Promise<{ token: s
     ? await prisma.repairJob.findFirst({ where: { id: jobId, deletedAt: null } })
     : null;
   const business = job
-    ? await prisma.business.findUnique({ where: { id: job.businessId }, select: { name: true, phone: true, address: true } })
+    ? await prisma.business.findUnique({ where: { id: job.businessId }, select: { name: true, phone: true, address: true, logoUrl: true } })
     : null;
 
   if (!job || !business) {
@@ -48,6 +48,10 @@ export default async function TrackPage({ params }: { params: Promise<{ token: s
   return (
     <main className="mx-auto w-full max-w-md px-4 py-8 text-gray-800 dark:text-gray-200">
       <header className="text-center">
+        {business.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
+          <img src={business.logoUrl} alt="" className="mx-auto mb-2 max-h-20 max-w-[60%] object-contain" />
+        )}
         <h1 className="text-xl font-bold">{business.name}</h1>
         {(business.phone || business.address) && (
           <p className="mt-1 text-sm text-gray-500">{[business.phone, business.address].filter(Boolean).join(" · ")}</p>

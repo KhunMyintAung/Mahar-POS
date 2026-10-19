@@ -64,6 +64,7 @@ export default function SalesPage() {
       txnNo: s.txnNo,
       at: s.createdAt,
       shopName: me?.business?.name ?? "Mahar Mini POS",
+      shopLogo: me?.business?.logoUrl ?? undefined,
       shopPhone: me?.business?.phone ?? undefined,
       shopAddress: me?.business?.address ?? undefined,
       customerName: s.customerName,

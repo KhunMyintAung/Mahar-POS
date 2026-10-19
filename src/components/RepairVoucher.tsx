@@ -13,6 +13,8 @@ export interface RepairVoucherData {
   jobNo: string;
   at: string;
   shopName: string;
+  /** Settings → Business logo, as a data URL. */
+  shopLogo?: string;
   shopPhone?: string;
   shopAddress?: string;
   customerName?: string;
@@ -78,6 +80,10 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
   return (
       <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black">
         <div className="text-center">
+          {data.shopLogo && (
+            // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
+            <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[40mm] object-contain" />
+          )}
           <div className="text-[13px] font-bold">{data.shopName}</div>
           {data.tagline && <div>{data.tagline}</div>}
           {(data.shopPhone || data.shopAddress) && (

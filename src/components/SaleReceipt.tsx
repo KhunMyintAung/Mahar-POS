@@ -14,6 +14,8 @@ export interface ReceiptData {
   txnNo: string;
   at: string;
   shopName: string;
+  /** Settings → Business logo, as a data URL. */
+  shopLogo?: string;
   shopPhone?: string;
   shopAddress?: string;
   customerName?: string;
@@ -63,6 +65,10 @@ export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
       // column in the middle of a larger page.
       <div className="w-full max-w-[58mm] px-1 font-mono text-[10px] leading-tight text-black">
         <div className="text-center">
+          {data.shopLogo && (
+            // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
+            <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[40mm] object-contain" />
+          )}
           <div className="text-[13px] font-bold">{data.shopName}</div>
           {data.shopPhone && <div>{data.shopPhone}</div>}
           {data.shopAddress && <div>{data.shopAddress}</div>}

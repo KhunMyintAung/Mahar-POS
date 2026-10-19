@@ -277,6 +277,7 @@ export default function PosPage() {
         txnNo: sale.txnNo,
         at: new Date().toISOString(),
         shopName: me?.business?.name ?? "Mahar Mini POS",
+        shopLogo: me?.business?.logoUrl ?? undefined,
         shopPhone: me?.business?.phone ?? undefined,
         shopAddress: me?.business?.address ?? undefined,
         customerName: customers.find((c) => c.id === customerId)?.name,

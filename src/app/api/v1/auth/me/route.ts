@@ -9,7 +9,7 @@ export const GET = withAuth(null, async ({ user }) => {
   const [business, branches, moduleSetting] = await Promise.all([
     prisma.business.findUnique({
       where: { id: user.businessId },
-      select: { name: true, phone: true, address: true, currency: true },
+      select: { name: true, phone: true, address: true, currency: true, logoUrl: true },
     }),
     prisma.branch.findMany({
       where: {
