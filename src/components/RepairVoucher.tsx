@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import QRCode from "qrcode";
 import { fmtDateTime } from "@/lib/format";
 import { centre, row, wrap, WIDTH_58MM } from "@/lib/thermalReceipt";
+import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
 
 /** The slip handed to the customer when a device is taken in, and again whenever asked. */
 export interface RepairVoucherData {
@@ -24,16 +26,12 @@ export interface RepairVoucherData {
   estimatedCost: number;
   finalCost: number;
   paidAmount: number;
+  /** The staff member who took the device in, printed over the receiver's signature line. */
+  receivedByName?: string;
+  /** Where the QR on the voucher points: the customer's status page. */
+  trackUrl?: string;
 }
 
-export const REPAIR_STATUS_MM: Record<string, string> = {
-  RECEIVED: "လက်ခံပြီး",
-  IN_PROGRESS: "ပြင်ဆင်နေဆဲ",
-  WAITING_PARTS: "ပစ္စည်းစောင့်နေဆဲ",
-  DONE: "ပြင်ပြီး",
-  DELIVERED: "ပြန်ပေးပြီး",
-  CANCELLED: "ပယ်ဖျက်ပြီး",
-};
 
 const TERMS_MM = [
   "အရေးကြီး ဆင်းကဒ်များ မိမိကိုယ်တိုင် သိမ်းဆည်းရန်။",
@@ -50,10 +48,20 @@ const money = (value: number) => Math.round(value).toLocaleString("en-US");
 export function RepairVoucher({ data }: { data: RepairVoucherData }) {
   // Portalled to <body> for the print stylesheet, as SaleReceipt explains.
   const [mounted, setMounted] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(timer);
   }, []);
+  useEffect(() => {
+    let live = true;
+    if (data.trackUrl) {
+      QRCode.toDataURL(data.trackUrl, { margin: 1, width: 240, errorCorrectionLevel: "M" })
+        .then((url) => { if (live) setQr(url); })
+        .catch(() => { if (live) setQr(null); });
+    }
+    return () => { live = false; };
+  }, [data.trackUrl]);
   if (!mounted) return null;
 
   const balance = Math.max(0, data.finalCost - data.paidAmount);
@@ -113,9 +121,20 @@ export function RepairVoucher({ data }: { data: RepairVoucherData }) {
           {TERMS_MM.map((t) => <li key={t}>{t}</li>)}
         </ul>
 
-        <div className="mt-6 flex justify-between">
-          <span className="border-t border-black px-1">လက်ခံသူ</span>
-          <span className="border-t border-black px-1">ရွေးယူသူ</span>
+        {qr && data.trackUrl && (
+          <div className="mt-2 text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise */}
+            <img src={qr} alt="" className="mx-auto h-[30mm] w-[30mm]" />
+            <div>QR ဖတ်ပြီး ပြင်ဆင်မှုအခြေအနေ ကြည့်နိုင်ပါသည်</div>
+          </div>
+        )}
+
+        <div className="mt-6 flex items-end justify-between">
+          <div className="text-center">
+            {data.receivedByName && <div className="font-bold uppercase">{data.receivedByName}</div>}
+            <div className="border-t border-black px-1">လက်ခံသူ</div>
+          </div>
+          <div className="border-t border-black px-1">ရွေးယူသူ</div>
         </div>
       </div>
     </div>,
@@ -141,7 +160,7 @@ export function buildRepairTextVoucher(data: RepairVoucherData, width = WIDTH_58
   if (data.imei) lines.push(`IMEI: ${data.imei}`);
   for (const part of wrap(`Problem: ${data.problem}`, width)) lines.push(part);
   if (data.accessories) for (const part of wrap(`With: ${data.accessories}`, width)) lines.push(part);
-  lines.push(`Status: ${data.status.replace("_", " ")}`);
+  lines.push(`Status: ${data.status.replace(/_/g, " ")}`);
   lines.push(rule);
   if (data.finalCost > 0) {
     lines.push(row("Charge", money(data.finalCost), width));
@@ -154,6 +173,7 @@ export function buildRepairTextVoucher(data: RepairVoucherData, width = WIDTH_58
   }
   lines.push(rule);
   lines.push(...wrap("Keep this voucher. The device is released only to the owner or on this voucher.", width));
+  if (data.receivedByName) lines.push("", `Received by: ${data.receivedByName}`);
   lines.push("", "", "");
   return lines.join("\n");
 }

@@ -4,19 +4,37 @@ import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
-import { createRepairJob, REPAIR_STATUSES } from "@/services/repairService";
+import { createRepairJob, PRIORITIES, REPAIR_STATUSES } from "@/services/repairService";
+import { BENCH_STATUSES } from "@/lib/repairStatus";
+import { trackToken } from "@/lib/repairTrack";
+
+/** What the repair page needs beyond the row: the voucher's QR link and who took it in. */
+async function withVoucherFields<T extends { id: string; createdById: string | null }>(businessId: string, jobs: T[]) {
+  const ids = [...new Set(jobs.map((j) => j.createdById).filter(Boolean))] as string[];
+  const users = ids.length
+    ? await prisma.user.findMany({ where: { id: { in: ids }, businessId }, select: { id: true, name: true } })
+    : [];
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return jobs.map((j) => ({
+    ...j,
+    trackToken: trackToken(j.id),
+    receivedByName: j.createdById ? names.get(j.createdById) : undefined,
+  }));
+}
 
 export const GET = withAuth("repair.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
   const { skip, take, page, pageSize } = pagination(req, 50);
   const q = sp.get("q")?.trim();
   const status = sp.get("status");
+  // An exact IMEI / serial match: the history of one physical device.
+  const imei = sp.get("imei")?.trim();
 
+  const scope = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
   const where = {
-    businessId: user.businessId,
-    deletedAt: null,
-    ...branchScope(user),
+    ...scope,
     ...(status ? { status } : {}),
+    ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
     ...(q
       ? {
           OR: [
@@ -31,21 +49,28 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       : {}),
   };
 
-  const [jobs, total, openJobs] = await Promise.all([
+  const [jobs, total, byStatus] = await Promise.all([
     prisma.repairJob.findMany({ where, orderBy: { receivedAt: "desc" }, skip, take }),
     prisma.repairJob.count({ where }),
-    // What is still on the bench, which is the number a counter actually watches.
-    prisma.repairJob.count({
-      where: {
-        businessId: user.businessId,
-        deletedAt: null,
-        ...branchScope(user),
-        status: { in: ["RECEIVED", "IN_PROGRESS", "WAITING_PARTS", "DONE"] },
-      },
-    }),
+    prisma.repairJob.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
   ]);
 
-  return json({ jobs, total, page, pageSize, openJobs });
+  const count = (statuses: string[]) =>
+    byStatus.filter((s) => statuses.includes(s.status)).reduce((n, s) => n + s._count._all, 0);
+  const summary = {
+    total: byStatus.reduce((n, s) => n + s._count._all, 0),
+    inWorkflow: count(BENCH_STATUSES),
+    completed: count(["DONE", "CANNOT_REPAIR"]),
+    delivered: count(["DELIVERED"]),
+  };
+
+  return json({
+    jobs: await withVoucherFields(user.businessId, jobs),
+    total, page, pageSize,
+    // What is still on the bench, which is the number a counter actually watches.
+    openJobs: summary.inWorkflow,
+    summary,
+  });
 });
 
 const createSchema = z.object({
@@ -58,6 +83,8 @@ const createSchema = z.object({
   imei: z.string().trim().max(40).optional(),
   accessories: z.string().trim().max(300).optional(),
   problem: z.string().trim().min(1).max(500),
+  intakeCondition: z.string().trim().max(500).optional(),
+  priority: z.enum(PRIORITIES).default("NORMAL"),
   estimatedCost: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
   depositAmount: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
   depositWalletId: z.string().optional(),
@@ -98,6 +125,8 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
       imei: body.imei,
       accessories: body.accessories,
       problem: body.problem,
+      intakeCondition: body.intakeCondition,
+      priority: body.priority,
       estimatedCost: toMinor(body.estimatedCost),
       depositAmount: toMinor(body.depositAmount),
       depositWalletId: body.depositWalletId,
@@ -107,7 +136,8 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
     })
   );
 
-  return json(job, { status: 201 });
+  const [withFields] = await withVoucherFields(user.businessId, [job]);
+  return json(withFields, { status: 201 });
 });
 
 export const REPAIR_STATUS_VALUES = REPAIR_STATUSES;

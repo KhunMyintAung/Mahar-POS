@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api";
 import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
+import { BENCH_STATUSES, canMove, type RepairPriority, type RepairStatus } from "@/lib/repairStatus";
 
 /** Repair jobs: a device in, a device out, and the money in between.
  *
@@ -11,36 +12,8 @@ import { postLedger } from "./walletService";
  *  wallet as it happens — so the drawer matches the job sheet without anyone reconciling.
  */
 
-export const REPAIR_STATUSES = [
-  "RECEIVED",
-  "IN_PROGRESS",
-  "WAITING_PARTS",
-  "DONE",
-  "DELIVERED",
-  "CANCELLED",
-] as const;
-export type RepairStatus = (typeof REPAIR_STATUSES)[number];
-
-/** Where a job may go next.
- *
- *  Written out rather than checked ad hoc: a phone that has gone back to its owner cannot
- *  return to the bench, and a cancelled job cannot quietly become a delivered one. Both
- *  would leave money booked against a job that never happened.
- */
-const NEXT: Record<RepairStatus, RepairStatus[]> = {
-  RECEIVED: ["IN_PROGRESS", "WAITING_PARTS", "DONE", "CANCELLED"],
-  IN_PROGRESS: ["WAITING_PARTS", "DONE", "CANCELLED"],
-  WAITING_PARTS: ["IN_PROGRESS", "DONE", "CANCELLED"],
-  // A job marked done by mistake can go back to any open status; nothing is charged until delivery.
-  DONE: ["DELIVERED", "RECEIVED", "IN_PROGRESS", "WAITING_PARTS", "CANCELLED"],
-  DELIVERED: [],
-  CANCELLED: [],
-};
-
-export function canMove(from: string, to: string): boolean {
-  const allowed = NEXT[from as RepairStatus];
-  return Boolean(allowed?.includes(to as RepairStatus));
-}
+export { REPAIR_STATUSES, PRIORITIES, canMove } from "@/lib/repairStatus";
+export type { RepairStatus, RepairPriority } from "@/lib/repairStatus";
 
 export async function createRepairJob(
   tx: Tx,
@@ -56,6 +29,8 @@ export async function createRepairJob(
     imei?: string;
     accessories?: string;
     problem: string;
+    intakeCondition?: string;
+    priority?: RepairPriority;
     estimatedCost: bigint;
     depositAmount: bigint;
     depositWalletId?: string;
@@ -85,6 +60,8 @@ export async function createRepairJob(
       imei: opts.imei,
       accessories: opts.accessories,
       problem: opts.problem,
+      intakeCondition: opts.intakeCondition,
+      priority: opts.priority ?? "NORMAL",
       estimatedCost: opts.estimatedCost,
       depositAmount: opts.depositAmount,
       paidAmount: opts.depositAmount,
@@ -154,7 +131,13 @@ export async function updateRepairStatus(
   const balance = finalCost - job.paidAmount;
 
   if (opts.status === "DELIVERED") {
-    if (finalCost <= 0n) throw new ApiError(422, "Set what the repair cost before handing it back");
+    // A phone that could not be fixed may go back free; a repaired one needs its charge.
+    if (finalCost <= 0n && job.status !== "CANNOT_REPAIR") {
+      throw new ApiError(422, "Set what the repair cost before handing it back");
+    }
+    if (finalCost < job.paidAmount) {
+      throw new ApiError(422, "The charge is less than the deposit already taken");
+    }
     if (balance > 0n && !opts.walletId) {
       throw new ApiError(422, "Choose the wallet the balance was paid into");
     }
@@ -186,9 +169,9 @@ export async function updateRepairStatus(
       notes: opts.notes ?? job.notes,
       // Reopening a job clears its finish time, so it is stamped afresh when it is really done.
       completedAt:
-        opts.status === "DONE"
+        opts.status === "DONE" || opts.status === "CANNOT_REPAIR"
           ? job.completedAt ?? new Date()
-          : ["RECEIVED", "IN_PROGRESS", "WAITING_PARTS"].includes(opts.status)
+          : BENCH_STATUSES.includes(opts.status)
             ? null
             : job.completedAt,
       deliveredAt: opts.status === "DELIVERED" ? new Date() : job.deliveredAt,

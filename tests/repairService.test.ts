@@ -41,6 +41,19 @@ describe("repair job progress", () => {
     expect(canMove("DONE", "WAITING_PARTS")).toBe(true);
   });
 
+  it("moves freely between bench statuses so a wrong pick is one click to undo", () => {
+    expect(canMove("RECEIVED", "CHECKING")).toBe(true);
+    expect(canMove("CHECKING", "RECEIVED")).toBe(true);
+    expect(canMove("WAITING_PARTS", "CHECKING")).toBe(true);
+    expect(canMove("CHECKING", "CHECKING")).toBe(false);
+  });
+
+  it("hands back a device that could not be repaired", () => {
+    expect(canMove("CHECKING", "CANNOT_REPAIR")).toBe(true);
+    expect(canMove("CANNOT_REPAIR", "DELIVERED")).toBe(true);
+    expect(canMove("CANNOT_REPAIR", "IN_PROGRESS")).toBe(true);
+  });
+
   it("refuses a status it has never heard of", () => {
     expect(canMove("RECEIVED", "POSTED")).toBe(false);
     expect(canMove("NONSENSE", "DONE")).toBe(false);

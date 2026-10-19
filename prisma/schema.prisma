@@ -133,8 +133,13 @@ model RepairJob {
    */
   accessories String?
   problem     String
+  /**
+   * The state it arrived in — cracked screen, water mark — recorded before anyone opens it.
+   */
+  intakeCondition String?
+  priority        String  @default("NORMAL") // LOW NORMAL HIGH URGENT
 
-  status        String @default("RECEIVED") // RECEIVED IN_PROGRESS WAITING_PARTS DONE DELIVERED CANCELLED
+  status        String @default("RECEIVED") // RECEIVED CHECKING IN_PROGRESS WAITING_PARTS DONE CANNOT_REPAIR DELIVERED CANCELLED
   /**
    * Quoted up front; the final charge may differ once it is opened up.
    */
@@ -163,6 +168,7 @@ model RepairJob {
   @@unique([businessId, jobNo])
   @@index([businessId, status])
   @@index([businessId, receivedAt])
+  @@index([businessId, imei])
   @@index([customerId])
 }
 
