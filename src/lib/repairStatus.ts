@@ -22,7 +22,8 @@ export const BENCH_STATUSES: RepairStatus[] = ["RECEIVED", "CHECKING", "IN_PROGR
 export const READY_STATUSES: RepairStatus[] = ["DONE", "CANNOT_REPAIR"];
 
 export const REPAIR_STATUS_LABELS: Record<RepairStatus, string> = {
-  RECEIVED: "Received",
+  // Not "Received": the Myanmar translation already maps that word to money received.
+  RECEIVED: "Taken in",
   CHECKING: "Checking",
   IN_PROGRESS: "In Progress",
   WAITING_PARTS: "Waiting Part",

@@ -4,6 +4,9 @@ import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
 import { BENCH_STATUSES, canMove, type RepairPriority, type RepairStatus } from "@/lib/repairStatus";
+import { formatVoucherNo, parseRepairVoucherSettings } from "@/lib/repairVoucherSettings";
+
+export const REPAIR_VOUCHER_SETTING = "repair_voucher";
 
 /** Repair jobs: a device in, a device out, and the money in between.
  *
@@ -14,6 +17,22 @@ import { BENCH_STATUSES, canMove, type RepairPriority, type RepairStatus } from 
 
 export { REPAIR_STATUSES, PRIORITIES, canMove } from "@/lib/repairStatus";
 export type { RepairStatus, RepairPriority } from "@/lib/repairStatus";
+
+/** The shop's own voucher number format (MS001), or undefined for the default RPR-000001. */
+export async function voucherNumberFormat(tx: Tx, businessId: string) {
+  const row = await tx.systemSetting.findUnique({
+    where: { businessId_key: { businessId, key: REPAIR_VOUCHER_SETTING } },
+  });
+  if (!row) return undefined;
+  let settings;
+  try {
+    settings = parseRepairVoucherSettings(JSON.parse(row.value));
+  } catch {
+    return undefined;
+  }
+  const { prefix, digits } = settings;
+  return prefix ? (n: number) => formatVoucherNo(prefix, digits, n) : undefined;
+}
 
 export async function createRepairJob(
   tx: Tx,
@@ -46,7 +65,7 @@ export async function createRepairJob(
     throw new ApiError(422, "Choose the wallet the deposit went into");
   }
 
-  const jobNo = await nextNumber(tx, opts.businessId, "REPAIR");
+  const jobNo = await nextNumber(tx, opts.businessId, "REPAIR", await voucherNumberFormat(tx, opts.businessId));
   const job = await tx.repairJob.create({
     data: {
       jobNo,

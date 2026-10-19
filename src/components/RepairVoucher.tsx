@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { fmtDateTime } from "@/lib/format";
 import { centre, row, wrap, WIDTH_58MM } from "@/lib/thermalReceipt";
 import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
+import { DEFAULT_REPAIR_VOUCHER } from "@/lib/repairVoucherSettings";
 
 /** The slip handed to the customer when a device is taken in, and again whenever asked. */
 export interface RepairVoucherData {
@@ -30,17 +31,11 @@ export interface RepairVoucherData {
   receivedByName?: string;
   /** Where the QR on the voucher points: the customer's status page. */
   trackUrl?: string;
+  /** From Settings → Repair voucher; the defaults apply when a shop has not set them. */
+  tagline?: string;
+  terms?: string[];
+  qrCaption?: string;
 }
-
-
-const TERMS_MM = [
-  "အရေးကြီး ဆင်းကဒ်များ မိမိကိုယ်တိုင် သိမ်းဆည်းရန်။",
-  "ဖုန်းအတွင်း အရေးကြီးဖိုင်၊ အဆက်အသွယ်များ မပြင်မီ ကြိုပြောရန်။",
-  "ဖုန်းကာဗာများနှင့် အခြားဆက်စပ်ပစ္စည်းပါလာပါက ပြန်တောင်းယူရန်။",
-  "အထက်ပါအကြောင်းကြောင့် ပျောက်ဆုံးပျက်စီးပါက တာဝန်မယူပါ။",
-  "တစ်လကျော် အပ်နှံပစ္စည်းများ တာဝန်မယူပါ။",
-  "ဖုန်းလာရွေးသူမှာ ကိုယ်တိုင်မဟုတ်ပါက လက်ခံ Voucher ပါမှသာ ဖုန်းထုတ်ပေးပါသည်။",
-];
 
 const money = (value: number) => Math.round(value).toLocaleString("en-US");
 
@@ -65,12 +60,15 @@ export function RepairVoucher({ data }: { data: RepairVoucherData }) {
   if (!mounted) return null;
 
   const balance = Math.max(0, data.finalCost - data.paidAmount);
+  const terms = data.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
+  const qrCaption = data.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
 
   return createPortal(
     <div id="repair-voucher" className="hidden print:block">
       <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black">
         <div className="text-center">
           <div className="text-[13px] font-bold">{data.shopName}</div>
+          {data.tagline && <div>{data.tagline}</div>}
           {(data.shopPhone || data.shopAddress) && (
             <div>{[data.shopPhone, data.shopAddress].filter(Boolean).join(" · ")}</div>
           )}
@@ -114,18 +112,21 @@ export function RepairVoucher({ data }: { data: RepairVoucherData }) {
           </>
         )}
 
-        <div className="my-1 border-t border-dashed border-black" />
-
-        <div className="text-center font-bold">⚠ သတိပြုရန် ⚠</div>
-        <ul className="list-disc pl-3">
-          {TERMS_MM.map((t) => <li key={t}>{t}</li>)}
-        </ul>
+        {terms.length > 0 && (
+          <>
+            <div className="my-1 border-t border-dashed border-black" />
+            <div className="text-center font-bold">⚠ သတိပြုရန် ⚠</div>
+            <ul className="list-disc pl-3">
+              {terms.map((t, i) => <li key={i}>{t}</li>)}
+            </ul>
+          </>
+        )}
 
         {qr && data.trackUrl && (
           <div className="mt-2 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise */}
             <img src={qr} alt="" className="mx-auto h-[30mm] w-[30mm]" />
-            <div>QR ဖတ်ပြီး ပြင်ဆင်မှုအခြေအနေ ကြည့်နိုင်ပါသည်</div>
+            {qrCaption && <div>{qrCaption}</div>}
           </div>
         )}
 

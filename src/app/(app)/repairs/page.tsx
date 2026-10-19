@@ -10,6 +10,7 @@ import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printReceipt } from "@/lib/printReceipt";
 import { sendToRawbt } from "@/lib/thermalReceipt";
+import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 
 interface Job {
@@ -75,6 +76,7 @@ export default function RepairsPage() {
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
+  const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
   const [historyImei, setHistoryImei] = useState("");
   const [history, setHistory] = useState<{ imei: string; jobs: Job[] } | null>(null);
   const { push } = useToast();
@@ -101,8 +103,15 @@ export default function RepairsPage() {
       receivedByName: job.receivedByName,
       // Built from wherever the app is being used, so the QR follows the shop's own domain.
       trackUrl: job.trackToken ? `${window.location.origin}/track/${job.trackToken}` : undefined,
+      ...(voucherText ?? {}),
     });
   }
+
+  useEffect(() => {
+    api<RepairVoucherSettings>("/api/v1/settings/repair-voucher")
+      .then(({ tagline, terms, qrCaption }) => setVoucherText({ tagline, terms, qrCaption }))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     const params = new URLSearchParams();
@@ -288,7 +297,7 @@ export default function RepairsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Job no, customer, phone, brand, model or IMEI"
+            placeholder="Voucher no, customer, phone, brand, model or IMEI"
             className="min-h-11 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800"
           />
         </label>
@@ -302,7 +311,7 @@ export default function RepairsPage() {
         <Card><Empty message="No repair jobs yet." /></Card>
       ) : (
         <Table
-          headers={["Job", "Device", "Customer", "Problem", "Status", "Charge", "Paid", ""]}
+          headers={["Voucher No", "Device", "Customer", "Problem", "Status", "Charge", "Paid", ""]}
           rightAlign={[5, 6]}
         >
           {jobs.map((job) => {
@@ -341,19 +350,24 @@ export default function RepairsPage() {
                 <td className="px-3 py-2.5">
                   {canQuick ? (
                     // Picking a status here saves it at once, so a mistake is one more pick away.
-                    <label className="relative inline-block" title="Change status">
-                      <StatusPill status={job.status} />
-                      <select
-                        aria-label={`Change status of ${job.jobNo}`}
-                        value=""
-                        disabled={quickSaving === job.id}
-                        onChange={(e) => quickStatus(job, e.target.value)}
-                        className="absolute inset-0 cursor-pointer opacity-0"
-                      >
-                        <option value="" disabled>{REPAIR_STATUS_LABELS[job.status as RepairStatus] ?? job.status}</option>
-                        {options.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
-                      </select>
-                    </label>
+                    // The select is the pill itself: an invisible select laid over a pill
+                    // showed its own text on some phones, so the status read twice.
+                    <select
+                      aria-label={`Change status of ${job.jobNo}`}
+                      title="Change status"
+                      value={job.status}
+                      disabled={quickSaving === job.id}
+                      onChange={(e) => quickStatus(job, e.target.value)}
+                      className={cn(
+                        "cursor-pointer appearance-none rounded-full border-0 py-0.5 pl-2 pr-5 text-xs font-medium outline-none",
+                        "bg-[length:10px] bg-[right_6px_center] bg-no-repeat",
+                        STATUS_TONE[job.status] ?? STATUS_TONE.CANCELLED,
+                      )}
+                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E\")" }}
+                    >
+                      <option value={job.status}>{REPAIR_STATUS_LABELS[job.status as RepairStatus] ?? job.status}</option>
+                      {options.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
+                    </select>
                   ) : (
                     <StatusPill status={job.status} />
                   )}

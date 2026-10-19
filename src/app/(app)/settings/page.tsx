@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/client";
 import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
+import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const { push } = useToast();
-  const { refreshAuth, me } = useAuth();
+  const { refreshAuth, me, featureEnabled } = useAuth();
 
   async function deleteBusiness() {
     setDeleting(true);
@@ -103,6 +104,8 @@ export default function SettingsPage() {
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>
       </Card>
+
+      {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 
       <Card>
         <h3 className="text-sm font-semibold">Sidebar functions</h3>
