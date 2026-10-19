@@ -16,9 +16,36 @@ export interface WarrantyOption {
 export interface WarrantySettings {
   newPhone: WarrantyOption[];
   secondHand: WarrantyOption[];
+  /** Printed on the warranty card, one line per line; the first line is the heading. */
+  newTerms: string;
+  secondTerms: string;
 }
 
 export const WARRANTY_SETTING = "warranty";
+
+export const DEFAULT_NEW_TERMS = [
+  "【 Brand New ဖုန်း အာမခံချက်နှင့် သတိပေးချက် 】",
+  "၁။ Official Warranty",
+  "စက်ရုံထုတ် တရားဝင် အာမခံ (၁) နှစ် ပါဝင်ပါသည်။",
+  "၂။ 7-Day Replacement",
+  "ဝယ်ယူပြီး (၇) ရက်အတွင်း စက်ရုံထုတ် Factory Hardware Defect ပါဝင်ပါက အသစ်တစ်လုံး အစားထိုး လဲလှယ်ပေးပါသည်။",
+  "၃။ အာမခံ မအကျုံးဝင်သည့် အချက်များ",
+  "- ရေဝင်ခြင်း ၊ ပြုတ်ကျခြင်း ၊ ဖိမိခြင်း သို့မဟုတ် ရုပ်ပိုင်းဆိုင်ရာ ထိခိုက်ပျက်စီးခြင်း ။",
+  "- LCD Display မှန်ကွဲခြင်း / မှန်စင်း ကျခြင်း ။",
+  "- Unofficial System Software တင်ခြင်း နှင့် အာမခံ စတိကာ ပျက်စီးခြင်း ။",
+].join("\n");
+
+export const DEFAULT_SECOND_TERMS = [
+  "【 Second Hand ဖုန်း အာမခံချက်နှင့် သတိပေးချက် 】",
+  "၁။ ဆိုင်အာမခံ",
+  "ဘောက်ချာပါ ရက်အတွင်း Board / Hardware ချို့ယွင်းချက်ကို ဆိုင်မှ အခမဲ့ ပြင်ပေးပါသည်။",
+  "၂။ စစ်ဆေးပြီး ဝယ်ယူရန်",
+  "ဖုန်း၏ အခြေအနေ၊ ဘက်ထရီ၊ ကင်မရာ နှင့် Function များကို ဝယ်ယူချိန်တွင် စစ်ဆေးပြီးမှ ယူပါ။",
+  "၃။ အာမခံ မအကျုံးဝင်သည့် အချက်များ",
+  "- ရေဝင်ခြင်း ၊ ပြုတ်ကျခြင်း ၊ ဖိမိခြင်း သို့မဟုတ် ရုပ်ပိုင်းဆိုင်ရာ ထိခိုက်ပျက်စီးခြင်း ။",
+  "- LCD Display မှန်ကွဲခြင်း / မှန်စင်း ကျခြင်း ။",
+  "- ဆိုင်ပြင်ပတွင် ဖွင့်ပြင်ခြင်း နှင့် အာမခံ စတိကာ ပျက်စီးခြင်း ။",
+].join("\n");
 
 export const DEFAULT_WARRANTY: WarrantySettings = {
   newPhone: [
@@ -31,7 +58,14 @@ export const DEFAULT_WARRANTY: WarrantySettings = {
     { label: "7 days warranty", days: 7 },
     { label: "No warranty", days: 0 },
   ],
+  newTerms: DEFAULT_NEW_TERMS,
+  secondTerms: DEFAULT_SECOND_TERMS,
 };
+
+/** The terms to print for a phone of this condition. */
+export function warrantyTermsFor(settings: WarrantySettings, condition: string | null | undefined): string {
+  return condition === "SECOND" ? settings.secondTerms : settings.newTerms;
+}
 
 export type PhoneCondition = "NEW" | "SECOND";
 
@@ -71,9 +105,12 @@ function parseOptions(value: unknown, fallback: WarrantyOption[]): WarrantyOptio
 
 export function parseWarrantySettings(value: unknown): WarrantySettings {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const terms = (x: unknown, fallback: string) => (typeof x === "string" ? x.slice(0, 3000) : fallback);
   return {
     newPhone: parseOptions(v.newPhone, DEFAULT_WARRANTY.newPhone),
     secondHand: parseOptions(v.secondHand, DEFAULT_WARRANTY.secondHand),
+    newTerms: terms(v.newTerms, DEFAULT_NEW_TERMS),
+    secondTerms: terms(v.secondTerms, DEFAULT_SECOND_TERMS),
   };
 }
 

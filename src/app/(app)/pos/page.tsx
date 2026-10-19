@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
 import { ProductKindIcon } from "@/components/ProductKindIcon";
+import { WarrantyCardDialog, warrantyLines } from "@/components/WarrantyCard";
 import {
   DEFAULT_WARRANTY, WARRANTY_SETTING, parseWarrantySettings, phoneCondition, warrantyOptionsFor,
   warrantyUntil, type WarrantyOption, type WarrantySettings,
@@ -25,11 +26,11 @@ interface Item {
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
-interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null }
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string }
 interface SaleResult { txnNo: string; total: string; profit: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -71,6 +72,7 @@ export default function PosPage() {
   const [busy, setBusy] = useState(false);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [cardFor, setCardFor] = useState<ReceiptData | null>(null);
   const [draftReady, setDraftReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
@@ -117,7 +119,7 @@ export default function PosPage() {
             const stock = item.stockLevels
               .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
               .reduce((total, level) => total + level.quantity, 0);
-            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null }];
+            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note }];
           }).filter((line) => line.quantity > 0));
           setDiscount(draft.discount);
           setWalletId(draft.walletId);
@@ -140,7 +142,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -284,6 +286,8 @@ export default function PosPage() {
             unitPrice: line.unitPrice.toString(),
             warranty: line.warranty?.label,
             warrantyDays: line.warranty?.days,
+            warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
+            note: line.note?.trim() || undefined,
           })),
           discount: disc.toString(),
           paidAmount: paidAmount.toString(),
@@ -306,6 +310,8 @@ export default function PosPage() {
           unitPrice: line.unitPrice,
           warranty: line.warranty?.label,
           warrantyUntil: line.warranty ? warrantyUntil(new Date(), line.warranty.days)?.toISOString() : undefined,
+          warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
+          note: line.note?.trim() || undefined,
         })),
         subtotal,
         discount: disc,
@@ -423,23 +429,34 @@ export default function PosPage() {
                     const options = warrantyOptionsFor(warrantySettings, condition);
                     if (options.length === 0) return null;
                     return (
-                      <label className="flex items-center gap-2 rounded-lg bg-green-50 px-2 py-1.5 text-xs dark:bg-green-900/20">
-                        <ShieldCheck size={15} className="shrink-0 text-green-600" />
-                        <span className="shrink-0 font-medium text-green-700 dark:text-green-300">
-                          {condition === "NEW" ? "New phone" : "Second-hand"}
-                        </span>
-                        <select
-                          aria-label={`Warranty for ${line.item.name}`}
-                          value={line.warranty?.label ?? ""}
-                          onChange={(e) => {
-                            const picked = options.find((o) => o.label === e.target.value) ?? null;
-                            setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, warranty: picked } : entry));
-                          }}
-                          className="min-h-8 min-w-0 flex-1 rounded-md border border-green-200 bg-white px-2 text-xs dark:border-green-800 dark:bg-gray-800"
-                        >
-                          {options.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
-                        </select>
-                      </label>
+                      <div className="space-y-1.5 rounded-lg bg-green-50 px-2 py-1.5 text-xs dark:bg-green-900/20">
+                        <label className="flex items-center gap-2">
+                          <ShieldCheck size={15} className="shrink-0 text-green-600" />
+                          <span className="shrink-0 font-medium text-green-700 dark:text-green-300">
+                            {condition === "NEW" ? "New phone" : "Second-hand"}
+                          </span>
+                          <select
+                            aria-label={`Warranty for ${line.item.name}`}
+                            value={line.warranty?.label ?? ""}
+                            onChange={(e) => {
+                              const picked = options.find((o) => o.label === e.target.value) ?? null;
+                              setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, warranty: picked } : entry));
+                            }}
+                            className="min-h-8 min-w-0 flex-1 rounded-md border border-green-200 bg-white px-2 text-xs dark:border-green-800 dark:bg-gray-800"
+                          >
+                            {options.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
+                          </select>
+                        </label>
+                        {/* Printed on the receipt and the warranty card. */}
+                        <input
+                          aria-label={`Note for ${line.item.name}`}
+                          value={line.note ?? ""}
+                          maxLength={200}
+                          placeholder="Note: IMEI, traded in with iPhone 8…"
+                          onChange={(e) => setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, note: e.target.value } : entry))}
+                          className="min-h-8 w-full rounded-md border border-green-200 bg-white px-2 text-xs dark:border-green-800 dark:bg-gray-800"
+                        />
+                      </div>
                     );
                   })()}
                   <div className="flex items-end justify-between gap-2">
@@ -561,9 +578,15 @@ export default function PosPage() {
               </Button>
               <Button onClick={() => { closeSaleComplete(); searchRef.current?.focus(); }}>New sale</Button>
             </div>
+            {receipt && warrantyLines(receipt).length > 0 && (
+              <Button variant="secondary" className="w-full" onClick={() => setCardFor(receipt)}>
+                <ShieldCheck size={16} className="mr-1 inline text-green-600" />Warranty card
+              </Button>
+            )}
           </div>
         )}
       </Modal>
+      <WarrantyCardDialog receipt={cardFor} onClose={() => setCardFor(null)} />
       {/* The camera stays open across scans: a basket is many items, and closing it after
           each one would mean re-opening it for every single line. */}
       <BarcodeScannerModal

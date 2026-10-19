@@ -60,12 +60,16 @@ function OptionList({ title, hint, rows, onChange }: {
 export function WarrantySettingsCard() {
   const [newRows, setNewRows] = useState<Row[] | null>(null);
   const [secondRows, setSecondRows] = useState<Row[]>([]);
+  const [newTerms, setNewTerms] = useState("");
+  const [secondTerms, setSecondTerms] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
 
   function fill(s: WarrantySettings) {
     setNewRows(toRows(s.newPhone));
     setSecondRows(toRows(s.secondHand));
+    setNewTerms(s.newTerms);
+    setSecondTerms(s.secondTerms);
   }
 
   useEffect(() => {
@@ -79,7 +83,12 @@ export function WarrantySettingsCard() {
   async function save() {
     setBusy(true);
     try {
-      const value: WarrantySettings = { newPhone: toOptions(newRows ?? []), secondHand: toOptions(secondRows) };
+      const value: WarrantySettings = {
+        newPhone: toOptions(newRows ?? []),
+        secondHand: toOptions(secondRows),
+        newTerms: newTerms.trim(),
+        secondTerms: secondTerms.trim(),
+      };
       await api("/api/v1/settings", { method: "PUT", body: { key: WARRANTY_SETTING, value } });
       fill(value);
       push("Settings saved");
@@ -100,6 +109,23 @@ export function WarrantySettingsCard() {
       <div className="grid gap-5 sm:grid-cols-2">
         <OptionList title="New phone" hint="Category: Phone New" rows={newRows} onChange={setNewRows} />
         <OptionList title="Second-hand phone" hint="Category: Phone Second" rows={secondRows} onChange={setSecondRows} />
+      </div>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        {([
+          ["Warranty card text — new phone", newTerms, setNewTerms],
+          ["Warranty card text — second-hand phone", secondTerms, setSecondTerms],
+        ] as const).map(([label, value, set]) => (
+          <label key={label} className="block">
+            <span className="mb-1 block text-sm font-medium">{label}</span>
+            <textarea
+              rows={10}
+              value={value}
+              onChange={(e) => set(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+            />
+            <span className="text-xs text-gray-500">The first line prints as the heading.</span>
+          </label>
+        ))}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button disabled={busy} onClick={save}>Save warranty options</Button>

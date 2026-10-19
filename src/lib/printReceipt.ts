@@ -51,7 +51,12 @@ export async function printReceipt() {
     window.print();
     return;
   }
+  await printElement(slip);
+}
 
+/** Print one element, such as an on-screen preview, through the same isolated frame. */
+export async function printElement(slip: Element) {
+  if (typeof window === "undefined") return;
   document.getElementById(FRAME_ID)?.remove();
   const frame = document.createElement("iframe");
   frame.id = FRAME_ID;

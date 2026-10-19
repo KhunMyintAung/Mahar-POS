@@ -62,6 +62,8 @@ const lineSchema = z.object({
   unitPrice: z.string().min(1),
   warranty: z.string().trim().max(60).optional(),
   warrantyDays: z.number().int().min(0).max(3650).optional(),
+  warrantyCondition: z.enum(["NEW", "SECOND"]).optional(),
+  note: z.string().trim().max(200).optional(),
 });
 
 const schema = z.object({
@@ -94,6 +96,8 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
         unitPrice: toMinor(l.unitPrice),
         warranty: l.warranty || undefined,
         warrantyDays: l.warrantyDays,
+        warrantyCondition: l.warrantyCondition,
+        note: l.note || undefined,
       })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),

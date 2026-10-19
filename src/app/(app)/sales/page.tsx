@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Printer, Search } from "lucide-react";
+import { Printer, Search, ShieldCheck } from "lucide-react";
+import { WarrantyCardDialog } from "@/components/WarrantyCard";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
@@ -17,7 +18,7 @@ interface Sale {
   paymentStatus: string; status: string; customerName?: string; cashierName?: string; createdAt: string;
   lines: {
     id: string; quantity: number; unitPrice: string; item: { name: string };
-    warranty?: string | null; warrantyDays: number;
+    warranty?: string | null; warrantyDays: number; warrantyCondition?: string | null; note?: string | null;
   }[];
 }
 
@@ -33,6 +34,7 @@ export default function SalesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const [cardFor, setCardFor] = useState<ReceiptData | null>(null);
   const { push } = useToast();
   const { hasPerm, me } = useAuth();
 
@@ -62,9 +64,13 @@ export default function SalesPage() {
 
   /** Rebuild the slip from what was saved. Change given is not stored, so it is left off. */
   function openReprint(s: Sale) {
+    setReceipt(receiptFor(s));
+  }
+
+  function receiptFor(s: Sale): ReceiptData {
     const total = major(s.total);
     const paid = major(s.paidAmount);
-    setReceipt({
+    return {
       txnNo: s.txnNo,
       at: s.createdAt,
       shopName: me?.business?.name ?? "Mahar Mini POS",
@@ -80,6 +86,8 @@ export default function SalesPage() {
         warranty: l.warranty ?? undefined,
         // Counted from when the sale was made, so a reprint carries the same end date.
         warrantyUntil: l.warranty ? warrantyUntil(new Date(s.createdAt), l.warrantyDays)?.toISOString() : undefined,
+        warrantyCondition: l.warrantyCondition ?? undefined,
+        note: l.note ?? undefined,
       })),
       subtotal: major(s.subtotal),
       discount: major(s.discount),
@@ -87,7 +95,7 @@ export default function SalesPage() {
       paid,
       change: 0,
       credit: Math.max(0, total - paid),
-    });
+    };
   }
 
   if (!sales) return <Spinner />;
@@ -133,6 +141,7 @@ export default function SalesPage() {
                       <li key={l.id}>
                         {l.item.name} × {l.quantity} @ {fmtMoney(l.unitPrice)}
                         {l.warranty && <span className="ml-1 text-green-600">· {l.warranty}</span>}
+                        {l.note && <span className="ml-1 text-gray-400">· {l.note}</span>}
                       </li>
                     ))}
                   </ul>
@@ -147,6 +156,11 @@ export default function SalesPage() {
                   {s.status === "COMPLETED" && (
                     <Button size="sm" variant="secondary" onClick={() => openReprint(s)}>
                       <Printer size={14} className="mr-1 inline" />Reprint
+                    </Button>
+                  )}
+                  {s.status === "COMPLETED" && s.lines.some((l) => l.warranty && l.warrantyDays > 0) && (
+                    <Button size="sm" variant="secondary" onClick={() => setCardFor(receiptFor(s))}>
+                      <ShieldCheck size={14} className="mr-1 inline text-green-600" />Warranty
                     </Button>
                   )}
                   {s.status === "COMPLETED" && hasPerm("sale.cancel") && (
@@ -171,6 +185,8 @@ export default function SalesPage() {
           </div>
         </div>
       </Modal>
+
+      <WarrantyCardDialog receipt={cardFor} onClose={() => setCardFor(null)} />
 
       {/* Closing clears the slip, so a later print of another page does not pick it up. */}
       <Modal open={Boolean(receipt)} onClose={() => setReceipt(null)} title={`Reprint ${receipt?.txnNo ?? ""}`}>

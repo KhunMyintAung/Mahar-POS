@@ -4,6 +4,7 @@ import {
   parseWarrantySettings,
   phoneCondition,
   warrantyOptionsFor,
+  warrantyTermsFor,
   warrantyUntil,
 } from "@/lib/warranty";
 
@@ -47,6 +48,14 @@ describe("warranty settings", () => {
     });
     expect(parsed.newPhone).toEqual([{ label: "2 years", days: 730 }, { label: "Odd", days: 0 }]);
     expect(parsed.secondHand).toEqual([]);
+  });
+
+  it("prints the terms for the phone's condition, defaulting to the new-phone ones", () => {
+    const s = parseWarrantySettings({ newTerms: "NEW TERMS", secondTerms: "USED TERMS" });
+    expect(warrantyTermsFor(s, "NEW")).toBe("NEW TERMS");
+    expect(warrantyTermsFor(s, "SECOND")).toBe("USED TERMS");
+    expect(warrantyTermsFor(s, null)).toBe("NEW TERMS");
+    expect(parseWarrantySettings({}).newTerms).toContain("Brand New");
   });
 
   it("counts the end date from the sale", () => {

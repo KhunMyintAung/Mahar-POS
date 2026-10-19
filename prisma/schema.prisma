@@ -728,4 +728,13 @@ model SaleLine {
    */
   warranty     String?
   warrantyDays Int     @default(0)
+  /**
+   * NEW or SECOND for a phone sold with a warranty, so its warranty card prints the right
+   * terms even after the product's category changes.
+   */
+  warrantyCondition String?
+  /**
+   * Free text for this line, e.g. the IMEI or what the customer traded in.
+   */
+  note              String?
 }

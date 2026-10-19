@@ -18,6 +18,9 @@ export interface LineInput {
   /** Sales only: the warranty given with this line, as printed, and its length in days. */
   warranty?: string;
   warrantyDays?: number;
+  warrantyCondition?: "NEW" | "SECOND";
+  /** Sales only: e.g. the IMEI, or what the customer traded in. */
+  note?: string;
 }
 
 export function computeTotals(lines: { quantity: number; unitPrice: bigint }[], discount: bigint) {
@@ -248,6 +251,8 @@ export async function createSale(
         lineTotal: BigInt(l.quantity) * l.unitPrice,
         warranty: l.warranty || null,
         warrantyDays: l.warranty ? Math.max(0, l.warrantyDays ?? 0) : 0,
+        warrantyCondition: l.warranty ? l.warrantyCondition ?? null : null,
+        note: l.note || null,
       },
     });
   }
