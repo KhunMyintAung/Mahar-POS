@@ -86,7 +86,29 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
   { section: "/users", perm: "users.manage", feature: "users", label: "New user" },
 ];
 
-const NAV = [
+interface NavTab { href: string; label: string; icon: typeof LayoutDashboard; perm: string; feature: FeatureKey }
+
+/** Wallets, Transfer and Withdraw share one sidebar entry; the pages switch between them
+ *  with tabs. Each tab keeps its own permission and module switch. */
+const WALLET_TABS: NavTab[] = [
+  { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
+  { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
+  { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
+];
+
+interface NavItem {
+  href: string;
+  label: string;
+  /** Bottom-bar label, when the first word of the full label would be ambiguous. */
+  short?: string;
+  icon: typeof LayoutDashboard;
+  perm: string | null;
+  feature?: FeatureKey;
+  /** Pages grouped under this entry; it shows when any of them is allowed. */
+  tabs?: NavTab[];
+}
+
+const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view" },
   { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos" },
   { href: "/sales", label: "Sale History", short: "History", icon: History, perm: "sale.view", feature: "pos" },
@@ -95,9 +117,7 @@ const NAV = [
   { href: "/stock", label: "Stock", icon: Boxes, perm: "stock.view", feature: "stock" },
   { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair" },
   { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },
-  { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
-  { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
-  { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
+  { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS },
   { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },
   { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense" },
   { href: "/reports", label: "Reports", icon: FileBarChart, perm: "report.view", feature: "reports" },
@@ -108,15 +128,7 @@ const NAV = [
   { href: "/audit", label: "Audit Logs", icon: ScrollText, perm: "audit.view", feature: "audit" },
   { href: "/telegram", label: "Telegram", icon: MessageCircle, perm: null, feature: "telegram" },
   { href: "/about", label: "About Us", icon: Info, perm: null, feature: "about" },
-] satisfies {
-  href: string;
-  label: string;
-  /** Bottom-bar label, when the first word of the full label would be ambiguous. */
-  short?: string;
-  icon: typeof LayoutDashboard;
-  perm: string | null;
-  feature?: FeatureKey;
-}[];
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
@@ -161,7 +173,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const walletNoteEnabled = me?.modules.walletNoteEnabled ?? true;
   const playEdition = me?.edition === "PLAY";
   const featureEnabled = (feature: FeatureKey) => me?.modules.features[feature] ?? false;
-  const blockedModulePath = NAV.some(
+  const blockedModulePath = [...NAV, ...WALLET_TABS].some(
     (item) =>
       item.feature &&
       pathname.startsWith(item.href) &&
@@ -181,10 +193,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const hasPerm = (p: string) => me.user.permissions.includes(p);
-  const visibleNav = NAV.filter((n) =>
-    (!n.perm || hasPerm(n.perm)) &&
-    (!n.feature || featureEnabled(n.feature))
-  );
+  const tabAllowed = (t: NavTab) => hasPerm(t.perm) && featureEnabled(t.feature);
+  const visibleNav = NAV.flatMap((n): NavItem[] => {
+    if (n.tabs) {
+      // A group lands on its first page this user may open, and is hidden if there is none.
+      const open = n.tabs.filter(tabAllowed);
+      return open.length ? [{ ...n, href: open[0].href, tabs: open }] : [];
+    }
+    return (!n.perm || hasPerm(n.perm)) && (!n.feature || featureEnabled(n.feature)) ? [n] : [];
+  });
+  const isActive = (n: NavItem) =>
+    n.href === "/" ? pathname === "/" : (n.tabs ?? [n]).some((t) => pathname.startsWith(t.href));
+  // The tab bar for the group the current page belongs to, when it has more than one page.
+  const groupTabs = visibleNav.find((n) => n.tabs && isActive(n))?.tabs;
   const mobileNav = visibleNav.slice(0, 4);
 
   // "+" creates for whatever section is open, so it is only shown where that means
@@ -202,7 +223,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sidebar = (
     <nav className="flex flex-col gap-0.5 p-3">
       {visibleNav.map((n) => {
-        const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+        const active = isActive(n);
         return (
           <Link
             key={n.href}
@@ -291,13 +312,36 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="flex min-h-40 items-center justify-center">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
                 </div>
-              ) : children}
+              ) : (
+                <>
+                  {groupTabs && groupTabs.length > 1 && (
+                    <div className="no-print mx-auto mb-4 flex max-w-6xl gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                      {groupTabs.map((t) => {
+                        const on = pathname.startsWith(t.href);
+                        return (
+                          <Link
+                            key={t.href}
+                            href={t.href}
+                            className={cn(
+                              "flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
+                              on ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
+                            )}
+                          >
+                            <t.icon size={16} />{t.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {children}
+                </>
+              )}
             </main>
 
             {/* Mobile bottom nav */}
             <nav className="no-print fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-gray-800 dark:bg-gray-900 lg:hidden">
               {mobileNav.map((n) => {
-                const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+                const active = isActive(n);
                 return (
                   <Link
                     key={n.href}
