@@ -28,6 +28,7 @@ export default function ItemsPage() {
   const [showMeta, setShowMeta] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [category, setCategory] = useState("ALL");
   const [bulk, setBulk] = useState<"reprice" | "delete" | null>(null);
   const [rule, setRule] = useState<{ mode: RepriceMode; value: string; direction: RepriceDirection; roundTo: string }>(
     { mode: "percent", value: "", direction: "down", roundTo: "100" }
@@ -145,6 +146,18 @@ export default function ItemsPage() {
 
   if (!items) return <Spinner />;
 
+  // Filtered by category the same way as Stock, so a whole shelf — all the glass, all the
+  // spare parts — can be picked out and selected at once.
+  const NONE = "—";
+  const categoryOf = (it: Item) => it.category?.name ?? NONE;
+  const categories = [...new Set(items.map(categoryOf))].sort((a, b) =>
+    a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b)
+  );
+  const shownItems = category === "ALL" ? items : items.filter((it) => categoryOf(it) === category);
+  const stockOf = (it: Item) => it.stockLevels.reduce((a, l) => a + l.quantity, 0);
+  const chosen = items.filter((it) => selected.has(it.id));
+  const chosenWithStock = chosen.filter((it) => stockOf(it) > 0);
+
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -164,7 +177,30 @@ export default function ItemsPage() {
 
       <Input placeholder="Search name, SKU, or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
 
-      {hasPerm("item.manage") && items.length > 0 && (
+      {items.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {["ALL", ...categories].map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium",
+                category === c
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              )}
+            >
+              {c === "ALL" ? "All" : c === NONE ? "No category" : c}
+              <span className={cn("rounded-full px-1.5 text-xs", category === c ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800")}>
+                {c === "ALL" ? items.length : items.filter((it) => categoryOf(it) === c).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {hasPerm("item.manage") && shownItems.length > 0 && (
         <div className={cn(
           "sticky top-16 z-20 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm",
           selected.size > 0
@@ -175,10 +211,18 @@ export default function ItemsPage() {
             <input
               type="checkbox"
               className="h-4 w-4"
-              checked={selected.size > 0 && items.every((it) => selected.has(it.id))}
-              onChange={(e) => setSelected(e.target.checked ? new Set(items.map((it) => it.id)) : new Set())}
+              checked={shownItems.every((it) => selected.has(it.id))}
+              onChange={(e) => setSelected((current) => {
+                // Adds or removes just the items shown, so picks from other categories stay.
+                const next = new Set(current);
+                for (const it of shownItems) {
+                  if (e.target.checked) next.add(it.id); else next.delete(it.id);
+                }
+                return next;
+              })}
             />
-            {selected.size > 0 ? `${selected.size} selected` : "Select all"}
+            {category === "ALL" ? "Select all" : `Select all in ${category === NONE ? "No category" : category}`}
+            {selected.size > 0 && <span className="text-blue-600">· {selected.size} selected</span>}
           </label>
           {selected.size > 0 && (
             <div className="ml-auto flex gap-2">
@@ -190,11 +234,11 @@ export default function ItemsPage() {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {shownItems.length === 0 ? (
         <Card><Empty message="No items found" /></Card>
       ) : (
         <Table headers={["", "Item", "SKU", "Category", "Unit", "Cost", "Price", "Stock", ""]} rightAlign={[5, 6, 7]}>
-          {items.map((it) => {
+          {shownItems.map((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             return (
               <tr key={it.id} className={cn(!it.active && "opacity-50", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
@@ -277,12 +321,41 @@ export default function ItemsPage() {
           <p className="text-sm text-gray-600 dark:text-gray-300">
             These items will be removed from the item list and the POS. Past sales and purchases keep them. This is logged.
           </p>
-          <ul className="max-h-48 list-disc overflow-y-auto pl-5 text-sm">
-            {items.filter((it) => selected.has(it.id)).map((it) => <li key={it.id}>{it.name}</li>)}
+          {chosenWithStock.length > 0 && (
+            <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              <p>
+                {chosenWithStock.length} item(s) still have stock and cannot be deleted. Sell them or adjust their
+                stock to 0 first.
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setSelected((current) => {
+                  const next = new Set(current);
+                  for (const it of chosenWithStock) next.delete(it.id);
+                  return next;
+                })}
+              >
+                Deselect items with stock
+              </Button>
+            </div>
+          )}
+          <ul className="max-h-48 space-y-0.5 overflow-y-auto text-sm">
+            {chosen.map((it) => {
+              const qty = stockOf(it);
+              return (
+                <li key={it.id} className="flex justify-between gap-3">
+                  <span className={cn(qty > 0 && "text-gray-400 line-through")}>{it.name}</span>
+                  {qty > 0 && <span className="shrink-0 text-xs font-medium text-amber-600">stock {qty}</span>}
+                </li>
+              );
+            })}
           </ul>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setBulk(null)}>Cancel</Button>
-            <Button variant="danger" onClick={runBulk} disabled={busy}>{busy ? "Deleting…" : `Delete ${selected.size}`}</Button>
+            <Button variant="danger" onClick={runBulk} disabled={busy || selected.size === 0 || chosenWithStock.length > 0}>
+              {busy ? "Deleting…" : `Delete ${selected.size}`}
+            </Button>
           </div>
         </div>
       </Modal>

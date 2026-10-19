@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { repriced, validRule } from "@/lib/reprice";
+import { itemsWithStock } from "@/lib/itemStock";
 
 /** Delete or reprice many items in one go. Everything happens in one transaction, so a
  *  bulk change either lands whole or not at all. */
@@ -34,6 +35,12 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
     if (items.length !== ids.length) throw new ApiError(404, "Some items were not found. Reload and try again.");
 
     if (body.action === "delete") {
+      // Stock on the shelf is money the books still count; an item holding any cannot be
+      // deleted until it is sold or adjusted out.
+      const stocked = await itemsWithStock(tx, ids);
+      if (stocked.length > 0) {
+        throw new ApiError(422, `Still in stock, so not deleted: ${stocked.map((s) => s.name).join(", ")}`);
+      }
       // Soft delete, as for a single item: past sales still point at these rows.
       await tx.item.updateMany({
         where: { id: { in: ids } },

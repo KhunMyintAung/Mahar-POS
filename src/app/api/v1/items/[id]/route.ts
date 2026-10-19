@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
+import { itemsWithStock } from "@/lib/itemStock";
 
 export const GET = withAuth("item.view", async ({ user, params }) => {
   const item = await prisma.item.findUnique({
@@ -74,6 +75,8 @@ export const DELETE = withAuth("item.manage", async ({ user, params }) => {
   if (!item || item.businessId !== user.businessId || item.deletedAt)
     throw new ApiError(404, "Item not found");
   await prisma.$transaction(async (tx) => {
+    const [stocked] = await itemsWithStock(tx, [item.id]);
+    if (stocked) throw new ApiError(422, `${item.name} still has ${stocked.quantity} in stock, so it cannot be deleted`);
     await tx.item.update({ where: { id: item.id }, data: { deletedAt: new Date(), active: false } });
     await audit(tx, {
       businessId: user.businessId, userId: user.id,
