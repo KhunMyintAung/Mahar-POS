@@ -21,6 +21,7 @@ const MM: Record<string, string> = {
   "Print voucher": "ဘောက်ချာ ထုတ်မည်",
   "Search by transaction no": "ဘောက်ချာနံပါတ်ဖြင့် ရှာရန်",
   "Total Repairs": "ပြုပြင်မှု စုစုပေါင်း",
+  "Devices taken in during the month": "ရွေးထားသောလအတွင်း လက်ခံထားသော ဖုန်းများ",
   "In Workflow": "ပြင်ဆင်ဆဲ",
   "Checking": "စစ်ဆေးနေဆဲ",
   "In Progress": "ပြင်ဆင်နေဆဲ",

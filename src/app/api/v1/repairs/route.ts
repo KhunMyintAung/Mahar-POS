@@ -7,6 +7,7 @@ import { toMinor } from "@/lib/money";
 import { createRepairJob, PRIORITIES, REPAIR_STATUSES } from "@/services/repairService";
 import { BENCH_STATUSES } from "@/lib/repairStatus";
 import { trackToken } from "@/lib/repairTrack";
+import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
 
 /** What the repair page needs beyond the row: the voucher's QR link and who took it in. */
 async function withVoucherFields<T extends { id: string; createdById: string | null }>(businessId: string, jobs: T[]) {
@@ -31,6 +32,9 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const imei = sp.get("imei")?.trim();
 
   const scope = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
+  // The summary cards count one month of intake, this month unless another is asked for.
+  const monthParam = sp.get("month");
+  const month = monthParam && isValidMonth(monthParam) ? monthParam : todayBusinessDate().slice(0, 7);
   const where = {
     ...scope,
     ...(status ? { status } : {}),
@@ -52,7 +56,11 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const [jobs, total, byStatus] = await Promise.all([
     prisma.repairJob.findMany({ where, orderBy: { receivedAt: "desc" }, skip, take }),
     prisma.repairJob.count({ where }),
-    prisma.repairJob.groupBy({ by: ["status"], where: scope, _count: { _all: true } }),
+    prisma.repairJob.groupBy({
+      by: ["status"],
+      where: { ...scope, receivedAt: monthRangeUtc(month) },
+      _count: { _all: true },
+    }),
   ]);
 
   const count = (statuses: string[]) =>
@@ -67,9 +75,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   return json({
     jobs: await withVoucherFields(user.businessId, jobs),
     total, page, pageSize,
-    // What is still on the bench, which is the number a counter actually watches.
-    openJobs: summary.inWorkflow,
-    summary,
+    summary: { ...summary, month },
   });
 });
 

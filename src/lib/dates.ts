@@ -27,6 +27,17 @@ export function dateRangeUtc(date: string): { gte: Date; lt: Date } {
   return { gte: start, lt: new Date(start.getTime() + 24 * 3600 * 1000) };
 }
 
+/** UTC range covering one calendar month ("YYYY-MM") in the business timezone. */
+export function monthRangeUtc(month: string): { gte: Date; lt: Date } {
+  const [y, m] = month.split("-").map(Number);
+  const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+  return { gte: dateRangeUtc(`${month}-01`).gte, lt: dateRangeUtc(`${next}-01`).gte };
+}
+
+export function isValidMonth(s: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
+}
+
 export function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);

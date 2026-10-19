@@ -1,5 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { trackToken, verifyTrackToken } from "@/lib/repairTrack";
+import { isValidMonth, monthRangeUtc } from "@/lib/dates";
+
+describe("repair summary month", () => {
+  it("covers the month in Yangon time", () => {
+    const r = monthRangeUtc("2026-10");
+    expect(r.gte.toISOString()).toBe("2026-09-30T17:30:00.000Z");
+    expect(r.lt.toISOString()).toBe("2026-10-31T17:30:00.000Z");
+  });
+
+  it("rolls December into the next year", () => {
+    expect(monthRangeUtc("2026-12").lt.toISOString()).toBe("2026-12-31T17:30:00.000Z");
+  });
+
+  it("accepts only YYYY-MM", () => {
+    expect(isValidMonth("2026-10")).toBe(true);
+    expect(isValidMonth("2026-13")).toBe(false);
+    expect(isValidMonth("2026-1")).toBe(false);
+  });
+});
 
 describe("repair tracking link", () => {
   const original = process.env.AUTH_SECRET;

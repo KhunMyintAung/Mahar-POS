@@ -23,7 +23,7 @@ interface Job {
   trackToken?: string | null; receivedByName?: string;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-interface Summary { total: number; inWorkflow: number; completed: number; delivered: number }
+interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; month: string }
 interface Suggestions { brands: string[]; pairs: { brand: string; model: string }[] }
 
 const STATUS_TONE: Record<string, string> = {
@@ -60,7 +60,9 @@ const blankForm = {
 
 export default function RepairsPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
-  const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0 });
+  const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
+  // Empty means "this month", which the server works out in the shop's own timezone.
+  const [month, setMonth] = useState("");
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -106,11 +108,12 @@ export default function RepairsPage() {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (status) params.set("status", status);
+    if (month) params.set("month", month);
     api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(e.message, "error"));
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status]);
+  }, [push, q, status, month]);
 
   useEffect(load, [load]);
 
@@ -248,6 +251,16 @@ export default function RepairsPage() {
         )}
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-gray-500">Devices taken in during the month</p>
+        <input
+          type="month"
+          aria-label="Summary month"
+          value={month || summary.month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="min-h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800"
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Total Repairs" value={<span className="flex items-center gap-2"><Wrench size={18} className="text-blue-600" />{summary.total}</span>} onClick={() => setStatus("")} />
         <StatCard label="In Workflow" value={<span className="flex items-center gap-2"><Clock3 size={18} className="text-amber-500" />{summary.inWorkflow}</span>} tone="amber" />
