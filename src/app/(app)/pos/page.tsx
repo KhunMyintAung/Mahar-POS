@@ -9,6 +9,7 @@ import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/com
 import { useAuth } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
+import { ProductKindIcon } from "@/components/ProductKindIcon";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printReceipt } from "@/lib/printReceipt";
 
@@ -364,8 +365,13 @@ export default function PosPage() {
                     available <= 0 && "opacity-40"
                   )}
                 >
-                  <div className="text-sm font-semibold leading-tight">{item.name}</div>
-                  <div className="mt-0.5 text-[11px] text-gray-500">{item.sku} · stock {available}</div>
+                  <div className="flex items-start gap-2">
+                    <ProductKindIcon item={item} className="h-9 w-9" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold leading-tight">{item.name}</div>
+                      <div className="mt-0.5 text-[11px] text-gray-500">{item.sku} · stock {available}</div>
+                    </div>
+                  </div>
                   <div className="mt-1 text-sm font-bold tabular-nums text-blue-600">{fmtMoney(item.sellingPrice)} MMK</div>
                 </button>
               );
@@ -387,6 +393,7 @@ export default function PosPage() {
               {cart.map((line) => (
                 <div key={line.item.id} className="space-y-2 border-b border-gray-100 pb-2 text-sm last:border-0 dark:border-gray-800">
                   <div className="flex items-center gap-2">
+                    <ProductKindIcon item={line.item} size={14} className="h-7 w-7 rounded-md" />
                     <div className="min-w-0 flex-1 truncate font-medium">{line.item.name}</div>
                     <b className="tabular-nums">{(line.unitPrice * line.quantity).toLocaleString()} MMK</b>
                     <button onClick={() => changeQuantity(line.item.id, 0)} className="min-h-9 min-w-9 rounded-lg p-2 text-gray-400 hover:text-red-500" aria-label={`Remove ${line.item.name}`}>
