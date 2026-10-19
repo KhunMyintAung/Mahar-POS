@@ -23,6 +23,8 @@ const MM: Record<string, string> = {
   "Total Repairs": "ပြုပြင်မှု စုစုပေါင်း",
   "Devices taken in during the month": "ရွေးထားသောလအတွင်း လက်ခံထားသော ဖုန်းများ",
   "In Workflow": "ပြင်ဆင်ဆဲ",
+  "Working": "ပြင်ဆဲ",
+  "Delivered": "ပေးပြီး",
   "Checking": "စစ်ဆေးနေဆဲ",
   "In Progress": "ပြင်ဆင်နေဆဲ",
   "Waiting Part": "ပစ္စည်းစောင့်နေဆဲ",

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, History, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
-import { Button, Card, Empty, Input, Modal, Select, Spinner, StatCard, Table, cn, useToast } from "@/components/ui";
+import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
@@ -240,32 +240,46 @@ export default function RepairsPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Wrench size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold">Repair Jobs</h1>
+    <div className="mx-auto max-w-6xl space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Wrench size={20} className="shrink-0 text-blue-600" />
+          <h1 className="truncate text-xl font-bold">Repair Jobs</h1>
         </div>
         {hasPerm("repair.create") && (
-          <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
+          <Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-500">Devices taken in during the month</p>
+      {/* One slim strip: the month's counts and the month they are for, side by side. */}
+      <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">
+        {[
+          { label: "Total", value: summary.total, icon: Wrench, tone: "text-blue-600", status: "" },
+          { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: null },
+          { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "DONE" },
+          { label: "Delivered", value: summary.delivered, icon: PackageCheck, tone: "text-purple-600", status: "DELIVERED" },
+        ].map(({ label, value, icon: Icon, tone, status: to }) => (
+          <button
+            key={label}
+            type="button"
+            disabled={to === null}
+            onClick={() => to !== null && setStatus(to)}
+            className="min-w-0 flex-1 border-r border-gray-200 px-1 py-1.5 hover:bg-gray-50 disabled:hover:bg-transparent dark:border-gray-800 dark:hover:bg-gray-800"
+          >
+            <div className={cn("flex items-center justify-center gap-1 text-base font-bold tabular-nums", tone)}>
+              <Icon size={14} />{value}
+            </div>
+            <div className="truncate text-[11px] text-gray-500">{label}</div>
+          </button>
+        ))}
         <input
           type="month"
           aria-label="Summary month"
+          title="Devices taken in during the month"
           value={month || summary.month}
           onChange={(e) => setMonth(e.target.value)}
-          className="min-h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800"
+          className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total Repairs" value={<span className="flex items-center gap-2"><Wrench size={18} className="text-blue-600" />{summary.total}</span>} onClick={() => setStatus("")} />
-        <StatCard label="In Workflow" value={<span className="flex items-center gap-2"><Clock3 size={18} className="text-amber-500" />{summary.inWorkflow}</span>} tone="amber" />
-        <StatCard label="Completed" value={<span className="flex items-center gap-2"><CheckCircle2 size={18} />{summary.completed}</span>} tone="green" onClick={() => setStatus("DONE")} />
-        <StatCard label="Delivered" value={<span className="flex items-center gap-2"><PackageCheck size={18} className="text-purple-600" />{summary.delivered}</span>} onClick={() => setStatus("DELIVERED")} />
       </div>
 
       <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
