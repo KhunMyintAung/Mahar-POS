@@ -9,7 +9,6 @@ import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, use
 import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
 import { printReceipt } from "@/lib/printReceipt";
-import { buildTextReceipt, sendToRawbt } from "@/lib/thermalReceipt";
 
 interface Sale {
   id: string; txnNo: string; date: string; total: string; paidAmount: string; profit: string;
@@ -168,17 +167,6 @@ export default function SalesPage() {
                 <SaleReceiptSlip data={receipt} />
               </div>
             </div>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                if (!sendToRawbt(buildTextReceipt(receipt))) {
-                  push("Could not reach RawBT. Install it from the Play Store first.", "error");
-                }
-              }}
-            >
-              <Printer size={16} className="mr-1 inline" />Print to roll printer (RawBT)
-            </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => printReceipt()}>
                 <Printer size={16} className="mr-1 inline" />Print slip

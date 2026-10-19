@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { fmtDateTime } from "@/lib/format";
-import { centre, row, wrap, WIDTH_58MM } from "@/lib/thermalReceipt";
 import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
 import { DEFAULT_REPAIR_VOUCHER } from "@/lib/repairVoucherSettings";
+import { usePrintSlip } from "@/lib/usePrintSlip";
 
 /** The slip handed to the customer when a device is taken in, and again whenever asked. */
 export interface RepairVoucherData {
@@ -43,6 +43,7 @@ const money = (value: number) => Math.round(value).toLocaleString("en-US");
  *  same stylesheet. Portalled to <body> so that stylesheet can isolate it, as SaleReceipt
  *  explains; the on-screen preview is a separate RepairVoucherSlip. */
 export function RepairVoucher({ data }: { data: RepairVoucherData }) {
+  usePrintSlip();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setMounted(true), 0);
@@ -156,41 +157,4 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
         </div>
       </div>
   );
-}
-
-/** The voucher as plain text for RawBT. Kept in English: roll printers have no Myanmar font. */
-export function buildRepairTextVoucher(data: RepairVoucherData, width = WIDTH_58MM): string {
-  const rule = "-".repeat(width);
-  const lines: string[] = [];
-  lines.push(centre(data.shopName, width));
-  if (data.shopPhone) lines.push(centre(data.shopPhone, width));
-  if (data.shopAddress) for (const part of wrap(data.shopAddress, width)) lines.push(centre(part, width));
-  lines.push(rule);
-  lines.push(centre("REPAIR VOUCHER", width));
-  lines.push(centre(data.jobNo, width));
-  lines.push(new Date(data.at).toLocaleString("en-GB", { hour12: false }));
-  lines.push(rule);
-  if (data.customerName) lines.push(`Name: ${data.customerName}`);
-  if (data.customerPhone) lines.push(`Phone: ${data.customerPhone}`);
-  lines.push(`Device: ${data.deviceBrand} ${data.deviceModel}`);
-  if (data.imei) lines.push(`IMEI: ${data.imei}`);
-  for (const part of wrap(`Problem: ${data.problem}`, width)) lines.push(part);
-  if (data.accessories) for (const part of wrap(`With: ${data.accessories}`, width)) lines.push(part);
-  lines.push(`Status: ${data.status.replace(/_/g, " ")}`);
-  lines.push(rule);
-  if (data.finalCost > 0) {
-    lines.push(row("Charge", money(data.finalCost), width));
-    if (data.paidAmount > 0) lines.push(row("Paid", money(data.paidAmount), width));
-    const balance = data.finalCost - data.paidAmount;
-    if (balance > 0) lines.push(row("Balance", money(balance), width));
-    else lines.push(centre("*** PAID ***", width));
-  } else {
-    lines.push(data.estimatedCost > 0 ? row("Estimate", money(data.estimatedCost), width) : "Charge confirmed after check");
-    if (data.paidAmount > 0) lines.push(row("Deposit", money(data.paidAmount), width));
-  }
-  lines.push(rule);
-  lines.push(...wrap("Keep this voucher. The device is released only to the owner or on this voucher.", width));
-  if (data.receivedByName) lines.push("", `Received by: ${data.receivedByName}`);
-  lines.push("", "", "");
-  return lines.join("\n");
 }

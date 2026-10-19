@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { fmtDateTime } from "@/lib/format";
+import { usePrintSlip } from "@/lib/usePrintSlip";
 
 /** What a slip needs, captured at the moment of sale.
  *
@@ -37,6 +38,7 @@ export function SaleReceipt({ data }: { data: ReceiptData }) {
   // Portalled to <body> so the print stylesheet can hide the slip's siblings and leave it
   // alone in the document. Rendered in place it sat several layers deep inside the page,
   // and the only ways to isolate it took it out of normal flow — which is what clipped it.
+  usePrintSlip();
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     // Deferred a tick, as elsewhere in the app, so this is an ordinary update rather than

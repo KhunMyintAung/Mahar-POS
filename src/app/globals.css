@@ -47,6 +47,12 @@ body {
   body:has(#repair-voucher) > *:not(#repair-voucher) { display: none !important; }
   #repair-voucher { display: block !important; }
 
+  /* The same isolation for browsers without :has() (older Android Chrome and WebView),
+     which otherwise printed the whole screen, dialog buttons and all, around the slip.
+     The class is set for as long as a slip is mounted, not for the moment of printing,
+     so there is no race with the phone's print sheet. */
+  body.has-print-slip > *:not(#repair-voucher):not(#sale-receipt) { display: none !important; }
+
   /* A till roll is a continuous strip; margins push the slip onto a second one. */
   @page { margin: 0; }
 

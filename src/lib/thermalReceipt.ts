@@ -108,13 +108,3 @@ export function rawbtUrl(text: string): string {
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return `rawbt:base64,${btoa(binary)}`;
 }
-
-/** Hand text to RawBT. Returns false when the link could not be opened at all. */
-export function sendToRawbt(text: string): boolean {
-  try {
-    window.location.href = rawbtUrl(text);
-    return true;
-  } catch {
-    return false;
-  }
-}

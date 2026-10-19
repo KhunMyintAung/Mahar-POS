@@ -11,7 +11,6 @@ import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printReceipt } from "@/lib/printReceipt";
-import { buildTextReceipt, rawbtUrl } from "@/lib/thermalReceipt";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -217,18 +216,6 @@ export default function PosPage() {
     if (!exact) return false;
     addToCart(exact);
     return true;
-  }
-
-  /** Hand the slip to RawBT, which does the talking to the Bluetooth printer.
-   *
-   *  If nothing on the phone answers the rawbt: link the browser simply does nothing, so
-   *  the toast is the only sign the user would get that the app is not installed. */
-  function printThermal(data: ReceiptData) {
-    try {
-      window.location.href = rawbtUrl(buildTextReceipt(data));
-    } catch {
-      push("Could not reach RawBT. Install it from the Play Store first.", "error");
-    }
   }
 
   function closeSaleComplete() {
@@ -518,18 +505,6 @@ export default function PosPage() {
               <p className="font-mono text-lg font-bold">{lastSale.txnNo}</p>
               <p className="mt-1 text-2xl font-bold text-blue-600">{fmtMoney(lastSale.total)} MMK</p>
             </div>
-            {/* Two ways to print, because they are not alternatives for the same shop.
-                A shop with a Bluetooth roll printer cannot use the browser at all -- there
-                is no driver behind window.print(), so it only ever offers Save as PDF --
-                and a shop without one has no use for RawBT. */}
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => receipt && printThermal(receipt)}
-              disabled={!receipt}
-            >
-              <Printer size={16} className="mr-1 inline" />Print to roll printer (RawBT)
-            </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => receipt && printReceipt()} disabled={!receipt}>
                 <Printer size={16} className="mr-1 inline" />Print slip

@@ -7,9 +7,8 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
-import { RepairVoucher, RepairVoucherSlip, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
+import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printReceipt } from "@/lib/printReceipt";
-import { sendToRawbt } from "@/lib/thermalReceipt";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 
@@ -766,17 +765,6 @@ export default function RepairsPage() {
                 <RepairVoucherSlip data={voucher} />
               </div>
             </div>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => {
-                if (!sendToRawbt(buildRepairTextVoucher(voucher))) {
-                  push("Could not reach RawBT. Install it from the Play Store first.", "error");
-                }
-              }}
-            >
-              <Printer size={16} className="mr-1 inline" />Print to roll printer (RawBT)
-            </Button>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => printReceipt()}>
                 <Printer size={16} className="mr-1 inline" />Print voucher
