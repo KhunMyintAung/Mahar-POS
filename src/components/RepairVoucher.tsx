@@ -39,15 +39,27 @@ export interface RepairVoucherData {
 
 const money = (value: number) => Math.round(value).toLocaleString("en-US");
 
-/** Sized for a 58mm roll like the sale slip, and printed through the same stylesheet. */
+/** The printed copy: sized for a 58mm roll like the sale slip, and printed through the
+ *  same stylesheet. Portalled to <body> so that stylesheet can isolate it, as SaleReceipt
+ *  explains; the on-screen preview is a separate RepairVoucherSlip. */
 export function RepairVoucher({ data }: { data: RepairVoucherData }) {
-  // Portalled to <body> for the print stylesheet, as SaleReceipt explains.
   const [mounted, setMounted] = useState(false);
-  const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
     const timer = window.setTimeout(() => setMounted(true), 0);
     return () => window.clearTimeout(timer);
   }, []);
+  if (!mounted) return null;
+  return createPortal(
+    <div id="repair-voucher" className="hidden print:block">
+      <RepairVoucherSlip data={data} />
+    </div>,
+    document.body
+  );
+}
+
+/** The voucher itself, used both for printing and to show the counter what will print. */
+export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
+  const [qr, setQr] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     if (data.trackUrl) {
@@ -57,14 +69,12 @@ export function RepairVoucher({ data }: { data: RepairVoucherData }) {
     }
     return () => { live = false; };
   }, [data.trackUrl]);
-  if (!mounted) return null;
 
   const balance = Math.max(0, data.finalCost - data.paidAmount);
   const terms = data.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
   const qrCaption = data.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
 
-  return createPortal(
-    <div id="repair-voucher" className="hidden print:block">
+  return (
       <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black">
         <div className="text-center">
           <div className="text-[13px] font-bold">{data.shopName}</div>
@@ -138,8 +148,6 @@ export function RepairVoucher({ data }: { data: RepairVoucherData }) {
           <div className="border-t border-black px-1">ရွေးယူသူ</div>
         </div>
       </div>
-    </div>,
-    document.body
   );
 }
 

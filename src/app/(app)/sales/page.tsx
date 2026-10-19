@@ -7,7 +7,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
-import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
+import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
 import { printReceipt } from "@/lib/printReceipt";
 import { buildTextReceipt, sendToRawbt } from "@/lib/thermalReceipt";
 
@@ -162,7 +162,12 @@ export default function SalesPage() {
       <Modal open={Boolean(receipt)} onClose={() => setReceipt(null)} title={`Reprint ${receipt?.txnNo ?? ""}`}>
         {receipt && (
           <div className="space-y-3">
-            <p className="text-center text-2xl font-bold text-blue-600">{receipt.total.toLocaleString()} MMK</p>
+            {/* What will print, on a paper-white strip the width of the roll. */}
+            <div className="max-h-[55vh] overflow-y-auto rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <div className="mx-auto w-[58mm] max-w-full bg-white py-2 shadow">
+                <SaleReceiptSlip data={receipt} />
+              </div>
+            </div>
             <Button
               variant="secondary"
               className="w-full"

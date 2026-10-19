@@ -7,7 +7,7 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
-import { RepairVoucher, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
+import { RepairVoucher, RepairVoucherSlip, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printReceipt } from "@/lib/printReceipt";
 import { sendToRawbt } from "@/lib/thermalReceipt";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
@@ -538,12 +538,14 @@ export default function RepairsPage() {
       </Modal>
 
       {/* Closing clears the voucher, so a later print of another page does not pick it up. */}
-      <Modal open={Boolean(voucher)} onClose={() => setVoucher(null)} title={`Repair voucher ${voucher?.jobNo ?? ""}`}>
+      <Modal open={Boolean(voucher)} onClose={() => setVoucher(null)} title="Repair voucher">
         {voucher && (
           <div className="space-y-3">
-            <div className="text-center">
-              <p className="font-mono text-lg font-bold">{voucher.jobNo}</p>
-              <p className="text-sm text-gray-500">{voucher.deviceBrand} {voucher.deviceModel}</p>
+            {/* What will print, on a paper-white strip the width of the roll. */}
+            <div className="max-h-[55vh] overflow-y-auto rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+              <div className="mx-auto w-[58mm] max-w-full bg-white py-2 shadow">
+                <RepairVoucherSlip data={voucher} />
+              </div>
             </div>
             <Button
               variant="secondary"

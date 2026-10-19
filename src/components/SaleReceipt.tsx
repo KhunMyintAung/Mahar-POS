@@ -48,8 +48,17 @@ export function SaleReceipt({ data }: { data: ReceiptData }) {
 
   return createPortal(
     <div id="sale-receipt" className="hidden print:block">
-      {/* The sheet itself is 58mm (see @page receipt), so the slip fills it rather than
-          sitting as a narrow column in the middle of a larger page. */}
+      <SaleReceiptSlip data={data} />
+    </div>,
+    document.body
+  );
+}
+
+/** The slip itself, used both for printing and to show what will print. */
+export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
+  return (
+      // The sheet is the roll's width, so the slip fills it rather than sitting as a narrow
+      // column in the middle of a larger page.
       <div className="w-full max-w-[58mm] px-1 font-mono text-[10px] leading-tight text-black">
         <div className="text-center">
           <div className="text-[13px] font-bold">{data.shopName}</div>
@@ -95,7 +104,5 @@ export function SaleReceipt({ data }: { data: ReceiptData }) {
         <div className="my-1 border-t border-dashed border-black" />
         <div className="text-center">Thank you</div>
       </div>
-    </div>,
-    document.body
   );
 }
