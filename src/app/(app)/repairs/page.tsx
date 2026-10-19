@@ -51,6 +51,10 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+/** A charge is set and all of it has been taken. */
+const settled = (job: Pick<Job, "finalCost" | "paidAmount">) =>
+  Number(job.finalCost) > 0 && Number(job.paidAmount) >= Number(job.finalCost);
+
 /** The status pill, which opens a small list of the moves allowed from here.
  *
  *  Not a native select: browsers draw their own arrow and text on one, which came out large
@@ -141,6 +145,8 @@ export default function RepairsPage() {
   const [working, setWorking] = useState<Job | null>(null);
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
+  const [paying, setPaying] = useState<Job | null>(null);
+  const [pay, setPay] = useState({ finalCost: "", walletId: "" });
   const [editing, setEditing] = useState<Job | null>(null);
   const [edit, setEdit] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
@@ -235,6 +241,33 @@ export default function RepairsPage() {
       // The customer leaves with a voucher, so it is ready to print the moment the job is saved.
       openVoucher(job);
       setForm(blankForm);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startPay(job: Job) {
+    setPaying(job);
+    setPay({
+      finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
+      walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
+    });
+  }
+
+  async function savePay() {
+    if (!paying) return;
+    setBusy(true);
+    try {
+      const paid = await api<Job>(`/api/v1/repairs/${paying.id}/pay`, {
+        method: "POST",
+        body: { finalCost: pay.finalCost || undefined, walletId: pay.walletId || undefined },
+      });
+      setPaying(null);
+      // Straight to the voucher, which now reads ရှင်းပြီး, ready to print.
+      openVoucher({ ...paying, finalCost: paid.finalCost, paidAmount: paid.paidAmount });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -481,7 +514,10 @@ export default function RepairsPage() {
                   {fmtMoney(Number(job.finalCost) ? job.finalCost : job.estimatedCost)}
                   {!Number(job.finalCost) && <div className="text-xs text-gray-400">estimate</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(job.paidAmount)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">
+                  {fmtMoney(job.paidAmount)}
+                  {settled(job) && <div className="text-xs font-semibold text-green-600">Paid</div>}
+                </td>
                 <td className="px-3 py-2.5 text-right">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" onClick={() => openVoucher(job)}>
@@ -489,6 +525,9 @@ export default function RepairsPage() {
                     </Button>
                     {hasPerm("repair.update") && (
                       <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
+                    )}
+                    {hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && (
+                      <Button size="sm" onClick={() => startPay(job)}>Mark as paid</Button>
                     )}
                   </div>
                 </td>
@@ -577,6 +616,44 @@ export default function RepairsPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={Boolean(paying)} onClose={() => setPaying(null)} title={paying ? `Mark as paid — ${paying.jobNo}` : ""}>
+        {paying && (() => {
+          const charge = Math.round(Number(pay.finalCost || 0) * 100);
+          const toCollect = Math.max(0, charge - Number(paying.paidAmount));
+          return (
+            <div className="space-y-3">
+              <Input
+                label="Final charge"
+                value={pay.finalCost}
+                disabled={paying.status === "DELIVERED"}
+                onChange={(e) => setPay({ ...pay, finalCost: e.target.value })}
+              />
+              <Card className="space-y-1 bg-gray-50 text-sm dark:bg-gray-800/50">
+                <div className="flex justify-between"><span>Already paid (deposit)</span><b className="tabular-nums">{fmtMoney(paying.paidAmount)}</b></div>
+                <div className="flex justify-between border-t border-gray-200 pt-1 dark:border-gray-700">
+                  <span>To collect now</span>
+                  <b className="tabular-nums text-green-600">{fmtMoney(String(toCollect))}</b>
+                </div>
+              </Card>
+              {toCollect > 0 && (
+                <Select label="Paid into" value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
+                  <option value="">Choose…</option>
+                  {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
+                  ))}
+                </Select>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="secondary" onClick={() => setPaying(null)}>Cancel</Button>
+                <Button onClick={savePay} disabled={busy || charge <= 0 || (toCollect > 0 && !pay.walletId)}>
+                  {busy ? "Saving…" : "Mark as paid"}
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={editing ? `${editing.jobNo}` : ""} wide>

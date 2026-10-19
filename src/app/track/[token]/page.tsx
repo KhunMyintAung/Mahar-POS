@@ -91,6 +91,11 @@ export default async function TrackPage({ params }: { params: Promise<{ token: s
           </div>
           {job.paidAmount > 0n && <div className="flex justify-between gap-3"><dt className="text-gray-500">ပေးပြီး</dt><dd>{money(job.paidAmount)}</dd></div>}
           {due > 0n && <div className="flex justify-between gap-3"><dt className="text-gray-500">ကျန်ငွေ</dt><dd className="font-bold text-red-600">{money(due)}</dd></div>}
+          {job.finalCost > 0n && due === 0n && (
+            <div className="pt-1 text-center">
+              <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-sm font-bold text-green-700 dark:bg-green-900/40 dark:text-green-300">✔ ရှင်းပြီး</span>
+            </div>
+          )}
         </dl>
       </section>
 

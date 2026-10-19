@@ -110,6 +110,13 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
             <div className="flex justify-between"><span>ကျသင့်ငွေ</span><b>{money(data.finalCost)}</b></div>
             {data.paidAmount > 0 && <div className="flex justify-between"><span>ပေးပြီး</span><span>{money(data.paidAmount)}</span></div>}
             {balance > 0 && <div className="flex justify-between font-bold"><span>ကျန်ငွေ</span><span>{money(balance)}</span></div>}
+            {balance === 0 && (
+              // Printed big and boxed, so whoever hands the phone back sees at a glance
+              // that there is nothing left to take.
+              <div className="mx-auto mt-1 w-fit rounded border-2 border-black px-3 py-0.5 text-center text-[14px] font-bold">
+                ✔ ရှင်းပြီး
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -176,6 +183,7 @@ export function buildRepairTextVoucher(data: RepairVoucherData, width = WIDTH_58
     if (data.paidAmount > 0) lines.push(row("Paid", money(data.paidAmount), width));
     const balance = data.finalCost - data.paidAmount;
     if (balance > 0) lines.push(row("Balance", money(balance), width));
+    else lines.push(centre("*** PAID ***", width));
   } else {
     lines.push(data.estimatedCost > 0 ? row("Estimate", money(data.estimatedCost), width) : "Charge confirmed after check");
     if (data.paidAmount > 0) lines.push(row("Deposit", money(data.paidAmount), width));

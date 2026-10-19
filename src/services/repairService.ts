@@ -188,6 +188,70 @@ export async function updateRepairDetails(
   return updated;
 }
 
+/** Take the rest of the charge now, without waiting for the phone to be collected.
+ *
+ *  The same money handling as delivery: only the outstanding part posts to the wallet,
+ *  because the deposit was banked at drop-off. Afterwards the job is settled and the
+ *  voucher says so; delivering it later takes nothing more.
+ */
+export async function payRepairBalance(
+  tx: Tx,
+  opts: { businessId: string; userId: string; jobId: string; finalCost?: bigint; walletId?: string }
+) {
+  const job = await tx.repairJob.findFirst({
+    where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
+  });
+  if (!job) throw new ApiError(404, "Repair job not found");
+  if (job.status === "CANCELLED") throw new ApiError(422, "A cancelled job cannot be paid");
+
+  const finalCost = opts.finalCost ?? job.finalCost;
+  if (finalCost <= 0n) throw new ApiError(422, "Set what the repair costs first");
+  if (job.status === "DELIVERED" && finalCost !== job.finalCost) {
+    throw new ApiError(422, "The charge cannot change once the phone has gone home");
+  }
+  if (finalCost < job.paidAmount) {
+    throw new ApiError(422, "The charge is less than what has already been paid");
+  }
+  const balance = finalCost - job.paidAmount;
+  if (balance > 0n && !opts.walletId) throw new ApiError(422, "Choose the wallet the money went into");
+
+  if (balance > 0n && opts.walletId) {
+    await postLedger(tx, {
+      businessId: opts.businessId,
+      walletId: opts.walletId,
+      direction: "DEBIT",
+      amount: balance,
+      refType: "REPAIR_PAYMENT",
+      refId: job.id,
+      description: `Repair ${job.jobNo} - ${job.deviceBrand} ${job.deviceModel}`,
+      createdById: opts.userId,
+    });
+  }
+
+  const updated = await tx.repairJob.update({
+    where: { id: job.id },
+    data: { finalCost, paidAmount: finalCost },
+  });
+
+  await audit(tx, {
+    businessId: opts.businessId,
+    userId: opts.userId,
+    branchId: job.branchId,
+    action: "PAY",
+    module: "repair",
+    resourceType: "RepairJob",
+    resourceId: job.id,
+    before: { finalCost: job.finalCost.toString(), paidAmount: job.paidAmount.toString() },
+    after: { finalCost: updated.finalCost.toString(), paidAmount: updated.paidAmount.toString(), collected: balance.toString() },
+  });
+  return updated;
+}
+
+/** Fully paid: a charge is set and nothing is left to collect. */
+export function isSettled(job: { finalCost: bigint; paidAmount: bigint }): boolean {
+  return job.finalCost > 0n && job.paidAmount >= job.finalCost;
+}
+
 export async function updateRepairStatus(
   tx: Tx,
   opts: {

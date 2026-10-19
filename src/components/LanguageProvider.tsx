@@ -584,6 +584,8 @@ const MM: Record<string, string> = {
   "Customer name": "ဖောက်သည် အမည်",
   "Voucher no, customer, phone, brand, model or IMEI": "ဘောက်ချာနံပါတ်၊ ဖောက်သည်၊ ဖုန်း၊ အမှတ်တံဆိပ်၊ မော်ဒယ် သို့မဟုတ် IMEI",
   "Voucher No": "ဘောက်ချာနံပါတ်",
+  "Mark as paid": "ငွေရှင်းမည်",
+  "Paid into": "ငွေထည့်မည့် Wallet",
   "Voucher number format and the text printed on the repair voucher.": "ဘောက်ချာနံပါတ် ပုံစံနှင့် ဘောက်ချာပေါ်တွင် ထုတ်မည့်စာများ",
   "Voucher prefix": "ဘောက်ချာ ရှေ့စာလုံး",
   "Digits": "ဂဏန်းအရေအတွက်",
