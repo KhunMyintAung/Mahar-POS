@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, Modal, Table, useToast } from "@/components/ui";
-import { CSV_TEMPLATE } from "@/lib/productCsv";
+import { csvTemplateFor } from "@/lib/productCsv";
+import { useAuth } from "@/components/AppShell";
 
 interface Planned {
   row: number;
@@ -36,6 +37,7 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { push } = useToast();
+  const { me } = useAuth();
 
   function reset() {
     setCsv("");
@@ -77,11 +79,13 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
   }
 
   function downloadTemplate() {
-    const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8" });
+    const template = csvTemplateFor(me?.modules.category);
+    // The BOM makes Excel read the file as UTF-8, so Myanmar names stay readable.
+    const blob = new Blob(["﻿", template.csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "wallet-note-products.csv";
+    link.download = template.fileName;
     link.click();
     URL.revokeObjectURL(url);
   }

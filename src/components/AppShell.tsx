@@ -30,6 +30,8 @@ interface Me {
     miniMartEnabled: boolean;
     walletNoteEnabled: boolean;
     features: FeatureVisibility;
+    /** The business category picked at sign-up (MINI_MART, MOBILE_SHOP, …) or CUSTOM. */
+    category: string;
   };
   edition: "FULL" | "PLAY";
 }
