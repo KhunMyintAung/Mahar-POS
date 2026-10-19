@@ -8,7 +8,7 @@ import { StatCard, Card, Select, Input, Spinner, useToast } from "@/components/u
 import { useAuth } from "@/components/AppShell";
 
 interface Summary {
-  wallets: { totalMmk: string; totalThb: string; lowBalance: { id: string; name: string; currentBalance: string; minBalance: string }[] };
+  wallets: { totalMmk: string; totalThb: string; thbWallets: number; lowBalance: { id: string; name: string; currentBalance: string; minBalance: string }[] };
   credit: { newIssued: string; collected: string; outstanding: string };
   payable: { newIssued: string; paid: string; outstanding: string };
   general: { otherIncome: string; expense: string; netCashMovement: string };
@@ -96,7 +96,10 @@ export default function DashboardPage() {
         )}
         {featureEnabled("wallets") && <>
         <StatCard label="Total MMK Balance" value={fmtMoney(s.wallets.totalMmk, "MMK")} onClick={() => router.push("/wallets")} />
-        <StatCard label="Total THB Balance" value={fmtMoney(s.wallets.totalThb, "THB")} onClick={() => router.push("/wallets")} />
+        {/* A shop with no THB wallet has nothing to show here, so the card stays out of the way. */}
+        {s.wallets.thbWallets > 0 && (
+          <StatCard label="Total THB Balance" value={fmtMoney(s.wallets.totalThb, "THB")} onClick={() => router.push("/wallets")} />
+        )}
         </>}
         {featureEnabled("credit") && <>
         <StatCard label="Customer Receivable" value={fmtMoney(s.credit.outstanding, "MMK")} tone="blue" onClick={() => router.push("/credit")} />

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Moon, Sun, Receipt, Plus, ShoppingCart, Package, Boxes, Truck, Building2, MessageCircle,
-  Send, MinusCircle, Wrench, Smartphone,
+  Send, MinusCircle, Wrench, Smartphone, History,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn } from "./ui";
@@ -87,6 +87,7 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view" },
   { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos" },
+  { href: "/sales", label: "Sale History", short: "History", icon: History, perm: "sale.view", feature: "pos" },
   { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases" },
   { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items" },
   { href: "/stock", label: "Stock", icon: Boxes, perm: "stock.view", feature: "stock" },
@@ -108,6 +109,8 @@ const NAV = [
 ] satisfies {
   href: string;
   label: string;
+  /** Bottom-bar label, when the first word of the full label would be ambiguous. */
+  short?: string;
   icon: typeof LayoutDashboard;
   perm: string | null;
   feature?: FeatureKey;
@@ -303,7 +306,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     )}
                   >
                     <n.icon size={20} />
-                    <span className="max-w-full truncate">{n.label.split(" ")[0]}</span>
+                    <span className="max-w-full truncate">{("short" in n && n.short) || n.label.split(" ")[0]}</span>
                   </Link>
                 );
               })}

@@ -4,7 +4,8 @@ import { dateRangeUtc } from "@/lib/dates";
 // Computes the daily business summary used by both the dashboard and daily close.
 
 export interface DaySummary {
-  wallets: { totalMmk: bigint; totalThb: bigint; lowBalance: { id: string; name: string; currentBalance: bigint; minBalance: bigint }[] };
+  /** thbWallets lets screens hide the THB figure for a shop that never set up a THB wallet. */
+  wallets: { totalMmk: bigint; totalThb: bigint; thbWallets: number; lowBalance: { id: string; name: string; currentBalance: bigint; minBalance: bigint }[] };
   credit: { newIssued: bigint; collected: bigint; outstanding: bigint };
   payable: { newIssued: bigint; paid: bigint; outstanding: bigint };
   general: { otherIncome: bigint; expense: bigint; netCashMovement: bigint };
@@ -24,11 +25,11 @@ export async function computeDaySummary(
     where: { businessId, deletedAt: null, active: true, ...(branchIds ? { branchId: { in: branchIds } } : {}) },
     select: { id: true, name: true, currency: true, currentBalance: true, minBalance: true },
   });
-  let totalMmk = 0n, totalThb = 0n;
+  let totalMmk = 0n, totalThb = 0n, thbWallets = 0;
   const lowBalance = [];
   for (const w of wallets) {
     if (w.currency === "MMK") totalMmk += w.currentBalance;
-    if (w.currency === "THB") totalThb += w.currentBalance;
+    if (w.currency === "THB") { totalThb += w.currentBalance; thbWallets++; }
     if (w.minBalance > 0n && w.currentBalance < w.minBalance) {
       lowBalance.push({ id: w.id, name: w.name, currentBalance: w.currentBalance, minBalance: w.minBalance });
     }
@@ -84,7 +85,7 @@ export async function computeDaySummary(
   for (const l of ledger) netCash += l.direction === "DEBIT" ? l.amount : -l.amount;
 
   return {
-    wallets: { totalMmk, totalThb, lowBalance },
+    wallets: { totalMmk, totalThb, thbWallets, lowBalance },
     credit: {
       newIssued: newCredit._sum.originalAmount ?? 0n,
       collected: collected._sum.amount ?? 0n,

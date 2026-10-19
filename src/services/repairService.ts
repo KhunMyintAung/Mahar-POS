@@ -31,7 +31,8 @@ const NEXT: Record<RepairStatus, RepairStatus[]> = {
   RECEIVED: ["IN_PROGRESS", "WAITING_PARTS", "DONE", "CANCELLED"],
   IN_PROGRESS: ["WAITING_PARTS", "DONE", "CANCELLED"],
   WAITING_PARTS: ["IN_PROGRESS", "DONE", "CANCELLED"],
-  DONE: ["DELIVERED", "IN_PROGRESS", "CANCELLED"],
+  // A job marked done by mistake can go back to any open status; nothing is charged until delivery.
+  DONE: ["DELIVERED", "RECEIVED", "IN_PROGRESS", "WAITING_PARTS", "CANCELLED"],
   DELIVERED: [],
   CANCELLED: [],
 };
@@ -183,7 +184,13 @@ export async function updateRepairStatus(
       paidAmount,
       technicianId: opts.technicianId ?? job.technicianId,
       notes: opts.notes ?? job.notes,
-      completedAt: opts.status === "DONE" && !job.completedAt ? new Date() : job.completedAt,
+      // Reopening a job clears its finish time, so it is stamped afresh when it is really done.
+      completedAt:
+        opts.status === "DONE"
+          ? job.completedAt ?? new Date()
+          : ["RECEIVED", "IN_PROGRESS", "WAITING_PARTS"].includes(opts.status)
+            ? null
+            : job.completedAt,
       deliveredAt: opts.status === "DELIVERED" ? new Date() : job.deliveredAt,
     },
   });

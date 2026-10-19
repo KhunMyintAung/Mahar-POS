@@ -14,6 +14,12 @@ const LanguageContext = createContext<{
 const MM: Record<string, string> = {
   "Dashboard": "ပင်မစာမျက်နှာ",
   "Sales & POS": "အရောင်းနှင့် POS",
+  "Sale History": "အရောင်းမှတ်တမ်း",
+  "Reprint": "ပြန်ထုတ်မည်",
+  "Voucher": "ဘောက်ချာ",
+  "Repair voucher": "ပြုပြင်ရေး ဘောက်ချာ",
+  "Print voucher": "ဘောက်ချာ ထုတ်မည်",
+  "Search by transaction no": "ဘောက်ချာနံပါတ်ဖြင့် ရှာရန်",
   "Purchases": "အဝယ်",
   "Items": "ကုန်ပစ္စည်းများ",
   "Stock": "ကုန်လက်ကျန်",

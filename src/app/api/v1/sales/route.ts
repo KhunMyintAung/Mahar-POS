@@ -38,8 +38,19 @@ export const GET = withAuth("sale.view", async ({ req, user }) => {
     select: { id: true, name: true },
   });
   const byId = new Map(customers.map((c) => [c.id, c.name]));
+  // The cashier's name goes on a reprinted slip, as it did on the original.
+  const cashierIds = [...new Set(sales.map((s) => s.createdById))];
+  const cashiers = await prisma.user.findMany({
+    where: { id: { in: cashierIds }, businessId: user.businessId },
+    select: { id: true, name: true },
+  });
+  const cashierById = new Map(cashiers.map((c) => [c.id, c.name]));
   return json({
-    sales: sales.map((s) => ({ ...s, customerName: s.customerId ? byId.get(s.customerId) : undefined })),
+    sales: sales.map((s) => ({
+      ...s,
+      customerName: s.customerId ? byId.get(s.customerId) : undefined,
+      cashierName: cashierById.get(s.createdById),
+    })),
     total, page, pageSize,
     totals: { amount: agg._sum.total ?? 0n, profit: agg._sum.profit ?? 0n },
   });

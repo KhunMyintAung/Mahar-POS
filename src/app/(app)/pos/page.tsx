@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CheckCircle2, Minus, Plus, Printer, Search, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
@@ -69,7 +70,7 @@ export default function PosPage() {
   const [scanning, setScanning] = useState(false);
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
-  const { defaultBranchId, me } = useAuth();
+  const { defaultBranchId, me, hasPerm } = useAuth();
   const draftKey = `wallet-note:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
@@ -325,7 +326,10 @@ export default function PosPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Sales &amp; POS</h1>
-        <span className="text-xs text-gray-500">{cart.reduce((sum, line) => sum + line.quantity, 0)} item(s)</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">{cart.reduce((sum, line) => sum + line.quantity, 0)} item(s)</span>
+          {hasPerm("sale.view") && <Link href="/sales"><Button variant="secondary" size="sm"><History size={15} className="mr-1 inline" />Sale History</Button></Link>}
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">

@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AppShell";
 
 interface Close { id: string; date: string; branchId: string; status: string; summary: string; reopenReason?: string }
 interface Summary {
-  wallets: { totalMmk: string; totalThb: string };
+  wallets: { totalMmk: string; totalThb: string; thbWallets: number };
   credit: { newIssued: string; collected: string; outstanding: string };
   payable: { newIssued: string; paid: string; outstanding: string };
   general: { otherIncome: string; expense: string; netCashMovement: string };
@@ -101,7 +101,7 @@ export default function DailyClosePage() {
                 <div className="font-semibold text-gray-500 lg:col-span-3">{preview!.date}</div>
                 <div className="font-semibold text-gray-500 lg:col-span-3">Wallets & cash</div>
                 <div>MMK: <b className="tabular-nums">{fmtMoney(s.wallets.totalMmk)}</b></div>
-                <div>THB: <b className="tabular-nums">{fmtMoney(s.wallets.totalThb)}</b></div>
+                {s.wallets.thbWallets > 0 && <div>THB: <b className="tabular-nums">{fmtMoney(s.wallets.totalThb)}</b></div>}
                 <div>Net movement: <b className="tabular-nums">{fmtMoney(s.general.netCashMovement)}</b></div>
                 <div className="font-semibold text-gray-500 lg:col-span-3">Credit / Payable / General</div>
                 <div>Collected: <b className="tabular-nums">{fmtMoney(s.credit.collected)}</b></div>

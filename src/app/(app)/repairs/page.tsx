@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, Wrench } from "lucide-react";
+import { Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Badge, Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { RepairVoucher, buildRepairTextVoucher, type RepairVoucherData } from "@/components/RepairVoucher";
+import { printReceipt } from "@/lib/printReceipt";
+import { sendToRawbt } from "@/lib/thermalReceipt";
 
 interface Job {
   id: string; jobNo: string; status: string;
@@ -25,7 +28,7 @@ const NEXT: Record<string, string[]> = {
   RECEIVED: ["IN_PROGRESS", "WAITING_PARTS", "DONE", "CANCELLED"],
   IN_PROGRESS: ["WAITING_PARTS", "DONE", "CANCELLED"],
   WAITING_PARTS: ["IN_PROGRESS", "DONE", "CANCELLED"],
-  DONE: ["DELIVERED", "IN_PROGRESS", "CANCELLED"],
+  DONE: ["DELIVERED", "RECEIVED", "IN_PROGRESS", "WAITING_PARTS", "CANCELLED"],
   DELIVERED: [],
   CANCELLED: [],
 };
@@ -47,8 +50,30 @@ export default function RepairsPage() {
     estimatedCost: "", depositAmount: "", depositWalletId: "",
     promisedAt: "", notes: "",
   });
+  const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
   const { push } = useToast();
-  const { hasPerm, defaultBranchId } = useAuth();
+  const { hasPerm, defaultBranchId, me } = useAuth();
+
+  function openVoucher(job: Job) {
+    setVoucher({
+      jobNo: job.jobNo,
+      at: job.receivedAt,
+      shopName: me?.business?.name ?? "Mahar Mini POS",
+      shopPhone: me?.business?.phone ?? undefined,
+      shopAddress: me?.business?.address ?? undefined,
+      customerName: job.customerName ?? undefined,
+      customerPhone: job.customerPhone ?? undefined,
+      deviceBrand: job.deviceBrand,
+      deviceModel: job.deviceModel,
+      imei: job.imei ?? undefined,
+      accessories: job.accessories ?? undefined,
+      problem: job.problem,
+      status: job.status,
+      estimatedCost: Number(job.estimatedCost) / 100,
+      finalCost: Number(job.finalCost) / 100,
+      paidAmount: Number(job.paidAmount) / 100,
+    });
+  }
 
   const load = useCallback(() => {
     const params = new URLSearchParams();
@@ -65,7 +90,7 @@ export default function RepairsPage() {
   async function create() {
     setBusy(true);
     try {
-      await api("/api/v1/repairs", {
+      const job = await api<Job>("/api/v1/repairs", {
         method: "POST",
         body: {
           ...form,
@@ -85,6 +110,8 @@ export default function RepairsPage() {
       });
       push("Repair job created");
       setShowNew(false);
+      // The customer leaves with a voucher, so it is ready to print the moment the job is saved.
+      openVoucher(job);
       setForm({
         customerName: "", customerPhone: "", deviceBrand: "", deviceModel: "", imei: "",
         accessories: "", problem: "", estimatedCost: "", depositAmount: "",
@@ -204,9 +231,14 @@ export default function RepairsPage() {
               </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(job.paidAmount)}</td>
               <td className="px-3 py-2.5 text-right">
-                {hasPerm("repair.update") && NEXT[job.status]?.length > 0 && (
-                  <Button variant="secondary" size="sm" onClick={() => startMove(job)}>Update</Button>
-                )}
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => openVoucher(job)}>
+                    <Printer size={14} className="mr-1 inline" />Voucher
+                  </Button>
+                  {hasPerm("repair.update") && NEXT[job.status]?.length > 0 && (
+                    <Button variant="secondary" size="sm" onClick={() => startMove(job)}>Update</Button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -295,6 +327,36 @@ export default function RepairsPage() {
           </div>
         )}
       </Modal>
+
+      {/* Closing clears the voucher, so a later print of another page does not pick it up. */}
+      <Modal open={Boolean(voucher)} onClose={() => setVoucher(null)} title={`Repair voucher ${voucher?.jobNo ?? ""}`}>
+        {voucher && (
+          <div className="space-y-3">
+            <div className="text-center">
+              <p className="font-mono text-lg font-bold">{voucher.jobNo}</p>
+              <p className="text-sm text-gray-500">{voucher.deviceBrand} {voucher.deviceModel}</p>
+            </div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                if (!sendToRawbt(buildRepairTextVoucher(voucher))) {
+                  push("Could not reach RawBT. Install it from the Play Store first.", "error");
+                }
+              }}
+            >
+              <Printer size={16} className="mr-1 inline" />Print to roll printer (RawBT)
+            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => printReceipt()}>
+                <Printer size={16} className="mr-1 inline" />Print voucher
+              </Button>
+              <Button onClick={() => setVoucher(null)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      {voucher && <RepairVoucher data={voucher} />}
     </div>
   );
 }

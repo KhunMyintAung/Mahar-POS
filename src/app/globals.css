@@ -43,6 +43,9 @@ body {
      long basket runs on. */
   body:has(#sale-receipt) > *:not(#sale-receipt) { display: none !important; }
   #sale-receipt { display: block !important; }
+  /* The repair voucher prints the same way. */
+  body:has(#repair-voucher) > *:not(#repair-voucher) { display: none !important; }
+  #repair-voucher { display: block !important; }
 
   /* A till roll is a continuous strip; margins push the slip onto a second one. */
   @page { margin: 0; }

@@ -36,6 +36,11 @@ describe("repair job progress", () => {
     expect(canMove("DONE", "IN_PROGRESS")).toBe(true);
   });
 
+  it("lets a job marked done by mistake go back to any open status", () => {
+    expect(canMove("DONE", "RECEIVED")).toBe(true);
+    expect(canMove("DONE", "WAITING_PARTS")).toBe(true);
+  });
+
   it("refuses a status it has never heard of", () => {
     expect(canMove("RECEIVED", "POSTED")).toBe(false);
     expect(canMove("NONSENSE", "DONE")).toBe(false);
