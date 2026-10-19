@@ -24,6 +24,8 @@ export default function StockPage() {
   const [adjust, setAdjust] = useState({ quantity: "", reason: "" });
   const [adjustBranchId, setAdjustBranchId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [category, setCategory] = useState("ALL");
+  const [q, setQ] = useState("");
   const { push } = useToast();
   const { hasPerm, branches, defaultBranchId } = useAuth();
 
@@ -59,11 +61,35 @@ export default function StockPage() {
   if (!levels) return <Spinner />;
   const lowCount = levels.filter((l) => l.low).length;
 
+  // Stock is read a shelf at a time — phones, glass, accessories, spare parts — so it is
+  // grouped by category, and one category can be picked out on its own.
+  const UNCATEGORISED = "—";
+  const categoryOf = (l: Level) => l.category ?? UNCATEGORISED;
+  const categories = [...new Set(levels.map(categoryOf))].sort((a, b) =>
+    a === UNCATEGORISED ? 1 : b === UNCATEGORISED ? -1 : a.localeCompare(b)
+  );
+  const needle = q.trim().toLowerCase();
+  const shown = levels.filter((l) =>
+    (category === "ALL" || categoryOf(l) === category) &&
+    (!needle || l.name.toLowerCase().includes(needle) || l.sku.toLowerCase().includes(needle))
+  );
+  const groups = categories
+    .map((c) => ({ name: c, rows: shown.filter((l) => categoryOf(l) === c) }))
+    .filter((g) => g.rows.length > 0);
+  const valueOf = (rows: Level[]) => rows.reduce((sum, l) => sum + BigInt(l.costPrice) * BigInt(l.totalQty), 0n);
+
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Stock</h1>
-        {lowCount > 0 && <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">{lowCount} low stock</span>}
+        <div className="flex items-center gap-2">
+          {lowCount > 0 && <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">{lowCount} low stock</span>}
+          {tab === "levels" && (
+            <span className="text-sm text-gray-500">
+              Value: <b className="tabular-nums text-gray-800 dark:text-gray-200">{fmtMoney(valueOf(shown).toString())}</b>
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
@@ -74,14 +100,58 @@ export default function StockPage() {
         ))}
       </div>
 
+      {tab === "levels" && levels.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {["ALL", ...categories].map((c) => {
+              const rows = c === "ALL" ? levels : levels.filter((l) => categoryOf(l) === c);
+              const low = rows.filter((l) => l.low).length;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium",
+                    category === c
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+                  )}
+                >
+                  {c === "ALL" ? "All" : c === UNCATEGORISED ? "No category" : c}
+                  <span className={cn("rounded-full px-1.5 text-xs", category === c ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800")}>{rows.length}</span>
+                  {low > 0 && <span className="h-2 w-2 rounded-full bg-red-500" title={`${low} low`} />}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search name or SKU"
+            className="min-h-10 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800"
+          />
+        </div>
+      )}
+
       {tab === "levels" ? (
-        levels.length === 0 ? <Card><Empty message="No items" /></Card> : (
-          <Table headers={["Item", "SKU", "Category", "Qty", "Min", "Stock value (cost)", ""]} rightAlign={[3, 4, 5]}>
-            {levels.map((l) => (
+        groups.length === 0 ? <Card><Empty message="No items" /></Card> : (
+          <Table headers={["Item", "SKU", "Qty", "Min", "Stock value (cost)", ""]} rightAlign={[2, 3, 4]}>
+            {groups.map((g) => [
+              <tr key={`group-${g.name}`} className="bg-gray-50 dark:bg-gray-800/60">
+                <td colSpan={2} className="px-3 py-2 text-sm font-semibold">
+                  {g.name === UNCATEGORISED ? "No category" : g.name}
+                  <span className="ml-2 text-xs font-normal text-gray-500">{g.rows.length} item(s)</span>
+                </td>
+                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{g.rows.reduce((n, l) => n + l.totalQty, 0)}</td>
+                <td />
+                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{fmtMoney(valueOf(g.rows).toString())}</td>
+                <td />
+              </tr>,
+              ...g.rows.map((l) => (
               <tr key={l.itemId} className={l.low ? "bg-red-50 dark:bg-red-900/10" : ""}>
-                <td className="px-3 py-2.5 font-medium">{l.name}</td>
+                <td className="px-3 py-2.5 pl-6 font-medium">{l.name}</td>
                 <td className="px-3 py-2.5 text-xs text-gray-500">{l.sku}</td>
-                <td className="px-3 py-2.5 text-xs">{l.category ?? "—"}</td>
                 <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", l.low && "text-red-600")}>
                   {l.totalQty} {l.unit ?? ""}
                 </td>
@@ -103,7 +173,8 @@ export default function StockPage() {
                   )}
                 </td>
               </tr>
-            ))}
+              )),
+            ])}
           </Table>
         )
       ) : movements.length === 0 ? <Card><Empty message="No movements" /></Card> : (
