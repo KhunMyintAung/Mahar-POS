@@ -55,6 +55,15 @@ export const metadata: Metadata = {
   },
 };
 
+/** The service worker serves /_next/static/ from its cache first. Built files carry a
+ *  content hash, so that is safe in production; the dev server reuses the same file names,
+ *  so a registered worker kept handing the browser old code after every change. In
+ *  development it is therefore taken out again, along with what it cached. */
+const SERVICE_WORKER_SCRIPT =
+  process.env.NODE_ENV === "production"
+    ? `if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));`
+    : `if("serviceWorker" in navigator)navigator.serviceWorker.getRegistrations().then(rs=>{rs.forEach(r=>r.unregister());if(rs.length&&window.caches)caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))}).catch(()=>{});`;
+
 export const viewport: Viewport = {
   themeColor: "#1d4ed8",
   width: "device-width",
@@ -69,7 +78,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           // apply saved theme before paint to avoid flashing
           dangerouslySetInnerHTML={{
             __html: `try{const t=localStorage.getItem("wn-theme");if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch{}
-if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+${SERVICE_WORKER_SCRIPT}
 /* The browser fires beforeinstallprompt once, usually before React has hydrated. A
    listener added by a component therefore misses it and the Install button never
    appears. Catch it here and hand it over once the component is listening. */
