@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
+import { LayoutList, Printer, Store, UserCircle } from "lucide-react";
+import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
@@ -30,6 +31,20 @@ export default function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [tab, setTab] = useState("shop");
+
+  // The open tab lives in the URL hash, so a reload or a shared link lands on the same one.
+  useEffect(() => {
+    const fromHash = window.location.hash.slice(1);
+    if (fromHash) {
+      const timer = window.setTimeout(() => setTab(fromHash), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+  function selectTab(key: string) {
+    setTab(key);
+    window.history.replaceState(null, "", `#${key}`);
+  }
   const { push } = useToast();
   const { refreshAuth, me, featureEnabled } = useAuth();
 
@@ -88,10 +103,38 @@ export default function SettingsPage() {
 
   if (!data) return <Spinner />;
 
+  // One section at a time instead of one long page. Printing appears only for shops that
+  // print vouchers or warranty cards.
+  const hasPrinting = featureEnabled("pos") || featureEnabled("repair");
+  const tabs = [
+    { key: "shop", label: "Shop", icon: Store },
+    ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
+    { key: "menu", label: "Menu", icon: LayoutList },
+    { key: "account", label: "Account", icon: UserCircle },
+  ] as const;
+  const current = tabs.some((t) => t.key === tab) ? tab : "shop";
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <h1 className="text-xl font-bold">Settings</h1>
 
+      <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => selectTab(t.key)}
+            className={cn(
+              "flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
+              current === t.key ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
+            )}
+          >
+            <t.icon size={16} />{t.label}
+          </button>
+        ))}
+      </div>
+
+      {current === "shop" && <>
       <Card>
         <h3 className="mb-3 text-sm font-semibold">Business profile</h3>
         <div className="space-y-3">
@@ -108,11 +151,15 @@ export default function SettingsPage() {
       </Card>
 
       <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
+      </>}
 
-      {featureEnabled("pos") && <WarrantySettingsCard />}
-
+      {current === "printing" && <>
       {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 
+      {featureEnabled("pos") && <WarrantySettingsCard />}
+      </>}
+
+      {current === "menu" && (
       <Card>
         <h3 className="text-sm font-semibold">Sidebar functions</h3>
         {FEATURE_GROUPS.map((group) => (
@@ -154,7 +201,9 @@ export default function SettingsPage() {
           Save sidebar functions
         </Button>
       </Card>
+      )}
 
+      {current === "account" && <>
       <Card>
         <h3 className="text-sm font-semibold">Privacy and account</h3>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -193,6 +242,7 @@ export default function SettingsPage() {
           </div>
         </Card>
       )}
+      </>}
     </div>
   );
 }
