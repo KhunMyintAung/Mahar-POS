@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Clock3, History, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock3, History, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -20,7 +20,7 @@ interface Job {
   accessories?: string; problem: string; intakeCondition?: string; notes?: string;
   estimatedCost: string; partsCost: string; finalCost: string;
   depositAmount: string; paidAmount: string;
-  receivedAt: string; deliveredAt?: string;
+  receivedAt: string; deliveredAt?: string; promisedAt?: string | null;
   trackToken?: string | null; receivedByName?: string;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
@@ -51,6 +51,72 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+/** The status pill, which opens a small list of the moves allowed from here.
+ *
+ *  Not a native select: browsers draw their own arrow and text on one, which came out large
+ *  and doubled on some phones. The list is fixed-positioned so the table's sideways scroll
+ *  does not clip it. */
+function StatusMenu({ status, options, disabled, onPick }: {
+  status: string; options: RepairStatus[]; disabled?: boolean; onPick: (s: RepairStatus) => void;
+}) {
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (!at) return;
+    const close = () => setAt(null);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [at]);
+
+  return (
+    <>
+      <button
+        type="button"
+        title="Change status"
+        disabled={disabled}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setAt({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 176) });
+        }}
+        className={cn(
+          "inline-flex items-center gap-0.5 whitespace-nowrap rounded-full py-0.5 pl-2 pr-1.5 text-xs font-medium disabled:opacity-60",
+          STATUS_TONE[status] ?? STATUS_TONE.CANCELLED,
+        )}
+      >
+        {REPAIR_STATUS_LABELS[status as RepairStatus] ?? status}
+        <ChevronDown size={11} className="opacity-60" />
+      </button>
+      {at && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setAt(null)} />
+          <div
+            role="menu"
+            className="fixed z-50 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            style={{ top: at.top, left: at.left }}
+          >
+            {options.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="menuitem"
+                onClick={() => { setAt(null); onPick(s); }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_TONE[s]?.split(" ")[0])} />
+                {REPAIR_STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 const blankForm = {
   customerName: "", customerPhone: "",
   deviceBrand: "", deviceModel: "", imei: "",
@@ -75,6 +141,8 @@ export default function RepairsPage() {
   const [working, setWorking] = useState<Job | null>(null);
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
+  const [editing, setEditing] = useState<Job | null>(null);
+  const [edit, setEdit] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
   const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
   const [historyImei, setHistoryImei] = useState("");
@@ -127,17 +195,17 @@ export default function RepairsPage() {
   useEffect(load, [load]);
 
   useEffect(() => {
-    if (!showNew || !hasPerm("repair.create")) return;
+    if (!(showNew && hasPerm("repair.create")) && !editing) return;
     api<Suggestions>("/api/v1/repairs/device-suggestions").then(setSuggestions).catch(() => {});
-  }, [showNew, hasPerm]);
+  }, [showNew, editing, hasPerm]);
 
   /** Models seen with the brand being typed come first; the rest follow. */
   const modelSuggestions = useMemo(() => {
-    const brand = form.deviceBrand.trim().toLowerCase();
+    const brand = (editing ? edit.deviceBrand : form.deviceBrand).trim().toLowerCase();
     const matched = suggestions.pairs.filter((p) => p.brand.trim().toLowerCase() === brand).map((p) => p.model);
     const rest = brand ? [] : suggestions.pairs.map((p) => p.model);
     return [...new Set([...matched, ...rest])].slice(0, 120);
-  }, [form.deviceBrand, suggestions]);
+  }, [editing, edit.deviceBrand, form.deviceBrand, suggestions]);
 
   async function create() {
     setBusy(true);
@@ -175,6 +243,55 @@ export default function RepairsPage() {
     }
   }
 
+  function startEdit(job: Job) {
+    setEditing(job);
+    setEdit({
+      ...blankForm,
+      customerName: job.customerName ?? "",
+      customerPhone: job.customerPhone ?? "",
+      deviceBrand: job.deviceBrand,
+      deviceModel: job.deviceModel,
+      imei: job.imei ?? "",
+      accessories: job.accessories ?? "",
+      problem: job.problem,
+      intakeCondition: job.intakeCondition ?? "",
+      priority: job.priority || "NORMAL",
+      estimatedCost: String(Number(job.estimatedCost) / 100),
+      promisedAt: job.promisedAt ? job.promisedAt.slice(0, 10) : "",
+      notes: job.notes ?? "",
+    });
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/repairs/${editing.id}/details`, {
+        method: "PATCH",
+        body: {
+          customerName: edit.customerName,
+          customerPhone: edit.customerPhone,
+          deviceBrand: edit.deviceBrand,
+          deviceModel: edit.deviceModel,
+          imei: edit.imei,
+          accessories: edit.accessories,
+          problem: edit.problem,
+          intakeCondition: edit.intakeCondition,
+          priority: edit.priority,
+          estimatedCost: edit.estimatedCost || "0",
+          promisedAt: edit.promisedAt,
+          notes: edit.notes,
+        },
+      });
+      setEditing(null);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function startMove(job: Job, to?: string) {
     setWorking(job);
     setMove({
@@ -198,7 +315,7 @@ export default function RepairsPage() {
     setQuickSaving(job.id);
     try {
       await api(`/api/v1/repairs/${job.id}`, { method: "PATCH", body: { status: to } });
-      push(`${job.jobNo}: ${REPAIR_STATUS_LABELS[to as RepairStatus] ?? to}`);
+      // No toast: the pill changing colour is confirmation enough.
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -221,7 +338,6 @@ export default function RepairsPage() {
           notes: move.notes || undefined,
         },
       });
-      push(move.status === "DELIVERED" ? "Handed back and paid" : "Repair updated");
       setWorking(null);
       load();
     } catch (e) {
@@ -350,24 +466,12 @@ export default function RepairsPage() {
                 <td className="px-3 py-2.5">
                   {canQuick ? (
                     // Picking a status here saves it at once, so a mistake is one more pick away.
-                    // The select is the pill itself: an invisible select laid over a pill
-                    // showed its own text on some phones, so the status read twice.
-                    <select
-                      aria-label={`Change status of ${job.jobNo}`}
-                      title="Change status"
-                      value={job.status}
+                    <StatusMenu
+                      status={job.status}
+                      options={options}
                       disabled={quickSaving === job.id}
-                      onChange={(e) => quickStatus(job, e.target.value)}
-                      className={cn(
-                        "cursor-pointer appearance-none rounded-full border-0 py-0.5 pl-2 pr-5 text-xs font-medium outline-none",
-                        "bg-[length:10px] bg-[right_6px_center] bg-no-repeat",
-                        STATUS_TONE[job.status] ?? STATUS_TONE.CANCELLED,
-                      )}
-                      style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E\")" }}
-                    >
-                      <option value={job.status}>{REPAIR_STATUS_LABELS[job.status as RepairStatus] ?? job.status}</option>
-                      {options.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
-                    </select>
+                      onPick={(s) => quickStatus(job, s)}
+                    />
                   ) : (
                     <StatusPill status={job.status} />
                   )}
@@ -383,8 +487,8 @@ export default function RepairsPage() {
                     <Button variant="ghost" size="sm" onClick={() => openVoucher(job)}>
                       <Printer size={14} className="mr-1 inline" />Voucher
                     </Button>
-                    {canQuick && (
-                      <Button variant="secondary" size="sm" onClick={() => startMove(job)}>Update</Button>
+                    {hasPerm("repair.update") && (
+                      <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
                     )}
                   </div>
                 </td>
@@ -413,14 +517,16 @@ export default function RepairsPage() {
         </div>
       </Card>
 
+      {/* Shared by the intake and edit forms. */}
+      <datalist id="repair-brand-suggestions">
+        {suggestions.brands.map((b) => <option key={b} value={b} />)}
+      </datalist>
+      <datalist id="repair-model-suggestions">
+        {modelSuggestions.map((m) => <option key={m} value={m} />)}
+      </datalist>
+
       <Modal open={showNew} onClose={() => setShowNew(false)} title="Take in a device" wide>
         <div className="space-y-3">
-          <datalist id="repair-brand-suggestions">
-            {suggestions.brands.map((b) => <option key={b} value={b} />)}
-          </datalist>
-          <datalist id="repair-model-suggestions">
-            {modelSuggestions.map((m) => <option key={m} value={m} />)}
-          </datalist>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Customer name" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
             <Input label="Phone" value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
@@ -471,6 +577,42 @@ export default function RepairsPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={editing ? `${editing.jobNo}` : ""} wide>
+        {editing && (
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Customer name" value={edit.customerName} onChange={(e) => setEdit({ ...edit, customerName: e.target.value })} />
+              <Input label="Phone" value={edit.customerPhone} onChange={(e) => setEdit({ ...edit, customerPhone: e.target.value })} />
+              <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => setEdit({ ...edit, deviceBrand: e.target.value })} />
+              <Input label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} />
+              <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
+              <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
+                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+              </Select>
+            </div>
+            <Input label="Problem" value={edit.problem} onChange={(e) => setEdit({ ...edit, problem: e.target.value })} />
+            <Input label="Intake condition" value={edit.intakeCondition} onChange={(e) => setEdit({ ...edit, intakeCondition: e.target.value })} />
+            <Input label="Came in with" value={edit.accessories} onChange={(e) => setEdit({ ...edit, accessories: e.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Estimated charge"
+                value={edit.estimatedCost}
+                disabled={editing.status === "DELIVERED" || editing.status === "CANCELLED"}
+                onChange={(e) => setEdit({ ...edit, estimatedCost: e.target.value })}
+              />
+              <Input label="Promised date" type="date" value={edit.promisedAt} onChange={(e) => setEdit({ ...edit, promisedAt: e.target.value })} />
+            </div>
+            <Input label="Notes" value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button onClick={saveEdit} disabled={busy || !edit.deviceBrand.trim() || !edit.deviceModel.trim() || !edit.problem.trim()}>
+                {busy ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={Boolean(working)} onClose={() => setWorking(null)} title={working ? `${working.jobNo} — ${working.deviceBrand} ${working.deviceModel}` : ""}>

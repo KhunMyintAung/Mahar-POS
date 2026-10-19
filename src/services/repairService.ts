@@ -119,6 +119,75 @@ export async function createRepairJob(
   return job;
 }
 
+/** What can be corrected on a job after intake. Money that has moved (deposit, payments)
+ *  is not here: that is fixed by the wallet entries, not by editing the job. */
+export interface RepairDetails {
+  customerName?: string | null;
+  customerPhone?: string | null;
+  deviceBrand?: string;
+  deviceModel?: string;
+  imei?: string | null;
+  accessories?: string | null;
+  problem?: string;
+  intakeCondition?: string | null;
+  priority?: RepairPriority;
+  estimatedCost?: bigint;
+  promisedAt?: Date | null;
+  notes?: string | null;
+}
+
+export async function updateRepairDetails(
+  tx: Tx,
+  opts: { businessId: string; userId: string; jobId: string; details: RepairDetails }
+) {
+  const job = await tx.repairJob.findFirst({
+    where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
+  });
+  if (!job) throw new ApiError(404, "Repair job not found");
+
+  const d = opts.details;
+  if (d.estimatedCost !== undefined) {
+    if (d.estimatedCost < 0n) throw new ApiError(422, "Amounts cannot be negative");
+    if (job.status === "DELIVERED" || job.status === "CANCELLED") {
+      if (d.estimatedCost !== job.estimatedCost) {
+        throw new ApiError(422, "The quote cannot change once the job is closed");
+      }
+    }
+  }
+
+  // Only what actually changed goes into the record and the audit trail.
+  const changes: Record<string, unknown> = {};
+  const before: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(d) as [keyof RepairDetails, unknown][]) {
+    if (value === undefined) continue;
+    const current = job[key as keyof typeof job];
+    const same = value instanceof Date && current instanceof Date
+      ? value.getTime() === current.getTime()
+      : value === current;
+    if (same) continue;
+    changes[key] = value;
+    before[key] = typeof current === "bigint" ? current.toString() : current;
+  }
+  if (Object.keys(changes).length === 0) return job;
+
+  const updated = await tx.repairJob.update({ where: { id: job.id }, data: changes });
+
+  await audit(tx, {
+    businessId: opts.businessId,
+    userId: opts.userId,
+    branchId: job.branchId,
+    action: "UPDATE",
+    module: "repair",
+    resourceType: "RepairJob",
+    resourceId: job.id,
+    before,
+    after: Object.fromEntries(
+      Object.entries(changes).map(([k, v]) => [k, typeof v === "bigint" ? v.toString() : v])
+    ),
+  });
+  return updated;
+}
+
 export async function updateRepairStatus(
   tx: Tx,
   opts: {
