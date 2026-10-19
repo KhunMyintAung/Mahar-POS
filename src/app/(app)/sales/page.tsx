@@ -46,7 +46,7 @@ export default function SalesPage() {
     setBusy(true);
     try {
       await api(`/api/v1/sales/${cancelTarget.id}/cancel`, { method: "POST", body: { reason } });
-      push("Sale cancelled — stock and wallet reversed");
+      push("Sale voided — stock and wallet reversed");
       setCancelTarget(null); setReason("");
       load();
     } catch (e) {
@@ -127,7 +127,7 @@ export default function SalesPage() {
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(s.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(s.paidAmount)}</td>
               <td className="px-3 py-2 text-right tabular-nums text-green-600">{fmtMoney(s.profit)}</td>
-              <td className="px-3 py-2"><Badge status={s.status === "CANCELLED" ? "CANCELLED" : s.paymentStatus} /></td>
+              <td className="px-3 py-2"><Badge status={s.status === "CANCELLED" ? "VOID" : s.paymentStatus} /></td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
                   {s.status === "COMPLETED" && (
@@ -136,7 +136,7 @@ export default function SalesPage() {
                     </Button>
                   )}
                   {s.status === "COMPLETED" && hasPerm("sale.cancel") && (
-                    <Button size="sm" variant="ghost" onClick={() => setCancelTarget(s)}>Cancel</Button>
+                    <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setCancelTarget(s)}>Void</Button>
                   )}
                 </div>
               </td>
@@ -145,7 +145,7 @@ export default function SalesPage() {
         </Table>
       )}
 
-      <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Cancel ${cancelTarget?.txnNo}`}>
+      <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Void ${cancelTarget?.txnNo}`}>
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Stock returns to inventory and any wallet receipt is reversed. This is logged.
@@ -153,7 +153,7 @@ export default function SalesPage() {
           <Input label="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setCancelTarget(null)}>Close</Button>
-            <Button variant="danger" onClick={cancel} disabled={busy || reason.trim().length < 3}>Cancel sale</Button>
+            <Button variant="danger" onClick={cancel} disabled={busy || reason.trim().length < 3}>Void sale</Button>
           </div>
         </div>
       </Modal>
