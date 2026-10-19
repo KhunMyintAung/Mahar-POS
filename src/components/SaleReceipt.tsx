@@ -20,7 +20,8 @@ export interface ReceiptData {
   shopAddress?: string;
   customerName?: string;
   cashierName?: string;
-  lines: { name: string; quantity: number; unitPrice: number }[];
+  /** warranty is the label given at the till; warrantyUntil (ISO) is set when it has a length. */
+  lines: { name: string; quantity: number; unitPrice: number; warranty?: string; warrantyUntil?: string }[];
   subtotal: number;
   discount: number;
   total: number;
@@ -89,6 +90,12 @@ export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
               <span>{line.quantity} x {money(line.unitPrice)}</span>
               <span>{money(line.quantity * line.unitPrice)}</span>
             </div>
+            {line.warranty && (
+              <div className="font-bold">
+                ✔ {line.warranty}
+                {line.warrantyUntil && <> (until {new Date(line.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})</>}
+              </div>
+            )}
           </div>
         ))}
 

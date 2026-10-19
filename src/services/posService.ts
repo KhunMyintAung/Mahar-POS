@@ -15,6 +15,9 @@ export interface LineInput {
   itemId: string;
   quantity: number;
   unitPrice: bigint; // unit cost for purchases, selling price for sales
+  /** Sales only: the warranty given with this line, as printed, and its length in days. */
+  warranty?: string;
+  warrantyDays?: number;
 }
 
 export function computeTotals(lines: { quantity: number; unitPrice: bigint }[], discount: bigint) {
@@ -243,6 +246,8 @@ export async function createSale(
         unitPrice: l.unitPrice,
         unitCost: item.costPrice,
         lineTotal: BigInt(l.quantity) * l.unitPrice,
+        warranty: l.warranty || null,
+        warrantyDays: l.warranty ? Math.max(0, l.warrantyDays ?? 0) : 0,
       },
     });
   }

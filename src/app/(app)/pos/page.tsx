@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
@@ -10,6 +10,10 @@ import { useAuth } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
 import { ProductKindIcon } from "@/components/ProductKindIcon";
+import {
+  DEFAULT_WARRANTY, WARRANTY_SETTING, parseWarrantySettings, phoneCondition, warrantyOptionsFor,
+  warrantyUntil, type WarrantyOption, type WarrantySettings,
+} from "@/lib/warranty";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printReceipt } from "@/lib/printReceipt";
 
@@ -20,11 +24,12 @@ interface Item {
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
-interface CartLine { item: Item; quantity: number; unitPrice: number }
+/** warranty is set only for phones marked new or second-hand; null means none was offered. */
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null }
 interface SaleResult { txnNo: string; total: string; profit: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -55,6 +60,7 @@ export default function PosPage() {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("ALL");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [warrantySettings, setWarrantySettings] = useState<WarrantySettings>(DEFAULT_WARRANTY);
   const [discount, setDiscount] = useState("0");
   const [walletId, setWalletId] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -84,6 +90,9 @@ export default function PosPage() {
     }).catch(() => {});
     api<{ contacts: Contact[] }>("/api/v1/customers?type=CUSTOMER&pageSize=200")
       .then((data) => setCustomers(data.contacts)).catch(() => {});
+    api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${WARRANTY_SETTING}`)
+      .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
+      .catch(() => {});
   }, [push]);
 
   useEffect(load, [load]);
@@ -108,7 +117,7 @@ export default function PosPage() {
             const stock = item.stockLevels
               .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
               .reduce((total, level) => total + level.quantity, 0);
-            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice }];
+            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null }];
           }).filter((line) => line.quantity > 0));
           setDiscount(draft.discount);
           setWalletId(draft.walletId);
@@ -131,7 +140,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -186,7 +195,13 @@ export default function PosPage() {
       if (existing) {
         return current.map((line) => line.item.id === item.id ? { ...line, quantity: line.quantity + 1 } : line);
       }
-      return [...current, { item, quantity: 1, unitPrice: Number(BigInt(item.sellingPrice)) / 100 }];
+      return [...current, {
+        item,
+        quantity: 1,
+        unitPrice: Number(BigInt(item.sellingPrice)) / 100,
+        // A new or second-hand phone starts on the shop's first warranty choice for it.
+        warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
+      }];
     });
     // Both tapping a product and scanning a barcode arrive here, so one beep covers both.
     // The out-of-stock case above returns before this: it gets the error tone instead.
@@ -267,6 +282,8 @@ export default function PosPage() {
             itemId: line.item.id,
             quantity: line.quantity,
             unitPrice: line.unitPrice.toString(),
+            warranty: line.warranty?.label,
+            warrantyDays: line.warranty?.days,
           })),
           discount: disc.toString(),
           paidAmount: paidAmount.toString(),
@@ -287,6 +304,8 @@ export default function PosPage() {
           name: line.item.name,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
+          warranty: line.warranty?.label,
+          warrantyUntil: line.warranty ? warrantyUntil(new Date(), line.warranty.days)?.toISOString() : undefined,
         })),
         subtotal,
         discount: disc,
@@ -393,13 +412,36 @@ export default function PosPage() {
               {cart.map((line) => (
                 <div key={line.item.id} className="space-y-2 border-b border-gray-100 pb-2 text-sm last:border-0 dark:border-gray-800">
                   <div className="flex items-center gap-2">
-                    <ProductKindIcon item={line.item} size={14} className="h-7 w-7 rounded-md" />
                     <div className="min-w-0 flex-1 truncate font-medium">{line.item.name}</div>
                     <b className="tabular-nums">{(line.unitPrice * line.quantity).toLocaleString()} MMK</b>
                     <button onClick={() => changeQuantity(line.item.id, 0)} className="min-h-9 min-w-9 rounded-lg p-2 text-gray-400 hover:text-red-500" aria-label={`Remove ${line.item.name}`}>
                       <Trash2 size={15} />
                     </button>
                   </div>
+                  {(() => {
+                    const condition = phoneCondition(line.item);
+                    const options = warrantyOptionsFor(warrantySettings, condition);
+                    if (options.length === 0) return null;
+                    return (
+                      <label className="flex items-center gap-2 rounded-lg bg-green-50 px-2 py-1.5 text-xs dark:bg-green-900/20">
+                        <ShieldCheck size={15} className="shrink-0 text-green-600" />
+                        <span className="shrink-0 font-medium text-green-700 dark:text-green-300">
+                          {condition === "NEW" ? "New phone" : "Second-hand"}
+                        </span>
+                        <select
+                          aria-label={`Warranty for ${line.item.name}`}
+                          value={line.warranty?.label ?? ""}
+                          onChange={(e) => {
+                            const picked = options.find((o) => o.label === e.target.value) ?? null;
+                            setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, warranty: picked } : entry));
+                          }}
+                          className="min-h-8 min-w-0 flex-1 rounded-md border border-green-200 bg-white px-2 text-xs dark:border-green-800 dark:bg-gray-800"
+                        >
+                          {options.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
+                        </select>
+                      </label>
+                    );
+                  })()}
                   <div className="flex items-end justify-between gap-2">
                     <Input
                       label="Selling price"

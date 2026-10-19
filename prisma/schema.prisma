@@ -722,4 +722,10 @@ model SaleLine {
   unitPrice BigInt
   unitCost  BigInt
   lineTotal BigInt
+  /**
+   * The warranty given with this line, as printed on the receipt ("1 year"), and its length
+   * in days so the end date can be worked out from the sale date. Empty when none was given.
+   */
+  warranty     String?
+  warrantyDays Int     @default(0)
 }

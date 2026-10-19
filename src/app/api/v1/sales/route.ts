@@ -60,6 +60,8 @@ const lineSchema = z.object({
   itemId: z.string().min(1),
   quantity: z.number().int().positive(),
   unitPrice: z.string().min(1),
+  warranty: z.string().trim().max(60).optional(),
+  warrantyDays: z.number().int().min(0).max(3650).optional(),
 });
 
 const schema = z.object({
@@ -86,7 +88,13 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
       userId: user.id,
       date: body.date,
       customerId: body.customerId,
-      lines: body.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: toMinor(l.unitPrice) })),
+      lines: body.lines.map((l) => ({
+        itemId: l.itemId,
+        quantity: l.quantity,
+        unitPrice: toMinor(l.unitPrice),
+        warranty: l.warranty || undefined,
+        warrantyDays: l.warrantyDays,
+      })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),
       walletId: body.walletId,

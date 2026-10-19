@@ -9,12 +9,16 @@ import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, use
 import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
 import { printReceipt } from "@/lib/printReceipt";
+import { warrantyUntil } from "@/lib/warranty";
 
 interface Sale {
   id: string; txnNo: string; date: string; total: string; paidAmount: string; profit: string;
   subtotal: string; discount: string;
   paymentStatus: string; status: string; customerName?: string; cashierName?: string; createdAt: string;
-  lines: { id: string; quantity: number; unitPrice: string; item: { name: string } }[];
+  lines: {
+    id: string; quantity: number; unitPrice: string; item: { name: string };
+    warranty?: string | null; warrantyDays: number;
+  }[];
 }
 
 /** Amounts come back in minor units; the slip prints whole kyat, as at the till. */
@@ -69,7 +73,14 @@ export default function SalesPage() {
       shopAddress: me?.business?.address ?? undefined,
       customerName: s.customerName,
       cashierName: s.cashierName,
-      lines: s.lines.map((l) => ({ name: l.item.name, quantity: l.quantity, unitPrice: major(l.unitPrice) })),
+      lines: s.lines.map((l) => ({
+        name: l.item.name,
+        quantity: l.quantity,
+        unitPrice: major(l.unitPrice),
+        warranty: l.warranty ?? undefined,
+        // Counted from when the sale was made, so a reprint carries the same end date.
+        warrantyUntil: l.warranty ? warrantyUntil(new Date(s.createdAt), l.warrantyDays)?.toISOString() : undefined,
+      })),
       subtotal: major(s.subtotal),
       discount: major(s.discount),
       total,
@@ -119,7 +130,10 @@ export default function SalesPage() {
                 {expanded === s.id && (
                   <ul className="mt-1 space-y-0.5 text-gray-500">
                     {s.lines.map((l) => (
-                      <li key={l.id}>{l.item.name} × {l.quantity} @ {fmtMoney(l.unitPrice)}</li>
+                      <li key={l.id}>
+                        {l.item.name} × {l.quantity} @ {fmtMoney(l.unitPrice)}
+                        {l.warranty && <span className="ml-1 text-green-600">· {l.warranty}</span>}
+                      </li>
                     ))}
                   </ul>
                 )}

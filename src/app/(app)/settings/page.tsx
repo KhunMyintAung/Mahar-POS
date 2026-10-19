@@ -7,6 +7,7 @@ import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
+import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -107,6 +108,8 @@ export default function SettingsPage() {
       </Card>
 
       <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
+
+      {featureEnabled("pos") && <WarrantySettingsCard />}
 
       {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 
