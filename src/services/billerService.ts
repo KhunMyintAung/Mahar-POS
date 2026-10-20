@@ -210,6 +210,7 @@ export async function voidBillerTxn(
   });
   if (!record) throw new ApiError(404, "Movement not found");
   if (record.voidedAt) throw new ApiError(422, `${record.txnNo} is already voided`);
+  if (record.biller.deletedAt) throw new ApiError(422, "This biller has been deleted, so its movements can no longer be voided");
 
   const kind = record.kind as BillerTxnKind;
   // faceAmount is stored signed for an adjustment, so it is the delta itself.

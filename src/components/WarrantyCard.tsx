@@ -72,7 +72,7 @@ export function WarrantyCardSlip({ receipt, terms }: {
             <div className="text-center">
               {receipt.shopLogo && (
                 // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
-                <img src={receipt.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[40mm] object-contain" />
+                <img src={receipt.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[46mm] object-contain" />
               )}
               <div className="text-[13px] font-bold">{receipt.shopName}</div>
               {(receipt.shopPhone || receipt.shopAddress) && (

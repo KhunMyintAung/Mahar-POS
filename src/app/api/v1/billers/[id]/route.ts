@@ -73,7 +73,11 @@ export const DELETE = withAuth("biller.manage", async ({ user, params }) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.biller.update({ where: { id }, data: { deletedAt: new Date(), active: false } });
+    // The name is unique per business, so it is freed for a new biller of the same name.
+    await tx.biller.update({
+      where: { id },
+      data: { deletedAt: new Date(), active: false, name: `${biller.name} (deleted ${id.slice(0, 8)})` },
+    });
     await audit(tx, {
       businessId: user.businessId,
       userId: user.id,

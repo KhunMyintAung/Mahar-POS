@@ -39,6 +39,9 @@ if [ "$old_lock" != "$(sha1sum package-lock.json | cut -d' ' -f1)" ] || [ ! -d n
 fi
 echo "Migrating…"
 npx prisma migrate deploy 2>&1 | grep -E "Applying|applied|No pending|error" || true
+# npm ci only regenerates the client when packages change; a schema change alone needs this,
+# or the app runs against the old model and rejects every new field.
+npx prisma generate >/dev/null
 echo "Building (a few minutes on 1 CPU)…"
 NEXT_SKIP_TYPECHECK=1 nice -n 19 npx next build > ../build.log 2>&1 || { tail -20 ../build.log; exit 1; }
 cd ..

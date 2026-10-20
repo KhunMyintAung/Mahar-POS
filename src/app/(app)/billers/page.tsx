@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Percent, Plus, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Percent, Plus, Smartphone, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
@@ -18,7 +18,7 @@ interface Txn {
   faceAmount: string; cashAmount: string; profit: string; balanceAfter: string;
   customerPhone?: string; note?: string; createdAt: string;
   voidedAt?: string | null; voidReason?: string | null;
-  biller: { name: string; type: string };
+  biller: { name: string; type: string; deletedAt?: string | null };
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 
@@ -68,6 +68,7 @@ export default function BillersPage() {
   const [voidReason, setVoidReason] = useState("");
   const [rating, setRating] = useState<Biller | null>(null);
   const [rates, setRates] = useState({ sellPercent: "", refillPercent: "" });
+  const [removing, setRemoving] = useState<Biller | null>(null);
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
@@ -193,6 +194,31 @@ export default function BillersPage() {
     }
   }
 
+  /** A biller still holding a balance is first adjusted to zero, so the books show where
+   *  that balance went, and then removed. */
+  async function removeBiller() {
+    if (!removing) return;
+    setBusy(true);
+    try {
+      const balance = Number(removing.currentBalance) / 100;
+      if (balance !== 0) {
+        await api("/api/v1/billers/txns", {
+          method: "POST",
+          body: { billerId: removing.id, kind: "ADJUST", faceAmount: String(-balance), cashAmount: "0", note: "Set to zero before deleting" },
+        });
+      }
+      await api(`/api/v1/billers/${removing.id}`, { method: "DELETE" });
+      push(`${removing.name} deleted`);
+      if (filter === removing.id) setFilter("");
+      setRemoving(null);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveRates() {
     if (!rating) return;
     setBusy(true);
@@ -226,10 +252,50 @@ export default function BillersPage() {
         )}
       </div>
 
-      <Card className="flex items-center justify-between">
-        <span className="text-sm text-gray-500">Float held with all operators</span>
-        <b className="text-lg tabular-nums">{fmtMoney(totalFloat)}</b>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day"><ChevronLeft size={16} /></Button>
+          <input
+            type="date"
+            value={date}
+            max={today()}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          />
+          <Button size="sm" variant="ghost" disabled={date >= today()} onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day"><ChevronRight size={16} /></Button>
+          {date !== today() && <Button size="sm" variant="secondary" onClick={() => setDate(today())}>Today</Button>}
+        </div>
+        <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-48">
+          <option value="">All billers</option>
+          {billers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Card className="col-span-2 space-y-1 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 lg:col-span-1">
+          <div className="text-xs font-medium text-blue-700 dark:text-blue-300">{date === today() ? "Today's sales total" : "Sales total"}</div>
+          <div className="text-2xl font-bold tabular-nums">{fmtMoney(summary?.soldFace ?? "0")}</div>
+          <div className="text-xs text-gray-500"><span className="tabular-nums">{summary?.soldCount ?? 0}</span> sales</div>
+        </Card>
+        <Card className="col-span-2 space-y-1 border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40 lg:col-span-1">
+          <div className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Stock value total</div>
+          <div className={`text-2xl font-bold tabular-nums ${Number(totalFloat) < 0 ? "text-red-600" : ""}`}>{fmtMoney(totalFloat)}</div>
+          <div className="text-xs text-gray-500">Held with all billers now</div>
+        </Card>
+        <Card className="space-y-1">
+          <div className="text-xs text-gray-500">Cash received</div>
+          <div className="text-lg font-bold tabular-nums text-green-600">{fmtMoney(summary?.soldCash ?? "0")}</div>
+        </Card>
+        <Card className="space-y-1">
+          <div className="text-xs text-gray-500">Refilled</div>
+          <div className="text-lg font-bold tabular-nums">{fmtMoney(summary?.refillFace ?? "0")}</div>
+          <div className="text-xs text-gray-500">Cash paid <span className="tabular-nums">{fmtMoney(summary?.refillCash ?? "0")}</span></div>
+        </Card>
+        <Card className="col-span-2 space-y-1 lg:col-span-1">
+          <div className="text-xs text-gray-500">Margin</div>
+          <div className={`text-lg font-bold tabular-nums ${Number(summary?.profit ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>{fmtMoney(summary?.profit ?? "0")}</div>
+        </Card>
+      </div>
 
       {billers.length === 0 ? (
         <Card><Empty message="No billers yet. Add the operators this shop buys float from." /></Card>
@@ -252,6 +318,16 @@ export default function BillersPage() {
                       onClick={() => { setRating(b); setRates({ sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "" }); }}
                     >
                       <Percent size={15} />
+                    </button>
+                  )}
+                  {hasPerm("biller.manage") && (
+                    <button
+                      type="button"
+                      title="Delete biller"
+                      className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                      onClick={() => setRemoving(b)}
+                    >
+                      <Trash2 size={15} />
                     </button>
                   )}
                 </div>
@@ -277,48 +353,9 @@ export default function BillersPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day"><ChevronLeft size={16} /></Button>
-          <input
-            type="date"
-            value={date}
-            max={today()}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-          />
-          <Button size="sm" variant="ghost" disabled={date >= today()} onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day"><ChevronRight size={16} /></Button>
-          {date !== today() && <Button size="sm" variant="secondary" onClick={() => setDate(today())}>Today</Button>}
-        </div>
-        <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-48">
-          <option value="">All billers</option>
-          {billers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </Select>
-      </div>
 
-      {summary && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Card className="space-y-1">
-            <div className="text-xs text-gray-500">Sold</div>
-            <div className="text-lg font-bold tabular-nums">{fmtMoney(summary.soldFace)}</div>
-            <div className="text-xs text-gray-500"><span className="tabular-nums">{summary.soldCount}</span> sales</div>
-          </Card>
-          <Card className="space-y-1">
-            <div className="text-xs text-gray-500">Cash received</div>
-            <div className="text-lg font-bold tabular-nums text-green-600">{fmtMoney(summary.soldCash)}</div>
-          </Card>
-          <Card className="space-y-1">
-            <div className="text-xs text-gray-500">Refilled</div>
-            <div className="text-lg font-bold tabular-nums">{fmtMoney(summary.refillFace)}</div>
-            <div className="text-xs text-gray-500">Cash paid <span className="tabular-nums">{fmtMoney(summary.refillCash)}</span></div>
-          </Card>
-          <Card className="space-y-1">
-            <div className="text-xs text-gray-500">Margin</div>
-            <div className={`text-lg font-bold tabular-nums ${Number(summary.profit) < 0 ? "text-red-600" : "text-green-600"}`}>{fmtMoney(summary.profit)}</div>
-          </Card>
-        </div>
-      )}
 
+      <h2 className="pt-2 font-semibold">Movements</h2>
       {txns.length === 0 ? (
         <Card><Empty message="Nothing recorded on this day." /></Card>
       ) : (
@@ -347,7 +384,7 @@ export default function BillersPage() {
               </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.balanceAfter)}</td>
               <td className="px-3 py-2.5 text-right">
-                {!t.voidedAt && hasPerm("biller.trade") && (
+                {!t.voidedAt && !t.biller.deletedAt && hasPerm("biller.trade") && (
                   <Button size="sm" variant="ghost" onClick={() => { setVoiding(t); setVoidReason(""); }}>Void</Button>
                 )}
               </td>
@@ -472,6 +509,26 @@ export default function BillersPage() {
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setVoiding(null)}>Close</Button>
               <Button variant="danger" onClick={applyVoid} disabled={busy || voidReason.trim().length < 3}>{busy ? "Saving…" : "Void"}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(removing)} onClose={() => setRemoving(null)} title={`Delete ${removing?.name ?? ""}`}>
+        {removing && (
+          <div className="space-y-3">
+            {Number(removing.currentBalance) !== 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                This biller still has a balance of <b className="tabular-nums">{fmtMoney(removing.currentBalance)}</b>. It will be set to 0 with an adjustment, then the biller is deleted.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-300">The biller is removed from the list. Its past movements stay in the records.</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setRemoving(null)}>Cancel</Button>
+              <Button variant="danger" onClick={removeBiller} disabled={busy}>
+                {busy ? "Saving…" : Number(removing.currentBalance) !== 0 ? "Set to 0 and delete" : "Delete"}
+              </Button>
             </div>
           </div>
         )}

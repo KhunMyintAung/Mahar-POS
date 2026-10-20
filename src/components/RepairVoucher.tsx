@@ -82,7 +82,7 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
         <div className="text-center">
           {data.shopLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
-            <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[40mm] object-contain" />
+            <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[46mm] object-contain" />
           )}
           <div className="text-[13px] font-bold">{data.shopName}</div>
           {data.tagline && <div>{data.tagline}</div>}

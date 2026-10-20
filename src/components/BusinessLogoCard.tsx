@@ -5,31 +5,63 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, useToast } from "@/components/ui";
 
-/** Longest side of the stored logo. Plenty for a 58mm slip, small enough to live in the
- *  database and travel with every print. */
-const MAX_SIDE = 360;
+/** Largest stored logo. Wide word-mark logos keep their full width; plenty for a 58mm slip
+ *  and small enough to live in the database and travel with every print. */
+const MAX_WIDTH = 640;
+const MAX_HEIGHT = 320;
+
+/** The box around the non-transparent pixels, so empty margins in a PNG do not shrink the
+ *  logo on the slip. */
+function contentBox(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const { data } = ctx.getImageData(0, 0, w, h);
+  let top = h, left = w, right = -1, bottom = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] > 8) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+  }
+  return right < 0 ? { x: 0, y: 0, w, h } : { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+}
 
 /** Shrink the picked image in the browser and hand back a data URL.
- *  PNG keeps a transparent background; anything else becomes JPEG, which is far smaller. */
+ *  PNG, WebP, GIF and SVG keep a transparent background as PNG; a JPEG stays JPEG. */
 function shrink(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+      // An SVG without a size reports 0; draw it at a sensible width instead.
+      const srcW = img.width || 640;
+      const srcH = img.height || 320;
+      const png = file.type !== "image/jpeg";
+
+      // Draw at full size first so the empty margins can be cut off before shrinking.
+      const full = document.createElement("canvas");
+      full.width = srcW;
+      full.height = srcH;
+      const fctx = full.getContext("2d", { willReadFrequently: true });
+      if (!fctx) return reject(new Error("Could not read the image"));
+      fctx.drawImage(img, 0, 0, srcW, srcH);
+      const box = png ? contentBox(fctx, srcW, srcH) : { x: 0, y: 0, w: srcW, h: srcH };
+
+      const scale = Math.min(1, MAX_WIDTH / box.w, MAX_HEIGHT / box.h);
       const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(img.width * scale));
-      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.width = Math.max(1, Math.round(box.w * scale));
+      canvas.height = Math.max(1, Math.round(box.h * scale));
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Could not read the image"));
-      const png = file.type === "image/png";
       if (!png) {
         // JPEG has no transparency; a white ground matches the paper.
         ctx.fillStyle = "#fff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(full, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL(png ? "image/png" : "image/jpeg", 0.85));
     };
     img.onerror = () => {
@@ -75,9 +107,9 @@ export function BusinessLogoCard({ initial, onSaved }: { initial: string | null;
   return (
     <Card>
       <h3 className="text-sm font-semibold">Business logo</h3>
-      <p className="mb-3 mt-1 text-xs text-gray-500">Printed at the top of every voucher and receipt.</p>
+      <p className="mb-3 mt-1 text-xs text-gray-500"><span>Printed at the top of every voucher and receipt.</span> <span>Square or wide logos both work (PNG, JPG, WebP, GIF, SVG).</span></p>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-white dark:border-gray-700">
+        <div className="flex h-24 w-48 max-w-full items-center justify-center p-2 overflow-hidden rounded-lg border border-dashed border-gray-300 bg-white dark:border-gray-700">
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
             <img src={logo} alt="Business logo" className="max-h-full max-w-full object-contain" />
@@ -89,7 +121,7 @@ export function BusinessLogoCard({ initial, onSaved }: { initial: string | null;
           <input
             ref={input}
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
             className="hidden"
             onChange={(e) => pick(e.target.files?.[0])}
           />

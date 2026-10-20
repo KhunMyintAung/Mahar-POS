@@ -46,8 +46,9 @@ const when = (d: Date | null) =>
 function Logo({ src, name, size }: { src: string | null; name: string; size: "md" | "sm" }) {
   const box = size === "md" ? "h-14 w-14" : "h-11 w-11";
   return src ? (
+    // Height fixed, width free, so a wide word-mark logo is not squeezed into a square.
     // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
-    <img src={src} alt="" className={`${box} shrink-0 object-contain`} />
+    <img src={src} alt="" className={`${size === "md" ? "h-14 max-w-[9rem]" : "h-11 max-w-[7rem]"} w-auto shrink-0 object-contain`} />
   ) : (
     <div className={`${box} flex shrink-0 items-center justify-center rounded-xl bg-green-50 text-lg font-bold text-green-700`}>
       {name.slice(0, 1).toUpperCase()}

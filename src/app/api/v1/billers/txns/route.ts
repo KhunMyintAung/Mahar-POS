@@ -45,7 +45,7 @@ export const GET = withAuth("biller.view", async ({ req, user }) => {
       orderBy: { createdAt: "desc" },
       skip,
       take,
-      include: { biller: { select: { name: true, type: true } } },
+      include: { biller: { select: { name: true, type: true, deletedAt: true } } },
     }),
     prisma.billerTxn.count({ where }),
   ]);
