@@ -1,7 +1,7 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { computeDaySummary } from "@/services/summaryService";
-import { todayBusinessDate } from "@/lib/dates";
+import { dateRangeUtc, todayBusinessDate } from "@/lib/dates";
 
 export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -89,7 +89,58 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
     };
   }
 
+  // Everything the shop earned on the day in one figure: till sales, repair money taken
+  // (deposits and payments), the margin on top-up sales, and other income. Top-ups count
+  // by margin only, because the rest of that cash is the operator's credit passing through.
+  const range = dateRangeUtc(date);
+  const [repairIn, repairOut, topup, salesForIncome] = await Promise.all([
+    prisma.walletLedgerEntry.aggregate({
+      where: {
+        businessId: user.businessId, direction: "DEBIT", createdAt: range,
+        refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] },
+        wallet: { currency: "MMK" },
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      _sum: { amount: true },
+    }),
+    // A refund of repair money shows as money out against the same references.
+    prisma.walletLedgerEntry.aggregate({
+      where: {
+        businessId: user.businessId, direction: "CREDIT", createdAt: range,
+        refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] },
+        wallet: { currency: "MMK" },
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      _sum: { amount: true },
+    }),
+    prisma.billerTxn.aggregate({
+      where: {
+        businessId: user.businessId, voidedAt: null, createdAt: range, kind: "SALE",
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      _sum: { profit: true },
+    }),
+    pos
+      ? Promise.resolve(pos.salesTotal)
+      : prisma.sale.aggregate({
+          where: {
+            businessId: user.businessId, deletedAt: null, status: "COMPLETED", date,
+            ...(branchIds ? { branchId: { in: branchIds } } : {}),
+          },
+          _sum: { total: true },
+        }).then((a) => a._sum.total ?? 0n),
+  ]);
+  const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
+  const topupMargin = topup._sum.profit ?? 0n;
+  const income = {
+    sales: salesForIncome,
+    repair,
+    topupMargin,
+    other: summary.general.otherIncome,
+    total: salesForIncome + repair + topupMargin + summary.general.otherIncome,
+  };
+
   return json({
-    date, summary, pos,
+    date, summary, pos, income,
   });
 });

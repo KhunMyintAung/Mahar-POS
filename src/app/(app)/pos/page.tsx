@@ -64,6 +64,11 @@ export default function PosPage() {
   const [warrantySettings, setWarrantySettings] = useState<WarrantySettings>(DEFAULT_WARRANTY);
   const [discount, setDiscount] = useState("0");
   const [walletId, setWalletId] = useState("");
+  // Part of the payment into a second wallet, e.g. half cash and half KBZPay.
+  const [splitOn, setSplitOn] = useState(false);
+  const [wallet2Id, setWallet2Id] = useState("");
+  const [splitAmount, setSplitAmount] = useState("");
+  const [newCustomer, setNewCustomer] = useState<{ name: string; phone: string } | null>(null);
   const [customerId, setCustomerId] = useState("");
   const [payMode, setPayMode] = useState<"full" | "credit" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
@@ -262,8 +267,12 @@ export default function PosPage() {
   const creditAmount = total - paidAmount;
   const received = readAmount(cashReceived);
   const change = payMode === "full" ? Math.max(0, received - total) : 0;
+  const split = splitOn && paidAmount > 0;
+  const part2 = split ? Math.min(readAmount(splitAmount), paidAmount) : 0;
+  const part1 = paidAmount - part2;
+  const splitOk = !split || (part2 > 0 && part1 > 0 && Boolean(wallet2Id) && wallet2Id !== walletId);
   const canCheckout = cart.length > 0 && disc >= 0 && disc <= subtotal &&
-    (paidAmount === 0 || Boolean(walletId)) &&
+    (paidAmount === 0 || Boolean(walletId)) && splitOk &&
     (creditAmount === 0 || Boolean(customerId)) &&
     (payMode !== "full" || !cashReceived || received >= total);
 
@@ -274,7 +283,29 @@ export default function PosPage() {
     setCashReceived("");
     setPayMode("full");
     setCustomerId("");
+    setSplitOn(false);
+    setWallet2Id("");
+    setSplitAmount("");
     localStorage.removeItem(draftKey);
+  }
+
+  /** Adds a customer from the till without leaving the sale, and picks them. */
+  async function addCustomer() {
+    if (!newCustomer?.name.trim()) return;
+    setBusy(true);
+    try {
+      const c = await api<Contact>("/api/v1/customers", {
+        method: "POST",
+        body: { name: newCustomer.name.trim(), phone: newCustomer.phone.trim() || undefined, type: "CUSTOMER" },
+      });
+      setCustomers((list) => [...list, c].sort((a, b) => a.name.localeCompare(b.name)));
+      setCustomerId(c.id);
+      setNewCustomer(null);
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function checkout() {
@@ -298,6 +329,9 @@ export default function PosPage() {
           discount: disc.toString(),
           paidAmount: paidAmount.toString(),
           walletId: paidAmount > 0 ? walletId : undefined,
+          payments: split
+            ? [{ walletId, amount: part1.toString() }, { walletId: wallet2Id, amount: part2.toString() }]
+            : undefined,
         },
       });
       // Captured before clearSale empties the cart, or there would be nothing to print.
@@ -505,6 +539,19 @@ export default function PosPage() {
           </div>
 
           <div className="space-y-2">
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <Select label="Customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
+                  <option value="">Walk-in customer</option>
+                  {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
+                </Select>
+              </div>
+              {hasPerm("customer.manage") && (
+                <Button variant="secondary" className="shrink-0" onClick={() => setNewCustomer({ name: "", phone: "" })} aria-label="New customer">
+                  <Plus size={16} />
+                </Button>
+              )}
+            </div>
             <div className="flex gap-1 rounded-lg bg-gray-100 p-1 text-[11px] dark:bg-gray-800 sm:text-xs">
               {(["full", "partial", "credit"] as const).map((mode) => (
                 <button key={mode} onClick={() => setPayMode(mode)} className={cn("min-h-9 min-w-0 flex-1 rounded-md px-1 py-1.5 font-medium capitalize sm:px-2", payMode === mode ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
@@ -528,20 +575,45 @@ export default function PosPage() {
               </>
             )}
             {paidAmount > 0 && (
-              <Select label="Receive into wallet" value={walletId} onChange={(event) => setWalletId(event.target.value)}>
+              <Select label={split ? "First wallet" : "Receive into wallet"} value={walletId} onChange={(event) => setWalletId(event.target.value)}>
                 {wallets.filter((wallet) => wallet.currency === "MMK").map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
                 ))}
               </Select>
             )}
+            {paidAmount > 0 && !splitOn && (
+              <button type="button" className="text-xs font-medium text-blue-600 hover:underline" onClick={() => {
+                setSplitOn(true);
+                setWallet2Id(wallets.find((w) => w.currency === "MMK" && w.id !== walletId)?.id ?? "");
+                setSplitAmount(String(Math.round(paidAmount / 2)));
+              }}>
+                Split into two wallets
+              </button>
+            )}
+            {split && (
+              <div className="space-y-2 rounded-lg border border-gray-200 p-2 dark:border-gray-700">
+                <div className="grid grid-cols-2 gap-2">
+                  <Select label="Second wallet" value={wallet2Id} onChange={(event) => setWallet2Id(event.target.value)}>
+                    <option value="">Choose…</option>
+                    {wallets.filter((wallet) => wallet.currency === "MMK" && wallet.id !== walletId).map((wallet) => (
+                      <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
+                    ))}
+                  </Select>
+                  <Input label="Amount" value={splitAmount} onChange={(event) => setSplitAmount(event.target.value)} inputMode="decimal" />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">First wallet gets <b className="tabular-nums text-gray-800 dark:text-gray-200">{part1.toLocaleString()}</b> MMK</span>
+                  <button type="button" className="font-medium text-gray-500 hover:text-red-600" onClick={() => setSplitOn(false)}>Remove split</button>
+                </div>
+                {!splitOk && <p className="text-xs text-red-600">Choose a second wallet and an amount less than {paidAmount.toLocaleString()}.</p>}
+              </div>
+            )}
             {creditAmount > 0 && (
-              <>
-                <Select label={`Customer owes ${creditAmount.toLocaleString()} MMK`} value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
-                  <option value="">Select customer...</option>
-                  {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-                </Select>
-                <p className="text-xs text-amber-600">The unpaid amount is money the customer owes your business.</p>
-              </>
+              <p className={cn("text-xs", customerId ? "text-amber-600" : "text-red-600")}>
+                {customerId
+                  ? `${customers.find((c) => c.id === customerId)?.name ?? "The customer"} will owe ${creditAmount.toLocaleString()} MMK.`
+                  : `Choose a customer above. ${creditAmount.toLocaleString()} MMK will be owed.`}
+              </p>
             )}
           </div>
 
@@ -550,6 +622,19 @@ export default function PosPage() {
           </Button>
         </Card>
       </div>
+
+      <Modal open={Boolean(newCustomer)} onClose={() => setNewCustomer(null)} title="New customer">
+        {newCustomer && (
+          <div className="space-y-3">
+            <Input label="Name" value={newCustomer.name} autoFocus onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
+            <Input label="Phone" value={newCustomer.phone} inputMode="tel" onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setNewCustomer(null)}>Cancel</Button>
+              <Button onClick={addCustomer} disabled={busy || !newCustomer.name.trim()}>Add</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={reviewOpen} onClose={() => setReviewOpen(false)} title="Review sale">
         <div className="space-y-4">
@@ -564,6 +649,13 @@ export default function PosPage() {
           <div className="space-y-1 border-t border-gray-200 pt-3 text-sm dark:border-gray-700">
             <div className="flex justify-between"><span>Total</span><b>{total.toLocaleString()} MMK</b></div>
             <div className="flex justify-between"><span>Received</span><b>{paidAmount.toLocaleString()} MMK</b></div>
+            {split && (
+              <div className="space-y-0.5 pl-3 text-xs text-gray-500">
+                <div className="flex justify-between"><span>{wallets.find((w) => w.id === walletId)?.name}</span><span className="tabular-nums">{part1.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>{wallets.find((w) => w.id === wallet2Id)?.name}</span><span className="tabular-nums">{part2.toLocaleString()}</span></div>
+              </div>
+            )}
+            <div className="flex justify-between"><span>Customer</span><b>{customers.find((c) => c.id === customerId)?.name ?? "Walk-in customer"}</b></div>
             {creditAmount > 0 && <div className="flex justify-between text-amber-600"><span>Customer owes</span><b>{creditAmount.toLocaleString()} MMK</b></div>}
             {change > 0 && <div className="flex justify-between text-green-600"><span>Change</span><b>{change.toLocaleString()} MMK</b></div>}
           </div>

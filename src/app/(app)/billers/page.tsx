@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Percent, Plus, Smartphone, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
@@ -67,7 +67,7 @@ export default function BillersPage() {
   const [voiding, setVoiding] = useState<Txn | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [rating, setRating] = useState<Biller | null>(null);
-  const [rates, setRates] = useState({ sellPercent: "", refillPercent: "" });
+  const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "" });
   const [removing, setRemoving] = useState<Biller | null>(null);
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
@@ -225,7 +225,7 @@ export default function BillersPage() {
     try {
       await api(`/api/v1/billers/${rating.id}`, {
         method: "PATCH",
-        body: { sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent) },
+        body: { name: rates.name.trim(), sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent) },
       });
       push("Saved");
       setRating(null);
@@ -313,11 +313,10 @@ export default function BillersPage() {
                   {hasPerm("biller.manage") && (
                     <button
                       type="button"
-                      title="Sell % and refill %"
-                      className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
-                      onClick={() => { setRating(b); setRates({ sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "" }); }}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800"
+                      onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "" }); }}
                     >
-                      <Percent size={15} />
+                      <Pencil size={13} />Edit
                     </button>
                   )}
                 </div>
@@ -331,25 +330,13 @@ export default function BillersPage() {
               <div className={`text-xl font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
-              {/* A small bin at the end of the button row; the dialog it opens says what happens. */}
-              <div className="flex flex-wrap items-center gap-2">
-                {hasPerm("biller.trade") && b.active && <>
+              {hasPerm("biller.trade") && b.active && (
+                <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => startTrade(b, "SALE")}>Sell</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "TOPUP")}>Buy float</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "ADJUST")}>Adjust</Button>
-                </>}
-                {hasPerm("biller.manage") && (
-                  <button
-                    type="button"
-                    title="Delete biller"
-                    aria-label="Delete biller"
-                    onClick={() => setRemoving(b)}
-                    className="ml-auto rounded-md p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -536,16 +523,24 @@ export default function BillersPage() {
         )}
       </Modal>
 
-      <Modal open={Boolean(rating)} onClose={() => setRating(null)} title={rating ? `${rating.name} — Sell % and refill %` : ""}>
+      <Modal open={Boolean(rating)} onClose={() => setRating(null)} title="Edit biller">
         <div className="space-y-3">
+          <Input label="Name" value={rates.name} onChange={(e) => setRates({ ...rates, name: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
             <Input label="Sell %" value={rates.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, sellPercent: e.target.value })} />
             <Input label="Refill %" value={rates.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, refillPercent: e.target.value })} />
           </div>
           <RatesHelp />
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => { setRemoving(rating); setRating(null); }}
+              className="mr-auto flex items-center gap-1 rounded-md px-2 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+            >
+              <Trash2 size={15} />Delete biller
+            </button>
             <Button variant="secondary" onClick={() => setRating(null)}>Cancel</Button>
-            <Button onClick={saveRates} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+            <Button onClick={saveRates} disabled={busy || !rates.name.trim()}>{busy ? "Saving…" : "Save"}</Button>
           </div>
         </div>
       </Modal>

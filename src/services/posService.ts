@@ -175,12 +175,24 @@ export async function createSale(
     discount: bigint;
     paidAmount: bigint;
     walletId?: string;
+    /** The received amount split across wallets; when absent it all goes to walletId. */
+    payments?: { walletId: string; amount: bigint }[];
     dueDate?: string;
     reference?: string;
     notes?: string;
   }
 ) {
   if (opts.lines.length === 0) throw new ApiError(422, "A sale needs at least one line");
+  const payments = (opts.payments ?? []).filter((p) => p.amount > 0n);
+  if (payments.length > 0) {
+    const sum = payments.reduce((a, p) => a + p.amount, 0n);
+    if (sum !== opts.paidAmount) throw new ApiError(422, "The split amounts must add up to the amount received");
+    if (new Set(payments.map((p) => p.walletId)).size !== payments.length)
+      throw new ApiError(422, "Choose a different wallet for each part of the payment");
+  }
+  const receipts = payments.length > 0
+    ? payments
+    : opts.paidAmount > 0n && opts.walletId ? [{ walletId: opts.walletId, amount: opts.paidAmount }] : [];
   await assertDateOpen(tx, opts.branchId, opts.date);
   const branch = await tx.branch.findFirst({
     where: { id: opts.branchId, businessId: opts.businessId, active: true },
@@ -197,7 +209,7 @@ export async function createSale(
   const { subtotal, total } = computeTotals(opts.lines, opts.discount);
   if (opts.paidAmount < 0n || opts.paidAmount > total)
     throw new ApiError(422, "Paid amount cannot exceed the total");
-  if (opts.paidAmount > 0n && !opts.walletId)
+  if (opts.paidAmount > 0n && receipts.length === 0)
     throw new ApiError(422, "Select a wallet for the received amount");
   const unpaid = total - opts.paidAmount;
   if (unpaid > 0n && !opts.customerId)
@@ -215,7 +227,7 @@ export async function createSale(
       total,
       paidAmount: opts.paidAmount,
       paymentStatus: unpaid === 0n ? "PAID" : opts.paidAmount > 0n ? "PARTIAL" : "UNPAID",
-      walletId: opts.walletId,
+      walletId: receipts[0]?.walletId ?? opts.walletId,
       date: opts.date,
       reference: opts.reference,
       notes: opts.notes,
@@ -259,15 +271,15 @@ export async function createSale(
   const profit = total - totalCost;
   await tx.sale.update({ where: { id: sale.id }, data: { totalCost, profit } });
 
-  if (opts.paidAmount > 0n && opts.walletId) {
+  for (const r of receipts) {
     await postLedger(tx, {
       businessId: opts.businessId,
-      walletId: opts.walletId,
+      walletId: r.walletId,
       direction: "DEBIT",
-      amount: opts.paidAmount,
+      amount: r.amount,
       refType: "SALE",
       refId: sale.id,
-      description: `${txnNo} sale receipt`,
+      description: receipts.length > 1 ? `${txnNo} sale receipt (split)` : `${txnNo} sale receipt`,
       createdById: opts.userId,
     });
   }
@@ -334,8 +346,26 @@ export async function cancelSaleOrPurchase(
     });
   }
 
-  // reverse wallet movement
-  if (record.paidAmount > 0n && record.walletId) {
+  // Reverse the wallet movements. A split sale posted one receipt per wallet, so each one
+  // is put back where it came from; older records fall back to the single wallet.
+  const posted = kind === "sale"
+    ? await tx.walletLedgerEntry.findMany({ where: { refType: "SALE", refId: record.id, direction: "DEBIT" } })
+    : [];
+  if (posted.length > 1) {
+    for (const e of posted) {
+      await postLedger(tx, {
+        businessId: opts.businessId,
+        walletId: e.walletId,
+        direction: "CREDIT",
+        amount: e.amount,
+        refType: "REVERSAL",
+        refId: record.id,
+        description: `Cancel ${record.txnNo}: ${opts.reason}`,
+        createdById: opts.userId,
+        allowNegative: true,
+      });
+    }
+  } else if (record.paidAmount > 0n && record.walletId) {
     await postLedger(tx, {
       businessId: opts.businessId,
       walletId: record.walletId,

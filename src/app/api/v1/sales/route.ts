@@ -74,6 +74,9 @@ const schema = z.object({
   discount: z.string().default("0"),
   paidAmount: z.string().min(1),
   walletId: z.string().optional(),
+  // A payment split across wallets, e.g. half cash and half a mobile wallet. When given,
+  // the amounts must add up to paidAmount.
+  payments: z.array(z.object({ walletId: z.string().min(1), amount: z.string().min(1) })).max(4).optional(),
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
@@ -102,6 +105,7 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),
       walletId: body.walletId,
+      payments: body.payments?.map((p) => ({ walletId: p.walletId, amount: toMinor(p.amount) })),
       dueDate: body.dueDate,
       reference: body.reference,
       notes: body.notes,

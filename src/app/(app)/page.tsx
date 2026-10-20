@@ -27,7 +27,11 @@ interface DashData {
     stockRetail: string;
     stockItems: number;
   };
+  income?: { sales: string; repair: string; topupMargin: string; other: string; total: string };
 }
+
+/** Today in the shop's time zone, to label the income card. */
+const todayDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null);
@@ -66,6 +70,30 @@ export default function DashboardPage() {
           </Select>
         </div>
       </div>
+
+      {data.income && (
+        <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-sm font-medium text-green-800 dark:text-green-300">{data.date === todayDate ? "Today's Total Income" : "Total Income"}</div>
+              <div className="text-3xl font-bold tabular-nums">{fmtMoney(data.income.total, "MMK")}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+              {([
+                ["Sales", data.income.sales, featureEnabled("pos")],
+                ["Repair", data.income.repair, featureEnabled("repair")],
+                ["Top-up margin", data.income.topupMargin, featureEnabled("biller")],
+                ["Other income", data.income.other, true],
+              ] as const).filter(([, v, on]) => on || BigInt(v) !== 0n).map(([label, v]) => (
+                <div key={label}>
+                  <div className="text-xs text-gray-500">{label}</div>
+                  <div className="font-semibold tabular-nums">{fmtMoney(v, "MMK")}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {featureEnabled("pos") && data.pos && (
