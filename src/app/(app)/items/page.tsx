@@ -14,6 +14,7 @@ import { repriced, validRule, type RepriceDirection, type RepriceMode, type Repr
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
   costPrice: string; sellingPrice: string; minStock: number;
+  categoryId?: string | null; unitId?: string | null;
   category?: { name: string }; unit?: { name: string };
   stockLevels: { branchId: string; quantity: number }[];
 }
@@ -275,7 +276,8 @@ export default function ItemsPage() {
                     <Button size="sm" variant="ghost" onClick={() => {
                       setForm({
                         name: it.name, sku: it.sku, barcode: it.barcode ?? "",
-                        categoryId: "", unitId: "",
+                        // Start from what the item has, or saving the edit would clear them.
+                        categoryId: it.categoryId ?? "", unitId: it.unitId ?? "",
                         costPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
                         sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
                         minStock: it.minStock,
