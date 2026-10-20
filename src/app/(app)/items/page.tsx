@@ -22,6 +22,7 @@ interface Meta { categories: { id: string; name: string }[]; units: { id: string
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [meta, setMeta] = useState<Meta>({ categories: [], units: [] });
+  const [missingPresets, setMissingPresets] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useNewModal();
   const [editItem, setEditItem] = useState<Item | null>(null);
@@ -93,7 +94,20 @@ export default function ItemsPage() {
       })
       .catch((e) => push(e.message, "error"));
     api<Meta>("/api/v1/item-meta").then(setMeta).catch(() => {});
+    api<{ missing: string[] }>("/api/v1/item-meta/presets").then((d) => setMissingPresets(d.missing)).catch(() => {});
   }, [q, push]);
+
+  /** Add the ready-made categories for this kind of shop (a phone shop's: Phone New,
+   *  Phone Second, Glass, Spare Parts…) that it does not have yet. */
+  async function addPresets() {
+    try {
+      const r = await api<{ added: number }>("/api/v1/item-meta/presets", { method: "POST" });
+      push(`${r.added} categories added`);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    }
+  }
   useEffect(() => {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
@@ -295,10 +309,17 @@ export default function ItemsPage() {
             />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Select label="Category" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
-              <option value="">—</option>
-              {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
+            <div>
+              <Select label="Category" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                <option value="">—</option>
+                {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+              {missingPresets.length > 0 && hasPerm("item.manage") && (
+                <button type="button" onClick={addPresets} className="mt-1 text-xs font-medium text-blue-600 hover:underline">
+                  + Add phone shop categories ({missingPresets.length})
+                </button>
+              )}
+            </div>
             <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
               <option value="">—</option>
               {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -440,6 +461,13 @@ export default function ItemsPage() {
             <div className="flex-1"><Input label="Name" value={metaForm.name} onChange={(e) => setMetaForm({ ...metaForm, name: e.target.value })} /></div>
             <Button onClick={addMeta} disabled={!metaForm.name}>Add</Button>
           </div>
+          {missingPresets.length > 0 && (
+            <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-900/30">
+              <p className="text-gray-700 dark:text-gray-200">Phone shop categories you do not have yet:</p>
+              <p className="mt-1 text-xs text-gray-500">{missingPresets.join(" · ")}</p>
+              <Button size="sm" className="mt-2" onClick={addPresets}>Add phone shop categories</Button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <h4 className="mb-1 font-semibold">Categories</h4>

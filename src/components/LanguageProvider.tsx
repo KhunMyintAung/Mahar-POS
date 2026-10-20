@@ -592,6 +592,8 @@ const MM: Record<string, string> = {
   "By amount (MMK)": "ပမာဏဖြင့် (MMK)",
   "Set one price": "ဈေးတစ်ခုတည်း သတ်မှတ်မည်",
   "Change by": "ပြောင်းပုံ",
+  "Add phone shop categories": "ဖုန်းဆိုင် အမျိုးအစားများ ထည့်မည်",
+  "Phone shop categories you do not have yet:": "မရှိသေးသော ဖုန်းဆိုင် အမျိုးအစားများ:",
   "Deselect items with stock": "Stock ရှိသည်များကို ဖြုတ်မည်",
   "Printing": "ပုံနှိပ်",
   "Menu": "မီနူး",

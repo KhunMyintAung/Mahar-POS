@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { DEFAULT_ROLES } from "@/lib/permissions";
+import { addItemCategoryPresets, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 import type { AuthUser } from "@/lib/auth";
 import {
   moduleSetting,
@@ -121,6 +122,8 @@ export async function registerTenant(input: TenantRegistration) {
           { businessId: business.id, name: "box" },
         ],
       });
+      // A phone shop opens its item list with phone shop categories ready to pick.
+      await addItemCategoryPresets(tx, business.id, itemCategoryPresets(input.businessCategory));
       await tx.category.createMany({
         data: [
           { businessId: business.id, type: "INCOME", name: "Other Income" },
