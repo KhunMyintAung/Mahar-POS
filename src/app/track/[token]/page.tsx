@@ -93,7 +93,7 @@ export default async function TrackPage({ params }: { params: Promise<{ token: s
   const business = job
     ? await prisma.business.findUnique({
         where: { id: job.businessId },
-        select: { name: true, phone: true, address: true, logoUrl: true, website: true, telegram: true },
+        select: { name: true, phone: true, address: true, city: true, latitude: true, longitude: true, logoUrl: true, website: true, websiteLabel: true, telegram: true },
       })
     : null;
 
@@ -112,16 +112,21 @@ export default async function TrackPage({ params }: { params: Promise<{ token: s
 
   const actions: { href: string; icon: ReactNode; label: string }[] = [];
   if (business.phone) actions.push({ href: `tel:${business.phone.replace(/[^\d+]/g, "")}`, icon: <Phone size={20} />, label: "ဖုန်းခေါ်ရန်" });
-  if (business.address) {
+  // The pinned location is exact; without one the map searches the shop's name and address.
+  const hasPin = business.latitude != null && business.longitude != null;
+  if (hasPin || business.address) {
+    const query = hasPin
+      ? `${business.latitude},${business.longitude}`
+      : [business.name, business.address, business.city].filter(Boolean).join(" ");
     actions.push({
-      href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${business.name} ${business.address}`)}`,
+      href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
       icon: <MapPin size={20} />,
       label: "ဆိုင်တည်နေရာ",
     });
   }
   if (business.website) {
     const url = /^https?:\/\//.test(business.website) ? business.website : `https://${business.website}`;
-    actions.push({ href: url, icon: <Globe size={20} />, label: "Online Shop" });
+    actions.push({ href: url, icon: <Globe size={20} />, label: business.websiteLabel?.trim() || "Online Shop" });
   }
   if (business.telegram) {
     const handle = business.telegram.replace(/^@/, "").replace(/^https?:\/\/t\.me\//, "");

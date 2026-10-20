@@ -21,6 +21,12 @@ model Business {
   address   String?
   telegram  String?
   website   String?
+  /// The words on the website button of the repair QR page; "Online Shop" when empty.
+  websiteLabel String?
+  city      String?
+  /// Where the shop is, from the settings page's "use my location"; the QR page's map button opens it.
+  latitude  Float?
+  longitude Float?
   logoUrl   String?
   currency  String   @default("MMK")
   timezone  String   @default("Asia/Yangon")
@@ -194,6 +200,10 @@ model Biller {
   openingBalance BigInt    @default(0)
   currentBalance BigInt    @default(0)
   active         Boolean   @default(true)
+  /// Percent added to the sold amount for the cash a customer pays (negative for a discount).
+  sellPercent    Float     @default(0)
+  /// Percent the operator takes off when the shop buys float, so cash paid = amount less this.
+  refillPercent  Float     @default(0)
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -237,6 +247,10 @@ model BillerTxn {
   note          String?
   createdById   String?
   createdAt     DateTime @default(now())
+  /// A voided movement has had its float and cash put back; it stays listed, crossed out.
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
 
   biller Biller @relation(fields: [billerId], references: [id], onDelete: Cascade)
 

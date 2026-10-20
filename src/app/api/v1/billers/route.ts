@@ -28,6 +28,8 @@ const createSchema = z.object({
   type: z.enum(BILLER_TYPES),
   openingBalance: z.string().regex(/^-?\d+(\.\d+)?$/).default("0"),
   notes: z.string().trim().max(300).optional(),
+  sellPercent: z.number().min(-100).max(100).default(0),
+  refillPercent: z.number().min(-100).max(100).default(0),
 });
 
 export const POST = withAuth("biller.manage", async ({ req, user }) => {
@@ -57,6 +59,8 @@ export const POST = withAuth("biller.manage", async ({ req, user }) => {
       type: body.type,
       openingBalance: toMinor(body.openingBalance),
       notes: body.notes,
+      sellPercent: body.sellPercent,
+      refillPercent: body.refillPercent,
     })
   );
 

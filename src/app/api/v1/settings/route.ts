@@ -56,6 +56,10 @@ const bizSchema = z.object({
   address: z.string().optional(),
   telegram: z.string().optional(),
   website: z.string().optional(),
+  websiteLabel: z.string().trim().max(40).optional(),
+  city: z.string().trim().max(80).optional(),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   // The logo is kept as a small data URL (the settings page shrinks it first), so it needs
   // no file storage and prints from anywhere. Empty removes it.
   logoUrl: z

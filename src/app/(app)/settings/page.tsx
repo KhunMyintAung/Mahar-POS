@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { LayoutList, Printer, Store, UserCircle } from "lucide-react";
+import { LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
 import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
@@ -18,13 +18,17 @@ import {
   type FeatureVisibility,
 } from "@/lib/modules";
 interface SettingsData {
-  business: { id: string; name: string; logoUrl?: string | null; phone?: string; address?: string; telegram?: string; website?: string; currency: string; timezone: string };
+  business: { id: string; name: string; logoUrl?: string | null; phone?: string; address?: string; telegram?: string; website?: string; websiteLabel?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; currency: string; timezone: string };
   settings: Record<string, Record<string, unknown>>;
 }
 
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
-  const [biz, setBiz] = useState({ name: "", phone: "", address: "", telegram: "", website: "" });
+  const [biz, setBiz] = useState({
+    name: "", phone: "", address: "", telegram: "", website: "", websiteLabel: "", city: "",
+    latitude: null as number | null, longitude: null as number | null,
+  });
+  const [locating, setLocating] = useState(false);
   const [features, setFeatures] = useState<FeatureVisibility>(
     defaultFeaturesForMode("WALLET_ONLY")
   );
@@ -67,11 +71,37 @@ export default function SettingsPage() {
       setBiz({
         name: d.business.name ?? "", phone: d.business.phone ?? "", address: d.business.address ?? "",
         telegram: d.business.telegram ?? "", website: d.business.website ?? "",
+        websiteLabel: d.business.websiteLabel ?? "", city: d.business.city ?? "",
+        latitude: d.business.latitude ?? null, longitude: d.business.longitude ?? null,
       });
       setFeatures(parseModuleAccess(d.settings.modules ?? { miniMartEnabled: true }).features);
     }).catch((e) => push(e.message, "error"));
   }, [push]);
   useEffect(load, [load]);
+
+  /** Pins the shop where this device is now and fills in the city (and the address, when it
+   *  is still empty) from the map. */
+  function locateShop() {
+    if (!navigator.geolocation) { push("This browser cannot share its location", "error"); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const latitude = Math.round(pos.coords.latitude * 1e6) / 1e6;
+      const longitude = Math.round(pos.coords.longitude * 1e6) / 1e6;
+      try {
+        const place = await api<{ city: string; address: string }>(`/api/v1/settings/geocode?lat=${latitude}&lng=${longitude}`);
+        setBiz((b) => ({ ...b, latitude, longitude, city: place.city || b.city, address: b.address || place.address }));
+        push(place.city ? `Location found: ${place.city}` : "Location found");
+      } catch {
+        setBiz((b) => ({ ...b, latitude, longitude }));
+        push("Location found");
+      } finally {
+        setLocating(false);
+      }
+    }, (err) => {
+      setLocating(false);
+      push(err.code === err.PERMISSION_DENIED ? "Location permission was blocked. Allow it in the browser and try again." : "Could not get the location", "error");
+    }, { enableHighAccuracy: true, timeout: 15000 });
+  }
 
   async function save(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -143,13 +173,48 @@ export default function SettingsPage() {
             <Input label="Phone" value={biz.phone} onChange={(e) => setBiz({ ...biz, phone: e.target.value })} />
             <Input label="Telegram" value={biz.telegram} onChange={(e) => setBiz({ ...biz, telegram: e.target.value })} />
           </div>
-          <Input label="Address" value={biz.address} onChange={(e) => setBiz({ ...biz, address: e.target.value })} />
-          <div>
-            <Input label="Website" value={biz.website} placeholder="maharpos.shop" onChange={(e) => setBiz({ ...biz, website: e.target.value })} />
-            <p className="mt-1 text-xs text-gray-500">
-              Opens from the &quot;Online Shop&quot; button on the repair QR page. Phone, address and Telegram give its Call, Location and Telegram buttons.
-            </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <Input label="Address" value={biz.address} onChange={(e) => setBiz({ ...biz, address: e.target.value })} />
+            </div>
+            <Input label="City" value={biz.city} onChange={(e) => setBiz({ ...biz, city: e.target.value })} />
           </div>
+
+          <div className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-medium">Shop location</div>
+                <div className="text-xs text-gray-500">
+                  {biz.latitude != null && biz.longitude != null ? `${biz.latitude}, ${biz.longitude}` : "Not pinned yet"}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {biz.latitude != null && (
+                  <Button size="sm" variant="ghost" onClick={() => setBiz({ ...biz, latitude: null, longitude: null })}>Remove</Button>
+                )}
+                <Button size="sm" variant="secondary" disabled={locating} onClick={locateShop}>
+                  <LocateFixed size={14} className="mr-1 inline" />{locating ? "Finding…" : "Use my current location"}
+                </Button>
+              </div>
+            </div>
+            {biz.latitude != null && biz.longitude != null && (
+              <iframe
+                title="Shop location"
+                className="h-48 w-full rounded-lg border-0"
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${biz.longitude - 0.004},${biz.latitude - 0.003},${biz.longitude + 0.004},${biz.latitude + 0.003}&layer=mapnik&marker=${biz.latitude},${biz.longitude}`}
+              />
+            )}
+            <p className="text-xs text-gray-500">Press the button while you are at the shop. The repair QR page&apos;s location button opens this spot.</p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Website" value={biz.website} placeholder="maharpos.shop" onChange={(e) => setBiz({ ...biz, website: e.target.value })} />
+            <Input label="Website button text" value={biz.websiteLabel} placeholder="Online Shop" onChange={(e) => setBiz({ ...biz, websiteLabel: e.target.value })} />
+          </div>
+          <p className="-mt-1 text-xs text-gray-500">
+            The website button on the repair QR page shows this text, for example Game Shop or Visit Our Website.
+          </p>
           <p className="text-xs text-gray-500">Default currency: {data.business.currency} · Time zone: {data.business.timezone}</p>
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>

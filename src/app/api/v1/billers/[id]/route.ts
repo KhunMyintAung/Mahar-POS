@@ -9,6 +9,8 @@ const patchSchema = z.object({
   type: z.enum(BILLER_TYPES).optional(),
   active: z.boolean().optional(),
   notes: z.string().trim().max(300).optional(),
+  sellPercent: z.number().min(-100).max(100).optional(),
+  refillPercent: z.number().min(-100).max(100).optional(),
 });
 
 export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => {
@@ -36,6 +38,8 @@ export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => 
         type: body.type ?? biller.type,
         active: body.active ?? biller.active,
         notes: body.notes ?? biller.notes,
+        sellPercent: body.sellPercent ?? biller.sellPercent,
+        refillPercent: body.refillPercent ?? biller.refillPercent,
       },
     });
     await audit(tx, {
@@ -46,8 +50,8 @@ export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => 
       module: "biller",
       resourceType: "Biller",
       resourceId: id,
-      before: { name: biller.name, type: biller.type, active: biller.active },
-      after: { name: next.name, type: next.type, active: next.active },
+      before: { name: biller.name, type: biller.type, active: biller.active, sellPercent: biller.sellPercent, refillPercent: biller.refillPercent },
+      after: { name: next.name, type: next.type, active: next.active, sellPercent: next.sellPercent, refillPercent: next.refillPercent },
     });
     return next;
   });

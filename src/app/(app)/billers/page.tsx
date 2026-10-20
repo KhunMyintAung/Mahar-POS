@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Percent, Plus, Smartphone } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
@@ -11,11 +11,13 @@ import { useNewModal } from "@/lib/useNewModal";
 interface Biller {
   id: string; name: string; type: string; currency: string;
   currentBalance: string; active: boolean; notes?: string;
+  sellPercent: number; refillPercent: number;
 }
 interface Txn {
   id: string; txnNo: string; kind: string;
   faceAmount: string; cashAmount: string; profit: string; balanceAfter: string;
   customerPhone?: string; note?: string; createdAt: string;
+  voidedAt?: string | null; voidReason?: string | null;
   biller: { name: string; type: string };
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
@@ -26,6 +28,27 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 const num = (v: string) => Number(v.replace(/,/g, "")) || 0;
+
+interface Summary {
+  soldFace: string; soldCash: string; soldCount: number;
+  refillFace: string; refillCash: string; refillCount: number; profit: string;
+}
+
+/** Today in the shop's own time zone, as YYYY-MM-DD for the date picker. */
+function today(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+/** "+2%" / "−3%"; empty when there is no percentage. */
+function pctLabel(p: number, sign: 1 | -1): string {
+  if (!p) return "";
+  const v = p * sign;
+  return `${v > 0 ? "+" : "−"}${Math.abs(v)}%`;
+}
 
 const KIND_LABEL: Record<string, string> = {
   TOPUP: "Bought float",
@@ -39,11 +62,17 @@ export default function BillersPage() {
   const [txns, setTxns] = useState<Txn[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [filter, setFilter] = useState("");
+  const [date, setDate] = useState(today);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [voiding, setVoiding] = useState<Txn | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [rating, setRating] = useState<Biller | null>(null);
+  const [rates, setRates] = useState({ sellPercent: "", refillPercent: "" });
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
   const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "" });
-  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "" });
+  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "" });
   const { push } = useToast();
   const { hasPerm } = useAuth();
 
@@ -51,12 +80,12 @@ export default function BillersPage() {
     api<{ billers: Biller[]; totalFloat: string }>("/api/v1/billers?all=1")
       .then((d) => { setBillers(d.billers); setTotalFloat(d.totalFloat); })
       .catch((e) => push(e.message, "error"));
-    const params = filter ? `?billerId=${filter}` : "";
-    api<{ txns: Txn[] }>(`/api/v1/billers/txns${params}`)
-      .then((d) => setTxns(d.txns))
+    const params = new URLSearchParams({ date, pageSize: "200", ...(filter ? { billerId: filter } : {}) });
+    api<{ txns: Txn[]; summary: Summary }>(`/api/v1/billers/txns?${params}`)
+      .then((d) => { setTxns(d.txns); setSummary(d.summary); })
       .catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, filter]);
+  }, [push, filter, date]);
 
   useEffect(load, [load]);
 
@@ -70,11 +99,13 @@ export default function BillersPage() {
           type: form.type,
           openingBalance: form.openingBalance || "0",
           notes: form.notes || undefined,
+          sellPercent: num(form.sellPercent),
+          refillPercent: num(form.refillPercent),
         },
       });
       push("Biller added");
       setShowNew(false);
-      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "" });
+      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "" });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -88,7 +119,11 @@ export default function BillersPage() {
   const current = trading ? Number(trading.biller.currentBalance) / 100 : 0;
   const sign = trading?.kind === "SALE" ? -1 : 1;
   const face = num(trade.faceAmount);
-  const cash = trade.cashTouched ? num(trade.cashAmount) : Math.max(face, 0);
+  // Selling adds the biller's sell %; buying float takes its refill % off. Typing the cash
+  // overrides this for a one-off price.
+  const pct = trading?.kind === "SALE" ? trading.biller.sellPercent : trading?.kind === "TOPUP" ? -trading.biller.refillPercent : 0;
+  const autoCash = Math.max(Math.round(face * (1 + pct / 100)), 0);
+  const cash = trade.cashTouched ? num(trade.cashAmount) : autoCash;
   // What the shop makes on this trade, shown before it is saved so a wrong figure is
   // caught at the counter rather than in a month-end report.
   const margin = trading?.kind === "TOPUP" ? face - cash : trading?.kind === "SALE" ? cash - face : 0;
@@ -143,6 +178,39 @@ export default function BillersPage() {
     }
   }
 
+  async function applyVoid() {
+    if (!voiding) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/billers/txns/${voiding.id}/void`, { method: "POST", body: { reason: voidReason } });
+      push(`${voiding.txnNo} voided`);
+      setVoiding(null); setVoidReason("");
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveRates() {
+    if (!rating) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/billers/${rating.id}`, {
+        method: "PATCH",
+        body: { sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent) },
+      });
+      push("Saved");
+      setRating(null);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!billers) return <Spinner />;
 
 
@@ -174,8 +242,26 @@ export default function BillersPage() {
                   <div className="font-medium">{b.name}</div>
                   <div className="text-xs text-gray-500">{TYPE_LABEL[b.type] ?? b.type}</div>
                 </div>
-                {!b.active && <span className="text-xs text-gray-400">off</span>}
+                <div className="flex items-center gap-1">
+                  {!b.active && <span className="text-xs text-gray-400">off</span>}
+                  {hasPerm("biller.manage") && (
+                    <button
+                      type="button"
+                      title="Sell % and refill %"
+                      className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800"
+                      onClick={() => { setRating(b); setRates({ sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "" }); }}
+                    >
+                      <Percent size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
+              {(b.sellPercent !== 0 || b.refillPercent !== 0) && (
+                <div className="flex gap-3 text-xs text-gray-500">
+                  {b.sellPercent !== 0 && <span>Sell {pctLabel(b.sellPercent, 1)}</span>}
+                  {b.refillPercent !== 0 && <span>Refill {pctLabel(b.refillPercent, -1)}</span>}
+                </div>
+              )}
               <div className={`text-xl font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
@@ -191,23 +277,57 @@ export default function BillersPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2">
-        <h2 className="font-semibold">Recent movements</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day"><ChevronLeft size={16} /></Button>
+          <input
+            type="date"
+            value={date}
+            max={today()}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          />
+          <Button size="sm" variant="ghost" disabled={date >= today()} onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day"><ChevronRight size={16} /></Button>
+          {date !== today() && <Button size="sm" variant="secondary" onClick={() => setDate(today())}>Today</Button>}
+        </div>
         <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-48">
           <option value="">All billers</option>
           {billers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </Select>
       </div>
 
+      {summary && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Sold</div>
+            <div className="text-lg font-bold tabular-nums">{fmtMoney(summary.soldFace)}</div>
+            <div className="text-xs text-gray-500"><span className="tabular-nums">{summary.soldCount}</span> sales</div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Cash received</div>
+            <div className="text-lg font-bold tabular-nums text-green-600">{fmtMoney(summary.soldCash)}</div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Refilled</div>
+            <div className="text-lg font-bold tabular-nums">{fmtMoney(summary.refillFace)}</div>
+            <div className="text-xs text-gray-500">Cash paid <span className="tabular-nums">{fmtMoney(summary.refillCash)}</span></div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Margin</div>
+            <div className={`text-lg font-bold tabular-nums ${Number(summary.profit) < 0 ? "text-red-600" : "text-green-600"}`}>{fmtMoney(summary.profit)}</div>
+          </Card>
+        </div>
+      )}
+
       {txns.length === 0 ? (
-        <Card><Empty message="Nothing recorded yet." /></Card>
+        <Card><Empty message="Nothing recorded on this day." /></Card>
       ) : (
         <Table
-          headers={["No", "Biller", "What", "Face", "Cash", "Margin", "Float after"]}
+          headers={["No", "Biller", "What", "Face", "Cash", "Margin", "Float after", ""]}
           rightAlign={[3, 4, 5, 6]}
         >
           {txns.map((t) => (
-            <tr key={t.id}>
+            <tr key={t.id} className={t.voidedAt ? "text-gray-400 line-through decoration-gray-400" : ""}>
               <td className="px-3 py-2.5">
                 <div className="font-mono text-xs">{t.txnNo}</div>
                 <div className="text-xs text-gray-500">{fmtDateTime(t.createdAt)}</div>
@@ -216,13 +336,21 @@ export default function BillersPage() {
                 <div>{t.biller.name}</div>
                 {t.customerPhone && <div className="text-xs text-gray-500">{t.customerPhone}</div>}
               </td>
-              <td className="px-3 py-2.5 text-sm">{KIND_LABEL[t.kind] ?? t.kind}</td>
+              <td className="px-3 py-2.5 text-sm">
+                {KIND_LABEL[t.kind] ?? t.kind}
+                {t.voidedAt && <div className="inline-block text-xs font-semibold text-red-600" title={t.voidReason ?? ""}>&nbsp;Voided</div>}
+              </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.faceAmount)}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.cashAmount)}</td>
               <td className={`px-3 py-2.5 text-right tabular-nums ${Number(t.profit) < 0 ? "text-red-600" : Number(t.profit) > 0 ? "text-green-600" : "text-gray-400"}`}>
                 {fmtMoney(t.profit)}
               </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.balanceAfter)}</td>
+              <td className="px-3 py-2.5 text-right">
+                {!t.voidedAt && hasPerm("biller.trade") && (
+                  <Button size="sm" variant="ghost" onClick={() => { setVoiding(t); setVoidReason(""); }}>Void</Button>
+                )}
+              </td>
             </tr>
           ))}
         </Table>
@@ -245,6 +373,11 @@ export default function BillersPage() {
             What the operator is holding for this shop today. A minus figure is fine if the
             shop has sold ahead of paying.
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Sell %" value={form.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => setForm({ ...form, sellPercent: e.target.value })} />
+            <Input label="Refill %" value={form.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => setForm({ ...form, refillPercent: e.target.value })} />
+          </div>
+          <RatesHelp />
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -294,7 +427,7 @@ export default function BillersPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <Input
                     label={trading.kind === "TOPUP" ? "Cash paid" : "Cash received"}
-                    value={trade.cashTouched ? trade.cashAmount : (face > 0 ? String(face) : "")}
+                    value={trade.cashTouched ? trade.cashAmount : (face > 0 ? String(autoCash) : "")}
                     inputMode="decimal"
                     onChange={(e) => setTrade({ ...trade, cashAmount: e.target.value, cashTouched: true })}
                     placeholder="0"
@@ -327,6 +460,46 @@ export default function BillersPage() {
           </div>
         )}
       </Modal>
+
+      <Modal open={Boolean(voiding)} onClose={() => setVoiding(null)} title={`Void ${voiding?.txnNo ?? ""}`}>
+        {voiding && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {voiding.biller.name} · {KIND_LABEL[voiding.kind] ?? voiding.kind} · {fmtMoney(voiding.faceAmount)}
+            </p>
+            <p className="text-xs text-gray-500">The balance and the cash go back as they were. The record stays in the list, crossed out.</p>
+            <Input label="Reason (required)" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="Wrong amount" />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setVoiding(null)}>Close</Button>
+              <Button variant="danger" onClick={applyVoid} disabled={busy || voidReason.trim().length < 3}>{busy ? "Saving…" : "Void"}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(rating)} onClose={() => setRating(null)} title={rating ? `${rating.name} — Sell % and refill %` : ""}>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Sell %" value={rates.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, sellPercent: e.target.value })} />
+            <Input label="Refill %" value={rates.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, refillPercent: e.target.value })} />
+          </div>
+          <RatesHelp />
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRating(null)}>Cancel</Button>
+            <Button onClick={saveRates} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/** How the two percentages turn into the cash figure, with a worked example. */
+function RatesHelp() {
+  return (
+    <div className="space-y-0.5 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+      <p>Sell 2% → sell 10,000, customer pays 10,200.</p>
+      <p>Refill 3% → buy 100,000, you pay 97,000.</p>
     </div>
   );
 }

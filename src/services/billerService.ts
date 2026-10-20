@@ -54,6 +54,8 @@ export async function createBiller(
     type: BillerType;
     openingBalance: bigint;
     notes?: string;
+    sellPercent?: number;
+    refillPercent?: number;
   }
 ) {
   const name = opts.name.trim();
@@ -74,6 +76,8 @@ export async function createBiller(
       openingBalance: opts.openingBalance,
       currentBalance: opts.openingBalance,
       notes: opts.notes,
+      sellPercent: opts.sellPercent ?? 0,
+      refillPercent: opts.refillPercent ?? 0,
     },
   });
 
@@ -190,4 +194,59 @@ export async function recordBillerTxn(
   });
 
   return record;
+}
+
+/** Undo a movement entered by mistake: the float goes back by what it moved, the cash goes
+ *  back to the wallet it came from, and the record stays listed as voided so the trail is
+ *  complete. Later movements keep their "float after" figures as they were at the time.
+ */
+export async function voidBillerTxn(
+  tx: Tx,
+  opts: { businessId: string; userId: string; txnId: string; reason: string }
+) {
+  const record = await tx.billerTxn.findFirst({
+    where: { id: opts.txnId, businessId: opts.businessId },
+    include: { biller: true },
+  });
+  if (!record) throw new ApiError(404, "Movement not found");
+  if (record.voidedAt) throw new ApiError(422, `${record.txnNo} is already voided`);
+
+  const kind = record.kind as BillerTxnKind;
+  // faceAmount is stored signed for an adjustment, so it is the delta itself.
+  const delta = kind === "ADJUST" ? record.faceAmount : floatDelta(kind, record.faceAmount);
+  await tx.biller.update({
+    where: { id: record.billerId },
+    data: { currentBalance: { decrement: delta } },
+  });
+
+  if (kind !== "ADJUST" && record.cashAmount > 0n && record.walletId) {
+    await postLedger(tx, {
+      businessId: opts.businessId,
+      walletId: record.walletId,
+      direction: kind === "TOPUP" ? "DEBIT" : "CREDIT",
+      amount: record.cashAmount,
+      refType: "REVERSAL",
+      refId: record.id,
+      description: `Void ${record.txnNo} ${record.biller.name}`,
+      createdById: opts.userId,
+      allowNegative: true,
+    });
+  }
+
+  const voided = await tx.billerTxn.update({
+    where: { id: record.id },
+    data: { voidedAt: new Date(), voidedById: opts.userId, voidReason: opts.reason },
+  });
+
+  await audit(tx, {
+    businessId: opts.businessId,
+    userId: opts.userId,
+    branchId: record.branchId ?? undefined,
+    action: "VOID",
+    module: "biller",
+    resourceType: "BillerTxn",
+    resourceId: record.id,
+    after: { txnNo: record.txnNo, reason: opts.reason },
+  });
+  return voided;
 }
