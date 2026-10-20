@@ -14,6 +14,8 @@ export interface ParsedProduct {
   sku: string;
   barcode: string;
   category: string;
+  /** pcs, box, kg… Empty leaves an existing item's unit as it is. */
+  unit: string;
   costPrice: string;
   sellingPrice: string;
   /** Stock on hand. Null when the cell is empty: an existing item keeps the stock it has,
@@ -82,6 +84,7 @@ const COLUMNS: Record<string, string[]> = {
   sku: ["sku", "code", "item code", "product code", "barcode2"],
   barcode: ["barcode", "bar code", "ean", "upc"],
   category: ["category", "group", "type", "အမျိုးအစား"],
+  unit: ["unit", "uom", "unit of measure", "ယူနစ်"],
   costPrice: ["cost", "cost price", "cost_price", "buy price", "purchase price", "ဝယ်ဈေး"],
   sellingPrice: ["price", "selling price", "selling_price", "sell price", "sale price", "retail", "ရောင်းဈေး", "ဈေးနှုန်း"],
   quantity: ["quantity", "qty", "stock", "stock quantity", "stock_quantity", "on hand", "stock on hand", "လက်ကျန်", "အရေအတွက်"],
@@ -186,6 +189,7 @@ export function parseProductCsv(text: string): ParsedCsv {
       sku,
       barcode: get("barcode"),
       category: get("category"),
+      unit: get("unit").trim(),
       costPrice,
       sellingPrice,
       quantity,
@@ -201,26 +205,26 @@ export function parseProductCsv(text: string): ParsedCsv {
   return { products, rejected, unknownColumns };
 }
 
-const CSV_HEADER = "name,sku,barcode,category,cost,price,stock,min stock";
+const CSV_HEADER = "name,sku,barcode,category,unit,cost,price,stock,min stock";
 
 /** The template a shop downloads to fill in, with example rows from a mini mart. */
 export const CSV_TEMPLATE = [
   CSV_HEADER,
-  "Coca Cola 330ml,,8851959132012,Drinks,600,800,24,6",
-  "Rice 5kg,RICE5,,Grocery,12000,14000,10,2",
+  "Coca Cola 330ml,,8851959132012,Drinks,pcs,600,800,24,6",
+  "Rice 5kg,RICE5,,Grocery,box,12000,14000,10,2",
 ].join("\n");
 
 /** The same template with a phone shop's stock as the examples: handsets and the
  *  accessories sold beside them, so the categories already make sense to that shop. */
 export const PHONE_SHOP_CSV_TEMPLATE = [
   CSV_HEADER,
-  "Vivo Y28 (8/128GB),VIVO-Y28-128,,Phones,420000,465000,3,1",
-  "Redmi Note 13 (8/256GB),RDM-N13-256,,Phones,560000,610000,2,1",
-  "Type-C Fast Charger 33W,CHG-33W,,Chargers & Cables,6000,9000,15,5",
-  "Type-C Cable 1m,CBL-TC-1M,,Chargers & Cables,1500,3000,30,10",
-  "Tempered Glass - Vivo Y28,TG-VIVO-Y28,,Screen Protectors,800,2000,20,5",
-  "Phone Case - Redmi Note 13,CASE-RN13,,Cases,2000,5000,10,3",
-  "Bluetooth Earbuds,EARBUD-BT,,Audio,12000,18000,8,2",
+  "Vivo Y28 (8/128GB),VIVO-Y28-128,,Phone New,pcs,420000,465000,3,1",
+  "iPhone 11 (64GB),IP11-64-USED,,Phone Second,pcs,450000,520000,2,1",
+  "Type-C Fast Charger 33W,CHG-33W,,Chargers & Cables,pcs,6000,9000,15,5",
+  "Type-C Cable 1m,CBL-TC-1M,,Chargers & Cables,pcs,1500,3000,30,10",
+  "Tempered Glass - Vivo Y28,TG-VIVO-Y28,,Glass,pcs,800,2000,20,5",
+  "Phone Case - Redmi Note 13,CASE-RN13,,Cases,pcs,2000,5000,10,3",
+  "LCD Vivo Y28,LCD-VIVO-Y28,,Spare Parts,pcs,25000,45000,5,1",
 ].join("\n");
 
 /** The template for a business category: the phone shop one for a mobile shop, the mini

@@ -395,7 +395,7 @@ export default function PosPage() {
                 >
                   <div className="flex items-start gap-2">
                     <ProductKindIcon item={item} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
-                    <div className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug [overflow-wrap:anywhere]">
+                    <div className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">
                       {item.name}
                     </div>
                   </div>

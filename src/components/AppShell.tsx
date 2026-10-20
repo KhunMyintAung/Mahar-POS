@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Moon, Sun, Receipt, Plus, ShoppingCart, Package, Boxes, Truck, Building2, MessageCircle,
-  Send, MinusCircle, Wrench, Smartphone, History,
+  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn } from "./ui";
@@ -134,8 +134,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
+  // The desktop sidebar folds away on the till, where every column of product tiles counts,
+  // and stays open elsewhere. The header button overrides that for the page you are on.
+  const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
   const [dark, setDark] = useState(false);
   const pathname = usePathname();
+  const sidebarHidden = sidebarPref?.path === pathname ? sidebarPref.hidden : pathname.startsWith("/pos");
   const router = useRouter();
 
   const refreshAuth = useCallback(async () => {
@@ -262,7 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ToastProvider>
         <div className="flex min-h-screen">
           {/* Desktop sidebar */}
-          <aside className="no-print hidden w-60 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 lg:block">
+          <aside className={cn("no-print hidden w-60 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", !sidebarHidden && "lg:block")}>
             <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-800">
               <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100 dark:ring-gray-800"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
               <span className="font-bold">Mahar Mini POS</span>
@@ -289,6 +293,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <button className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden" onClick={() => setDrawer(true)}>
                   <Menu size={20} />
+                </button>
+                <button
+                  className="hidden rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:inline-flex"
+                  onClick={() => setSidebarPref({ path: pathname, hidden: !sidebarHidden })}
+                  title={sidebarHidden ? "Show menu" : "Hide menu"}
+                  aria-label={sidebarHidden ? "Show menu" : "Hide menu"}
+                >
+                  {sidebarHidden ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
                 </button>
                 <span className="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
                   {me.user.name} · {me.user.roleName}

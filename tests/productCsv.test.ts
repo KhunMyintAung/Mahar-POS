@@ -128,3 +128,17 @@ describe("columns left empty in an import", () => {
     expect(products[1].given).toEqual({ costPrice: true, sellingPrice: true, minStock: false });
   });
 });
+
+describe("unit column in an import", () => {
+  it("reads the unit under its usual names", () => {
+    for (const header of ["unit", "UOM", "ယူနစ်"]) {
+      const { products, unknownColumns } = parseProductCsv(`name,${header}\nRice 5kg,box`);
+      expect(unknownColumns).toEqual([]);
+      expect(products[0].unit).toBe("box");
+    }
+  });
+
+  it("leaves the unit empty when the file has none", () => {
+    expect(parseProductCsv("name,price\nCable,3000").products[0].unit).toBe("");
+  });
+});

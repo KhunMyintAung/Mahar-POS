@@ -108,6 +108,27 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   }
 
   const categoryIds = new Map<string, string>();
+  const unitIds = new Map<string, string>();
+
+  /** The id of the unit with this name (any case), made if the shop does not have it yet. */
+  async function unitIdFor(name: string): Promise<string> {
+    const key = name.toLowerCase();
+    const cached = unitIds.get(key);
+    if (cached) return cached;
+    const existing = await prisma.unit.findFirst({
+      where: { businessId: user.businessId, name: { equals: name, mode: "insensitive" } },
+      select: { id: true, active: true },
+    });
+    if (existing && !existing.active) await prisma.unit.update({ where: { id: existing.id }, data: { active: true } });
+    const id = existing?.id ?? (await prisma.unit.create({ data: { businessId: user.businessId, name }, select: { id: true } })).id;
+    unitIds.set(key, id);
+    return id;
+  }
+  // A new item with no unit in the file gets the shop's "pcs", the unit nearly everything is sold in.
+  const defaultUnit = await prisma.unit.findFirst({
+    where: { businessId: user.businessId, active: true, name: { equals: "pcs", mode: "insensitive" } },
+    select: { id: true },
+  });
   let created = 0;
   let updated = 0;
 
@@ -124,7 +145,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       if (!id) {
         const category =
           (await prisma.itemCategory.findFirst({
-            where: { businessId: user.businessId, name: categoryName },
+            where: { businessId: user.businessId, name: { equals: categoryName, mode: "insensitive" } },
             select: { id: true },
           })) ??
           (await prisma.itemCategory.create({
@@ -137,6 +158,8 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       categoryId = id;
     }
 
+    const unitId = product.unit ? await unitIdFor(product.unit) : undefined;
+
     if (found) {
       await prisma.item.update({
         where: { id: found.id },
@@ -146,6 +169,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
           ...(product.given.minStock ? { minStock: product.minStock } : {}),
           barcode: product.barcode || undefined,
           categoryId: categoryId ?? undefined,
+          unitId: unitId ?? undefined,
         },
       });
       // Stock is set to what the file says, not added to it: the number in a stock-take
@@ -189,6 +213,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         sku,
         barcode: product.barcode || undefined,
         categoryId,
+        unitId: unitId ?? defaultUnit?.id,
         costPrice: toMinor(product.costPrice),
         sellingPrice: toMinor(product.sellingPrice),
         minStock: product.minStock,

@@ -24,6 +24,6 @@ describe("product CSV templates", () => {
 
   it("files phones and accessories under their own categories", () => {
     const categories = new Set(parseProductCsv(PHONE_SHOP_CSV_TEMPLATE).products.map((p) => p.category));
-    expect(categories).toEqual(new Set(["Phones", "Chargers & Cables", "Screen Protectors", "Cases", "Audio"]));
+    expect(categories).toEqual(new Set(["Phone New", "Phone Second", "Chargers & Cables", "Glass", "Cases", "Spare Parts"]));
   });
 });
