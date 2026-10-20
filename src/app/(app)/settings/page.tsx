@@ -144,7 +144,12 @@ export default function SettingsPage() {
             <Input label="Telegram" value={biz.telegram} onChange={(e) => setBiz({ ...biz, telegram: e.target.value })} />
           </div>
           <Input label="Address" value={biz.address} onChange={(e) => setBiz({ ...biz, address: e.target.value })} />
-          <Input label="Website" value={biz.website} onChange={(e) => setBiz({ ...biz, website: e.target.value })} />
+          <div>
+            <Input label="Website" value={biz.website} placeholder="maharpos.shop" onChange={(e) => setBiz({ ...biz, website: e.target.value })} />
+            <p className="mt-1 text-xs text-gray-500">
+              Opens from the &quot;Online Shop&quot; button on the repair QR page. Phone, address and Telegram give its Call, Location and Telegram buttons.
+            </p>
+          </div>
           <p className="text-xs text-gray-500">Default currency: {data.business.currency} · Time zone: {data.business.timezone}</p>
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>

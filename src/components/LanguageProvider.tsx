@@ -592,6 +592,8 @@ const MM: Record<string, string> = {
   "By amount (MMK)": "ပမာဏဖြင့် (MMK)",
   "Set one price": "ဈေးတစ်ခုတည်း သတ်မှတ်မည်",
   "Change by": "ပြောင်းပုံ",
+  "Opens from the \"Online Shop\" button on the repair QR page. Phone, address and Telegram give its Call, Location and Telegram buttons.":
+    "ပြုပြင်ရေး QR စာမျက်နှာရှိ \"Online Shop\" ခလုတ်မှ ဖွင့်ပါမည်။ ဖုန်း၊ လိပ်စာ နှင့် Telegram ကို ဖုန်းခေါ်ရန်၊ ဆိုင်တည်နေရာ နှင့် Telegram ခလုတ်များအတွက် သုံးပါသည်။",
   "What happened": "ဘာဖြစ်လို့လဲ",
   "Used for repair": "ပြင်ဆင်ရာတွင် သုံးသည်",
   "Damaged": "ပျက်စီးသည်",
