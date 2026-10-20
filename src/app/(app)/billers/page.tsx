@@ -586,8 +586,27 @@ type Deal = { sellPercent: string; refillPercent: string; refillMode: RefillMode
 
 /** The biller's deal: commission back on sales, and how a refill is discounted. Leave a
  *  percent at 0 for a biller that gives nothing. */
+/** A percent from two amounts, to four decimals and without trailing zeros. */
+function pctFrom(part: number, whole: number): string {
+  if (!(whole > 0) || !(part >= 0)) return "";
+  return String(Math.round((part / whole) * 100 * 10000) / 10000);
+}
+
 function DealFields({ value, onChange }: { value: Deal; onChange: (v: Partial<Deal>) => void }) {
   const refill = num(value.refillPercent);
+  // Shops know their deal as two amounts ("get 500,000, pay 484,000"), not as a percent.
+  const [calc, setCalc] = useState<{ get: string; pay: string } | null>(null);
+  const [sellCalc, setSellCalc] = useState<{ sold: string; back: string } | null>(null);
+
+  function fromAmounts(next: { get: string; pay: string }, mode = value.refillMode) {
+    setCalc(next);
+    const get = num(next.get);
+    const pay = num(next.pay);
+    if (get > 0 && pay > 0 && get >= pay) {
+      // Discount: the cut is a share of the balance. Bonus: the extra is a share of the cash.
+      onChange({ refillPercent: pctFrom(get - pay, mode === "BONUS" ? pay : get) });
+    }
+  }
   return (
     <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
       <div>
@@ -597,6 +616,24 @@ function DealFields({ value, onChange }: { value: Deal; onChange: (v: Partial<De
             ? `Sell 15,000 → ${Math.round(15000 * num(value.sellPercent) / 100).toLocaleString()} comes back to the balance.`
             : "0 if nothing comes back when you sell."}
         </p>
+        {sellCalc ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Input label="Sold" value={sellCalc.sold} inputMode="decimal" placeholder="15000" onChange={(e) => {
+              const next = { ...sellCalc, sold: e.target.value };
+              setSellCalc(next);
+              if (num(next.sold) > 0 && num(next.back) > 0) onChange({ sellPercent: pctFrom(num(next.back), num(next.sold)) });
+            }} />
+            <Input label="Came back" value={sellCalc.back} inputMode="decimal" placeholder="1000" onChange={(e) => {
+              const next = { ...sellCalc, back: e.target.value };
+              setSellCalc(next);
+              if (num(next.sold) > 0 && num(next.back) > 0) onChange({ sellPercent: pctFrom(num(next.back), num(next.sold)) });
+            }} />
+          </div>
+        ) : (
+          <button type="button" className="mt-1 text-xs font-medium text-blue-600 hover:underline" onClick={() => setSellCalc({ sold: "", back: "" })}>
+            Work out % from amounts
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         <span className="text-sm font-medium">Refill</span>
@@ -605,7 +642,7 @@ function DealFields({ value, onChange }: { value: Deal; onChange: (v: Partial<De
             <button
               key={m}
               type="button"
-              onClick={() => onChange({ refillMode: m })}
+              onClick={() => { onChange({ refillMode: m }); if (calc) fromAmounts(calc, m); }}
               className={`rounded-md px-2 py-2 font-medium ${value.refillMode === m ? "bg-white shadow dark:bg-gray-700" : "text-gray-500"}`}
             >
               {m === "BONUS" ? "Bonus to balance" : "Discount on cash"}
@@ -620,6 +657,16 @@ function DealFields({ value, onChange }: { value: Deal; onChange: (v: Partial<De
               ? `Pay 100,000 → balance gets ${Math.round(100000 * (1 + refill / 100)).toLocaleString()}.`
               : `Get 100,000 balance → pay ${Math.round(100000 * (1 - refill / 100)).toLocaleString()}.`}
         </p>
+        {calc ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Input label="Balance you get" value={calc.get} inputMode="decimal" placeholder="500000" onChange={(e) => fromAmounts({ ...calc, get: e.target.value })} />
+            <Input label="Cash you pay" value={calc.pay} inputMode="decimal" placeholder="484000" onChange={(e) => fromAmounts({ ...calc, pay: e.target.value })} />
+          </div>
+        ) : (
+          <button type="button" className="text-xs font-medium text-blue-600 hover:underline" onClick={() => setCalc({ get: "", pay: "" })}>
+            Work out % from amounts
+          </button>
+        )}
       </div>
     </div>
   );
