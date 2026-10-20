@@ -331,24 +331,25 @@ export default function BillersPage() {
               <div className={`text-xl font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
-              {hasPerm("biller.trade") && b.active && (
-                <div className="flex flex-wrap gap-2">
+              {/* A small bin at the end of the button row; the dialog it opens says what happens. */}
+              <div className="flex flex-wrap items-center gap-2">
+                {hasPerm("biller.trade") && b.active && <>
                   <Button size="sm" onClick={() => startTrade(b, "SALE")}>Sell</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "TOPUP")}>Buy float</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "ADJUST")}>Adjust</Button>
-                </div>
-              )}
-              {hasPerm("biller.manage") && (
-                <div className="flex justify-end border-t border-gray-100 pt-2 dark:border-gray-800">
+                </>}
+                {hasPerm("biller.manage") && (
                   <button
                     type="button"
+                    title="Delete biller"
+                    aria-label="Delete biller"
                     onClick={() => setRemoving(b)}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    className="ml-auto rounded-md p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40"
                   >
-                    <Trash2 size={14} />Delete biller
+                    <Trash2 size={16} />
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </Card>
           ))}
         </div>
