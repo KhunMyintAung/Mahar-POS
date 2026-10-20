@@ -385,19 +385,26 @@ export default function PosPage() {
                   key={item.id}
                   onClick={() => addToCart(item)}
                   disabled={available <= 0}
+                  // Full name on hover / long-press; the tile itself shows two lines so a row
+                  // of parts with long compatibility lists stays the height of a short one.
+                  title={`${item.name}\n${item.sku}`}
                   className={cn(
-                    "min-h-24 rounded-lg border border-gray-200 bg-white p-2.5 text-left shadow-sm transition hover:border-blue-400 dark:border-gray-800 dark:bg-gray-900 sm:p-3",
+                    "flex min-h-[5.5rem] flex-col justify-between gap-1.5 rounded-lg border border-gray-200 bg-white p-2.5 text-left shadow-sm transition hover:border-blue-400 dark:border-gray-800 dark:bg-gray-900",
                     available <= 0 && "opacity-40"
                   )}
                 >
                   <div className="flex items-start gap-2">
-                    <ProductKindIcon item={item} className="h-9 w-9" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold leading-tight">{item.name}</div>
-                      <div className="mt-0.5 text-[11px] text-gray-500">{item.sku} · stock {available}</div>
+                    <ProductKindIcon item={item} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
+                    <div className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold leading-snug [overflow-wrap:anywhere]">
+                      {item.name}
                     </div>
                   </div>
-                  <div className="mt-1 text-sm font-bold tabular-nums text-blue-600">{fmtMoney(item.sellingPrice)} MMK</div>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-bold tabular-nums text-blue-600">{fmtMoney(item.sellingPrice)}</span>
+                    <span className={cn("shrink-0 text-[11px]", available <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>
+                      stock {available}
+                    </span>
+                  </div>
                 </button>
               );
             })}
