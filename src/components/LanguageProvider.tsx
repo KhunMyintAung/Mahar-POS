@@ -518,6 +518,8 @@ const MM: Record<string, string> = {
   "Add line": "စာကြောင်း ထပ်ထည့်",
   "Add one first": "အရင် တစ်ခု ထည့်ပါ",
   "No supplier": "ကုန်သွင်းသူ မရွေးပါ",
+  "That file is not an image this browser can read. Try a PNG or JPG.": "ဤဖိုင်ကို ပုံအဖြစ် ဖတ်၍ မရပါ။ PNG သို့မဟုတ် JPG ဖြင့် စမ်းကြည့်ပါ။",
+  "Could not read the file": "ဖိုင်ကို ဖတ်၍ မရပါ",
   "Today's sales total": "ယနေ့ ရောင်းရငွေ စုစုပေါင်း",
   "Sales total": "ရောင်းရငွေ စုစုပေါင်း",
   "Stock value total": "လက်ကျန်တန်ဖိုး စုစုပေါင်း",

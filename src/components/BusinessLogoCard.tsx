@@ -32,10 +32,11 @@ function contentBox(ctx: CanvasRenderingContext2D, w: number, h: number) {
  *  PNG, WebP, GIF and SVG keep a transparent background as PNG; a JPEG stays JPEG. */
 function shrink(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
+    // Read as a data: URL, not a blob: one. The live site's content security policy allows
+    // data: images only, so a blob: URL fails to load and every file looked "not an image".
+    const reader = new FileReader();
     const img = new Image();
     img.onload = () => {
-      URL.revokeObjectURL(url);
       // An SVG without a size reports 0; draw it at a sensible width instead.
       const srcW = img.width || 640;
       const srcH = img.height || 320;
@@ -64,11 +65,10 @@ function shrink(file: File): Promise<string> {
       ctx.drawImage(full, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL(png ? "image/png" : "image/jpeg", 0.85));
     };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("That file is not an image"));
-    };
-    img.src = url;
+    img.onerror = () => reject(new Error("That file is not an image this browser can read. Try a PNG or JPG."));
+    reader.onload = () => { img.src = String(reader.result); };
+    reader.onerror = () => reject(new Error("Could not read the file"));
+    reader.readAsDataURL(file);
   });
 }
 

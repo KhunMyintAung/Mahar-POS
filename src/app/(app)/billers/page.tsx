@@ -320,16 +320,6 @@ export default function BillersPage() {
                       <Percent size={15} />
                     </button>
                   )}
-                  {hasPerm("biller.manage") && (
-                    <button
-                      type="button"
-                      title="Delete biller"
-                      className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
-                      onClick={() => setRemoving(b)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
                 </div>
               </div>
               {(b.sellPercent !== 0 || b.refillPercent !== 0) && (
@@ -346,6 +336,17 @@ export default function BillersPage() {
                   <Button size="sm" onClick={() => startTrade(b, "SALE")}>Sell</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "TOPUP")}>Buy float</Button>
                   <Button size="sm" variant="secondary" onClick={() => startTrade(b, "ADJUST")}>Adjust</Button>
+                </div>
+              )}
+              {hasPerm("biller.manage") && (
+                <div className="flex justify-end border-t border-gray-100 pt-2 dark:border-gray-800">
+                  <button
+                    type="button"
+                    onClick={() => setRemoving(b)}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  >
+                    <Trash2 size={14} />Delete biller
+                  </button>
                 </div>
               )}
             </Card>
