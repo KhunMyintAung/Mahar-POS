@@ -19,6 +19,16 @@ describe("floatDelta", () => {
   });
 });
 
+describe("commission on a sale", () => {
+  it("puts the commission back into the balance", () => {
+    // Sell 15,000; the operator returns 1,000.
+    expect(floatDelta("SALE", 15_000_00n, 1_000_00n)).toBe(-14_000_00n);
+  });
+  it("counts the commission as profit", () => {
+    expect(txnProfit("SALE", 15_000_00n, 15_000_00n, 1_000_00n)).toBe(1_000_00n);
+  });
+});
+
 describe("txnProfit", () => {
   it("counts the operator's discount as the margin on a purchase", () => {
     // 100,000 of credit bought for 98,000.

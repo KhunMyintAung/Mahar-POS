@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { BILLER_TYPES } from "@/services/billerService";
+import { BILLER_TYPES, REFILL_MODES } from "@/services/billerService";
 
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
@@ -11,6 +11,7 @@ const patchSchema = z.object({
   notes: z.string().trim().max(300).optional(),
   sellPercent: z.number().min(-100).max(100).optional(),
   refillPercent: z.number().min(-100).max(100).optional(),
+  refillMode: z.enum(REFILL_MODES).optional(),
 });
 
 export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => {
@@ -40,6 +41,7 @@ export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => 
         notes: body.notes ?? biller.notes,
         sellPercent: body.sellPercent ?? biller.sellPercent,
         refillPercent: body.refillPercent ?? biller.refillPercent,
+        refillMode: body.refillMode ?? biller.refillMode,
       },
     });
     await audit(tx, {

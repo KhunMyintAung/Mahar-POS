@@ -59,6 +59,7 @@ const createSchema = z.object({
   // An adjustment carries its own sign, so a leading minus is allowed here.
   faceAmount: z.string().regex(/^-?\d+(\.\d+)?$/),
   cashAmount: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
+  commission: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
   walletId: z.string().optional(),
   customerPhone: z.string().trim().max(40).optional(),
   note: z.string().trim().max(300).optional(),
@@ -75,6 +76,7 @@ export const POST = withAuth("biller.trade", async ({ req, user }) => {
       kind: body.kind,
       faceAmount: toMinor(body.faceAmount),
       cashAmount: toMinor(body.cashAmount),
+      commission: toMinor(body.commission),
       walletId: body.walletId,
       customerPhone: body.customerPhone,
       note: body.note,

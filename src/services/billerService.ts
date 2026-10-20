@@ -16,6 +16,9 @@ import { postLedger } from "./walletService";
 export const BILLER_TYPES = ["TOPUP_CARD", "ELOAD"] as const;
 export type BillerType = (typeof BILLER_TYPES)[number];
 
+export const REFILL_MODES = ["BONUS", "DISCOUNT"] as const;
+export type RefillMode = (typeof REFILL_MODES)[number];
+
 export const BILLER_TXN_KINDS = ["TOPUP", "SALE", "ADJUST"] as const;
 export type BillerTxnKind = (typeof BILLER_TXN_KINDS)[number];
 
@@ -26,9 +29,10 @@ export type BillerTxnKind = (typeof BILLER_TXN_KINDS)[number];
  *  ADJUST — a correction after counting against the operator's own statement. The float
  *           moves and nothing else does, because no money changed hands.
  */
-export function floatDelta(kind: BillerTxnKind, faceAmount: bigint): bigint {
+export function floatDelta(kind: BillerTxnKind, faceAmount: bigint, commission = 0n): bigint {
   if (kind === "TOPUP") return faceAmount;
-  if (kind === "SALE") return -faceAmount;
+  // Some operators put a commission back into the balance on every sale.
+  if (kind === "SALE") return -faceAmount + commission;
   return faceAmount; // ADJUST carries its own sign
 }
 
@@ -38,9 +42,9 @@ export function floatDelta(kind: BillerTxnKind, faceAmount: bigint): bigint {
  *  taken above the credit given away — usually nothing, and negative when a customer is
  *  given a discount, which is worth seeing rather than rounding away.
  */
-export function txnProfit(kind: BillerTxnKind, faceAmount: bigint, cashAmount: bigint): bigint {
+export function txnProfit(kind: BillerTxnKind, faceAmount: bigint, cashAmount: bigint, commission = 0n): bigint {
   if (kind === "TOPUP") return faceAmount - cashAmount;
-  if (kind === "SALE") return cashAmount - faceAmount;
+  if (kind === "SALE") return cashAmount - faceAmount + commission;
   return 0n;
 }
 
@@ -56,6 +60,7 @@ export async function createBiller(
     notes?: string;
     sellPercent?: number;
     refillPercent?: number;
+    refillMode?: RefillMode;
   }
 ) {
   const name = opts.name.trim();
@@ -78,6 +83,7 @@ export async function createBiller(
       notes: opts.notes,
       sellPercent: opts.sellPercent ?? 0,
       refillPercent: opts.refillPercent ?? 0,
+      refillMode: opts.refillMode ?? "DISCOUNT",
     },
   });
 
@@ -110,6 +116,8 @@ export async function recordBillerTxn(
     kind: BillerTxnKind;
     faceAmount: bigint;
     cashAmount: bigint;
+    /** Sales only: what the operator puts back into the balance. */
+    commission?: bigint;
     walletId?: string;
     customerPhone?: string;
     note?: string;
@@ -132,9 +140,12 @@ export async function recordBillerTxn(
     throw new ApiError(422, "An adjustment of zero changes nothing");
   }
 
-  const delta = floatDelta(opts.kind, opts.faceAmount);
+  const commission = opts.kind === "SALE" ? opts.commission ?? 0n : 0n;
+  if (commission < 0n || (commission > 0n && commission > opts.faceAmount))
+    throw new ApiError(422, "Commission must be between zero and the amount sold");
+  const delta = floatDelta(opts.kind, opts.faceAmount, commission);
   const balanceAfter = biller.currentBalance + delta;
-  const profit = txnProfit(opts.kind, opts.faceAmount, opts.cashAmount);
+  const profit = txnProfit(opts.kind, opts.faceAmount, opts.cashAmount, commission);
 
   await tx.biller.update({
     where: { id: biller.id },
@@ -150,6 +161,7 @@ export async function recordBillerTxn(
       billerId: biller.id,
       kind: opts.kind,
       faceAmount: opts.kind === "ADJUST" ? delta : opts.faceAmount,
+      commission,
       cashAmount: opts.cashAmount,
       profit,
       walletId: opts.walletId,
@@ -214,7 +226,7 @@ export async function voidBillerTxn(
 
   const kind = record.kind as BillerTxnKind;
   // faceAmount is stored signed for an adjustment, so it is the delta itself.
-  const delta = kind === "ADJUST" ? record.faceAmount : floatDelta(kind, record.faceAmount);
+  const delta = kind === "ADJUST" ? record.faceAmount : floatDelta(kind, record.faceAmount, record.commission);
   await tx.biller.update({
     where: { id: record.billerId },
     data: { currentBalance: { decrement: delta } },

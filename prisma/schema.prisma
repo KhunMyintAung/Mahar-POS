@@ -200,10 +200,12 @@ model Biller {
   openingBalance BigInt    @default(0)
   currentBalance BigInt    @default(0)
   active         Boolean   @default(true)
-  /// Percent added to the sold amount for the cash a customer pays (negative for a discount).
+  /// Commission the operator puts back into the balance on each sale, as a percent of the amount sold.
   sellPercent    Float     @default(0)
-  /// Percent the operator takes off when the shop buys float, so cash paid = amount less this.
+  /// The refill deal, as a percent: BONUS adds it to the balance (pay 100,000, get 106,000);
+  /// DISCOUNT takes it off the cash (get 100,000, pay 94,000).
   refillPercent  Float     @default(0)
+  refillMode     String    @default("DISCOUNT")
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -238,6 +240,8 @@ model BillerTxn {
    * Worked out once, at the point of sale, so a report never has to re-derive the sign.
    */
   profit        BigInt   @default(0)
+  /// On a sale, what the operator put back into the balance; the balance fell by the amount less this.
+  commission    BigInt   @default(0)
   /**
    * The wallet the cash moved through; absent for an adjustment.
    */

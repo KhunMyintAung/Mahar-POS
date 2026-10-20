@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
-import { BILLER_TYPES, createBiller } from "@/services/billerService";
+import { BILLER_TYPES, REFILL_MODES, createBiller } from "@/services/billerService";
 
 export const GET = withAuth("biller.view", async ({ req, user }) => {
   const includeOff = req.nextUrl.searchParams.get("all") === "1";
@@ -30,6 +30,7 @@ const createSchema = z.object({
   notes: z.string().trim().max(300).optional(),
   sellPercent: z.number().min(-100).max(100).default(0),
   refillPercent: z.number().min(-100).max(100).default(0),
+  refillMode: z.enum(REFILL_MODES).default("DISCOUNT"),
 });
 
 export const POST = withAuth("biller.manage", async ({ req, user }) => {
@@ -61,6 +62,7 @@ export const POST = withAuth("biller.manage", async ({ req, user }) => {
       notes: body.notes,
       sellPercent: body.sellPercent,
       refillPercent: body.refillPercent,
+      refillMode: body.refillMode,
     })
   );
 

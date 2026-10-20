@@ -11,7 +11,7 @@ import { useNewModal } from "@/lib/useNewModal";
 interface Biller {
   id: string; name: string; type: string; currency: string;
   currentBalance: string; active: boolean; notes?: string;
-  sellPercent: number; refillPercent: number;
+  sellPercent: number; refillPercent: number; refillMode: RefillMode;
 }
 interface Txn {
   id: string; txnNo: string; kind: string;
@@ -44,10 +44,14 @@ function shiftDate(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 /** "+2%" / "−3%"; empty when there is no percentage. */
-function pctLabel(p: number, sign: 1 | -1): string {
-  if (!p) return "";
-  const v = p * sign;
-  return `${v > 0 ? "+" : "−"}${Math.abs(v)}%`;
+type RefillMode = "BONUS" | "DISCOUNT";
+
+/** One line on the card saying what the biller's deal is. */
+function dealLabel(b: Biller): string[] {
+  const out: string[] = [];
+  if (b.sellPercent) out.push(`Sell: ${b.sellPercent}% back`);
+  if (b.refillPercent) out.push(b.refillMode === "BONUS" ? `Refill: +${b.refillPercent}% bonus` : `Refill: −${b.refillPercent}% off`);
+  return out;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -67,13 +71,13 @@ export default function BillersPage() {
   const [voiding, setVoiding] = useState<Txn | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [rating, setRating] = useState<Biller | null>(null);
-  const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "" });
+  const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
   const [removing, setRemoving] = useState<Biller | null>(null);
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
   const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "" });
-  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "" });
+  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
   const { push } = useToast();
   const { hasPerm } = useAuth();
 
@@ -102,11 +106,12 @@ export default function BillersPage() {
           notes: form.notes || undefined,
           sellPercent: num(form.sellPercent),
           refillPercent: num(form.refillPercent),
+          refillMode: form.refillMode,
         },
       });
       push("Biller added");
       setShowNew(false);
-      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "" });
+      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -118,26 +123,51 @@ export default function BillersPage() {
   // The float the operator holds now, in kyat. Typing the amount works out what is left, and
   // typing what is left (read off the operator's app) works out the amount.
   const current = trading ? Number(trading.biller.currentBalance) / 100 : 0;
-  const sign = trading?.kind === "SALE" ? -1 : 1;
   const face = num(trade.faceAmount);
-  // Selling adds the biller's sell %; buying float takes its refill % off. Typing the cash
-  // overrides this for a one-off price.
-  const pct = trading?.kind === "SALE" ? trading.biller.sellPercent : trading?.kind === "TOPUP" ? -trading.biller.refillPercent : 0;
-  const autoCash = Math.max(Math.round(face * (1 + pct / 100)), 0);
+  // The biller's deal. Selling: the operator puts sellPercent of the amount back into the
+  // balance (sell 15,000, 1,000 comes back). Refilling: BONUS adds refillPercent to the
+  // balance (pay 100,000, get 106,000); DISCOUNT takes it off the cash (get 100,000, pay 94,000).
+  const sellRate = trading?.kind === "SALE" ? trading.biller.sellPercent / 100 : 0;
+  const refillRate = trading?.kind === "TOPUP" ? trading.biller.refillPercent / 100 : 0;
+  const bonus = trading?.biller.refillMode === "BONUS";
+  const commission = Math.max(Math.round(face * sellRate), 0);
+  /** How much the balance moves for a given amount. */
+  const moveFor = (amount: number) =>
+    trading?.kind === "SALE" ? -amount + Math.round(amount * sellRate) : amount;
+  const autoCash = Math.max(
+    trading?.kind === "TOPUP"
+      ? Math.round(bonus ? face / (1 + refillRate) : face * (1 - refillRate))
+      : face,
+    0,
+  );
   const cash = trade.cashTouched ? num(trade.cashAmount) : autoCash;
   // What the shop makes on this trade, shown before it is saved so a wrong figure is
   // caught at the counter rather than in a month-end report.
-  const margin = trading?.kind === "TOPUP" ? face - cash : trading?.kind === "SALE" ? cash - face : 0;
+  const margin = trading?.kind === "TOPUP" ? face - cash : trading?.kind === "SALE" ? cash - face + commission : 0;
   const amountOk = trading?.kind === "ADJUST" ? face !== 0 : face > 0;
+  const round2 = (n: number) => String(Math.round(n * 100) / 100);
 
   function onAmount(value: string) {
     const v = num(value);
-    setTrade({ ...trade, faceAmount: value, leftAmount: value.trim() ? String(Math.round((current + sign * v) * 100) / 100) : "" });
+    setTrade({ ...trade, faceAmount: value, leftAmount: value.trim() ? round2(current + moveFor(v)) : "" });
   }
 
   function onLeft(value: string) {
     const v = num(value);
-    setTrade({ ...trade, leftAmount: value, faceAmount: value.trim() ? String(Math.round(sign * (v - current) * 100) / 100) : "" });
+    if (!value.trim()) { setTrade({ ...trade, leftAmount: value, faceAmount: "" }); return; }
+    // Selling with commission: the balance fell by amount × (1 − rate), so divide it back out.
+    const amount = trading?.kind === "SALE" ? (current - v) / (1 - sellRate) : v - current;
+    setTrade({ ...trade, leftAmount: value, faceAmount: String(Math.round(amount)) });
+  }
+
+  /** On a bonus refill the shop counts the cash it pays, so typing the cash works out the balance added. */
+  function onCash(value: string) {
+    if (trading?.kind === "TOPUP" && bonus && value.trim()) {
+      const added = Math.round(num(value) * (1 + refillRate));
+      setTrade({ ...trade, cashAmount: value, cashTouched: true, faceAmount: String(added), leftAmount: round2(current + added) });
+      return;
+    }
+    setTrade({ ...trade, cashAmount: value, cashTouched: true });
   }
 
   function startTrade(biller: Biller, kind: string) {
@@ -164,6 +194,7 @@ export default function BillersPage() {
           kind: trading.kind,
           faceAmount: String(face),
           cashAmount: trading.kind === "ADJUST" ? "0" : String(cash),
+          commission: trading.kind === "SALE" ? String(commission) : "0",
           walletId: trading.kind === "ADJUST" ? undefined : (trade.walletId || undefined),
           customerPhone: trade.customerPhone || undefined,
           note: trade.note || undefined,
@@ -225,7 +256,7 @@ export default function BillersPage() {
     try {
       await api(`/api/v1/billers/${rating.id}`, {
         method: "PATCH",
-        body: { name: rates.name.trim(), sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent) },
+        body: { name: rates.name.trim(), sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent), refillMode: rates.refillMode },
       });
       push("Saved");
       setRating(null);
@@ -314,17 +345,16 @@ export default function BillersPage() {
                     <button
                       type="button"
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800"
-                      onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "" }); }}
+                      onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "", refillMode: b.refillMode === "BONUS" ? "BONUS" : "DISCOUNT" }); }}
                     >
                       <Pencil size={13} />Edit
                     </button>
                   )}
                 </div>
               </div>
-              {(b.sellPercent !== 0 || b.refillPercent !== 0) && (
-                <div className="flex gap-3 text-xs text-gray-500">
-                  {b.sellPercent !== 0 && <span>Sell {pctLabel(b.sellPercent, 1)}</span>}
-                  {b.refillPercent !== 0 && <span>Refill {pctLabel(b.refillPercent, -1)}</span>}
+              {dealLabel(b).length > 0 && (
+                <div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
+                  {dealLabel(b).map((t) => <span key={t}>{t}</span>)}
                 </div>
               )}
               <div className={`text-xl font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
@@ -399,11 +429,7 @@ export default function BillersPage() {
             What the operator is holding for this shop today. A minus figure is fine if the
             shop has sold ahead of paying.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Sell %" value={form.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => setForm({ ...form, sellPercent: e.target.value })} />
-            <Input label="Refill %" value={form.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => setForm({ ...form, refillPercent: e.target.value })} />
-          </div>
-          <RatesHelp />
+          <DealFields value={form} onChange={(v) => setForm({ ...form, ...v })} />
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -425,7 +451,7 @@ export default function BillersPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label={trading.kind === "SALE" ? "Sold amount" : trading.kind === "TOPUP" ? "Float bought" : "Correct by"}
+                label={trading.kind === "SALE" ? "Sold amount" : trading.kind === "TOPUP" ? "Balance added" : "Correct by"}
                 value={trade.faceAmount}
                 inputMode="decimal"
                 autoFocus
@@ -455,7 +481,7 @@ export default function BillersPage() {
                     label={trading.kind === "TOPUP" ? "Cash paid" : "Cash received"}
                     value={trade.cashTouched ? trade.cashAmount : (face > 0 ? String(autoCash) : "")}
                     inputMode="decimal"
-                    onChange={(e) => setTrade({ ...trade, cashAmount: e.target.value, cashTouched: true })}
+                    onChange={(e) => onCash(e.target.value)}
                     placeholder="0"
                   />
                   <Select label={trading.kind === "TOPUP" ? "Paid out of" : "Paid into"} value={trade.walletId} onChange={(e) => setTrade({ ...trade, walletId: e.target.value })}>
@@ -465,6 +491,18 @@ export default function BillersPage() {
                     ))}
                   </Select>
                 </div>
+                {trading.kind === "SALE" && commission > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>Commission back to balance</span>
+                    <b className="tabular-nums text-green-600">+{commission.toLocaleString()}</b>
+                  </div>
+                )}
+                {trading.kind === "TOPUP" && refillRate > 0 && face > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span>{bonus ? "Bonus added to balance" : "Discount on cash"}</span>
+                    <b className="tabular-nums text-green-600">{(face - cash).toLocaleString()}</b>
+                  </div>
+                )}
                 {margin !== 0 && (
                   <div className="flex justify-between text-sm">
                     <span>Margin on this trade</span>
@@ -526,11 +564,7 @@ export default function BillersPage() {
       <Modal open={Boolean(rating)} onClose={() => setRating(null)} title="Edit biller">
         <div className="space-y-3">
           <Input label="Name" value={rates.name} onChange={(e) => setRates({ ...rates, name: e.target.value })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Sell %" value={rates.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, sellPercent: e.target.value })} />
-            <Input label="Refill %" value={rates.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => setRates({ ...rates, refillPercent: e.target.value })} />
-          </div>
-          <RatesHelp />
+          <DealFields value={rates} onChange={(v) => setRates({ ...rates, ...v })} />
           <div className="flex items-center justify-end gap-2">
             <button
               type="button"
@@ -548,12 +582,45 @@ export default function BillersPage() {
   );
 }
 
-/** How the two percentages turn into the cash figure, with a worked example. */
-function RatesHelp() {
+type Deal = { sellPercent: string; refillPercent: string; refillMode: RefillMode };
+
+/** The biller's deal: commission back on sales, and how a refill is discounted. Leave a
+ *  percent at 0 for a biller that gives nothing. */
+function DealFields({ value, onChange }: { value: Deal; onChange: (v: Partial<Deal>) => void }) {
+  const refill = num(value.refillPercent);
   return (
-    <div className="space-y-0.5 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
-      <p>Sell 2% → sell 10,000, customer pays 10,200.</p>
-      <p>Refill 3% → buy 100,000, you pay 97,000.</p>
+    <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+      <div>
+        <Input label="Sell commission %" value={value.sellPercent} inputMode="decimal" placeholder="0" onChange={(e) => onChange({ sellPercent: e.target.value })} />
+        <p className="mt-1 text-xs text-gray-500">
+          {num(value.sellPercent) > 0
+            ? `Sell 15,000 → ${Math.round(15000 * num(value.sellPercent) / 100).toLocaleString()} comes back to the balance.`
+            : "0 if nothing comes back when you sell."}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <span className="text-sm font-medium">Refill</span>
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-xs dark:bg-gray-800">
+          {(["BONUS", "DISCOUNT"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onChange({ refillMode: m })}
+              className={`rounded-md px-2 py-2 font-medium ${value.refillMode === m ? "bg-white shadow dark:bg-gray-700" : "text-gray-500"}`}
+            >
+              {m === "BONUS" ? "Bonus to balance" : "Discount on cash"}
+            </button>
+          ))}
+        </div>
+        <Input label="Refill %" value={value.refillPercent} inputMode="decimal" placeholder="0" onChange={(e) => onChange({ refillPercent: e.target.value })} />
+        <p className="text-xs text-gray-500">
+          {refill <= 0
+            ? "0 if the refill has no bonus or discount."
+            : value.refillMode === "BONUS"
+              ? `Pay 100,000 → balance gets ${Math.round(100000 * (1 + refill / 100)).toLocaleString()}.`
+              : `Get 100,000 balance → pay ${Math.round(100000 * (1 - refill / 100)).toLocaleString()}.`}
+        </p>
+      </div>
     </div>
   );
 }
