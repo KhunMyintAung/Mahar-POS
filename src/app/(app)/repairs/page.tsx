@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Clock3, History, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -151,8 +151,6 @@ export default function RepairsPage() {
   const [edit, setEdit] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
   const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
-  const [historyImei, setHistoryImei] = useState("");
-  const [history, setHistory] = useState<{ imei: string; jobs: Job[] } | null>(null);
   const { push } = useToast();
   const { hasPerm, defaultBranchId, me } = useAuth();
 
@@ -399,17 +397,6 @@ export default function RepairsPage() {
     }
   }
 
-  async function searchHistory(imei = historyImei) {
-    const value = imei.trim();
-    if (value.length < 4) return;
-    try {
-      const d = await api<{ jobs: Job[] }>(`/api/v1/repairs?${new URLSearchParams({ imei: value, pageSize: "100" })}`);
-      setHistory({ imei: value, jobs: d.jobs });
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    }
-  }
-
   if (!jobs) return <Spinner />;
 
   const balance = working
@@ -497,14 +484,7 @@ export default function RepairsPage() {
                 <td className="px-3 py-2.5">
                   <div className="font-medium">{job.deviceBrand} {job.deviceModel}</div>
                   {job.imei && (
-                    <button
-                      type="button"
-                      className="font-mono text-xs text-blue-600 hover:underline"
-                      title="Repair history for this device"
-                      onClick={() => { setHistoryImei(job.imei!); searchHistory(job.imei!); }}
-                    >
-                      {job.imei}
-                    </button>
+                    <div className="font-mono text-xs text-gray-500">{job.imei}</div>
                   )}
                 </td>
                 <td className="px-3 py-2.5">
@@ -555,25 +535,6 @@ export default function RepairsPage() {
           })}
         </Table>
       )}
-
-      <Card className="space-y-2">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <History size={16} className="text-blue-600" />Device repair history
-        </div>
-        <p className="text-xs text-gray-500">Enter an IMEI or serial to see every repair this device has had here.</p>
-        <div className="flex gap-2">
-          <input
-            value={historyImei}
-            onChange={(e) => setHistoryImei(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") searchHistory(); }}
-            placeholder="IMEI or serial number"
-            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 font-mono text-sm dark:border-gray-700 dark:bg-gray-800"
-          />
-          <Button variant="secondary" onClick={() => searchHistory()} disabled={historyImei.trim().length < 4}>
-            <History size={16} className="mr-1 inline" />History
-          </Button>
-        </div>
-      </Card>
 
       {/* Shared by the intake and edit forms. */}
       <datalist id="repair-brand-suggestions">
@@ -749,29 +710,6 @@ export default function RepairsPage() {
               <Button onClick={applyMove} disabled={busy || !move.status}>{busy ? "Saving…" : "Save"}</Button>
             </div>
           </div>
-        )}
-      </Modal>
-
-      <Modal open={Boolean(history)} onClose={() => setHistory(null)} title={`Device history — ${history?.imei ?? ""}`}>
-        {history && (
-          history.jobs.length === 0 ? (
-            <Empty message="No repairs found for this IMEI / serial." />
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-gray-500">{history.jobs.length} repair record(s)</p>
-              {history.jobs.map((job) => (
-                <div key={job.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-800">
-                  <div>
-                    <div className="font-mono font-medium">{job.jobNo}</div>
-                    <div>{job.deviceBrand} {job.deviceModel}</div>
-                    <div className="text-gray-500">{job.problem}</div>
-                    <div className="text-xs text-gray-400">{fmtDateTime(job.receivedAt)}</div>
-                  </div>
-                  <StatusPill status={job.status} />
-                </div>
-              ))}
-            </div>
-          )
         )}
       </Modal>
 

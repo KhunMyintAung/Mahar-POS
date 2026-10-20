@@ -36,8 +36,6 @@ const MM: Record<string, string> = {
   "Intake condition": "လက်ခံစဉ် အခြေအနေ",
   "Add optional details": "အသေးစိတ် ထပ်ဖြည့်မည်",
   "Hide optional details": "အသေးစိတ် ဖျောက်မည်",
-  "Device repair history": "ဖုန်း ပြုပြင်မှု မှတ်တမ်း",
-  "IMEI or serial number": "IMEI သို့မဟုတ် Serial နံပါတ်",
   "Purchases": "အဝယ်",
   "Items": "ကုန်ပစ္စည်းများ",
   "Stock": "ကုန်လက်ကျန်",
