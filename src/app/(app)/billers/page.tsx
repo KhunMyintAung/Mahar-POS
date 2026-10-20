@@ -25,6 +25,8 @@ const TYPE_LABEL: Record<string, string> = {
   ELOAD: "E-load",
 };
 
+const num = (v: string) => Number(v.replace(/,/g, "")) || 0;
+
 const KIND_LABEL: Record<string, string> = {
   TOPUP: "Bought float",
   SALE: "Sold top-up",
@@ -40,7 +42,7 @@ export default function BillersPage() {
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
-  const [trade, setTrade] = useState({ faceAmount: "", cashAmount: "", walletId: "", customerPhone: "", note: "" });
+  const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "" });
   const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "" });
   const { push } = useToast();
   const { hasPerm } = useAuth();
@@ -81,11 +83,34 @@ export default function BillersPage() {
     }
   }
 
+  // The float the operator holds now, in kyat. Typing the amount works out what is left, and
+  // typing what is left (read off the operator's app) works out the amount.
+  const current = trading ? Number(trading.biller.currentBalance) / 100 : 0;
+  const sign = trading?.kind === "SALE" ? -1 : 1;
+  const face = num(trade.faceAmount);
+  const cash = trade.cashTouched ? num(trade.cashAmount) : Math.max(face, 0);
+  // What the shop makes on this trade, shown before it is saved so a wrong figure is
+  // caught at the counter rather than in a month-end report.
+  const margin = trading?.kind === "TOPUP" ? face - cash : trading?.kind === "SALE" ? cash - face : 0;
+  const amountOk = trading?.kind === "ADJUST" ? face !== 0 : face > 0;
+
+  function onAmount(value: string) {
+    const v = num(value);
+    setTrade({ ...trade, faceAmount: value, leftAmount: value.trim() ? String(Math.round((current + sign * v) * 100) / 100) : "" });
+  }
+
+  function onLeft(value: string) {
+    const v = num(value);
+    setTrade({ ...trade, leftAmount: value, faceAmount: value.trim() ? String(Math.round(sign * (v - current) * 100) / 100) : "" });
+  }
+
   function startTrade(biller: Biller, kind: string) {
     setTrading({ biller, kind });
     setTrade({
       faceAmount: "",
+      leftAmount: "",
       cashAmount: "",
+      cashTouched: false,
       walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
       customerPhone: "",
       note: "",
@@ -101,8 +126,8 @@ export default function BillersPage() {
         body: {
           billerId: trading.biller.id,
           kind: trading.kind,
-          faceAmount: trade.faceAmount,
-          cashAmount: trading.kind === "ADJUST" ? "0" : (trade.cashAmount || "0"),
+          faceAmount: String(face),
+          cashAmount: trading.kind === "ADJUST" ? "0" : String(cash),
           walletId: trading.kind === "ADJUST" ? undefined : (trade.walletId || undefined),
           customerPhone: trade.customerPhone || undefined,
           note: trade.note || undefined,
@@ -120,11 +145,6 @@ export default function BillersPage() {
 
   if (!billers) return <Spinner />;
 
-  // What the shop makes on this trade, shown before it is saved so a wrong figure is
-  // caught at the counter rather than in a month-end report.
-  const face = Number(trade.faceAmount || 0);
-  const cash = Number(trade.cashAmount || 0);
-  const margin = trading?.kind === "TOPUP" ? face - cash : trading?.kind === "SALE" ? cash - face : 0;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -240,47 +260,60 @@ export default function BillersPage() {
       >
         {trading && (
           <div className="space-y-3">
-            <Input
-              label={trading.kind === "ADJUST" ? "Correct the float by" : "Credit amount (face value)"}
-              value={trade.faceAmount}
-              onChange={(e) => setTrade({ ...trade, faceAmount: e.target.value })}
-              placeholder={trading.kind === "ADJUST" ? "-5000" : "10000"}
-            />
-            {trading.kind === "ADJUST" ? (
-              <p className="text-xs text-gray-500">
-                Use a minus figure to bring the float down. No money moves — this is only for
-                correcting the balance against the operator&apos;s own statement.
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
+              <span className="text-gray-500">Balance now</span>
+              <b className="tabular-nums">{fmtMoney(trading.biller.currentBalance)}</b>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={trading.kind === "SALE" ? "Sold amount" : trading.kind === "TOPUP" ? "Float bought" : "Correct by"}
+                value={trade.faceAmount}
+                inputMode="decimal"
+                autoFocus
+                onChange={(e) => onAmount(e.target.value)}
+                placeholder={trading.kind === "ADJUST" ? "-5000" : "10000"}
+              />
+              <Input
+                label={trading.kind === "ADJUST" ? "Actual balance" : "Balance left"}
+                value={trade.leftAmount}
+                inputMode="decimal"
+                onChange={(e) => onLeft(e.target.value)}
+                placeholder={String(current)}
+              />
+            </div>
+            <p className="text-xs text-gray-500">
+              {trading.kind === "ADJUST" ? "Type the balance the operator shows; the difference is worked out." : "Type either one; the other is worked out."}
+            </p>
+            {trade.faceAmount.trim() !== "" && !amountOk && (
+              <p className="text-xs text-red-600">
+                {trading.kind === "SALE" ? "Balance left must be lower than the balance now." : trading.kind === "TOPUP" ? "Balance left must be higher than the balance now." : "That is the same as the balance now."}
               </p>
-            ) : (
+            )}
+            {trading.kind !== "ADJUST" && (
               <>
-                <Input
-                  label={trading.kind === "TOPUP" ? "Cash paid to the operator" : "Cash taken from the customer"}
-                  value={trade.cashAmount}
-                  onChange={(e) => setTrade({ ...trade, cashAmount: e.target.value })}
-                  placeholder="0"
-                />
-                <Select label={trading.kind === "TOPUP" ? "Paid out of" : "Paid into"} value={trade.walletId} onChange={(e) => setTrade({ ...trade, walletId: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {wallets.filter((w) => w.currency === "MMK").map((w) => (
-                    <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
-                  ))}
-                </Select>
-                <Card className="space-y-1 bg-gray-50 text-sm dark:bg-gray-800/50">
-                  <div className="flex justify-between">
-                    <span>Float after</span>
-                    <b className="tabular-nums">
-                      {fmtMoney(String(Math.round(
-                        Number(trading.biller.currentBalance) + (trading.kind === "TOPUP" ? face : -face) * 100
-                      )))}
-                    </b>
-                  </div>
-                  <div className="flex justify-between border-t border-gray-200 pt-1 dark:border-gray-700">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label={trading.kind === "TOPUP" ? "Cash paid" : "Cash received"}
+                    value={trade.cashTouched ? trade.cashAmount : (face > 0 ? String(face) : "")}
+                    inputMode="decimal"
+                    onChange={(e) => setTrade({ ...trade, cashAmount: e.target.value, cashTouched: true })}
+                    placeholder="0"
+                  />
+                  <Select label={trading.kind === "TOPUP" ? "Paid out of" : "Paid into"} value={trade.walletId} onChange={(e) => setTrade({ ...trade, walletId: e.target.value })}>
+                    <option value="">Choose…</option>
+                    {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                      <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
+                    ))}
+                  </Select>
+                </div>
+                {margin !== 0 && (
+                  <div className="flex justify-between text-sm">
                     <span>Margin on this trade</span>
-                    <b className={`tabular-nums ${margin < 0 ? "text-red-600" : margin > 0 ? "text-green-600" : ""}`}>
+                    <b className={`tabular-nums ${margin < 0 ? "text-red-600" : "text-green-600"}`}>
                       {fmtMoney(String(Math.round(margin * 100)))}
                     </b>
                   </div>
-                </Card>
+                )}
                 {trading.kind === "SALE" && (
                   <Input label="Customer phone" value={trade.customerPhone} onChange={(e) => setTrade({ ...trade, customerPhone: e.target.value })} />
                 )}
@@ -289,7 +322,7 @@ export default function BillersPage() {
             <Input label="Note" value={trade.note} onChange={(e) => setTrade({ ...trade, note: e.target.value })} />
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="secondary" onClick={() => setTrading(null)}>Cancel</Button>
-              <Button onClick={applyTrade} disabled={busy || !trade.faceAmount.trim()}>{busy ? "Saving…" : "Save"}</Button>
+              <Button onClick={applyTrade} disabled={busy || !amountOk || (trading.kind !== "ADJUST" && cash > 0 && !trade.walletId)}>{busy ? "Saving…" : "Save"}</Button>
             </div>
           </div>
         )}
