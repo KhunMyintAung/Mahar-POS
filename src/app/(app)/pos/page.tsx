@@ -153,6 +153,12 @@ export default function PosPage() {
     localStorage.setItem(draftKey, JSON.stringify(draft));
   }, [cart, cashReceived, customerId, discount, draftKey, draftReady, partialAmount, payMode, walletId]);
 
+  // Ready for a barcode scanner on a computer. On a phone the keyboard would pop up over
+  // the products every time the page opens, so the cursor waits for a tap there.
+  useEffect(() => {
+    if (window.matchMedia("(pointer: fine)").matches) searchRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "F2") {
@@ -398,7 +404,6 @@ export default function PosPage() {
                 onKeyDown={scan}
                 placeholder="Search or scan barcode..."
                 className="min-h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800"
-                autoFocus
               />
               {canScan && (
                 <button

@@ -19,6 +19,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* A phone zooms the whole page in when a box with text under 16px gets the cursor, and the
+   page then looks too big and pushed off the screen. 16px on phones stops that. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

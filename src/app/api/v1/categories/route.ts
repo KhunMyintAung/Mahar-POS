@@ -2,9 +2,18 @@ import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/auth";
+import { DEFAULT_INCOME_CATEGORIES } from "@/lib/incomeCategories";
 
 export const GET = withAuth("income_expense.view", async ({ req, user }) => {
   const type = req.nextUrl.searchParams.get("type") ?? undefined;
+  // Shops opened before the daily income categories existed get them the first time the
+  // list is opened, so they can be picked without setting them up.
+  if (!type || type === "INCOME") {
+    await prisma.category.createMany({
+      data: DEFAULT_INCOME_CATEGORIES.map((name) => ({ businessId: user.businessId, type: "INCOME", name })),
+      skipDuplicates: true,
+    });
+  }
   const categories = await prisma.category.findMany({
     where: { businessId: user.businessId, active: true, ...(type ? { type } : {}) },
     orderBy: { name: "asc" },

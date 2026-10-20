@@ -27,7 +27,7 @@ interface DashData {
     stockRetail: string;
     stockItems: number;
   };
-  income?: { sales: string; repair: string; topupMargin: string; other: string; total: string };
+  income?: { sales: string; service: string; topup: string; other: string; total: string };
 }
 
 /** Today in the shop's time zone, to label the income card. */
@@ -81,8 +81,8 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
               {([
                 ["Sales", data.income.sales, featureEnabled("pos")],
-                ["Repair", data.income.repair, featureEnabled("repair")],
-                ["Top-up margin", data.income.topupMargin, featureEnabled("biller")],
+                ["Service", data.income.service, featureEnabled("repair")],
+                ["Top-up", data.income.topup, featureEnabled("biller")],
                 ["Other income", data.income.other, true],
               ] as const).filter(([, v, on]) => on || BigInt(v) !== 0n).map(([label, v]) => (
                 <div key={label}>

@@ -2,6 +2,7 @@ import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { computeDaySummary } from "@/services/summaryService";
 import { dateRangeUtc, todayBusinessDate } from "@/lib/dates";
+import { incomeBucket } from "@/lib/incomeCategories";
 
 export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -89,11 +90,11 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
     };
   }
 
-  // Everything the shop earned on the day in one figure: till sales, repair money taken
-  // (deposits and payments), the margin on top-up sales, and other income. Top-ups count
-  // by margin only, because the rest of that cash is the operator's credit passing through.
+  // Everything the shop took in on the day in one figure: till sales, repair money taken
+  // (deposits and payments), the cash from top-up sales, and other income. Income entered
+  // under the Daily Sale / Daily Service categories counts with sales and service.
   const range = dateRangeUtc(date);
-  const [repairIn, repairOut, topup, salesForIncome] = await Promise.all([
+  const [repairIn, repairOut, topup, salesForIncome, incomeByCategory] = await Promise.all([
     prisma.walletLedgerEntry.aggregate({
       where: {
         businessId: user.businessId, direction: "DEBIT", createdAt: range,
@@ -118,7 +119,7 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
         businessId: user.businessId, voidedAt: null, createdAt: range, kind: "SALE",
         ...(branchIds ? { branchId: { in: branchIds } } : {}),
       },
-      _sum: { profit: true },
+      _sum: { cashAmount: true },
     }),
     pos
       ? Promise.resolve(pos.salesTotal)
@@ -129,15 +130,25 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
           },
           _sum: { total: true },
         }).then((a) => a._sum.total ?? 0n),
+    prisma.incomeExpense.groupBy({
+      by: ["categoryName"],
+      where: {
+        businessId: user.businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", date, currency: "MMK",
+        ...(branchIds ? { branchId: { in: branchIds } } : {}),
+      },
+      _sum: { amount: true },
+    }),
   ]);
+  const byBucket = { sales: 0n, service: 0n, other: 0n };
+  for (const row of incomeByCategory) byBucket[incomeBucket(row.categoryName)] += row._sum.amount ?? 0n;
   const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
-  const topupMargin = topup._sum.profit ?? 0n;
+  const topupSales = topup._sum.cashAmount ?? 0n;
   const income = {
-    sales: salesForIncome,
-    repair,
-    topupMargin,
-    other: summary.general.otherIncome,
-    total: salesForIncome + repair + topupMargin + summary.general.otherIncome,
+    sales: salesForIncome + byBucket.sales,
+    service: repair + byBucket.service,
+    topup: topupSales,
+    other: byBucket.other,
+    total: salesForIncome + byBucket.sales + repair + byBucket.service + topupSales + byBucket.other,
   };
 
   return json({
