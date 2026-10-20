@@ -5,6 +5,11 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
+import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
+
+interface RepairJobOption {
+  id: string; jobNo: string; status: string; deviceBrand: string; deviceModel: string; customerName?: string;
+}
 
 interface Level {
   itemId: string; name: string; sku: string; unit?: string; category?: string;
@@ -21,13 +26,25 @@ export default function StockPage() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [tab, setTab] = useState<"levels" | "movements">("levels");
   const [adjustTarget, setAdjustTarget] = useState<Level | null>(null);
-  const [adjust, setAdjust] = useState({ quantity: "", reason: "" });
+  const blankAdjust = { quantity: "", reason: "", reasonType: "REPAIR_USE" as StockReason, repairJobId: "" };
+  const [adjust, setAdjust] = useState(blankAdjust);
+  const [openJobs, setOpenJobs] = useState<RepairJobOption[]>([]);
+  const [moveType, setMoveType] = useState("ALL");
   const [adjustBranchId, setAdjustBranchId] = useState("");
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("ALL");
   const [q, setQ] = useState("");
   const { push } = useToast();
-  const { hasPerm, branches, defaultBranchId } = useAuth();
+  const { hasPerm, branches, defaultBranchId, featureEnabled } = useAuth();
+  const canLinkRepairs = featureEnabled("repair") && hasPerm("repair.view");
+
+  // Jobs a part can still go into: anything not yet handed back or cancelled.
+  useEffect(() => {
+    if (!adjustTarget || !canLinkRepairs) return;
+    api<{ jobs: RepairJobOption[] }>("/api/v1/repairs?pageSize=200")
+      .then((d) => setOpenJobs(d.jobs.filter((j) => j.status !== "DELIVERED" && j.status !== "CANCELLED")))
+      .catch(() => {});
+  }, [adjustTarget, canLinkRepairs]);
 
   const load = useCallback(() => {
     api<Level[]>("/api/v1/stock").then(setLevels).catch((e) => push(e.message, "error"));
@@ -45,11 +62,13 @@ export default function StockPage() {
           itemId: adjustTarget.itemId,
           branchId: adjustBranchId,
           quantity: parseInt(adjust.quantity),
-          reason: adjust.reason,
+          reasonType: adjust.reasonType,
+          reason: adjust.reason.trim(),
+          repairJobId: adjust.reasonType === "REPAIR_USE" && adjust.repairJobId ? adjust.repairJobId : undefined,
         },
       });
       push("Stock adjusted");
-      setAdjustTarget(null); setAdjust({ quantity: "", reason: "" });
+      setAdjustTarget(null); setAdjust(blankAdjust);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -163,7 +182,8 @@ export default function StockPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        setAdjust({ quantity: "", reason: "" });
+                        // Spare parts mostly leave for repairs; anything else starts on a correction.
+                        setAdjust({ ...blankAdjust, reasonType: /spare|part|lcd|battery|အပို/i.test(l.category ?? "") ? "REPAIR_USE" : "CORRECTION" });
                         setAdjustBranchId(defaultBranchId || branches[0]?.id || "");
                         setAdjustTarget(l);
                       }}
@@ -178,12 +198,34 @@ export default function StockPage() {
           </Table>
         )
       ) : movements.length === 0 ? <Card><Empty message="No movements" /></Card> : (
+        <>
+        {/* Filter by what happened: every part used in repairs, everything damaged… */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {["ALL", ...[...new Set(movements.map((m) => m.type))]].map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setMoveType(t)}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium",
+                moveType === t
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
+              )}
+            >
+              {t === "ALL" ? "All" : MOVEMENT_LABELS[t] ?? t.replace(/_/g, " ")}
+              <span className={cn("rounded-full px-1.5 text-xs", moveType === t ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800")}>
+                {t === "ALL" ? movements.length : movements.filter((m) => m.type === t).length}
+              </span>
+            </button>
+          ))}
+        </div>
         <Table headers={["Date", "Item", "Type", "Qty", "After", "Notes"]} rightAlign={[3, 4]}>
-          {movements.map((m) => (
+          {movements.filter((m) => moveType === "ALL" || m.type === moveType).map((m) => (
             <tr key={m.id}>
               <td className="px-3 py-2 text-xs text-gray-500">{fmtDateTime(m.createdAt)}</td>
               <td className="px-3 py-2">{m.item.name}</td>
-              <td className="px-3 py-2 text-xs">{m.type.replace(/_/g, " ")}</td>
+              <td className="px-3 py-2 text-xs">{MOVEMENT_LABELS[m.type] ?? m.type.replace(/_/g, " ")}</td>
               <td className={cn("px-3 py-2 text-right font-medium tabular-nums", m.quantity > 0 ? "text-green-600" : "text-red-600")}>
                 {m.quantity > 0 ? "+" : ""}{m.quantity}
               </td>
@@ -192,6 +234,7 @@ export default function StockPage() {
             </tr>
           ))}
         </Table>
+        </>
       )}
 
       <Modal open={!!adjustTarget} onClose={() => setAdjustTarget(null)} title={`Adjust ${adjustTarget?.name}`}>
@@ -203,14 +246,67 @@ export default function StockPage() {
             Current quantity in this branch:{" "}
             <b>{adjustTarget?.byBranch.find((level) => level.branchId === adjustBranchId)?.quantity ?? 0}</b>
           </p>
-          <Input label="Adjustment (+ to add, − to remove)" value={adjust.quantity} onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })} placeholder="-5 or 10" />
-          <Input label="Reason (required)" value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setAdjustTarget(null)}>Cancel</Button>
-            <Button variant="danger" onClick={doAdjust} disabled={busy || !adjustBranchId || !parseInt(adjust.quantity) || !adjust.reason.trim()}>
-              Adjust stock
-            </Button>
+          <div>
+            <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">What happened</span>
+            <div className="flex flex-wrap gap-1.5">
+              {STOCK_REASONS.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  onClick={() => setAdjust({ ...adjust, reasonType: r.key })}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-sm",
+                    adjust.reasonType === r.key
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-gray-300 text-gray-700 dark:border-gray-700 dark:text-gray-200"
+                  )}
+                >
+                  {/* Sign and label are separate nodes so the label can be translated. */}
+                  <span className="mr-1">{r.direction === "out" ? "−" : r.direction === "in" ? "+" : "±"}</span>
+                  <span>{r.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
+          {(() => {
+            const reason = STOCK_REASONS.find((r) => r.key === adjust.reasonType)!;
+            const qty = parseInt(adjust.quantity);
+            const needsWords = reason.key === "CORRECTION" || reason.key === "ADJUSTMENT";
+            return (
+              <>
+                <Input
+                  label={reason.direction === "either" ? "Quantity (+ to add, − to remove)" : reason.direction === "out" ? "Quantity taken out" : "Quantity put back"}
+                  value={adjust.quantity}
+                  inputMode="numeric"
+                  onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })}
+                  placeholder={reason.direction === "either" ? "-5 or 10" : "1"}
+                />
+                {reason.key === "REPAIR_USE" && canLinkRepairs && (
+                  <Select label="Repair job (adds the part cost to it)" value={adjust.repairJobId} onChange={(e) => setAdjust({ ...adjust, repairJobId: e.target.value })}>
+                    <option value="">— not linked —</option>
+                    {openJobs.map((j) => (
+                      <option key={j.id} value={j.id}>{j.jobNo} · {j.deviceBrand} {j.deviceModel}{j.customerName ? ` · ${j.customerName}` : ""}</option>
+                    ))}
+                  </Select>
+                )}
+                <Input
+                  label={needsWords ? "Reason (required)" : "Note (optional)"}
+                  value={adjust.reason}
+                  onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setAdjustTarget(null)}>Cancel</Button>
+                  <Button
+                    variant={reason.direction === "in" ? "primary" : "danger"}
+                    onClick={doAdjust}
+                    disabled={busy || !adjustBranchId || !qty || (needsWords && !adjust.reason.trim())}
+                  >
+                    {reason.direction === "out" && qty ? `Take out ${Math.abs(qty)}` : reason.direction === "in" && qty ? `Put back ${Math.abs(qty)}` : "Adjust stock"}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </Modal>
     </div>
