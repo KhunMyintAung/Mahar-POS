@@ -5,7 +5,7 @@
  */
 
 export interface RepairVoucherSettings {
-  /** Letters in front of the number, e.g. "MS" gives MS001. Empty keeps the RPR-000001 style. */
+  /** Letters in front of the number, e.g. "MS" gives MS0001. Empty takes them from the shop name. */
   prefix: string;
   /** Minimum digits; the number grows past it rather than wrapping (MS999, MS1000). */
   digits: number;
@@ -28,7 +28,7 @@ export const DEFAULT_REPAIR_TERMS = [
 
 export const DEFAULT_REPAIR_VOUCHER: RepairVoucherSettings = {
   prefix: "",
-  digits: 3,
+  digits: 4,
   tagline: "",
   terms: DEFAULT_REPAIR_TERMS,
   qrCaption: "QR ဖတ်ပြီး ပြင်ဆင်မှုအခြေအနေ ကြည့်နိုင်ပါသည်",
@@ -52,6 +52,18 @@ export function parseRepairVoucherSettings(value: unknown): RepairVoucherSetting
     terms: terms ?? DEFAULT_REPAIR_VOUCHER.terms,
     qrCaption: str(v.qrCaption, 120) ?? DEFAULT_REPAIR_VOUCHER.qrCaption,
   };
+}
+
+/** Voucher letters taken from the shop's name: the initials of its first two words
+ *  ("Mahar Shwe Mobile" → MS), or a short all-capitals first word as it is ("AC Mobile" →
+ *  AC). A name with no Latin letters, such as one written in Myanmar, falls back to RP. */
+export function shopPrefix(name: string): string {
+  const words = name.trim().split(/\s+/).filter((w) => /^[A-Za-z]/.test(w));
+  if (words.length === 0) return "RP";
+  const first = words[0].replace(/[^A-Za-z0-9]/g, "");
+  if (/^[A-Z]{2,4}$/.test(first)) return first;
+  const initials = words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  return initials.length === 2 ? initials : first.slice(0, 2).toUpperCase();
 }
 
 export function formatVoucherNo(prefix: string, digits: number, n: number): string {

@@ -10,6 +10,7 @@ import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printReceipt } from "@/lib/printReceipt";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
+import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 
 interface Job {
@@ -247,6 +248,24 @@ export default function RepairsPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Typing "iPhone 13 Pro Max" into Brand keeps "iPhone" there and moves "13 Pro Max" to
+   *  Model, then puts the cursor in Model so the rest of the name lands where it belongs. */
+  function onBrandTyped(value: string, model: string, set: (brand: string, model: string) => void, modelId: string) {
+    const split = splitBrandModel(value, suggestions.brands);
+    if (!split) {
+      set(value, model);
+      return;
+    }
+    const nextModel = model.trim() ? `${split.model} ${model}` : split.model;
+    set(split.brand, nextModel);
+    window.requestAnimationFrame(() => {
+      const input = document.getElementById(modelId) as HTMLInputElement | null;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(split.model.length, split.model.length);
+    });
   }
 
   function startPay(job: Job) {
@@ -569,8 +588,8 @@ export default function RepairsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Customer name" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
             <Input label="Phone" value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
-            <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={form.deviceBrand} onChange={(e) => setForm({ ...form, deviceBrand: e.target.value })} placeholder="Vivo / Oppo / Redmi" />
-            <Input label="Model" list="repair-model-suggestions" autoComplete="off" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} placeholder={form.deviceBrand ? `${form.deviceBrand} model` : "Y28 / A3x / Note 13"} />
+            <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={form.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, form.deviceModel, (deviceBrand, deviceModel) => setForm({ ...form, deviceBrand, deviceModel }), "repair-model-new")} placeholder="Vivo / Oppo / Redmi" />
+            <Input id="repair-model-new" label="Model" list="repair-model-suggestions" autoComplete="off" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} placeholder={form.deviceBrand ? `${form.deviceBrand} model` : "Y28 / A3x / Note 13"} />
             <Input label="Estimated charge" value={form.estimatedCost} onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })} placeholder="0" />
             <Input label="Deposit taken" value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} placeholder="0" />
           </div>
@@ -662,8 +681,8 @@ export default function RepairsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Customer name" value={edit.customerName} onChange={(e) => setEdit({ ...edit, customerName: e.target.value })} />
               <Input label="Phone" value={edit.customerPhone} onChange={(e) => setEdit({ ...edit, customerPhone: e.target.value })} />
-              <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => setEdit({ ...edit, deviceBrand: e.target.value })} />
-              <Input label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} />
+              <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} />
+              <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} />
               <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
               <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}

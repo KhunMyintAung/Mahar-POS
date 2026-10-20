@@ -3,18 +3,20 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { REPAIR_VOUCHER_SETTING, voucherNumberFormat } from "@/services/repairService";
-import { PREFIX_PATTERN, parseRepairVoucherSettings } from "@/lib/repairVoucherSettings";
+import { PREFIX_PATTERN, parseRepairVoucherSettings, shopPrefix } from "@/lib/repairVoucherSettings";
 
 /** The repair voucher's number format and printed text, plus the number the next job gets. */
 
 async function read(businessId: string) {
-  const [row, seq] = await Promise.all([
+  const [row, seq, business] = await Promise.all([
     prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: REPAIR_VOUCHER_SETTING } } }),
     prisma.numberSequence.findUnique({ where: { businessId_key: { businessId, key: "REPAIR" } } }),
+    prisma.business.findUnique({ where: { id: businessId }, select: { name: true } }),
   ]);
   let stored: unknown = {};
   try { stored = row ? JSON.parse(row.value) : {}; } catch { stored = {}; }
-  return { ...parseRepairVoucherSettings(stored), nextNumber: seq?.next ?? 1 };
+  // autoPrefix is what an empty prefix stands for, so the settings page can show it.
+  return { ...parseRepairVoucherSettings(stored), nextNumber: seq?.next ?? 1, autoPrefix: shopPrefix(business?.name ?? "") };
 }
 
 // Anyone signed in may read it: the cashier printing a voucher needs the text.
@@ -47,7 +49,7 @@ export const PUT = withAuth("settings.manage", async ({ req, user }) => {
       // Voucher numbers are unique per shop, so starting from a number already handed out
       // would fail the next intake. Refused here, where it can be explained.
       const format = await voucherNumberFormat(tx, user.businessId);
-      const upcoming = format ? format(body.nextNumber) : `RPR-${String(body.nextNumber).padStart(6, "0")}`;
+      const upcoming = format(body.nextNumber);
       const taken = await tx.repairJob.findFirst({
         where: { businessId: user.businessId, jobNo: upcoming },
         select: { id: true },

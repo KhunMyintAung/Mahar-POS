@@ -4,7 +4,7 @@ import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
 import { BENCH_STATUSES, canMove, type RepairPriority, type RepairStatus } from "@/lib/repairStatus";
-import { formatVoucherNo, parseRepairVoucherSettings } from "@/lib/repairVoucherSettings";
+import { formatVoucherNo, parseRepairVoucherSettings, shopPrefix } from "@/lib/repairVoucherSettings";
 
 export const REPAIR_VOUCHER_SETTING = "repair_voucher";
 
@@ -18,20 +18,21 @@ export const REPAIR_VOUCHER_SETTING = "repair_voucher";
 export { REPAIR_STATUSES, PRIORITIES, canMove } from "@/lib/repairStatus";
 export type { RepairStatus, RepairPriority } from "@/lib/repairStatus";
 
-/** The shop's own voucher number format (MS001), or undefined for the default RPR-000001. */
+/** How this shop numbers its repair vouchers: its own letters if it set any, otherwise the
+ *  initials of its name, then a 4-digit count (MS0001). */
 export async function voucherNumberFormat(tx: Tx, businessId: string) {
-  const row = await tx.systemSetting.findUnique({
-    where: { businessId_key: { businessId, key: REPAIR_VOUCHER_SETTING } },
-  });
-  if (!row) return undefined;
-  let settings;
+  const [row, business] = await Promise.all([
+    tx.systemSetting.findUnique({ where: { businessId_key: { businessId, key: REPAIR_VOUCHER_SETTING } } }),
+    tx.business.findUnique({ where: { id: businessId }, select: { name: true } }),
+  ]);
+  let settings = parseRepairVoucherSettings(undefined);
   try {
-    settings = parseRepairVoucherSettings(JSON.parse(row.value));
+    if (row) settings = parseRepairVoucherSettings(JSON.parse(row.value));
   } catch {
-    return undefined;
+    // A damaged setting numbers like a shop that never set one.
   }
-  const { prefix, digits } = settings;
-  return prefix ? (n: number) => formatVoucherNo(prefix, digits, n) : undefined;
+  const prefix = settings.prefix || shopPrefix(business?.name ?? "");
+  return (n: number) => formatVoucherNo(prefix, settings.digits, n);
 }
 
 export async function createRepairJob(
