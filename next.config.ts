@@ -3,6 +3,11 @@ import path from "node:path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // A 1 GB VPS runs out of memory in the build's type-check step. Types are checked with
+  // `tsc` before deploying, so a server build may set NEXT_SKIP_TYPECHECK=1 to skip it there.
+  typescript: {
+    ignoreBuildErrors: process.env.NEXT_SKIP_TYPECHECK === "1",
+  },
   outputFileTracingRoot: path.resolve(process.cwd()),
   turbopack: {
     root: path.resolve(process.cwd()),
