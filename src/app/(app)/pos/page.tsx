@@ -171,11 +171,17 @@ export default function PosPage() {
   const filtered = useMemo(() => {
     if (!items) return [];
     const needle = q.trim().toLowerCase();
+    // Nothing on the shelf, nothing to sell: items out of stock in this branch are left off
+    // the till. They still show under Items and Stock, where they can be restocked.
+    const inStock = (item: Item) => item.stockLevels
+      .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
+      .reduce((total, level) => total + level.quantity, 0) > 0;
     return items.filter((item) =>
+      inStock(item) &&
       (category === "ALL" || item.category?.name === category) &&
       (!needle || item.name.toLowerCase().includes(needle) || item.sku.toLowerCase().includes(needle) || item.barcode?.toLowerCase().includes(needle))
     );
-  }, [category, items, q]);
+  }, [category, items, q, defaultBranchId]);
 
   function stockOf(item: Item) {
     return item.stockLevels

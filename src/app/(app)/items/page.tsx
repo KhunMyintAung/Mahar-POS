@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
@@ -178,6 +178,13 @@ export default function ItemsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Items</h1>
         <div className="flex flex-wrap gap-2">
+          {/* Exports the category being viewed, in the import's own columns. */}
+          <a
+            href={`/api/v1/items/export${category === "ALL" ? "" : `?category=${encodeURIComponent(category)}`}`}
+            className="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <Download size={16} className="mr-1 inline" />Export CSV
+          </a>
           {hasPerm("item.manage") && (
             <>
               <Button variant="secondary" onClick={() => setShowMeta(true)}>Categories & Units</Button>
@@ -252,7 +259,7 @@ export default function ItemsPage() {
       {shownItems.length === 0 ? (
         <Card><Empty message="No items found" /></Card>
       ) : (
-        <Table headers={["", "Item", "SKU", "Category", "Unit", "Cost", "Price", "Stock", ""]} rightAlign={[5, 6, 7]}>
+        <Table headers={["", "Item", "Stock", "Category", "Unit", "Cost", "Price", "SKU", ""]} rightAlign={[2, 5, 6]}>
           {shownItems.map((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             return (
@@ -263,14 +270,15 @@ export default function ItemsPage() {
                   )}
                 </td>
                 <td className="px-3 py-2.5 font-medium">{it.name}</td>
-                <td className="px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
+                {/* Stock sits next to the name: it is what a shop checks first. */}
+                <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", it.minStock > 0 && qty < it.minStock && "text-red-600")}>
+                  {qty}
+                </td>
                 <td className="px-3 py-2.5 text-xs">{it.category?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(it.costPrice)}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{fmtMoney(it.sellingPrice)}</td>
-                <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", it.minStock > 0 && qty < it.minStock && "text-red-600")}>
-                  {qty}
-                </td>
+                <td className="px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
                 <td className="px-3 py-2.5 text-right">
                   {hasPerm("item.manage") && (
                     <Button size="sm" variant="ghost" onClick={() => {
