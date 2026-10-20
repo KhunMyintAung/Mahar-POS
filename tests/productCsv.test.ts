@@ -98,3 +98,33 @@ describe("generated SKUs", () => {
     expect(sku).toBe("SOAP-0003");
   });
 });
+
+describe("stock on hand in an import", () => {
+  it("reads the stock column under its usual names, Myanmar included", () => {
+    for (const header of ["stock", "Stock On Hand", "လက်ကျန်", "qty"]) {
+      const { products, unknownColumns } = parseProductCsv(`name,${header}\nLCD Vivo Y28,4`);
+      expect(unknownColumns).toEqual([]);
+      expect(products[0].quantity).toBe(4);
+    }
+  });
+
+  it("treats an empty stock cell as not given, so a price-only re-import keeps stock", () => {
+    const { products, rejected } = parseProductCsv("name,price,stock\nCable,3000,\nCase,5000,0");
+    expect(rejected).toEqual([]);
+    expect(products[0].quantity).toBeNull();
+    expect(products[1].quantity).toBe(0);
+  });
+
+  it("refuses a stock count that is not a whole number", () => {
+    const { rejected } = parseProductCsv("name,stock\nGlass,2.5");
+    expect(rejected[0].reason).toContain("Stock");
+  });
+});
+
+describe("columns left empty in an import", () => {
+  it("marks which values a row gave, so an update leaves the rest alone", () => {
+    const { products } = parseProductCsv("name,cost,price,stock\nCable,,2700,\nCase,2000,5000,3");
+    expect(products[0].given).toEqual({ costPrice: false, sellingPrice: true, minStock: false });
+    expect(products[1].given).toEqual({ costPrice: true, sellingPrice: true, minStock: false });
+  });
+});

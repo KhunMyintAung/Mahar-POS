@@ -28,6 +28,7 @@ export const MOVEMENT_LABELS: Record<string, string> = {
   SALE_RETURN: "Sale return",
   TRANSFER_IN: "Transfer in",
   TRANSFER_OUT: "Transfer out",
+  IMPORT: "CSV import",
 };
 
 /** The signed quantity for a reason: out reasons subtract, in reasons add. */

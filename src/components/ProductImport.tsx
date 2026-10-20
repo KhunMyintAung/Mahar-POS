@@ -13,6 +13,7 @@ interface Planned {
   sku: string;
   action: "CREATE" | "UPDATE";
   sellingPrice: string;
+  currentStock: number;
   quantity: number;
 }
 interface Rejected {
@@ -37,7 +38,7 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { push } = useToast();
-  const { me } = useAuth();
+  const { me, defaultBranchId } = useAuth();
 
   function reset() {
     setCsv("");
@@ -61,7 +62,8 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
     try {
       const result = await api<Preview & { created?: number; updated?: number }>(
         "/api/v1/items/import",
-        { method: "POST", body: { csv: text, commit } }
+        // Stock goes into the branch the person is working in.
+        { method: "POST", body: { csv: text, commit, branchId: defaultBranchId || undefined } }
       );
       if (commit) {
         push(`Imported — ${result.created ?? 0} new, ${result.updated ?? 0} updated`);
@@ -119,9 +121,10 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
             </Button>
           </div>
           <p className="text-xs text-gray-500">
-            Columns: name, sku, barcode, category, cost, price, quantity, min stock. Only the
+            Columns: name, sku, barcode, category, cost, price, stock, min stock. Only the
             name is required — a SKU is made from the name when the column is empty, and a
-            category that does not exist yet is created.
+            category that does not exist yet is created. Stock is the count on hand: it sets
+            the stock to that number, and an empty stock cell leaves it as it is.
           </p>
 
           {busy && !preview && <p className="text-sm text-gray-500">Reading {fileName}…</p>}
@@ -173,14 +176,18 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
                 <div>
                   <h3 className="mb-1 text-sm font-semibold">What will be saved</h3>
                   <div className="max-h-56 overflow-y-auto">
-                    <Table headers={["Line", "Product", "SKU", "Price", "Qty", ""]} rightAlign={[3, 4]}>
+                    <Table headers={["Line", "Product", "SKU", "Price", "Stock", ""]} rightAlign={[3, 4]}>
                       {preview.planned.map((row) => (
                         <tr key={row.row}>
                           <td className="px-3 py-1.5 tabular-nums text-gray-500">{row.row}</td>
                           <td className="px-3 py-1.5">{row.name}</td>
                           <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{row.sku}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{row.sellingPrice}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{row.quantity}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">{row.sellingPrice || <span className="text-gray-400">unchanged</span>}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">
+                            {row.action === "UPDATE" && row.quantity !== row.currentStock ? (
+                              <span><span className="text-gray-400">{row.currentStock} → </span><b>{row.quantity}</b></span>
+                            ) : row.quantity}
+                          </td>
                           <td className="px-3 py-1.5">
                             <span className={`text-xs font-medium ${row.action === "CREATE" ? "text-green-600" : "text-blue-600"}`}>
                               {row.action === "CREATE" ? "new" : "update"}

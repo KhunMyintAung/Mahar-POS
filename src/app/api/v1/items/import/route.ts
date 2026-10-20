@@ -6,6 +6,8 @@ import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
 import { generateSku } from "@/lib/sku";
 import { parseProductCsv, type ParsedProduct } from "@/lib/productCsv";
+import { assertBranchAccess } from "@/lib/tenant";
+import { moveStock } from "@/services/stockService";
 
 /** Importing a product list.
  *
@@ -28,6 +30,9 @@ interface Planned {
   sku: string;
   action: "CREATE" | "UPDATE";
   sellingPrice: string;
+  /** Stock in the import branch now (0 for a new item), and what it will be. Equal when the
+   *  file leaves the stock cell empty. */
+  currentStock: number;
   quantity: number;
 }
 
@@ -36,7 +41,9 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   const { products, rejected, unknownColumns } = parseProductCsv(body.csv);
 
   let branchId = body.branchId;
-  if (!branchId) {
+  if (branchId) {
+    await assertBranchAccess(user, branchId);
+  } else {
     const branch = await prisma.branch.findFirst({
       where: { businessId: user.businessId, active: true, ...branchScope(user) },
       orderBy: { createdAt: "asc" },
@@ -66,14 +73,28 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
     );
   }
 
-  const planned: Planned[] = products.map((product) => ({
-    row: product.row,
-    name: product.name,
-    sku: product.sku || "(generated)",
-    action: match(product) ? "UPDATE" : "CREATE",
-    sellingPrice: product.sellingPrice,
-    quantity: product.quantity,
-  }));
+  // What each matched item holds in the import branch, so the preview can show the change.
+  const stockNow = new Map(
+    (await prisma.stockLevel.findMany({
+      where: { branchId, item: { businessId: user.businessId } },
+      select: { itemId: true, quantity: true },
+    })).map((l) => [l.itemId, l.quantity])
+  );
+
+  const planned: Planned[] = products.map((product) => {
+    const found = match(product);
+    const currentStock = found ? stockNow.get(found.id) ?? 0 : 0;
+    return {
+      row: product.row,
+      name: product.name,
+      sku: found ? found.sku : product.sku || "(generated)",
+      action: found ? "UPDATE" : "CREATE",
+      // Empty when the row leaves the price as it is.
+      sellingPrice: found && !product.given.sellingPrice ? "" : product.sellingPrice,
+      currentStock,
+      quantity: product.quantity ?? currentStock,
+    };
+  });
 
   if (!body.commit) {
     return json({
@@ -120,20 +141,32 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       await prisma.item.update({
         where: { id: found.id },
         data: {
-          costPrice: toMinor(product.costPrice),
-          sellingPrice: toMinor(product.sellingPrice),
-          minStock: product.minStock,
+          ...(product.given.costPrice ? { costPrice: toMinor(product.costPrice) } : {}),
+          ...(product.given.sellingPrice ? { sellingPrice: toMinor(product.sellingPrice) } : {}),
+          ...(product.given.minStock ? { minStock: product.minStock } : {}),
           barcode: product.barcode || undefined,
           categoryId: categoryId ?? undefined,
         },
       });
       // Stock is set to what the file says, not added to it: the number in a stock-take
-      // export is the count on the shelf, and adding would double it on a re-import.
-      await prisma.stockLevel.upsert({
-        where: { itemId_branchId: { itemId: found.id, branchId } },
-        create: { itemId: found.id, branchId, quantity: product.quantity },
-        update: { quantity: product.quantity },
-      });
+      // export is the count on the shelf, and adding would double it on a re-import. It is
+      // moved by the difference, so the change shows in Stock movements like any other.
+      if (product.quantity !== null) {
+        const now = stockNow.get(found.id) ?? 0;
+        if (product.quantity !== now) {
+          await moveStock(prisma, {
+            businessId: user.businessId,
+            itemId: found.id,
+            branchId,
+            type: "IMPORT",
+            quantity: product.quantity - now,
+            notes: `CSV import: stock set to ${product.quantity}`,
+            createdById: user.id,
+            allowNegative: true,
+          });
+          stockNow.set(found.id, product.quantity);
+        }
+      }
       updated += 1;
       continue;
     }
@@ -161,9 +194,20 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         minStock: product.minStock,
       },
     });
-    await prisma.stockLevel.create({
-      data: { itemId: item.id, branchId, quantity: product.quantity },
-    });
+    if (product.quantity) {
+      await moveStock(prisma, {
+        businessId: user.businessId,
+        itemId: item.id,
+        branchId,
+        type: "IMPORT",
+        quantity: product.quantity,
+        notes: "CSV import: opening stock",
+        createdById: user.id,
+      });
+    } else {
+      await prisma.stockLevel.create({ data: { itemId: item.id, branchId, quantity: 0 } });
+    }
+    stockNow.set(item.id, product.quantity ?? 0);
     // Kept in the maps so a file that names the same product twice under different codes
     // updates the row it just made rather than making another.
     bySku.set(sku.toLowerCase(), { ...item, barcode: item.barcode });

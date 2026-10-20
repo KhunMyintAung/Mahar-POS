@@ -16,8 +16,13 @@ export interface ParsedProduct {
   category: string;
   costPrice: string;
   sellingPrice: string;
-  quantity: number;
+  /** Stock on hand. Null when the cell is empty: an existing item keeps the stock it has,
+   *  a new one starts at 0. */
+  quantity: number | null;
   minStock: number;
+  /** Which of cost, price and min stock the row actually filled in. An existing item keeps
+   *  the value of any it left empty, rather than having it zeroed. */
+  given: { costPrice: boolean; sellingPrice: boolean; minStock: boolean };
 }
 
 export interface RejectedRow {
@@ -73,13 +78,13 @@ export function splitCsvLine(line: string): string[] {
  *  before and nobody should have to rename columns to import their own products.
  */
 const COLUMNS: Record<string, string[]> = {
-  name: ["name", "product", "product name", "product_name", "item", "item name", "title"],
+  name: ["name", "product", "product name", "product_name", "item", "item name", "title", "အမည်", "ပစ္စည်းအမည်"],
   sku: ["sku", "code", "item code", "product code", "barcode2"],
   barcode: ["barcode", "bar code", "ean", "upc"],
-  category: ["category", "group", "type"],
-  costPrice: ["cost", "cost price", "cost_price", "buy price", "purchase price"],
-  sellingPrice: ["price", "selling price", "selling_price", "sell price", "sale price", "retail"],
-  quantity: ["quantity", "qty", "stock", "stock quantity", "stock_quantity", "on hand"],
+  category: ["category", "group", "type", "အမျိုးအစား"],
+  costPrice: ["cost", "cost price", "cost_price", "buy price", "purchase price", "ဝယ်ဈေး"],
+  sellingPrice: ["price", "selling price", "selling_price", "sell price", "sale price", "retail", "ရောင်းဈေး", "ဈေးနှုန်း"],
+  quantity: ["quantity", "qty", "stock", "stock quantity", "stock_quantity", "on hand", "stock on hand", "လက်ကျန်", "အရေအတွက်"],
   minStock: ["min stock", "min_stock", "minimum stock", "low stock", "low_stock_alert", "reorder"],
 };
 
@@ -152,9 +157,12 @@ export function parseProductCsv(text: string): ParsedCsv {
       rejected.push({ row: rowNumber, raw: line, reason: `Price "${get("sellingPrice")}" is not a number` });
       continue;
     }
-    const quantity = readCount(get("quantity"));
-    if (quantity === null) {
-      rejected.push({ row: rowNumber, raw: line, reason: `Quantity "${get("quantity")}" is not a whole number` });
+    // An empty stock cell means "not given", not zero: re-importing a price list must not
+    // wipe out the stock of everything on it.
+    const rawQuantity = get("quantity");
+    const quantity = rawQuantity.replace(/[,\s]/g, "") === "" ? null : readCount(rawQuantity);
+    if (rawQuantity.replace(/[,\s]/g, "") !== "" && quantity === null) {
+      rejected.push({ row: rowNumber, raw: line, reason: `Stock "${rawQuantity}" is not a whole number` });
       continue;
     }
     const minStock = readCount(get("minStock"));
@@ -182,13 +190,18 @@ export function parseProductCsv(text: string): ParsedCsv {
       sellingPrice,
       quantity,
       minStock,
+      given: {
+        costPrice: get("costPrice").trim() !== "",
+        sellingPrice: get("sellingPrice").trim() !== "",
+        minStock: get("minStock").trim() !== "",
+      },
     });
   }
 
   return { products, rejected, unknownColumns };
 }
 
-const CSV_HEADER = "name,sku,barcode,category,cost,price,quantity,min stock";
+const CSV_HEADER = "name,sku,barcode,category,cost,price,stock,min stock";
 
 /** The template a shop downloads to fill in, with example rows from a mini mart. */
 export const CSV_TEMPLATE = [
