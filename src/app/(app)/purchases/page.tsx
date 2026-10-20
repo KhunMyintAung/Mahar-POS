@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
-import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
+import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 
@@ -14,10 +14,14 @@ interface Purchase {
   paymentStatus: string; status: string; supplierName?: string; createdAt: string;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
-interface Item { id: string; name: string; sku: string; costPrice: string }
+interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 interface Line { itemId: string; quantity: number; unitPrice: string }
+type PayMode = "full" | "none" | "part";
+
+const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
+const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[] | null>(null);
@@ -32,7 +36,9 @@ export default function PurchasesPage() {
   const { hasPerm, defaultBranchId } = useAuth();
 
   const [lines, setLines] = useState<Line[]>([]);
-  const [form, setForm] = useState({ supplierId: "", discount: "0", paidAmount: "0", walletId: "", dueDate: "", notes: "" });
+  const [form, setForm] = useState(blankForm);
+  const [payMode, setPayMode] = useState<PayMode>("full");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
     api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=100")
@@ -45,10 +51,47 @@ export default function PurchasesPage() {
   }, [push]);
   useEffect(load, [load]);
 
-  const subtotal = lines.reduce((a, l) => a + l.quantity * (parseFloat(l.unitPrice.replace(/,/g, "")) || 0), 0);
-  const total = Math.max(0, subtotal - (parseFloat(form.discount.replace(/,/g, "")) || 0));
-  const paid = parseFloat(form.paidAmount.replace(/,/g, "")) || 0;
+  const mmkWallets = wallets.filter((w) => w.currency === "MMK");
+  // The first cash wallet is picked until the user chooses another, also when the form opens from ?new=1.
+  const walletId = form.walletId || mmkWallets[0]?.id || "";
+  const itemById = useMemo(() => new Map(items.map((it) => [it.id, it])), [items]);
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return items
+      .filter((it) => it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || (it.barcode ?? "").toLowerCase() === q)
+      .slice(0, 8);
+  }, [items, query]);
+
+  const subtotal = lines.reduce((a, l) => a + l.quantity * num(l.unitPrice), 0);
+  const total = Math.max(0, subtotal - num(form.discount));
+  const paid = payMode === "full" ? total : payMode === "none" ? 0 : Math.min(num(form.partPaid), total);
   const unpaid = total - paid;
+
+  function openNew() {
+    setLines([]); setForm(blankForm); setPayMode("full"); setQuery("");
+    setShowNew(true);
+  }
+
+  /** Picking an item already on the list adds one more instead of a second row. */
+  function addItem(it: Item) {
+    setLines((prev) => prev.some((l) => l.itemId === it.id)
+      ? prev.map((l) => l.itemId === it.id ? { ...l, quantity: l.quantity + 1 } : l)
+      : [...prev, { itemId: it.id, quantity: 1, unitPrice: (Number(BigInt(it.costPrice)) / 100).toString() }]);
+    setQuery("");
+  }
+
+  function setLine(i: number, patch: Partial<Line>) {
+    setLines((prev) => prev.map((l, j) => j === i ? { ...l, ...patch } : l));
+  }
+
+  const problem =
+    lines.length === 0 ? "Add at least one item"
+    : lines.some((l) => !num(l.unitPrice)) ? "Enter a cost for every item"
+    : paid > 0 && !walletId ? "Choose the wallet you paid from"
+    : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
+    : "";
 
   async function create() {
     setBusy(true);
@@ -59,16 +102,14 @@ export default function PurchasesPage() {
           branchId: defaultBranchId,
           supplierId: form.supplierId || undefined,
           lines,
-          discount: form.discount || "0",
-          paidAmount: form.paidAmount || "0",
-          walletId: paid > 0 ? form.walletId : undefined,
-          dueDate: form.dueDate || undefined,
-          notes: form.notes || undefined,
+          discount: String(num(form.discount)),
+          paidAmount: String(paid),
+          walletId: paid > 0 ? walletId : undefined,
+          dueDate: unpaid > 0 && form.dueDate ? form.dueDate : undefined,
         },
       });
       push("Purchase recorded — stock updated");
-      setShowNew(false); setLines([]);
-      setForm({ supplierId: "", discount: "0", paidAmount: "0", walletId: "", dueDate: "", notes: "" });
+      setShowNew(false);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -99,7 +140,7 @@ export default function PurchasesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Purchases</h1>
         {hasPerm("purchase.create") && (
-          <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New purchase</Button>
+          <Button onClick={openNew}><Plus size={16} className="mr-1 inline" />New purchase</Button>
         )}
       </div>
 
@@ -127,91 +168,161 @@ export default function PurchasesPage() {
       )}
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New purchase" wide>
-        <div className="space-y-3">
-          <Select label="Supplier" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
-            <option value="">— (required if not fully paid)</option>
-            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </Select>
-          {/* A shop recording its first purchase has no supplier yet, and the select was an
-              empty dead end with no hint of where one comes from. The link opens the add
-              form on arrival rather than dropping them on a list to work it out. */}
-          {suppliers.length === 0 && (
-            <p className="-mt-2 text-xs text-amber-700 dark:text-amber-400">
-              No suppliers yet.{" "}
-              <Link href="/suppliers?new=1" className="font-semibold underline">
-                Add one first
-              </Link>{" "}
-              — you need one unless the purchase is paid in full.
-            </p>
-          )}
-
+        <div className="space-y-4">
           <div>
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-sm font-medium">Lines</span>
-              <Button size="sm" variant="secondary" onClick={() => setLines([...lines, { itemId: "", quantity: 1, unitPrice: "" }])}>
-                <Plus size={14} className="mr-1 inline" />Add line
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {lines.map((l, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <select
-                    value={l.itemId}
-                    onChange={(e) => {
-                      const it = items.find((x) => x.id === e.target.value);
-                      setLines(lines.map((x, j) => j === i ? {
-                        ...x, itemId: e.target.value,
-                        unitPrice: it ? (Number(BigInt(it.costPrice)) / 100).toString() : x.unitPrice,
-                      } : x));
-                    }}
-                    className="flex-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
-                  >
-                    <option value="">Select item…</option>
-                    {items.map((it) => <option key={it.id} value={it.id}>{it.name} ({it.sku})</option>)}
-                  </select>
-                  <input
-                    type="number" min={1} value={l.quantity}
-                    onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))}
-                    className="w-20 rounded-lg border border-gray-300 px-2 py-1.5 text-right text-sm dark:border-gray-700 dark:bg-gray-800"
-                  />
-                  <input
-                    placeholder="Unit cost" value={l.unitPrice} inputMode="decimal"
-                    onChange={(e) => setLines(lines.map((x, j) => j === i ? { ...x, unitPrice: e.target.value } : x))}
-                    className="w-28 rounded-lg border border-gray-300 px-2 py-1.5 text-right text-sm dark:border-gray-700 dark:bg-gray-800"
-                  />
-                  <button onClick={() => setLines(lines.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-500">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <Select label="Supplier" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
+              <option value="">No supplier</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </Select>
+            {suppliers.length === 0 && (
+              <p className="mt-1 text-xs text-gray-500">
+                No suppliers yet.{" "}
+                <Link href="/suppliers?new=1" className="font-semibold text-blue-600 underline">Add one</Link>
+              </p>
+            )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input label="Discount" value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} inputMode="decimal" />
-            <Input label="Paid now" value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: e.target.value })} inputMode="decimal" />
-            <Input label="Due date (unpaid part)" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          {/* Type or scan to find an item; picking it puts it on the list straight away. */}
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-3.5 text-gray-400" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && matches[0]) { e.preventDefault(); addItem(matches[0]); } }}
+              placeholder="Search or scan an item to add"
+              className="min-h-11 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800"
+            />
+            {query.trim() && (
+              <div className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                {matches.length === 0 ? (
+                  <div className="px-3 py-2.5 text-sm text-gray-500">No items found</div>
+                ) : matches.map((it) => (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => addItem(it)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-blue-50 dark:hover:bg-gray-800"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium">{it.name}</span>
+                      <span className="ml-2 text-xs text-gray-400">{it.sku}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-xs text-gray-500">{fmtMoney(it.costPrice)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          {paid > 0 && (
-            <Select label="Pay from wallet" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
-              <option value="">Select…</option>
-              {wallets.filter((w) => w.currency === "MMK").map((w) => (
-                <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
-              ))}
-            </Select>
+
+          {lines.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400 dark:border-gray-700">
+              Items you add appear here
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+              {lines.map((l, i) => {
+                const it = itemById.get(l.itemId);
+                return (
+                  <div key={l.itemId} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1 basis-40">
+                      <div className="truncate text-sm font-medium">{it?.name ?? "—"}</div>
+                      <div className="text-xs tabular-nums text-gray-500">{(l.quantity * num(l.unitPrice)).toLocaleString()} MMK</div>
+                    </div>
+                    <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700">
+                      <button type="button" className="p-2 text-gray-500 hover:text-gray-900 disabled:opacity-30" disabled={l.quantity <= 1} onClick={() => setLine(i, { quantity: l.quantity - 1 })} aria-label="Less">
+                        <Minus size={14} />
+                      </button>
+                      <input
+                        value={l.quantity}
+                        inputMode="numeric"
+                        onChange={(e) => setLine(i, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-12 bg-transparent text-center text-sm tabular-nums outline-none"
+                        aria-label="Qty"
+                      />
+                      <button type="button" className="p-2 text-gray-500 hover:text-gray-900" onClick={() => setLine(i, { quantity: l.quantity + 1 })} aria-label="More">
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    <span className="text-xs text-gray-400">×</span>
+                    <input
+                      value={l.unitPrice}
+                      inputMode="decimal"
+                      onChange={(e) => setLine(i, { unitPrice: e.target.value })}
+                      placeholder="Unit cost"
+                      title="Unit cost"
+                      className="w-28 rounded-lg border border-gray-300 bg-white px-2 py-2 text-right text-sm tabular-nums dark:border-gray-700 dark:bg-gray-800"
+                    />
+                    <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
-          <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-gray-800/60">
-            Subtotal <b className="tabular-nums">{subtotal.toLocaleString()}</b> · Total <b className="tabular-nums">{total.toLocaleString()}</b> MMK
-            {unpaid > 0 && <span className="text-amber-600"> · {unpaid.toLocaleString()} unpaid → creates a payable</span>}
+          <div className="space-y-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/60">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="tabular-nums">{subtotal.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-gray-500">Discount</span>
+              <input
+                value={form.discount}
+                inputMode="decimal"
+                placeholder="0"
+                onChange={(e) => setForm({ ...form, discount: e.target.value })}
+                className="w-28 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-right text-sm tabular-nums dark:border-gray-700 dark:bg-gray-800"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-2 dark:border-gray-700">
+              <span className="font-semibold">Total</span>
+              <span className="text-lg font-bold tabular-nums">{total.toLocaleString()} MMK</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-200 p-1 text-sm dark:bg-gray-900">
+              {([["full", "Paid in full"], ["part", "Part paid"], ["none", "Pay later"]] as const).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setPayMode(mode)}
+                  className={cn("rounded-md px-2 py-2 font-medium", payMode === mode ? "bg-white shadow dark:bg-gray-700" : "text-gray-600 dark:text-gray-400")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {payMode === "part" && (
+                <Input label="Paid now" value={form.partPaid} inputMode="decimal" placeholder="0" onChange={(e) => setForm({ ...form, partPaid: e.target.value })} />
+              )}
+              {paid > 0 && (
+                <Select label="Pay from wallet" value={walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
+                  <option value="">Select…</option>
+                  {mmkWallets.map((w) => (
+                    <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
+                  ))}
+                </Select>
+              )}
+              {unpaid > 0 && (
+                <Input label="Due date (unpaid part)" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              )}
+            </div>
+            {unpaid > 0 && (
+              <div className="flex items-center justify-between gap-3 text-sm text-amber-700 dark:text-amber-400">
+                <span>Owed to supplier</span>
+                <span className="font-semibold tabular-nums">{unpaid.toLocaleString()} MMK</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-end gap-2">
+            {problem && <span className="mr-auto text-xs text-gray-500">{problem}</span>}
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
-            <Button
-              onClick={create}
-              disabled={busy || lines.length === 0 || lines.some((l) => !l.itemId || !l.unitPrice) || (paid > 0 && !form.walletId) || (unpaid > 0 && !form.supplierId)}
-            >
+            <Button onClick={create} disabled={busy || Boolean(problem)}>
               {busy ? "Saving…" : "Confirm purchase"}
             </Button>
           </div>
