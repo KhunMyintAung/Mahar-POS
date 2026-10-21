@@ -24,7 +24,6 @@ interface Item {
   category?: { name: string }; unit?: { name: string };
   /** One IMEI per unit: picked at the till, one line per phone model. */
   trackSerial?: boolean;
-  createdAt?: string;
 }
 
 /** A recent sale, for the list under the cart. */
@@ -32,8 +31,6 @@ interface RecentSale {
   id: string; txnNo: string; total: string; status: string; createdAt: string; customerName?: string;
   lines: { quantity: number; item: { name: string } }[];
 }
-
-const NEW_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
@@ -219,12 +216,11 @@ export default function PosPage() {
     const inStock = (item: Item) => item.stockLevels
       .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
       .reduce((total, level) => total + level.quantity, 0) > 0;
-    // Newest first: what just came in is what the counter is selling.
     return items.filter((item) =>
       inStock(item) &&
       (category === "ALL" || item.category?.name === category) &&
       (!needle || item.name.toLowerCase().includes(needle) || item.sku.toLowerCase().includes(needle) || item.barcode?.toLowerCase().includes(needle))
-    ).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+    );
   }, [category, items, q, defaultBranchId]);
 
   /** The tapped tile pops and the cart bar bounces. */
@@ -258,13 +254,14 @@ export default function PosPage() {
       if (existing) {
         return current.map((line) => line.item.id === item.id ? { ...line, quantity: line.quantity + 1 } : line);
       }
-      return [...current, {
+      // The newest line goes on top, where the cashier is looking.
+      return [{
         item,
         quantity: 1,
         unitPrice: Number(BigInt(item.sellingPrice)) / 100,
         // A new or second-hand phone starts on the shop's first warranty choice for it.
         warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
-      }];
+      }, ...current];
     });
     // Both tapping a product and scanning a barcode arrive here, so one beep covers both.
     // The out-of-stock case above returns before this: it gets the error tone instead.
@@ -293,11 +290,11 @@ export default function PosPage() {
     const imeis = code ? [...chosen, code] : chosen;
     setCart((current) => line
       ? current.map((l) => l.item.id === item.id ? { ...l, imeis, quantity: imeis.length } : l)
-      : [...current, {
+      : [{
           item, imeis, quantity: imeis.length,
           unitPrice: Number(BigInt(item.sellingPrice)) / 100,
           warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
-        }]);
+        }, ...current]);
     playBeep();
     showAdded(item.id);
   }
@@ -519,7 +516,6 @@ export default function PosPage() {
           <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[70vh] xl:grid-cols-4">
             {filtered.map((item) => {
               const available = stockOf(item) - inCart(item.id);
-              const isNew = item.createdAt ? Date.now() - new Date(item.createdAt).getTime() < NEW_FOR_MS : false;
               const flashing = flashId === item.id;
               return (
                 <button
@@ -538,9 +534,7 @@ export default function PosPage() {
                   {flashing && (
                     <span className="animate-fade-check pointer-events-none absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white">✓</span>
                   )}
-                  {isNew && !flashing && (
-                    <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-amber-400 px-1 text-[9px] font-bold leading-4 text-white">NEW</span>
-                  )}
+
                   <div className="flex items-start gap-2">
                     <ProductKindIcon item={item} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
                     <div className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">
