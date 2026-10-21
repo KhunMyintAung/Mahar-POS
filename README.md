@@ -12,8 +12,7 @@ English: Mahar Mini POS is a free multi-tenant point-of-sale and business-record
 web application for small shops. Every registered business has an isolated
 PostgreSQL workspace.
 
-Wallet Note မှ ဆင်းသက်လာပြီး **3D/2D ချဲမှတ်တမ်းနှင့် ငွေလဲလှယ်မှု (Exchange)
-Module နှစ်ခုကို ဖယ်ရှားထားပါတယ်**။
+**3D/2D ချဲမှတ်တမ်းနှင့် ငွေလဲလှယ်မှု (Exchange) Module နှစ်ခုကို ဖယ်ရှားထားပါတယ်**။
 
 ## အဓိကလုပ်ဆောင်ချက်များ
 
@@ -174,8 +173,7 @@ public/         Public images, icons and PWA assets
 `.github/workflows/build-standalone.yml` က Next.js standalone package
 (`mahar-mini-pos-standalone.tar.gz`) ကို ဆောက်ပေးပါတယ်။ VPS ပေါ်မှာ
 Extract လုပ်၊ `.env.production` ထည့်ပြီး PM2 နဲ့ Run ပါ။ Domain၊ Nginx
-Config နှင့် Android TWA package များကို ဒီ Repo မှာ မထည့်ထားပါ —
-Wallet Note ရဲ့ Domain တွေနဲ့ မရောထွေးအောင် ဖြစ်ပါတယ်။
+Config နှင့် Android TWA package များကို ဒီ Repo မှာ မထည့်ထားပါ။
 
 SSH private key၊ `.env.production`၊ Database URL၊ API Key၊ Password နှင့် Token
 များကို GitHub ထဲ မတင်ပါနှင့်။

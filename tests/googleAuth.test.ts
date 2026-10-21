@@ -20,7 +20,7 @@ describe("google config", () => {
     const complete = {
       GOOGLE_CLIENT_ID: "id",
       GOOGLE_CLIENT_SECRET: "secret",
-      APP_URL: "https://walletnote.example",
+      APP_URL: "https://maharpos.example",
     };
     for (const missing of Object.keys(complete)) {
       configure({ ...complete, [missing]: undefined });
@@ -39,11 +39,11 @@ describe("google config", () => {
     configure({
       GOOGLE_CLIENT_ID: "id",
       GOOGLE_CLIENT_SECRET: "secret",
-      APP_URL: "https://walletnote.example/",
+      APP_URL: "https://maharpos.example/",
     });
     // The trailing slash is the shape people actually paste into an env file.
     expect(googleConfig()?.redirectUri).toBe(
-      "https://walletnote.example/api/v1/auth/google/callback"
+      "https://maharpos.example/api/v1/auth/google/callback"
     );
   });
 });
@@ -52,7 +52,7 @@ describe("google authorisation url", () => {
   const config = {
     clientId: "the-client",
     clientSecret: "the-secret",
-    redirectUri: "https://walletnote.example/api/v1/auth/google/callback",
+    redirectUri: "https://maharpos.example/api/v1/auth/google/callback",
   };
 
   it("asks only for who the person is", () => {

@@ -84,7 +84,7 @@ export default function PosPage() {
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
   const { defaultBranchId, me, hasPerm } = useAuth();
-  const draftKey = `wallet-note:pos-draft:${me?.user.id ?? "anonymous"}`;
+  const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
     api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1")

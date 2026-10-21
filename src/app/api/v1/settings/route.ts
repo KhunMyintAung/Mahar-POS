@@ -27,8 +27,18 @@ const schema = z.object({
 
 export const PUT = withAuth("settings.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
+  const stored = body.key === "modules"
+    ? await prisma.systemSetting.findUnique({
+        where: { businessId_key: { businessId: user.businessId, key: "modules" } },
+        select: { value: true },
+      })
+    : null;
+  // Saving the menu keeps the shop's type; only the switches change.
   const value = body.key === "modules"
-    ? moduleSettingFromFeatures(parseModuleAccess(body.value).features)
+    ? moduleSettingFromFeatures(
+        parseModuleAccess(body.value).features,
+        stored ? parseModuleAccess(JSON.parse(stored.value)).category : "CUSTOM",
+      )
     : body.value;
   const setting = await prisma.$transaction(async (tx) => {
     const before = await tx.systemSetting.findUnique({

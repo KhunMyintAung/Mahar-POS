@@ -200,7 +200,7 @@ async function main() {
         description: "Internal business management and accounting application",
         developer: "Mahar Mini POS Team",
         phone: "09-000000000",
-        telegram: "@walletnote",
+        telegram: "@maharpos",
         website: "",
         copyright: `© ${new Date().getFullYear()} Mahar Mini POS`,
       }),

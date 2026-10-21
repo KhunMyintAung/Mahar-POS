@@ -5,6 +5,7 @@ import {
   Package, Receipt, ScrollText, Send, ShoppingCart, Truck, UserCog, Users, Wallet,
 } from "lucide-react";
 import { LanguageSwitch } from "@/components/LanguageProvider";
+import { SITE_URL } from "../layout";
 
 /** This is the page search engines actually land on, so it carries the description a
  *  Myanmar shop owner would recognise — the words they would type — rather than the
@@ -32,7 +33,7 @@ const APP_SCHEMA = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web, Android, iOS",
   inLanguage: ["my", "en"],
-  url: "https://walletnote.online/",
+  url: `${SITE_URL}/`,
   description:
     "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်း၊ ဝင်ငွေထွက်ငွေ၊ အကြွေးနှင့် ငွေလဲနှုန်း — " +
     "မြန်မာဆိုင်ငယ်များအတွက် စာရင်းကိုင် app။",

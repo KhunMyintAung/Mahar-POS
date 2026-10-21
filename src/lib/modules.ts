@@ -137,7 +137,7 @@ export function modeForFeatures(features: FeatureVisibility): ModuleMode {
 export interface ModuleAccess {
   mode: ModuleMode;
   miniMartEnabled: boolean;
-  walletNoteEnabled: boolean;
+  walletsEnabled: boolean;
   category: BusinessCategory | "CUSTOM";
   features: FeatureVisibility;
 }
@@ -169,7 +169,7 @@ export function parseModuleAccess(value: unknown): ModuleAccess {
   return {
     mode,
     miniMartEnabled: MINI_MART_FEATURES.some((key) => features[key]),
-    walletNoteEnabled: WALLET_FEATURES.some((key) => features[key]),
+    walletsEnabled: WALLET_FEATURES.some((key) => features[key]),
     category,
     features,
   };
@@ -193,6 +193,9 @@ export function moduleSettingForCategory(category: BusinessCategory) {
   return moduleSetting(modeForFeatures(features), features, category);
 }
 
-export function moduleSettingFromFeatures(features: FeatureVisibility) {
-  return moduleSetting(modeForFeatures(features), features, "CUSTOM");
+/** The menu switches as a stored setting. The shop's type (a phone shop, a mini mart) is
+ *  what it is, not what its menu happens to show, so turning one item on or off keeps it;
+ *  it used to become CUSTOM, and a phone shop lost its phone shop templates. */
+export function moduleSettingFromFeatures(features: FeatureVisibility, category: BusinessCategory | "CUSTOM" = "CUSTOM") {
+  return moduleSetting(modeForFeatures(features), features, category);
 }

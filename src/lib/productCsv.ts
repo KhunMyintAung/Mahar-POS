@@ -234,5 +234,5 @@ export const PHONE_SHOP_CSV_TEMPLATE = [
 export function csvTemplateFor(category: string | undefined): { csv: string; fileName: string } {
   return category === "MOBILE_SHOP"
     ? { csv: PHONE_SHOP_CSV_TEMPLATE, fileName: "phone-shop-products.csv" }
-    : { csv: CSV_TEMPLATE, fileName: "wallet-note-products.csv" };
+    : { csv: CSV_TEMPLATE, fileName: "products-template.csv" };
 }

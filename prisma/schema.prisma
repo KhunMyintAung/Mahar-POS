@@ -1,4 +1,4 @@
-// Wallet Note — database schema
+// Mahar Mini POS — database schema
 // Money amounts are stored as BigInt in minor units (1/100 of the currency unit)
 // to avoid floating-point errors. Rates/percentages are stored as decimal strings
 // and computed with decimal.js in the service layer.

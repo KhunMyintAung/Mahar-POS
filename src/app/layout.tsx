@@ -8,7 +8,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 /** Where the site actually lives, used to make every canonical and social URL absolute.
  *  Search engines treat a relative canonical as no canonical at all. */
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://walletnote.online";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://maharpos.shop";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

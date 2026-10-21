@@ -28,7 +28,7 @@ interface Me {
   modules: {
     mode: ModuleMode;
     miniMartEnabled: boolean;
-    walletNoteEnabled: boolean;
+    walletsEnabled: boolean;
     features: FeatureVisibility;
     /** The business category picked at sign-up (MINI_MART, MOBILE_SHOP, …) or CUSTOM. */
     category: string;
@@ -42,7 +42,7 @@ const AuthCtx = createContext<{
   branches: Me["branches"];
   defaultBranchId: string;
   miniMartEnabled: boolean;
-  walletNoteEnabled: boolean;
+  walletsEnabled: boolean;
   moduleMode: ModuleMode;
   featureEnabled: (feature: FeatureKey) => boolean;
   playEdition: boolean;
@@ -53,7 +53,7 @@ const AuthCtx = createContext<{
   branches: [],
   defaultBranchId: "",
   miniMartEnabled: false,
-  walletNoteEnabled: true,
+  walletsEnabled: true,
   moduleMode: "WALLET_ONLY",
   featureEnabled: () => false,
   playEdition: false,
@@ -174,7 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const miniMartEnabled = me?.modules.miniMartEnabled ?? false;
-  const walletNoteEnabled = me?.modules.walletNoteEnabled ?? true;
+  const walletsEnabled = me?.modules.walletsEnabled ?? true;
   const playEdition = me?.edition === "PLAY";
   const featureEnabled = (feature: FeatureKey) => me?.modules.features[feature] ?? false;
   const blockedModulePath = [...NAV, ...WALLET_TABS].some(
@@ -256,7 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         branches: me.branches,
         defaultBranchId: me.branches[0]?.id ?? "",
         miniMartEnabled,
-        walletNoteEnabled,
+        walletsEnabled,
         moduleMode: me.modules.mode,
         featureEnabled,
         playEdition,

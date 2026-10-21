@@ -16,17 +16,17 @@ describe("module access", () => {
     expect(parseModuleAccess(moduleSetting("WALLET_ONLY"))).toMatchObject({
       mode: "WALLET_ONLY",
       miniMartEnabled: false,
-      walletNoteEnabled: true,
+      walletsEnabled: true,
     });
     expect(parseModuleAccess(moduleSetting("MINI_MART_ONLY"))).toMatchObject({
       mode: "MINI_MART_ONLY",
       miniMartEnabled: true,
-      walletNoteEnabled: false,
+      walletsEnabled: false,
     });
     expect(parseModuleAccess(moduleSetting("BOTH"))).toMatchObject({
       mode: "BOTH",
       miniMartEnabled: true,
-      walletNoteEnabled: true,
+      walletsEnabled: true,
     });
   });
 
@@ -35,7 +35,7 @@ describe("module access", () => {
     expect(parseModuleAccess({ miniMartEnabled: false }).mode).toBe("WALLET_ONLY");
   });
 
-  it("defaults invalid settings to Wallet Note only", () => {
+  it("defaults invalid settings to wallets only", () => {
     expect(parseModuleAccess(null).mode).toBe("WALLET_ONLY");
     expect(parseModuleAccess({ mode: "UNKNOWN" }).mode).toBe("WALLET_ONLY");
   });
@@ -96,5 +96,12 @@ describe("module access", () => {
     expect(parsed.features.wallets).toBe(true);
     expect(parsed.features.pos).toBe(false);
     expect(categoryPreset("ALL_IN_ONE").about).toBe(true);
+  });
+});
+
+describe("saving the menu", () => {
+  it("keeps the shop's type when a menu item is switched on", () => {
+    const features = { ...categoryPreset("MOBILE_SHOP"), users: true };
+    expect(moduleSettingFromFeatures(features, "MOBILE_SHOP").category).toBe("MOBILE_SHOP");
   });
 });
