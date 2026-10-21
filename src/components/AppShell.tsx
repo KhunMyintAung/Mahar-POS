@@ -266,7 +266,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ToastProvider>
         <div className="flex min-h-screen">
           {/* Desktop sidebar */}
-          <aside className={cn("no-print hidden w-60 shrink-0 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", !sidebarHidden && "lg:block")}>
+          {/* Pinned to the screen and scrolled on its own, so the last items (Settings,
+              Telegram) are reachable however many menu items a shop has turned on. */}
+          <aside className={cn("no-print sticky top-0 hidden h-screen w-60 shrink-0 overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", !sidebarHidden && "lg:block")}>
             <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-800">
               <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100 dark:ring-gray-800"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
               <span className="font-bold">Mahar Mini POS</span>
