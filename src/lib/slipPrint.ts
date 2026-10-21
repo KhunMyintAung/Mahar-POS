@@ -55,20 +55,27 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
 }
 
 const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
+/** The page margins: 2mm top and bottom to save paper, and at the sides whatever the head
+ *  cannot reach. An XP-80C prints 72mm of its 80mm roll, a 58mm printer about 52mm. */
+const sideMm = () => (getPaperWidth() === 58 ? 3 : 4);
+const margin = () => `2mm ${sideMm()}mm`;
+/** The slip is laid out at exactly the width it prints at, on screen too, so the length
+ *  measured on screen is the length printed and nothing is shrunk to fit. */
+const contentWidth = () => `${(getPaperWidth() === 58 ? 58 : 80) - 2 * sideMm()}mm`;
 
 /** Prints once the slip has loaded, on a page exactly as long as the slip. With a page
  *  length of "auto" the printer used its own default length and fed blank paper after the
  *  slip; measuring the slip and naming its length stops that. */
 function autoPrint(): string {
-  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+8;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:3mm}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
+  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+6;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:${margin()}}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
 }
 
 function baseStyles(): string {
   const width = paper();
   return `
-    @page{size:${width} auto;margin:3mm}
+    @page{size:${width} auto;margin:${margin()}}
     *{box-sizing:border-box}
-    body{width:${width};max-width:100%;margin:0 auto;padding:3mm;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
+    body{width:${contentWidth()};max-width:100%;margin:0 auto;padding:0;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
     .slip-logo{display:block;max-width:100%;height:56px;object-fit:contain;margin:0 auto 4px auto}
     /* A thermal head prints black or nothing, so a coloured logo loses every shade lighter
        than mid-grey. A see-through PNG logo prints solid black; a JPEG in strong greys. */
@@ -110,7 +117,7 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
     ${brandBlock({ name: sale.shopName, logo: sale.shopLogo, phone: sale.shopPhone, address: sale.shopAddress }, "Sale Receipt")}
     <div class="meta"><div><span>Invoice</span><b>${escapeHtml(sale.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(sale.at))}</b></div>${sale.cashierName ? `<div><span>Cashier</span><b>${escapeHtml(sale.cashierName)}</b></div>` : ""}</div>
     <table><thead><tr><th>Item</th><th class="center">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead><tbody>${items}</tbody></table>
-    <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div><div><span>Discount</span><b>${money(sale.discount)}</b></div><div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div><div><span>Paid</span><b>${money(sale.paid)}</b></div>${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
+    <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div>${sale.discount > 0 ? `<div><span>Discount</span><b>${money(sale.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div>${sale.paid !== sale.total || sale.change > 0 ? `<div><span>Paid</span><b>${money(sale.paid)}</b></div>` : ""}${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
     <div class="footer">Thank you.</div>
     ${autoPrint()}</body></html>`;
   return printWindow(targetWindow, html);
