@@ -24,6 +24,8 @@ export interface ReceiptData {
   lines: {
     name: string; quantity: number; unitPrice: number;
     warranty?: string; warrantyUntil?: string; warrantyCondition?: string; note?: string;
+    /** The phones sold on this line, by IMEI. */
+    imeis?: string[];
   }[];
   subtotal: number;
   discount: number;
@@ -110,6 +112,7 @@ export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
                     {line.warrantyUntil && <> (until {new Date(line.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})</>}
                   </small>
                 )}
+                {line.imeis && line.imeis.length > 0 && <small className="block font-mono text-[9px]">IMEI: {line.imeis.join(", ")}</small>}
                 {line.note && <small className="block text-[9px] text-gray-600">Note: {line.note}</small>}
               </td>
               <td className="py-1 pl-1 text-center tabular-nums">{line.quantity}</td>

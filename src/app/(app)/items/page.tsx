@@ -5,6 +5,7 @@ import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
+import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
@@ -14,7 +15,7 @@ import { repriced, validRule, type RepriceDirection, type RepriceMode, type Repr
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
-  costPrice: string; sellingPrice: string; minStock: number;
+  costPrice: string; sellingPrice: string; minStock: number; trackSerial?: boolean;
   categoryId?: string | null; unitId?: string | null;
   category?: { name: string }; unit?: { name: string };
   stockLevels: { branchId: string; quantity: number }[];
@@ -80,7 +81,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0 };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false };
   const [form, setForm] = useState(empty);
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
 
@@ -125,6 +126,7 @@ export default function ItemsPage() {
             name: form.name, barcode: form.barcode || undefined,
             categoryId: form.categoryId || null, unitId: form.unitId || null,
             costPrice: form.costPrice, sellingPrice: form.sellingPrice, minStock: form.minStock,
+            trackSerial: form.trackSerial,
           },
         });
         push("Item updated");
@@ -271,7 +273,10 @@ export default function ItemsPage() {
                     <input type="checkbox" className="h-4 w-4" aria-label={`Select ${it.name}`} checked={selected.has(it.id)} onChange={() => toggle(it.id)} />
                   )}
                 </td>
-                <td className="px-3 py-2.5 font-medium">{it.name}</td>
+                <td className="px-3 py-2.5 font-medium">
+                  {it.name}
+                  {it.trackSerial && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
+                </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
                 <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", it.minStock > 0 && qty < it.minStock && "text-red-600")}>
                   {qty}
@@ -291,6 +296,7 @@ export default function ItemsPage() {
                         costPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
                         sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
                         minStock: it.minStock,
+                        trackSerial: Boolean(it.trackSerial),
                       });
                       setEditItem(it);
                       setShowNew(true);
@@ -323,7 +329,10 @@ export default function ItemsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Select label="Category" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+              <Select label="Category" value={form.categoryId} onChange={(e) => {
+                const name = meta.categories.find((c) => c.id === e.target.value)?.name;
+                setForm({ ...form, categoryId: e.target.value, ...(editItem ? {} : { trackSerial: isPhoneCategory(name) }) });
+              }}>
                 <option value="">—</option>
                 {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
@@ -343,6 +352,13 @@ export default function ItemsPage() {
             <Input label="Selling price" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
             <Input label="Min stock" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseInt(e.target.value) || 0 })} />
           </div>
+          <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.trackSerial} onChange={(e) => setForm({ ...form, trackSerial: e.target.checked })} />
+            <span>
+              <span className="font-medium">Track IMEI / serial</span>
+              <span className="block text-xs text-gray-500">Each phone has its own IMEI: entered when bought, picked when sold, and searchable.</span>
+            </span>
+          </label>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => { setShowNew(false); setEditItem(null); }}>Cancel</Button>
             <Button onClick={save} disabled={busy || !form.name}>{editItem ? "Save changes" : "Create item"}</Button>

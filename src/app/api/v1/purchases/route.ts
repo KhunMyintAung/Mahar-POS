@@ -45,6 +45,7 @@ const lineSchema = z.object({
   itemId: z.string().min(1),
   quantity: z.number().int().positive(),
   unitPrice: z.string().min(1),
+  imeis: z.array(z.string().trim().max(40)).max(500).optional(),
 });
 
 const schema = z.object({
@@ -71,7 +72,7 @@ export const POST = withAuth("purchase.create", async ({ req, user }) => {
       userId: user.id,
       date: body.date,
       supplierId: body.supplierId,
-      lines: body.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: toMinor(l.unitPrice) })),
+      lines: body.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: toMinor(l.unitPrice), imeis: l.imeis })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),
       walletId: body.walletId,

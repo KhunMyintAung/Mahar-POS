@@ -5,6 +5,7 @@ import { postLedger } from "./walletService";
 import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
+import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, trackedItemIds } from "./serialService";
 
 // Purchases and sales tie inventory to the money system:
 // - purchase: stock in; paid part leaves a wallet, unpaid part becomes a Payable
@@ -21,6 +22,27 @@ export interface LineInput {
   warrantyCondition?: "NEW" | "SECOND";
   /** Sales only: e.g. the IMEI, or what the customer traded in. */
   note?: string;
+  /** For an IMEI-tracked item: one IMEI or serial per unit, bought or sold. */
+  imeis?: string[];
+}
+
+/** Each IMEI-tracked line must carry exactly one IMEI per unit; other lines carry none.
+ *  Returns the cleaned IMEIs per line, in line order. */
+async function imeisPerLine(tx: Tx, businessId: string, lines: LineInput[]): Promise<(string[] | null)[]> {
+  const tracked = await trackedItemIds(tx, businessId, lines.map((l) => l.itemId));
+  const seen = new Set<string>();
+  return lines.map((l) => {
+    if (!tracked.has(l.itemId)) return null;
+    const imeis = cleanImeis(l.imeis);
+    if (imeis.length !== l.quantity) {
+      throw new ApiError(422, `Enter ${l.quantity} IMEI${l.quantity === 1 ? "" : "s"} for each phone on the line (got ${imeis.length})`);
+    }
+    for (const i of imeis) {
+      if (seen.has(i)) throw new ApiError(422, `IMEI ${i} is on two lines`);
+      seen.add(i);
+    }
+    return imeis;
+  });
 }
 
 export function computeTotals(lines: { quantity: number; unitPrice: bigint }[], discount: bigint) {
@@ -94,7 +116,8 @@ export async function createPurchase(
     },
   });
 
-  for (const l of opts.lines) {
+  const purchaseImeis = await imeisPerLine(tx, opts.businessId, opts.lines);
+  for (const [i, l] of opts.lines.entries()) {
     await tx.purchaseLine.create({
       data: {
         purchaseId: purchase.id,
@@ -114,6 +137,10 @@ export async function createPurchase(
       refId: purchase.id,
       createdById: opts.userId,
     });
+    const lineImeis = purchaseImeis[i];
+    if (lineImeis) {
+      await receiveSerials(tx, { businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, purchaseId: purchase.id });
+    }
     // keep the item's latest cost price
     await tx.item.update({ where: { id: l.itemId }, data: { costPrice: l.unitPrice } });
   }
@@ -240,7 +267,8 @@ export async function createSale(
   // the database for it — the Telegram feed only reported a total, which told nobody what
   // had actually left the shelf.
   const soldItems: { name: string; quantity: number }[] = [];
-  for (const l of opts.lines) {
+  const saleImeis = await imeisPerLine(tx, opts.businessId, opts.lines);
+  for (const [i, l] of opts.lines.entries()) {
     const { item } = await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
@@ -253,7 +281,7 @@ export async function createSale(
     });
     soldItems.push({ name: item.name, quantity: l.quantity });
     totalCost += BigInt(l.quantity) * item.costPrice;
-    await tx.saleLine.create({
+    const line = await tx.saleLine.create({
       data: {
         saleId: sale.id,
         itemId: l.itemId,
@@ -267,6 +295,10 @@ export async function createSale(
         note: l.note || null,
       },
     });
+    const lineImeis = saleImeis[i];
+    if (lineImeis) {
+      await sellSerials(tx, { businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, saleId: sale.id, saleLineId: line.id });
+    }
   }
   const profit = total - totalCost;
   await tx.sale.update({ where: { id: sale.id }, data: { totalCost, profit } });
@@ -329,6 +361,10 @@ export async function cancelSaleOrPurchase(
       : await tx.purchase.findUnique({ where: { id: opts.id }, include: { lines: true } });
   if (!record || record.businessId !== opts.businessId) throw new ApiError(404, "Record not found");
   if (record.status === "CANCELLED") throw new ApiError(422, "Already cancelled");
+
+  // IMEIs first: a purchase whose phone has since been sold cannot be cancelled.
+  if (kind === "sale") await releaseSaleSerials(tx, record.id);
+  else await removePurchaseSerials(tx, record.id);
 
   // reverse stock
   for (const l of record.lines) {

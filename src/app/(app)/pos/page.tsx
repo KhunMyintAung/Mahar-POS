@@ -22,15 +22,18 @@ interface Item {
   id: string; name: string; sku: string; barcode?: string;
   sellingPrice: string; stockLevels: { branchId: string; quantity: number }[];
   category?: { name: string }; unit?: { name: string };
+  /** One IMEI per unit: picked at the till, one line per phone model. */
+  trackSerial?: boolean;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
-interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string }
+/** imeis: for an IMEI-tracked item, the phones being sold; quantity is their count. */
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[] }
 interface SaleResult { txnNo: string; total: string; profit: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[] }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -56,6 +59,9 @@ function cashSuggestions(total: number) {
 
 export default function PosPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  // Every IMEI on the shelf in this branch, by item, for the picker and for scanning.
+  const [shelfImeis, setShelfImeis] = useState<Map<string, string[]>>(new Map());
+  const [imeiInput, setImeiInput] = useState<Record<string, string>>({});
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [customers, setCustomers] = useState<Contact[]>([]);
   const [q, setQ] = useState("");
@@ -90,6 +96,13 @@ export default function PosPage() {
     api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1")
       .then((data) => setItems(data.items))
       .catch((error) => push(error.message, "error"));
+    api<{ units: { imei: string; itemId: string }[] }>(`/api/v1/serials?status=IN_STOCK${defaultBranchId ? `&branchId=${defaultBranchId}` : ""}`)
+      .then((data) => {
+        const byItem = new Map<string, string[]>();
+        for (const u of data.units) byItem.set(u.itemId, [...(byItem.get(u.itemId) ?? []), u.imei]);
+        setShelfImeis(byItem);
+      })
+      .catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then((data) => {
       setWallets(data);
       const cash = data.find((wallet) => wallet.currency === "MMK");
@@ -100,7 +113,7 @@ export default function PosPage() {
     api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${WARRANTY_SETTING}`)
       .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
       .catch(() => {});
-  }, [push]);
+  }, [push, defaultBranchId]);
 
   useEffect(load, [load]);
 
@@ -124,8 +137,12 @@ export default function PosPage() {
             const stock = item.stockLevels
               .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
               .reduce((total, level) => total + level.quantity, 0);
+            if (item.trackSerial) {
+              const imeis = (line.imeis ?? []).slice(0, stock);
+              return [{ item, quantity: imeis.length, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, imeis }];
+            }
             return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note }];
-          }).filter((line) => line.quantity > 0));
+          }).filter((line) => line.quantity > 0 || line.item.trackSerial));
           setDiscount(draft.discount);
           setWalletId(draft.walletId);
           setCustomerId(draft.customerId);
@@ -147,7 +164,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -204,7 +221,11 @@ export default function PosPage() {
     return cart.reduce((total, line) => line.item.id === id ? total + line.quantity : total, 0);
   }
 
-  function addToCart(item: Item) {
+  function addToCart(item: Item, imei?: string) {
+    if (item.trackSerial) {
+      addTrackedUnit(item, imei);
+      return;
+    }
     if (inCart(item.id) >= stockOf(item)) {
       push(`No more stock for ${item.name}`, "error");
       return;
@@ -225,6 +246,43 @@ export default function PosPage() {
     // Both tapping a product and scanning a barcode arrive here, so one beep covers both.
     // The out-of-stock case above returns before this: it gets the error tone instead.
     playBeep();
+  }
+
+  /** A tracked phone: its row is opened, and the IMEI added when one is given. */
+  function addTrackedUnit(item: Item, imei?: string) {
+    const code = imei?.replace(/[\s-]/g, "").toUpperCase();
+    const line = cart.find((l) => l.item.id === item.id);
+    const chosen = line?.imeis ?? [];
+    if (code && cart.some((l) => l.imeis?.includes(code))) {
+      push(`IMEI ${code} is already in the cart`, "error");
+      return;
+    }
+    if (code && chosen.length >= stockOf(item)) {
+      push(`No more stock for ${item.name}`, "error");
+      return;
+    }
+    if (!code && line) return; // already on the list; its picker is open
+    if (!code && stockOf(item) <= 0) {
+      push(`No more stock for ${item.name}`, "error");
+      return;
+    }
+    const imeis = code ? [...chosen, code] : chosen;
+    setCart((current) => line
+      ? current.map((l) => l.item.id === item.id ? { ...l, imeis, quantity: imeis.length } : l)
+      : [...current, {
+          item, imeis, quantity: imeis.length,
+          unitPrice: Number(BigInt(item.sellingPrice)) / 100,
+          warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
+        }]);
+    playBeep();
+  }
+
+  function removeImei(itemId: string, imei: string) {
+    setCart((current) => current.map((l) => {
+      if (l.item.id !== itemId) return l;
+      const imeis = (l.imeis ?? []).filter((x) => x !== imei);
+      return { ...l, imeis, quantity: imeis.length };
+    }));
   }
 
   function changeQuantity(itemId: string, quantity: number) {
@@ -248,7 +306,15 @@ export default function PosPage() {
     const exact = items.find(
       (item) => item.sku.toLowerCase() === needle || item.barcode?.toLowerCase() === needle
     );
-    if (!exact) return false;
+    if (!exact) {
+      const imei = code.replace(/[\s-]/g, "").toUpperCase();
+      for (const [itemId, list] of shelfImeis) {
+        if (!list.includes(imei)) continue;
+        const item = items.find((it) => it.id === itemId);
+        if (item) { addToCart(item, imei); return true; }
+      }
+      return false;
+    }
     addToCart(exact);
     return true;
   }
@@ -277,7 +343,8 @@ export default function PosPage() {
   const part2 = split ? Math.min(readAmount(splitAmount), paidAmount) : 0;
   const part1 = paidAmount - part2;
   const splitOk = !split || (part2 > 0 && part1 > 0 && Boolean(wallet2Id) && wallet2Id !== walletId);
-  const canCheckout = cart.length > 0 && disc >= 0 && disc <= subtotal &&
+  const missingImei = cart.find((l) => l.item.trackSerial && l.quantity < 1);
+  const canCheckout = cart.length > 0 && !missingImei && disc >= 0 && disc <= subtotal &&
     (paidAmount === 0 || Boolean(walletId)) && splitOk &&
     (creditAmount === 0 || Boolean(customerId)) &&
     (payMode !== "full" || !cashReceived || received >= total);
@@ -331,6 +398,7 @@ export default function PosPage() {
             warrantyDays: line.warranty?.days,
             warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
             note: line.note?.trim() || undefined,
+            imeis: line.item.trackSerial ? line.imeis : undefined,
           })),
           discount: disc.toString(),
           paidAmount: paidAmount.toString(),
@@ -358,6 +426,7 @@ export default function PosPage() {
           warrantyUntil: line.warranty ? warrantyUntil(new Date(), line.warranty.days)?.toISOString() : undefined,
           warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
           note: line.note?.trim() || undefined,
+          imeis: line.imeis?.length ? line.imeis : undefined,
         })),
         subtotal,
         discount: disc,
@@ -522,12 +591,61 @@ export default function PosPage() {
                       inputMode="decimal"
                       className="max-w-32"
                     />
+                    {line.item.trackSerial ? (
+                      <span className="flex h-10 shrink-0 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        {line.quantity} pc{line.quantity === 1 ? "" : "s"}
+                      </span>
+                    ) : (
                     <div className="flex h-10 shrink-0 items-center overflow-hidden rounded-lg border border-gray-300 dark:border-gray-700">
                       <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity - 1)} className="h-full w-10 p-2" aria-label="Decrease quantity"><Minus size={15} /></button>
                       <span className="w-10 text-center font-semibold tabular-nums">{line.quantity}</span>
                       <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity + 1)} disabled={line.quantity >= stockOf(line.item)} className="h-full w-10 p-2 disabled:opacity-30" aria-label="Increase quantity"><Plus size={15} /></button>
                     </div>
+                    )}
                   </div>
+                  {line.item.trackSerial && (() => {
+                    // The phones on the shelf for this model that are not already in the cart.
+                    const taken = new Set(cart.flatMap((l) => l.imeis ?? []));
+                    const free = (shelfImeis.get(line.item.id) ?? []).filter((i) => !taken.has(i));
+                    const typed = imeiInput[line.item.id] ?? "";
+                    const add = (value: string) => {
+                      if (!value.trim()) return;
+                      addTrackedUnit(line.item, value);
+                      setImeiInput((m) => ({ ...m, [line.item.id]: "" }));
+                    };
+                    return (
+                      <div className="space-y-1.5 rounded-lg border border-blue-200 bg-blue-50/60 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(line.imeis ?? []).map((imei) => (
+                            <span key={imei} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 font-mono text-xs shadow-sm dark:bg-gray-800">
+                              {imei}
+                              <button type="button" aria-label={`Remove ${imei}`} onClick={() => removeImei(line.item.id, imei)} className="text-gray-400 hover:text-red-600">×</button>
+                            </span>
+                          ))}
+                          {(line.imeis ?? []).length === 0 && <span className="text-xs font-medium text-red-600">Pick the IMEI of the phone being sold</span>}
+                        </div>
+                        <div className="flex gap-1.5">
+                          <input
+                            list={`imeis-${line.item.id}`}
+                            value={typed}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              // Choosing from the list fills the whole number: add it straight away.
+                              if (free.includes(v.trim().toUpperCase())) add(v);
+                              else setImeiInput((m) => ({ ...m, [line.item.id]: v }));
+                            }}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(typed); } }}
+                            placeholder={free.length ? `Pick or scan IMEI (${free.length} in stock)` : "Scan or type IMEI"}
+                            className="min-h-9 min-w-0 flex-1 rounded-md border border-blue-200 bg-white px-2 font-mono text-xs dark:border-blue-800 dark:bg-gray-800"
+                          />
+                          <datalist id={`imeis-${line.item.id}`}>
+                            {free.map((i) => <option key={i} value={i} />)}
+                          </datalist>
+                          <Button size="sm" variant="secondary" disabled={!typed.trim()} onClick={() => add(typed)}>Add</Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -622,6 +740,11 @@ export default function PosPage() {
             )}
           </div>
 
+          {missingImei && (
+            <p className="text-xs font-medium text-red-600">
+              <span>Pick the IMEI for</span> <span>{missingImei.item.name}</span>
+            </p>
+          )}
           <Button className="w-full" disabled={busy || !canCheckout} onClick={() => setReviewOpen(true)}>
             Review sale · {total.toLocaleString()} MMK
           </Button>

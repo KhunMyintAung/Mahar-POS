@@ -618,12 +618,15 @@ model Item {
   currency     String        @default("MMK")
   minStock     Int           @default(0)
   active       Boolean       @default(true)
+  /// Each unit has its own IMEI or serial, recorded when it comes in and picked when sold.
+  trackSerial  Boolean       @default(false)
   description  String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
 
   stockLevels   StockLevel[]
+  serials       ItemSerial[]
   movements     StockMovement[]
   purchaseLines PurchaseLine[]
   saleLines     SaleLine[]
@@ -755,4 +758,30 @@ model SaleLine {
    * Free text for this line, e.g. the IMEI or what the customer traded in.
    */
   note              String?
+}
+
+/// One unit of an IMEI-tracked item (a phone), from the day it comes in to the day it leaves.
+model ItemSerial {
+  id         String    @id @default(uuid())
+  businessId String
+  branchId   String
+  itemId     String
+  item       Item      @relation(fields: [itemId], references: [id])
+  /// IMEI or serial number, spaces removed.
+  imei       String
+  /// IN_STOCK, SOLD or REMOVED (damaged, used, returned to supplier).
+  status     String    @default("IN_STOCK")
+  purchaseId String?
+  saleId     String?
+  saleLineId String?
+  notes      String?
+  receivedAt DateTime  @default(now())
+  soldAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([businessId, imei])
+  @@index([businessId, itemId, status])
+  @@index([saleId])
+  @@index([purchaseId])
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { generateSku } from "@/lib/sku";
 import { audit } from "@/lib/audit";
+import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -51,6 +52,8 @@ const schema = z.object({
   sellingPrice: z.string().default("0"),
   minStock: z.number().int().min(0).default(0),
   description: z.string().optional(),
+  /** Keep an IMEI per unit. Left out, it is on for phones (Phone New / Phone Second). */
+  trackSerial: z.boolean().optional(),
 });
 
 export const POST = withAuth("item.manage", async ({ req, user }) => {
@@ -78,12 +81,14 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   }
 
   const item = await prisma.$transaction(async (tx) => {
+    let categoryName = "";
     if (body.categoryId) {
       const category = await tx.itemCategory.findFirst({
         where: { id: body.categoryId, businessId: user.businessId, active: true },
-        select: { id: true },
+        select: { id: true, name: true },
       });
       if (!category) throw new ApiError(404, "Category not found");
+      categoryName = category.name;
     }
     if (body.unitId) {
       const unit = await tx.unit.findFirst({
@@ -104,6 +109,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         sellingPrice: toMinor(body.sellingPrice),
         minStock: body.minStock,
         description: body.description,
+        trackSerial: body.trackSerial ?? isPhoneCategory(categoryName),
       },
     });
     await audit(tx, {

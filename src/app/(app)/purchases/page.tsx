@@ -9,16 +9,18 @@ import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, u
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 
 interface Purchase {
   id: string; txnNo: string; date: string; total: string; paidAmount: string;
   paymentStatus: string; status: string; supplierName?: string; createdAt: string;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
-interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string }
+interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
-interface Line { itemId: string; quantity: number; unitPrice: string }
+/** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
+interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string }
 type PayMode = "full" | "none" | "part";
 
 const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
@@ -78,17 +80,34 @@ export default function PurchasesPage() {
   /** Picking an item already on the list adds one more instead of a second row. */
   function addItem(it: Item) {
     setLines((prev) => prev.some((l) => l.itemId === it.id)
-      ? prev.map((l) => l.itemId === it.id ? { ...l, quantity: l.quantity + 1 } : l)
-      : [...prev, { itemId: it.id, quantity: 1, unitPrice: (Number(BigInt(it.costPrice)) / 100).toString() }]);
+      // A tracked phone is counted from its IMEIs, so picking it again just keeps its row.
+      ? prev.map((l) => l.itemId === it.id && !it.trackSerial ? { ...l, quantity: l.quantity + 1 } : l)
+      : [...prev, {
+          itemId: it.id, quantity: it.trackSerial ? 0 : 1,
+          unitPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
+          ...(it.trackSerial ? { imeiText: "" } : {}),
+        }]);
     setQuery("");
+  }
+
+  function setImeis(i: number, text: string) {
+    setLine(i, { imeiText: text, quantity: splitImeis(text).length });
   }
 
   function setLine(i: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((l, j) => j === i ? { ...l, ...patch } : l));
   }
 
+  const imeiProblem = lines.map((l) => {
+    if (l.imeiText === undefined) return "";
+    const list = splitImeis(l.imeiText);
+    if (list.length === 0) return `Enter the IMEIs of ${itemById.get(l.itemId)?.name ?? "the phones"}`;
+    const dup = duplicateImei(list);
+    return dup ? `IMEI ${dup} is entered twice` : "";
+  }).find(Boolean);
   const problem =
     lines.length === 0 ? "Add at least one item"
+    : imeiProblem ? imeiProblem
     : lines.some((l) => !num(l.unitPrice)) ? "Enter a cost for every item"
     : paid > 0 && !walletId ? "Choose the wallet you paid from"
     : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
@@ -102,7 +121,7 @@ export default function PurchasesPage() {
         body: {
           branchId: defaultBranchId,
           supplierId: form.supplierId || undefined,
-          lines,
+          lines: lines.map(({ imeiText, ...l }) => (imeiText === undefined ? l : { ...l, imeis: splitImeis(imeiText) })),
           discount: String(num(form.discount)),
           paidAmount: String(paid),
           walletId: paid > 0 ? walletId : undefined,
@@ -232,6 +251,9 @@ export default function PurchasesPage() {
                       <div className="truncate text-sm font-medium">{it?.name ?? "—"}</div>
                       <div className="text-xs tabular-nums text-gray-500">{(l.quantity * num(l.unitPrice)).toLocaleString()} MMK</div>
                     </div>
+                    {l.imeiText !== undefined ? (
+                      <span className="rounded-lg bg-blue-50 px-2.5 py-2 text-sm font-medium tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">{l.quantity} phone{l.quantity === 1 ? "" : "s"}</span>
+                    ) : (
                     <div className="flex items-center rounded-lg border border-gray-300 dark:border-gray-700">
                       <button type="button" className="p-2 text-gray-500 hover:text-gray-900 disabled:opacity-30" disabled={l.quantity <= 1} onClick={() => setLine(i, { quantity: l.quantity - 1 })} aria-label="Less">
                         <Minus size={14} />
@@ -247,6 +269,7 @@ export default function PurchasesPage() {
                         <Plus size={14} />
                       </button>
                     </div>
+                    )}
                     <span className="text-xs text-gray-400">×</span>
                     <input
                       value={l.unitPrice}
@@ -259,6 +282,15 @@ export default function PurchasesPage() {
                     <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove">
                       <Trash2 size={15} />
                     </button>
+                    {l.imeiText !== undefined && (
+                      <textarea
+                        value={l.imeiText}
+                        onChange={(e) => setImeis(i, e.target.value)}
+                        rows={Math.min(6, Math.max(2, l.quantity + 1))}
+                        placeholder="Scan or type IMEIs, one per line"
+                        className="w-full basis-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 font-mono text-sm dark:border-gray-700 dark:bg-gray-800"
+                      />
+                    )}
                   </div>
                 );
               })}

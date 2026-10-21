@@ -45,9 +45,17 @@ export const GET = withAuth("sale.view", async ({ req, user }) => {
     select: { id: true, name: true },
   });
   const cashierById = new Map(cashiers.map((c) => [c.id, c.name]));
+  // The IMEIs each line sold, so a reprint shows them as the original slip did.
+  const serials = await prisma.itemSerial.findMany({
+    where: { businessId: user.businessId, saleId: { in: sales.map((s) => s.id) } },
+    select: { saleLineId: true, imei: true },
+  });
+  const imeisByLine = new Map<string, string[]>();
+  for (const u of serials) if (u.saleLineId) imeisByLine.set(u.saleLineId, [...(imeisByLine.get(u.saleLineId) ?? []), u.imei]);
   return json({
     sales: sales.map((s) => ({
       ...s,
+      lines: s.lines.map((l) => ({ ...l, imeis: imeisByLine.get(l.id) ?? [] })),
       customerName: s.customerId ? byId.get(s.customerId) : undefined,
       cashierName: cashierById.get(s.createdById),
     })),
@@ -64,6 +72,7 @@ const lineSchema = z.object({
   warrantyDays: z.number().int().min(0).max(3650).optional(),
   warrantyCondition: z.enum(["NEW", "SECOND"]).optional(),
   note: z.string().trim().max(200).optional(),
+  imeis: z.array(z.string().trim().max(40)).max(500).optional(),
 });
 
 const schema = z.object({
@@ -101,6 +110,7 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
         warrantyDays: l.warrantyDays,
         warrantyCondition: l.warrantyCondition,
         note: l.note || undefined,
+        imeis: l.imeis,
       })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),

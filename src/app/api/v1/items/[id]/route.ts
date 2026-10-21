@@ -28,6 +28,7 @@ const schema = z.object({
   minStock: z.number().int().min(0).optional(),
   description: z.string().optional(),
   active: z.boolean().optional(),
+  trackSerial: z.boolean().optional(),
 });
 
 export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {

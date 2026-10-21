@@ -101,6 +101,7 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
   const items = sale.lines.map((item) => {
     const meta = [
       item.warranty ? `${item.warrantyUntil ? "✔ " : ""}${item.warranty}${item.warrantyUntil ? ` (until ${new Date(item.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})` : ""}` : "",
+      item.imeis?.length ? `IMEI: ${item.imeis.join(", ")}` : "",
       item.note ? `Note: ${item.note}` : "",
     ].filter(Boolean).join(" · ");
     return `

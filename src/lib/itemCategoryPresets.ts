@@ -49,3 +49,12 @@ export async function addItemCategoryPresets(tx: Tx, businessId: string, names: 
   }
   return changed;
 }
+
+/** A handset category (Phone New, Phone Second, ဖုန်း…): items in it keep an IMEI per unit
+ *  unless the shop turns that off. Accessories and spare parts are not handsets. */
+export function isPhoneCategory(name: string | null | undefined): boolean {
+  const n = (name ?? "").toLowerCase();
+  if (!n) return false;
+  if (/(case|cover|glass|charger|cable|part|accessor|battery|earphone|adapter)/.test(n)) return false;
+  return /\bphone\b|ဖုန်း/.test(n);
+}

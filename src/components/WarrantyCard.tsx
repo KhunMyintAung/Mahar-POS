@@ -88,6 +88,7 @@ export function WarrantyCardSlip({ receipt, terms }: {
             {receipt.customerName && <div className="flex justify-between"><span>Customer</span><span>{receipt.customerName}</span></div>}
             <div className="mt-1 text-[12px] font-bold">{line.name}</div>
             <div className="flex justify-between"><span>Price</span><span>{money(line.unitPrice)} MMK</span></div>
+            {line.imeis && line.imeis.length > 0 && <div className="font-mono">IMEI: {line.imeis.join(", ")}</div>}
             {line.note && <div>Note: {line.note}</div>}
 
             <div className="mx-auto my-1.5 w-fit rounded border-2 border-black px-2 py-0.5 text-center font-bold">

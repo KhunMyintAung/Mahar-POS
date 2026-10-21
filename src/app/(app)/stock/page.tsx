@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
+import { ImeiAdjustFields, ImeiListModal, ImeiSearch } from "@/components/ImeiTools";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
 
@@ -33,6 +34,8 @@ interface Level {
   itemId: string; name: string; sku: string; unit?: string; category?: string;
   minStock: number; costPrice: string; sellingPrice: string; totalQty: number; low: boolean;
   byBranch: { branchId: string; quantity: number }[];
+  /** IMEI-tracked phone, and how many of its units on the shelf have an IMEI recorded. */
+  trackSerial?: boolean; imeiInStock?: number;
 }
 interface Movement {
   id: string; type: string; quantity: number; qtyAfter: number; notes?: string;
@@ -46,6 +49,10 @@ export default function StockPage() {
   const [adjustTarget, setAdjustTarget] = useState<Level | null>(null);
   const blankAdjust = { quantity: "", reason: "", reasonType: "REPAIR_USE" as StockReason, repairJobId: "" };
   const [adjust, setAdjust] = useState(blankAdjust);
+  // A tracked phone moves by IMEI: the units picked or typed, and for a +/− correction which way.
+  const [adjustImeis, setAdjustImeis] = useState<string[]>([]);
+  const [adjustWay, setAdjustWay] = useState<"in" | "out">("out");
+  const [imeiTarget, setImeiTarget] = useState<Level | null>(null);
   const [openJobs, setOpenJobs] = useState<RepairJobOption[]>([]);
   const [moveType, setMoveType] = useState("ALL");
   // Movements are looked at a day or a month at a time.
@@ -92,6 +99,13 @@ export default function StockPage() {
     setPeriod(kind === "month" ? today().slice(0, 7) : today());
   }
 
+  /** The signed quantity for a tracked phone: one per IMEI, in or out. */
+  function imeiQuantity(): number {
+    const direction = STOCK_REASONS.find((r) => r.key === adjust.reasonType)?.direction ?? "either";
+    const way = direction === "either" ? adjustWay : direction;
+    return way === "out" ? -adjustImeis.length : adjustImeis.length;
+  }
+
   async function doAdjust() {
     if (!adjustTarget) return;
     setBusy(true);
@@ -101,14 +115,15 @@ export default function StockPage() {
         body: {
           itemId: adjustTarget.itemId,
           branchId: adjustBranchId,
-          quantity: parseInt(adjust.quantity),
+          quantity: adjustTarget.trackSerial ? imeiQuantity() : parseInt(adjust.quantity),
+          imeis: adjustTarget.trackSerial ? adjustImeis : undefined,
           reasonType: adjust.reasonType,
           reason: adjust.reason.trim(),
           repairJobId: adjust.reasonType === "REPAIR_USE" && adjust.repairJobId ? adjust.repairJobId : undefined,
         },
       });
       push("Stock adjusted");
-      setAdjustTarget(null); setAdjust(blankAdjust);
+      setAdjustTarget(null); setAdjust(blankAdjust); setAdjustImeis([]);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -160,6 +175,8 @@ export default function StockPage() {
           </button>
         ))}
       </div>
+
+      {tab === "levels" && levels.some((l) => l.trackSerial) && <ImeiSearch />}
 
       {tab === "levels" && levels.length > 0 && (
         <div className="space-y-2">
@@ -215,7 +232,14 @@ export default function StockPage() {
               </tr>,
               ...g.rows.map((l) => (
               <tr key={l.itemId} className={l.low ? "bg-red-50 dark:bg-red-900/10" : ""}>
-                <td className="px-3 py-2.5 pl-6 font-medium">{l.name}</td>
+                <td className="px-3 py-2.5 pl-6 font-medium">
+                  {l.name}
+                  {l.trackSerial && (
+                    <span className={cn("ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold", (l.imeiInStock ?? 0) < l.totalQty ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300")}>
+                      IMEI {l.imeiInStock ?? 0}/{l.totalQty}
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2.5 text-xs text-gray-500">{l.sku}</td>
                 <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", l.low && "text-red-600")}>
                   {l.totalQty} {l.unit ?? ""}
@@ -223,11 +247,16 @@ export default function StockPage() {
                 <td className="px-3 py-2.5 text-right tabular-nums text-gray-500">{l.minStock}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney((BigInt(l.costPrice) * BigInt(l.totalQty)).toString())}</td>
                 <td className="px-3 py-2.5 text-right">
+                  {l.trackSerial && (
+                    <Button size="sm" variant="ghost" onClick={() => setImeiTarget(l)}>IMEIs</Button>
+                  )}
                   {hasPerm("stock.adjust") && (
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => {
+                        setAdjustImeis([]);
+                        setAdjustWay("out");
                         // Spare parts mostly leave for repairs; anything else starts on a correction.
                         setAdjust({ ...blankAdjust, reasonType: /spare|part|lcd|battery|အပို/i.test(l.category ?? "") ? "REPAIR_USE" : "CORRECTION" });
                         setAdjustBranchId(defaultBranchId || branches[0]?.id || "");
@@ -345,6 +374,17 @@ export default function StockPage() {
         </>
       )}
 
+      {imeiTarget && (
+        <ImeiListModal
+          item={imeiTarget}
+          branchId={defaultBranchId || branches[0]?.id || ""}
+          stockQty={imeiTarget.byBranch.find((b) => b.branchId === (defaultBranchId || branches[0]?.id))?.quantity ?? 0}
+          canAdjust={hasPerm("stock.adjust")}
+          onClose={() => setImeiTarget(null)}
+          onChanged={load}
+        />
+      )}
+
       <Modal open={!!adjustTarget} onClose={() => setAdjustTarget(null)} title={`Adjust ${adjustTarget?.name}`}>
         <div className="space-y-3">
           <Select label="Branch" value={adjustBranchId} onChange={(e) => setAdjustBranchId(e.target.value)}>
@@ -361,7 +401,7 @@ export default function StockPage() {
                 <button
                   key={r.key}
                   type="button"
-                  onClick={() => setAdjust({ ...adjust, reasonType: r.key })}
+                  onClick={() => { setAdjust({ ...adjust, reasonType: r.key }); setAdjustImeis([]); }}
                   className={cn(
                     "rounded-full border px-3 py-1 text-sm",
                     adjust.reasonType === r.key
@@ -378,10 +418,31 @@ export default function StockPage() {
           </div>
           {(() => {
             const reason = STOCK_REASONS.find((r) => r.key === adjust.reasonType)!;
-            const qty = parseInt(adjust.quantity);
+            const qty = adjustTarget?.trackSerial ? imeiQuantity() : parseInt(adjust.quantity);
             const needsWords = reason.key === "CORRECTION" || reason.key === "ADJUSTMENT";
             return (
               <>
+                {adjustTarget?.trackSerial ? (
+                  <>
+                    {reason.direction === "either" && (
+                      <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
+                        {(["out", "in"] as const).map((w) => (
+                          <button key={w} type="button" onClick={() => { setAdjustWay(w); setAdjustImeis([]); }} className={cn("rounded-md py-1.5 font-medium", adjustWay === w ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                            {w === "out" ? "Remove phones" : "Add phones"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <ImeiAdjustFields
+                      key={`${adjust.reasonType}-${adjustWay}`}
+                      itemId={adjustTarget.itemId}
+                      branchId={adjustBranchId}
+                      direction={reason.direction === "either" ? adjustWay : reason.direction}
+                      value={adjustImeis}
+                      onChange={setAdjustImeis}
+                    />
+                  </>
+                ) : (
                 <Input
                   label={reason.direction === "either" ? "Quantity (+ to add, − to remove)" : reason.direction === "out" ? "Quantity taken out" : "Quantity put back"}
                   value={adjust.quantity}
@@ -389,6 +450,7 @@ export default function StockPage() {
                   onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })}
                   placeholder={reason.direction === "either" ? "-5 or 10" : "1"}
                 />
+                )}
                 {reason.key === "REPAIR_USE" && canLinkRepairs && (
                   <Select label="Repair job (adds the part cost to it)" value={adjust.repairJobId} onChange={(e) => setAdjust({ ...adjust, repairJobId: e.target.value })}>
                     <option value="">— not linked —</option>

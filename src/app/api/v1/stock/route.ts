@@ -6,6 +6,7 @@ import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { moveStock } from "@/services/stockService";
 import { audit } from "@/lib/audit";
+import { cleanImeis, receiveSerials, removeSerials, trackedItemIds } from "@/services/serialService";
 import { dateRangeUtc, isValidBusinessDate, isValidMonth, monthRangeUtc } from "@/lib/dates";
 
 // GET: stock levels (with item info); ?movements=1 returns movements instead — the latest
@@ -41,6 +42,13 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
     },
     orderBy: { name: "asc" },
   });
+  // How many units of each tracked item have an IMEI recorded on the shelf.
+  const serialCounts = await prisma.itemSerial.groupBy({
+    by: ["itemId"],
+    where: { businessId: user.businessId, status: "IN_STOCK" },
+    _count: true,
+  });
+  const imeiCount = new Map(serialCounts.map((r) => [r.itemId, r._count]));
   const levels = items.map((it) => {
     const totalQty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
     return {
@@ -55,6 +63,8 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
       totalQty,
       low: it.minStock > 0 && totalQty < it.minStock,
       byBranch: it.stockLevels,
+      trackSerial: it.trackSerial,
+      imeiInStock: it.trackSerial ? imeiCount.get(it.id) ?? 0 : undefined,
     };
   });
   return json(levels);
@@ -69,6 +79,8 @@ const adjustSchema = z.object({
   reason: z.string().trim().max(300).default(""),
   /** For "used for repair": the job the part went into. */
   repairJobId: z.string().optional(),
+  /** For an IMEI-tracked item: the units coming in or going out, one per unit. */
+  imeis: z.array(z.string().trim().max(40)).max(500).optional(),
 });
 
 export const POST = withAuth("stock.adjust", async ({ req, user }) => {
@@ -92,6 +104,17 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
 
     const notes = [label, job ? `for ${job.jobNo} (${job.deviceBrand} ${job.deviceModel})` : "", body.reason]
       .filter(Boolean).join(" — ");
+
+    // A tracked phone moves with its IMEI: in records it, out marks it removed.
+    if ((await trackedItemIds(tx, user.businessId, [body.itemId])).has(body.itemId)) {
+      const imeis = cleanImeis(body.imeis);
+      if (imeis.length !== Math.abs(quantity)) {
+        throw new ApiError(422, `Enter the IMEI of each phone (${Math.abs(quantity)} needed, ${imeis.length} given)`);
+      }
+      const unit = { businessId: user.businessId, branchId: body.branchId, itemId: body.itemId, imeis, notes };
+      if (quantity > 0) await receiveSerials(tx, unit);
+      else await removeSerials(tx, unit);
+    }
     const r = await moveStock(tx, {
       businessId: user.businessId,
       itemId: body.itemId,

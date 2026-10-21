@@ -20,6 +20,7 @@ interface Sale {
   lines: {
     id: string; quantity: number; unitPrice: string; item: { name: string };
     warranty?: string | null; warrantyDays: number; warrantyCondition?: string | null; note?: string | null;
+    imeis?: string[];
   }[];
 }
 
@@ -89,6 +90,7 @@ export default function SalesPage() {
         warrantyUntil: l.warranty ? warrantyUntil(new Date(s.createdAt), l.warrantyDays)?.toISOString() : undefined,
         warrantyCondition: l.warrantyCondition ?? undefined,
         note: l.note ?? undefined,
+        imeis: l.imeis?.length ? l.imeis : undefined,
       })),
       subtotal: major(s.subtotal),
       discount: major(s.discount),
