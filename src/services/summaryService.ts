@@ -1,5 +1,6 @@
 import { Tx } from "@/lib/prisma";
 import { dateRangeUtc } from "@/lib/dates";
+import { incomeBucket } from "@/lib/incomeCategories";
 
 // Computes the daily business summary used by both the dashboard and daily close.
 
@@ -102,4 +103,57 @@ export async function computeDaySummary(
       netCashMovement: netCash,
     },
   };
+}
+
+export interface DayIncome { sales: bigint; service: bigint; topup: bigint; other: bigint; total: bigint }
+
+/** Everything the shop took in on a day, in one figure: till sales, repair money taken
+ *  (deposits and payments, less refunds), the cash from top-up sales, and other income.
+ *  Income entered under the Daily Sale / Daily Service categories counts with sales and
+ *  service. Shared by the dashboard and the Telegram daily report so they always agree. */
+export async function computeDayIncome(
+  tx: Tx,
+  businessId: string,
+  date: string,
+  branchIds?: string[],
+  salesTotal?: bigint
+): Promise<DayIncome> {
+  const range = dateRangeUtc(date);
+  const branch = branchIds ? { branchId: { in: branchIds } } : {};
+  const [repairIn, repairOut, topup, sales, incomeByCategory] = await Promise.all([
+    tx.walletLedgerEntry.aggregate({
+      where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
+      _sum: { amount: true },
+    }),
+    tx.walletLedgerEntry.aggregate({
+      where: { businessId, direction: "CREDIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
+      _sum: { amount: true },
+    }),
+    tx.billerTxn.aggregate({
+      where: { businessId, voidedAt: null, createdAt: range, kind: "SALE", ...branch },
+      _sum: { cashAmount: true },
+    }),
+    salesTotal !== undefined
+      ? Promise.resolve(salesTotal)
+      : tx.sale.aggregate({
+          where: { businessId, deletedAt: null, status: "COMPLETED", date, ...branch },
+          _sum: { total: true },
+        }).then((a) => a._sum.total ?? 0n),
+    tx.incomeExpense.groupBy({
+      by: ["categoryName"],
+      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", date, currency: "MMK", ...branch },
+      _sum: { amount: true },
+    }),
+  ]);
+  const byBucket = { sales: 0n, service: 0n, other: 0n };
+  for (const row of incomeByCategory) byBucket[incomeBucket(row.categoryName)] += row._sum.amount ?? 0n;
+  const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
+  const topupSales = topup._sum.cashAmount ?? 0n;
+  const out = {
+    sales: sales + byBucket.sales,
+    service: repair + byBucket.service,
+    topup: topupSales,
+    other: byBucket.other,
+  };
+  return { ...out, total: out.sales + out.service + out.topup + out.other };
 }

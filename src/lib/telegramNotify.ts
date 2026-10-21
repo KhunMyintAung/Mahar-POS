@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { sendMessage, withBotToken } from "./telegram";
+import { notifyReportTargets } from "./telegramReports";
 
 // Live audit feed over Telegram: after a Sale / 3D / Transfer / Withdraw /
 // Income & Expense / Exchange transaction is committed, push a short summary
@@ -12,6 +13,8 @@ import { sendMessage, withBotToken } from "./telegram";
 // affect the transaction that already committed.
 export function notifyAuditFeed(businessId: string, text: string, excludeChatId?: string): void {
   run(businessId, text, excludeChatId).catch((e) => console.error("[telegram notify] failed:", e));
+  // The shop's send-only reports bot gets the same feed, in the chats set up for it.
+  notifyReportTargets(businessId, text);
 }
 
 async function run(businessId: string, text: string, excludeChatId?: string) {

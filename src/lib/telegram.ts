@@ -206,3 +206,24 @@ export interface TgUpdate {
   message?: TgMessage;
   callback_query?: TgCallbackQuery;
 }
+
+/** A message straight to one chat with an explicit token, throwing on failure — for the
+ *  send-only reports bot, whose test button must say plainly when a chat ID is wrong. */
+export async function sendMessageWith(token: string, chatId: string, text: string) {
+  return call(token, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true });
+}
+
+/** Chats that have messaged a bot lately, so a shop can pick a chat ID instead of looking
+ *  one up. Only works while the bot has no webhook; Telegram refuses getUpdates then. */
+export async function recentChats(token: string): Promise<{ id: string; title: string; type: string }[]> {
+  type Chat = { id: number; type: string; title?: string; first_name?: string; last_name?: string; username?: string };
+  const updates = await call<{ message?: { chat: Chat }; channel_post?: { chat: Chat }; my_chat_member?: { chat: Chat } }[]>(token, "getUpdates", { limit: 100, timeout: 0 });
+  const chats = new Map<string, { id: string; title: string; type: string }>();
+  for (const u of updates) {
+    const c = u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat;
+    if (!c) continue;
+    const person = [c.first_name, c.last_name].filter(Boolean).join(" ");
+    chats.set(String(c.id), { id: String(c.id), title: c.title || person || c.username || String(c.id), type: c.type });
+  }
+  return [...chats.values()];
+}

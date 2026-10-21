@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { api } from "@/lib/client";
 import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
+import { useAuth } from "@/components/AppShell";
+import { TelegramReportsCard } from "@/components/TelegramReportsCard";
 
 interface TelegramStatus {
   configured: boolean;
@@ -21,6 +23,7 @@ export default function TelegramPage() {
   const [saved, setSaved] = useState<SaveResult | null>(null);
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
+  const { hasPerm } = useAuth();
 
   const load = useCallback(() => {
     api<TelegramStatus>("/api/v1/telegram/link").then(setTg).catch((e) => push(e.message, "error"));
@@ -59,8 +62,12 @@ export default function TelegramPage() {
   if (!tg) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-lg space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4">
       <h1 className="text-xl font-bold">Telegram</h1>
+
+      {hasPerm("settings.manage") && <TelegramReportsCard />}
+
+      <h2 className="pt-2 font-semibold">My bot (records from chat)</h2>
 
       <Card className="space-y-3">
         <p className="text-sm text-gray-600 dark:text-gray-300">
