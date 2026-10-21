@@ -77,6 +77,7 @@ export async function parseBody<T>(req: NextRequest, schema: ZodType<T>): Promis
 export function pagination(req: NextRequest, defaultSize = 25) {
   const sp = req.nextUrl.searchParams;
   const page = Math.max(1, parseInt(sp.get("page") ?? "1") || 1);
-  const pageSize = Math.min(200, Math.max(1, parseInt(sp.get("pageSize") ?? String(defaultSize)) || defaultSize));
+  // Up to 1000 so a list page can load a whole shop's records and page through them on screen.
+  const pageSize = Math.min(1000, Math.max(1, parseInt(sp.get("pageSize") ?? String(defaultSize)) || defaultSize));
   return { page, pageSize, skip: (page - 1) * pageSize, take: pageSize };
 }

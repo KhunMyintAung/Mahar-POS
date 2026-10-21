@@ -7,6 +7,7 @@ import { WarrantyCardDialog } from "@/components/WarrantyCard";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
+import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
 import { printSaleReceipt } from "@/lib/slipPrint";
@@ -39,7 +40,7 @@ export default function SalesPage() {
   const { hasPerm, me } = useAuth();
 
   const load = useCallback(() => {
-    const params = new URLSearchParams({ pageSize: "100" });
+    const params = new URLSearchParams({ pageSize: "1000" });
     if (q.trim()) params.set("q", q.trim());
     api<{ sales: Sale[]; totals: { amount: string; profit: string } }>(`/api/v1/sales?${params}`)
       .then((d) => { setSales(d.sales); setTotals(d.totals); })
@@ -125,8 +126,9 @@ export default function SalesPage() {
       {sales.length === 0 ? (
         <Card><Empty message="No sales yet — open the POS to make the first sale" /></Card>
       ) : (
+        <Paginated rows={sales} resetKey={q}>{(pageRows) => (
         <Table headers={["Txn", "Date", "Customer", "Items", "Total", "Paid", "Profit", "Status", ""]} rightAlign={[4, 5, 6]}>
-          {sales.map((s) => (
+          {pageRows.map((s) => (
             <tr key={s.id} className={s.status === "CANCELLED" ? "opacity-50" : ""}>
               <td className="px-3 py-2 text-xs">{s.txnNo}</td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(s.createdAt)}</td>
@@ -171,6 +173,7 @@ export default function SalesPage() {
             </tr>
           ))}
         </Table>
+        )}</Paginated>
       )}
 
       <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Void ${cancelTarget?.txnNo}`}>

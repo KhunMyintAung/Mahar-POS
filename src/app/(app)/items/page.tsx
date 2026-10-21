@@ -5,6 +5,7 @@ import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
+import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { BarcodeInput } from "@/components/BarcodeScanner";
@@ -84,7 +85,7 @@ export default function ItemsPage() {
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
 
   const load = useCallback(() => {
-    const params = new URLSearchParams({ pageSize: "200" });
+    const params = new URLSearchParams({ pageSize: "1000" });
     if (q) params.set("q", q);
     api<{ items: Item[] }>(`/api/v1/items?${params}`)
       .then((d) => {
@@ -259,8 +260,9 @@ export default function ItemsPage() {
       {shownItems.length === 0 ? (
         <Card><Empty message="No items found" /></Card>
       ) : (
+        <Paginated rows={shownItems} resetKey={[category, q]}>{(pageRows) => (
         <Table headers={["", "Item", "Stock", "Category", "Unit", "Cost", "Price", "SKU", ""]} rightAlign={[2, 5, 6]}>
-          {shownItems.map((it) => {
+          {pageRows.map((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             return (
               <tr key={it.id} className={cn(!it.active && "opacity-50", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
@@ -299,6 +301,7 @@ export default function ItemsPage() {
             );
           })}
         </Table>
+        )}</Paginated>
       )}
 
       <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); }} title={editItem ? `Edit ${editItem.name}` : "New item"}>

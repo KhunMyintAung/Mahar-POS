@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Plus, Printer, Search,
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
+import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
@@ -187,7 +188,7 @@ export default function RepairsPage() {
   }, []);
 
   const load = useCallback(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ pageSize: "1000" });
     if (q.trim()) params.set("q", q.trim());
     if (status) params.set("status", status);
     if (month) params.set("month", month);
@@ -465,11 +466,12 @@ export default function RepairsPage() {
       {jobs.length === 0 ? (
         <Card><Empty message="No repair jobs yet." /></Card>
       ) : (
+        <Paginated rows={jobs} resetKey={[q, status, month]}>{(pageRows) => (
         <Table
           headers={["Voucher No", "Device", "Customer", "Problem", "Status", "Charge", "Paid", ""]}
           rightAlign={[5, 6]}
         >
-          {jobs.map((job) => {
+          {pageRows.map((job) => {
             const options = nextStatuses(job.status);
             const canQuick = hasPerm("repair.update") && options.length > 0;
             return (
@@ -534,6 +536,7 @@ export default function RepairsPage() {
             );
           })}
         </Table>
+        )}</Paginated>
       )}
 
       {/* Shared by the intake and edit forms. */}

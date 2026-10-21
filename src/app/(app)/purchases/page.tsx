@@ -6,6 +6,7 @@ import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
+import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 
@@ -41,7 +42,7 @@ export default function PurchasesPage() {
   const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
-    api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=100")
+    api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=1000")
       .then((d) => setPurchases(d.purchases))
       .catch((e) => push(e.message, "error"));
     api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1").then((d) => setItems(d.items)).catch(() => {});
@@ -147,8 +148,9 @@ export default function PurchasesPage() {
       {purchases.length === 0 ? (
         <Card><Empty message="No purchases yet" /></Card>
       ) : (
+        <Paginated rows={purchases} resetKey={""}>{(pageRows) => (
         <Table headers={["Txn", "Date", "Supplier", "Items", "Total", "Paid", "Status", ""]} rightAlign={[4, 5]}>
-          {purchases.map((p) => (
+          {pageRows.map((p) => (
             <tr key={p.id} className={p.status === "CANCELLED" ? "opacity-50" : ""}>
               <td className="px-3 py-2 text-xs">{p.txnNo}</td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
@@ -165,6 +167,7 @@ export default function PurchasesPage() {
             </tr>
           ))}
         </Table>
+        )}</Paginated>
       )}
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New purchase" wide>

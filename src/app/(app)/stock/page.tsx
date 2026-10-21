@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
+import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
 
@@ -131,9 +132,11 @@ export default function StockPage() {
     (category === "ALL" || categoryOf(l) === category) &&
     (!needle || l.name.toLowerCase().includes(needle) || l.sku.toLowerCase().includes(needle))
   );
-  const groups = categories
-    .map((c) => ({ name: c, rows: shown.filter((l) => categoryOf(l) === c) }))
+  const groupsOf = (rows: Level[]) => categories
+    .map((c) => ({ name: c, rows: rows.filter((l) => categoryOf(l) === c) }))
     .filter((g) => g.rows.length > 0);
+  const groups = groupsOf(shown);
+  const movementsShown = movements.filter((m) => moveType === "ALL" || m.type === moveType);
   const valueOf = (rows: Level[]) => rows.reduce((sum, l) => sum + BigInt(l.costPrice) * BigInt(l.totalQty), 0n);
 
   return (
@@ -194,16 +197,20 @@ export default function StockPage() {
 
       {tab === "levels" ? (
         groups.length === 0 ? <Card><Empty message="No items" /></Card> : (
-          <Table headers={["Item", "SKU", "Qty", "Min", "Stock value (cost)", ""]} rightAlign={[2, 3, 4]}>
-            {groups.map((g) => [
+          <Paginated rows={shown} resetKey={[category, q]}>{(pageRows) => (
+        <Table headers={["Item", "SKU", "Qty", "Min", "Stock value (cost)", ""]} rightAlign={[2, 3, 4]}>
+            {/* Headings total the whole category, not just the rows on this page. */}
+            {groupsOf(pageRows).map((g) => {
+              const all = groups.find((x) => x.name === g.name)?.rows ?? g.rows;
+              return [
               <tr key={`group-${g.name}`} className="bg-gray-50 dark:bg-gray-800/60">
                 <td colSpan={2} className="px-3 py-2 text-sm font-semibold">
                   {g.name === UNCATEGORISED ? "No category" : g.name}
-                  <span className="ml-2 text-xs font-normal text-gray-500">{g.rows.length} item(s)</span>
+                  <span className="ml-2 text-xs font-normal text-gray-500">{all.length} item(s)</span>
                 </td>
-                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{g.rows.reduce((n, l) => n + l.totalQty, 0)}</td>
+                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{all.reduce((n, l) => n + l.totalQty, 0)}</td>
                 <td />
-                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{fmtMoney(valueOf(g.rows).toString())}</td>
+                <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{fmtMoney(valueOf(all).toString())}</td>
                 <td />
               </tr>,
               ...g.rows.map((l) => (
@@ -233,8 +240,10 @@ export default function StockPage() {
                 </td>
               </tr>
               )),
-            ])}
+            ];
+            })}
           </Table>
+        )}</Paginated>
         )
       ) : (
         <>
@@ -316,8 +325,9 @@ export default function StockPage() {
             </button>
           ))}
         </div>
+        <Paginated rows={movementsShown} resetKey={[moveType, period]}>{(pageRows) => (
         <Table headers={["Date", "Item", "Type", "Qty", "After", "Notes"]} rightAlign={[3, 4]}>
-          {movements.filter((m) => moveType === "ALL" || m.type === moveType).map((m) => (
+          {pageRows.map((m) => (
             <tr key={m.id}>
               <td className="px-3 py-2 text-xs text-gray-500">{fmtDateTime(m.createdAt)}</td>
               <td className="px-3 py-2">{m.item.name}</td>
@@ -330,6 +340,7 @@ export default function StockPage() {
             </tr>
           ))}
         </Table>
+        )}</Paginated>
         </>}
         </>
       )}
