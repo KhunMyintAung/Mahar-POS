@@ -522,6 +522,7 @@ const MM: Record<string, string> = {
   "Could not read the file": "ဖိုင်ကို ဖတ်၍ မရပါ",
   "Edit biller": "Biller ပြင်မည်",
   "Sale Receipt": "အရောင်း ပြေစာ",
+  "Repair Voucher": "ပြုပြင်ရေး ဘောက်ချာ",
   "Invoice": "ဘောက်ချာ",
   "Cashier": "ငွေကိုင်",
   "Walk-in Customer": "လမ်းလျှောက် ဖောက်သည်",

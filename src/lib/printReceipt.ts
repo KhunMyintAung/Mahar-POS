@@ -12,7 +12,7 @@
  *  once printed the app screen instead of the slip.
  */
 
-import { pageCss, printableMm, slipZoom } from "@/lib/printSettings";
+import { pageCss, printableMm, SLIP_LAYOUT_MM, slipZoom } from "@/lib/printSettings";
 
 const FRAME_ID = "print-frame";
 
@@ -28,10 +28,12 @@ function frameDocument(slip: Element): string {
   const htmlClass = document.documentElement.className.replace(/\bdark\b/g, "");
   return `<!doctype html><html lang="my" class="${htmlClass}"><head><meta charset="utf-8">`
     + `<title>${document.title}</title>${styles}`
-    // The slip is laid out at 58mm; on 80mm paper it is scaled up whole, so text, logo and
-    // QR keep their proportions and fill the printable width.
-    + `<style>${pageCss()}html,body{margin:0;padding:0;background:#fff;color:#000}body{zoom:${slipZoom()}}</style>`
-    + `</head><body>${slip.outerHTML}</body></html>`;
+    + `<style>${pageCss()}html,body{margin:0;padding:0;background:#fff;color:#000}`
+    // The slip is laid out at 58mm. It sits in a 58mm box that is scaled up whole for 80mm
+    // paper, so text, logo and QR keep their proportions, and centred like the multishop
+    // slip, so it lands in the middle of the roll whatever page width the driver reports.
+    + `.slip-box{width:${SLIP_LAYOUT_MM}mm;margin:0 auto;zoom:${slipZoom()}}.slip-box>*{margin-left:auto;margin-right:auto}</style>`
+    + `</head><body><div class="slip-box">${slip.outerHTML}</div></body></html>`;
 }
 
 /** Resolves once the frame's stylesheets and images (the QR code) have loaded. */
