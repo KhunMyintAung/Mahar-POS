@@ -9,55 +9,45 @@
 export type PaperWidth = 58 | 80;
 
 const KEY = "mahar.paperWidth";
-const FIT_KEY = "mahar.paperFit72";
 
 /** What a slip is laid out at; every slip is designed for this width. */
 export const SLIP_LAYOUT_MM = 58;
 
-/** Most 80mm heads (XP-80C included) print 72mm across; a printer that cuts the sides off a
- *  full 80mm slip is set to this instead. */
-export const FIT_MM = 72;
-
-function read(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: string) {
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // A private window cannot keep it; printing then uses the defaults.
-  }
-}
+/** The page margin on 80mm paper. Same setup as the multishop app, which prints cleanly on
+ *  the XP-80C: the printer is told the paper is 80mm and keeps 3mm clear at each side. */
+export const PAGE_MARGIN_MM = 3;
 
 export function getPaperWidth(): PaperWidth {
-  return read(KEY) === "80" ? 80 : 58;
+  try {
+    return window.localStorage.getItem(KEY) === "80" ? 80 : 58;
+  } catch {
+    return 58;
+  }
 }
 
 export function setPaperWidth(width: PaperWidth) {
-  write(KEY, String(width));
+  try {
+    window.localStorage.setItem(KEY, String(width));
+  } catch {
+    // A private window cannot keep it; printing then uses 58mm.
+  }
 }
 
-/** Whether an 80mm slip is shrunk to the 72mm most printers can reach. */
-export function getFit72(): boolean {
-  return read(FIT_KEY) === "1";
-}
-
-export function setFit72(on: boolean) {
-  write(FIT_KEY, on ? "1" : "0");
-}
-
-/** How wide the slip prints: the paper's full width, or 72mm when the edges were cut off. */
-export function printableMm(width: PaperWidth = getPaperWidth(), fit72: boolean = getFit72()): number {
-  if (width === 58) return 58;
-  return fit72 ? FIT_MM : 80;
+/** How wide the slip itself prints: inside the margins on 80mm, edge to edge on 58mm. */
+export function printableMm(width: PaperWidth = getPaperWidth()): number {
+  return width === 80 ? 80 - 2 * PAGE_MARGIN_MM : 58;
 }
 
 /** How much the 58mm slip is scaled to fill that width. */
-export function slipZoom(width: PaperWidth = getPaperWidth(), fit72: boolean = getFit72()): number {
-  return printableMm(width, fit72) / SLIP_LAYOUT_MM;
+export function slipZoom(width: PaperWidth = getPaperWidth()): number {
+  return printableMm(width) / SLIP_LAYOUT_MM;
+}
+
+/** The print page rules. 80mm names the paper size and its margins, as the multishop app
+ *  does. 58mm keeps margin 0 and no size: Android's print view ignored a 58mm size and
+ *  printed the slip small in the corner of a full page. */
+export function pageCss(width: PaperWidth = getPaperWidth()): string {
+  return width === 80
+    ? `@page{size:80mm auto;margin:${PAGE_MARGIN_MM}mm}`
+    : "@page{margin:0}";
 }

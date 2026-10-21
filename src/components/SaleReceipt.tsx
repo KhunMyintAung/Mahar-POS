@@ -62,66 +62,77 @@ export function SaleReceipt({ data }: { data: ReceiptData }) {
   );
 }
 
-/** The slip itself, used both for printing and to show what will print. */
+/** The slip itself, used both for printing and to show what will print.
+ *
+ *  Laid out like the multishop app's receipt, which shops found clear: the shop's name and
+ *  "Sale Receipt" up top, the invoice details between dashed rules, a four-column item table,
+ *  and a ruled grand total. Drawn at 58mm and scaled up whole for 80mm paper. */
 export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
+  const rule = "border-t border-dashed border-gray-500";
+  const row = "flex justify-between gap-2 py-[1px]";
   return (
-      // The sheet is the roll's width, so the slip fills it rather than sitting as a narrow
-      // column in the middle of a larger page.
-      <div className="w-full max-w-[58mm] px-1 font-mono text-[10px] leading-tight text-black">
-        <div className="text-center">
-          {data.shopLogo && (
-            // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
-            <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[18mm] max-w-[46mm] object-contain" />
-          )}
-          <div className="text-[13px] font-bold">{data.shopName}</div>
-          {data.shopPhone && <div>{data.shopPhone}</div>}
-          {data.shopAddress && <div>{data.shopAddress}</div>}
-        </div>
-
-        <div className="my-1 border-t border-dashed border-black" />
-
-        <div className="flex justify-between"><span>{data.txnNo}</span><span>{fmtDateTime(data.at)}</span></div>
-        {data.customerName && <div>Customer: {data.customerName}</div>}
-        {data.cashierName && <div>By: {data.cashierName}</div>}
-
-        <div className="my-1 border-t border-dashed border-black" />
-
-        {data.lines.map((line, index) => (
-          <div key={`${line.name}-${index}`} className="mb-0.5">
-            <div className="truncate">{line.name}</div>
-            <div className="flex justify-between">
-              <span>{line.quantity} x {money(line.unitPrice)}</span>
-              <span>{money(line.quantity * line.unitPrice)}</span>
-            </div>
-            {line.warranty && (
-              <div className="font-bold">
-                {line.warrantyUntil ? "✔ " : ""}{line.warranty}
-                {line.warrantyUntil && <> (until {new Date(line.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})</>}
-              </div>
-            )}
-            {line.note && <div>Note: {line.note}</div>}
-          </div>
-        ))}
-
-        <div className="my-1 border-t border-dashed border-black" />
-
-        <div className="flex justify-between"><span>Subtotal</span><span>{money(data.subtotal)}</span></div>
-        {data.discount > 0 && (
-          <div className="flex justify-between"><span>Discount</span><span>-{money(data.discount)}</span></div>
+    <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black" style={{ fontFamily: "Arial, 'Pyidaungsu', 'Myanmar Text', sans-serif" }}>
+      <div className="text-center">
+        {data.shopLogo && (
+          // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
+          <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[14mm] max-w-[46mm] object-contain" />
         )}
-        <div className="flex justify-between text-[12px] font-bold">
-          <span>TOTAL</span><span>{money(data.total)}</span>
-        </div>
-        <div className="flex justify-between"><span>Paid</span><span>{money(data.paid)}</span></div>
-        {data.change > 0 && (
-          <div className="flex justify-between"><span>Change</span><span>{money(data.change)}</span></div>
+        <div className="text-[14px] font-bold leading-tight">{data.shopName}</div>
+        <div className="mt-0.5">Sale Receipt</div>
+        {(data.shopPhone || data.shopAddress) && (
+          <div className="text-gray-600">{[data.shopPhone, data.shopAddress].filter(Boolean).join(" · ")}</div>
         )}
-        {data.credit > 0 && (
-          <div className="flex justify-between font-bold"><span>Owing</span><span>{money(data.credit)}</span></div>
-        )}
-
-        <div className="my-1 border-t border-dashed border-black" />
-        <div className="text-center">Thank you</div>
       </div>
+
+      <div className="my-1.5 border-y border-dashed border-gray-500 py-1">
+        <div className={row}><span className="text-gray-600">Invoice</span><b>{data.txnNo}</b></div>
+        <div className={row}><span className="text-gray-600">Date</span><b>{fmtDateTime(data.at)}</b></div>
+        {data.cashierName && <div className={row}><span className="text-gray-600">Cashier</span><b>{data.cashierName}</b></div>}
+      </div>
+
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="text-[9px]">
+            <th className="py-0.5 text-left font-bold">Item</th>
+            <th className="py-0.5 pl-1 text-center font-bold">Qty</th>
+            <th className="whitespace-nowrap py-0.5 pl-1.5 text-right font-bold">Price</th>
+            <th className="whitespace-nowrap py-0.5 pl-1.5 text-right font-bold">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.lines.map((line, index) => (
+            <tr key={`${line.name}-${index}`} className="border-b border-dashed border-gray-400 align-top">
+              <td className="py-1 pr-1">
+                {line.name}
+                {line.warranty && (
+                  <small className="block font-bold text-[9px]">
+                    {line.warrantyUntil ? "✔ " : ""}{line.warranty}
+                    {line.warrantyUntil && <> (until {new Date(line.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})</>}
+                  </small>
+                )}
+                {line.note && <small className="block text-[9px] text-gray-600">Note: {line.note}</small>}
+              </td>
+              <td className="py-1 pl-1 text-center tabular-nums">{line.quantity}</td>
+              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{money(line.unitPrice)}</td>
+              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{money(line.quantity * line.unitPrice)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="mt-1.5">
+        <div className={row}><span className="text-gray-600">Subtotal</span><b className="tabular-nums">{money(data.subtotal)}</b></div>
+        {data.discount > 0 && <div className={row}><span className="text-gray-600">Discount</span><b className="tabular-nums">-{money(data.discount)}</b></div>}
+        <div className={`${row} mt-0.5 border-t-2 border-black pt-1 text-[12px] font-bold`}>
+          <span>Total</span><span className="tabular-nums">{money(data.total)} MMK</span>
+        </div>
+        <div className={row}><span className="text-gray-600">Paid</span><b className="tabular-nums">{money(data.paid)}</b></div>
+        {data.change > 0 && <div className={row}><span className="text-gray-600">Change</span><b className="tabular-nums">{money(data.change)}</b></div>}
+        {data.credit > 0 && <div className={`${row} font-bold`}><span>Owing</span><span className="tabular-nums">{money(data.credit)}</span></div>}
+        <div className={row}><span className="text-gray-600">Customer</span><b>{data.customerName || "Walk-in Customer"}</b></div>
+      </div>
+
+      <div className={`mt-2 pt-1.5 text-center ${rule}`}>Thank you.</div>
+    </div>
   );
 }

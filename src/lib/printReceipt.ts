@@ -12,7 +12,7 @@
  *  once printed the app screen instead of the slip.
  */
 
-import { printableMm, slipZoom } from "@/lib/printSettings";
+import { pageCss, printableMm, slipZoom } from "@/lib/printSettings";
 
 const FRAME_ID = "print-frame";
 
@@ -30,7 +30,7 @@ function frameDocument(slip: Element): string {
     + `<title>${document.title}</title>${styles}`
     // The slip is laid out at 58mm; on 80mm paper it is scaled up whole, so text, logo and
     // QR keep their proportions and fill the printable width.
-    + `<style>@page{margin:0}html,body{margin:0;padding:0;background:#fff;color:#000}body{zoom:${slipZoom()}}</style>`
+    + `<style>${pageCss()}html,body{margin:0;padding:0;background:#fff;color:#000}body{zoom:${slipZoom()}}</style>`
     + `</head><body>${slip.outerHTML}</body></html>`;
 }
 
