@@ -25,7 +25,7 @@ export default function UsersPage() {
   const [showNewRole, setShowNewRole] = useState(false);
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
-  const { branches, playEdition } = useAuth();
+  const { branches } = useAuth();
 
   const emptyUser = { name: "", username: "", password: "", roleId: "", allBranches: false, branchIds: [] as string[], commissionRate: "0", phone: "" };
   const [uform, setUform] = useState(emptyUser);
@@ -116,7 +116,6 @@ export default function UsersPage() {
           <option value="">Select…</option>
           {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </Select>
-        {!playEdition && <Input label="3D commission %" value={uform.commissionRate} onChange={(e) => setUform({ ...uform, commissionRate: e.target.value })} />}
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={uform.allBranches} onChange={(e) => setUform({ ...uform, allBranches: e.target.checked })} />
@@ -167,14 +166,13 @@ export default function UsersPage() {
       </div>
 
       {tab === "users" ? (
-        <Table headers={["Name", "Username", "Role", "Branches", "Commission", "Status", ""]}>
+        <Table headers={["Name", "Username", "Role", "Branches", "Status", ""]}>
           {users.map((u) => (
             <tr key={u.id}>
               <td className="px-3 py-2.5 font-medium">{u.name}</td>
               <td className="px-3 py-2.5 text-xs">{u.username}</td>
               <td className="px-3 py-2.5">{u.role.name}</td>
               <td className="px-3 py-2.5 text-xs">{u.allBranches ? "All" : u.branches.map((b) => b.branch.name).join(", ") || "—"}</td>
-              <td className="px-3 py-2.5 text-xs">{u.commissionRate}%</td>
               <td className="px-3 py-2.5">
                 <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", u.active ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-500 dark:bg-gray-800")}>
                   {u.active ? "Active" : "Disabled"}
