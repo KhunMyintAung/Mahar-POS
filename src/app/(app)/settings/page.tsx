@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
+import { BranchesCard } from "@/components/BranchesCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -112,6 +113,19 @@ export default function SettingsPage() {
       push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Switches the Users & Roles menu on and opens it. */
+  async function showUsers() {
+    const next = { ...features, users: true };
+    try {
+      await api("/api/v1/settings", { method: "PUT", body: { key: "modules", value: moduleSettingFromFeatures(next) } });
+      setFeatures(next);
+      await refreshAuth();
+      window.location.href = "/users";
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
     }
   }
 
@@ -221,6 +235,8 @@ export default function SettingsPage() {
       </Card>
 
       <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
+
+      <BranchesCard usersOn={featureEnabled("users")} onShowUsers={showUsers} />
       </>}
 
       {current === "printing" && <>
