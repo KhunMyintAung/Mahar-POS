@@ -526,6 +526,8 @@ const MM: Record<string, string> = {
   "XP-80C, XP-A300M, most counter printers": "XP-80C, XP-A300M နှင့် ကောင်တာ Printer အများစု",
   "Small Bluetooth and phone printers": "Bluetooth Printer အသေး",
   "Test print": "စမ်းထုတ်မည်",
+  "Edges cut off? Print 72mm wide": "ဘေးအနားပြတ်နေလား? 72mm ဖြင့် ထုတ်မည်",
+  "The slip fills the full 80mm. Tick this only if the left or right edge is missing on paper.": "ပြေစာကို 80mm အပြည့် ထုတ်ပါမည်။ စက္ကူပေါ်တွင် ဘယ် သို့မဟုတ် ညာ အနား ပျောက်နေမှသာ ဤကို ရွေးပါ။",
   "In the print window choose the printer, set Margins to None and Scale to 100%.": "Print ပြတင်းတွင် Printer ရွေးပြီး Margins ကို None၊ Scale ကို 100% ထားပါ။",
   "Branches and staff": "ဆိုင်ခွဲများနှင့် ဝန်ထမ်း",
   "Run more than one shop under this account, and give each person their own login.": "အကောင့်တစ်ခုတည်းဖြင့် ဆိုင်ခွဲများ ဖွင့်နိုင်ပြီး ဝန်ထမ်းတစ်ဦးချင်းစီကို ကိုယ်ပိုင် login ပေးနိုင်ပါသည်။",

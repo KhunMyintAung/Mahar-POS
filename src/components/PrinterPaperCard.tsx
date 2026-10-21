@@ -5,19 +5,20 @@ import { Printer } from "lucide-react";
 import { Button, Card, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { printElement } from "@/lib/printReceipt";
-import { getPaperWidth, setPaperWidth, type PaperWidth } from "@/lib/printSettings";
+import { getFit72, getPaperWidth, setFit72, setPaperWidth, type PaperWidth } from "@/lib/printSettings";
 
 /** Settings → Printing: which roll this device's receipt printer takes, with a test slip
  *  that shows whether the print reaches both edges. */
 export function PrinterPaperCard() {
   const [width, setWidth] = useState<PaperWidth>(58);
+  const [fit72, setFit] = useState(false);
   const sample = useRef<HTMLDivElement>(null);
   const { me } = useAuth();
   const { push } = useToast();
 
   // Read after mount: the choice lives in this browser, which the server cannot see.
   useEffect(() => {
-    const timer = window.setTimeout(() => setWidth(getPaperWidth()), 0);
+    const timer = window.setTimeout(() => { setWidth(getPaperWidth()); setFit(getFit72()); }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -49,6 +50,15 @@ export function PrinterPaperCard() {
           </button>
         ))}
       </div>
+      {width === 80 && (
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-0.5" checked={fit72} onChange={(e) => { setFit72(e.target.checked); setFit(e.target.checked); }} />
+          <span>
+            <span className="font-medium">Edges cut off? Print 72mm wide</span>
+            <span className="block text-xs text-gray-500">The slip fills the full 80mm. Tick this only if the left or right edge is missing on paper.</span>
+          </span>
+        </label>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={() => { if (sample.current) void printElement(sample.current); }}>
           <Printer size={16} className="mr-1 inline" />Test print
@@ -61,7 +71,7 @@ export function PrinterPaperCard() {
         <div ref={sample} className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black">
           <div className="border-2 border-black p-1 text-center">
             <div className="text-[13px] font-bold">{me?.business?.name ?? "Mahar Mini POS"}</div>
-            <div>Test print · {width}mm paper</div>
+            <div>Test print · {width === 80 && fit72 ? "72" : width}mm</div>
           </div>
           <div className="mt-1 flex justify-between"><span>Item</span><span>Amount</span></div>
           <div className="flex justify-between"><span>Sample item × 1</span><span>10,000</span></div>
