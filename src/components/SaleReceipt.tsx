@@ -75,7 +75,7 @@ export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
       <div className="text-center">
         {data.shopLogo && (
           // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
-          <img src={data.shopLogo} alt="" className="mx-auto mb-1 max-h-[14mm] max-w-[46mm] object-contain" />
+          <img src={data.shopLogo} alt="" className="slip-logo mx-auto mb-1 max-h-[14mm] max-w-[46mm] object-contain" />
         )}
         <div className="text-[14px] font-bold leading-tight">{data.shopName}</div>
         <div className="mt-0.5">Sale Receipt</div>
