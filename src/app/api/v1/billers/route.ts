@@ -14,7 +14,7 @@ export const GET = withAuth("biller.view", async ({ req, user }) => {
       deletedAt: null,
       ...(includeOff ? {} : { active: true }),
     },
-    orderBy: [{ type: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
 
   // What the shop is holding in total, which is the figure an owner checks first.

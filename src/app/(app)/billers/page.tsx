@@ -83,7 +83,8 @@ export default function BillersPage() {
 
   const load = useCallback(() => {
     api<{ billers: Biller[]; totalFloat: string }>("/api/v1/billers?all=1")
-      .then((d) => { setBillers(d.billers); setTotalFloat(d.totalFloat); })
+      // A to Z by name, ignoring capitals, so "mpt" and "MPT" sit together.
+      .then((d) => { setBillers([...d.billers].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true }))); setTotalFloat(d.totalFloat); })
       .catch((e) => push(e.message, "error"));
     const params = new URLSearchParams({ date, pageSize: "200", ...(filter ? { billerId: filter } : {}) });
     api<{ txns: Txn[]; summary: Summary }>(`/api/v1/billers/txns?${params}`)

@@ -186,7 +186,7 @@ async function startBiller(chatId: string, user: AuthUser) {
   if (!branchId) return sendMessage(chatId, "No branch is available for your account.");
   const billers = await prisma.biller.findMany({
     where: { businessId: user.businessId, active: true, deletedAt: null },
-    orderBy: [{ type: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
   });
   if (billers.length === 0) {
     return sendMessage(chatId, "No billers set up yet. Add them in Mahar Mini POS under Top-up Billers.");
