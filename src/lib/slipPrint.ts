@@ -54,21 +54,33 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
   return true;
 }
 
+const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
+
+/** Prints once the slip has loaded, on a page exactly as long as the slip. With a page
+ *  length of "auto" the printer used its own default length and fed blank paper after the
+ *  slip; measuring the slip and naming its length stops that. */
+function autoPrint(): string {
+  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+8;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:3mm}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
+}
+
 function baseStyles(): string {
-  const width = getPaperWidth() === 58 ? "58mm" : "80mm";
+  const width = paper();
   return `
     @page{size:${width} auto;margin:3mm}
     *{box-sizing:border-box}
     body{width:${width};max-width:100%;margin:0 auto;padding:3mm;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
-    .slip-logo{display:block;max-width:100%;height:66px;object-fit:contain;margin:0 auto 8px auto}
-    h1,h2,p{text-align:center;margin:3px 0}h1{font-size:18px}h2{font-size:14px}.muted{color:#555}.left{text-align:left}.right{text-align:right}.center{text-align:center}
-    .meta{margin:10px 0;padding:8px 0;border-top:1px dashed #777;border-bottom:1px dashed #777}.meta div,.summary div{display:flex;justify-content:space-between;gap:10px;padding:3px 0}.meta span,.summary span{color:#444}
-    table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:6px 2px;border-bottom:1px dashed #999;vertical-align:top}th{text-align:left;font-size:10px}td small{display:block;color:#555;margin-top:2px}
-    .summary{margin-top:10px}.grand{font-size:15px;font-weight:bold;border-top:2px solid #111;margin-top:4px;padding-top:7px!important}.void{margin:9px 0;padding:6px;border:2px solid #b91c1c;color:#b91c1c;font-weight:bold;text-align:center;letter-spacing:2px}
-    .paid{margin:9px auto;padding:6px 14px;width:fit-content;border:2px solid #111;font-size:15px;font-weight:bold;text-align:center}
-    .footer{margin-top:15px;padding-top:10px;border-top:1px dashed #777;text-align:center;white-space:normal}.footer-tag{display:block;margin-top:8px;font-weight:900}.warranty{margin-top:9px;font-size:9px;color:#444;text-align:center}.qr-link{word-break:break-all;font-size:9px;color:#333}
-    .terms{margin:8px 0 0 0;padding-left:14px;text-align:left;font-size:9.5px}.qr{display:block;width:34mm;height:34mm;margin:8px auto 2px auto}
-    .sign{display:flex;justify-content:space-between;margin-top:26px}.sign div{border-top:1px solid #111;padding:2px 6px;text-align:center}
+    .slip-logo{display:block;max-width:100%;height:56px;object-fit:contain;margin:0 auto 4px auto}
+    /* A thermal head prints black or nothing, so a coloured logo loses every shade lighter
+       than mid-grey. A see-through PNG logo prints solid black; a JPEG in strong greys. */
+    @media print{.slip-logo{filter:grayscale(1) contrast(1.8)}.slip-logo[src^="data:image/png"]{filter:grayscale(1) brightness(0)}}
+    h1,h2,p{text-align:center;margin:2px 0}h1{font-size:18px}h2{font-size:14px}.muted{color:#555}.left{text-align:left}.right{text-align:right}.center{text-align:center}
+    .meta{margin:6px 0;padding:4px 0;border-top:1px dashed #777;border-bottom:1px dashed #777}.meta div,.summary div{display:flex;justify-content:space-between;gap:10px;padding:1.5px 0}.meta span,.summary span{color:#444}
+    table{width:100%;border-collapse:collapse;margin-top:4px}th,td{padding:3px 2px;border-bottom:1px dashed #999;vertical-align:top}th{text-align:left;font-size:10px}td small{display:block;color:#555;margin-top:2px}
+    .summary{margin-top:6px}.grand{font-size:15px;font-weight:bold;border-top:2px solid #111;margin-top:3px;padding-top:4px!important}.void{margin:9px 0;padding:6px;border:2px solid #b91c1c;color:#b91c1c;font-weight:bold;text-align:center;letter-spacing:2px}
+    .paid{margin:6px auto;padding:6px 14px;width:fit-content;border:2px solid #111;font-size:15px;font-weight:bold;text-align:center}
+    .footer{margin-top:8px;padding-top:5px;border-top:1px dashed #777;text-align:center;white-space:normal}.footer-tag{display:block;margin-top:8px;font-weight:900}.warranty{margin-top:9px;font-size:9px;color:#444;text-align:center}.qr-link{word-break:break-all;font-size:9px;color:#333}
+    .terms{margin:4px 0 0 0;padding-left:14px;text-align:left;font-size:9.5px;line-height:1.3}.qr{display:block;width:28mm;height:28mm;margin:5px auto 1px auto}
+    .sign{display:flex;justify-content:space-between;margin-top:18px}.sign div{border-top:1px solid #111;padding:2px 6px;text-align:center}
     @media print{body{padding:0}.no-print{display:none!important}}
   `;
 }
@@ -100,7 +112,7 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
     <table><thead><tr><th>Item</th><th class="center">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead><tbody>${items}</tbody></table>
     <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div><div><span>Discount</span><b>${money(sale.discount)}</b></div><div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div><div><span>Paid</span><b>${money(sale.paid)}</b></div>${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
     <div class="footer">Thank you.</div>
-    <script>window.onload=()=>window.print();</script></body></html>`;
+    ${autoPrint()}</body></html>`;
   return printWindow(targetWindow, html);
 }
 
@@ -133,6 +145,6 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
     ${qr ? `<img class="qr" src="${qr}" alt="QR"/>${qrCaption ? `<p class="qr-link">${escapeHtml(qrCaption)}</p>` : ""}` : ""}
     <div class="footer">${terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
     <div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>
-    <script>window.onload=()=>window.print();</script></body></html>`;
+    ${autoPrint()}</body></html>`;
   return printWindow(popup, html);
 }
