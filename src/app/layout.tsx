@@ -38,20 +38,20 @@ export const metadata: Metadata = {
     title: "Mahar Mini POS — ဆိုင်စာရင်းနှင့် ပိုက်ဆံအိတ်",
     description:
       "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်းနှင့် အကြွေးစာရင်း — မြန်မာဆိုင်ငယ်များအတွက် အခမဲ့ စာရင်းကိုင် app။",
-    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "Mahar Mini POS" }],
+    images: [{ url: "/mahar-icon-512.png", width: 512, height: 512, alt: "Mahar Mini POS" }],
   },
   twitter: {
     card: "summary",
     title: "Mahar Mini POS — ဆိုင်စာရင်းနှင့် ပိုက်ဆံအိတ်",
     description: "မြန်မာဆိုင်ငယ်များအတွက် အခမဲ့ စာရင်းကိုင် app။",
-    images: ["/icon-512.png"],
+    images: ["/mahar-icon-512.png"],
   },
   icons: {
     icon: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/mahar-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/mahar-icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/mahar-apple-icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
