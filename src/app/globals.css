@@ -32,6 +32,31 @@ body {
   overflow-x: hidden;
 }
 
+/* Sale POS: a tapped product pops, and the mobile cart bar bounces, so a cashier sees the
+   item went into the cart even when the cart itself is off screen. */
+@keyframes tile-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.18); }
+  60% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes fade-check {
+  0% { opacity: 0; transform: scale(0.6); }
+  25% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-tile-pop, .animate-cart-bump, .animate-fade-check { animation: none !important; }
+}
+.animate-tile-pop { animation: tile-pop 0.35s ease-out; }
+.animate-cart-bump { animation: cart-bump 0.45s ease-out; }
+.animate-fade-check { animation: fade-check 0.7s ease-out forwards; }
+
 @media print {
   .no-print { display: none !important; }
   body { background: white; }

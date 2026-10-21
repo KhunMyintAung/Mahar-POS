@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, ShieldCheck, Trash2 } from "lucide-react";
+import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, ShieldCheck, Trash2, ShoppingCart } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
@@ -24,7 +24,16 @@ interface Item {
   category?: { name: string }; unit?: { name: string };
   /** One IMEI per unit: picked at the till, one line per phone model. */
   trackSerial?: boolean;
+  createdAt?: string;
 }
+
+/** A recent sale, for the list under the cart. */
+interface RecentSale {
+  id: string; txnNo: string; total: string; status: string; createdAt: string; customerName?: string;
+  lines: { quantity: number; item: { name: string } }[];
+}
+
+const NEW_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
@@ -59,6 +68,9 @@ function cashSuggestions(total: number) {
 
 export default function PosPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const [bump, setBump] = useState(0);
+  const [recent, setRecent] = useState<RecentSale[]>([]);
   // Every IMEI on the shelf in this branch, by item, for the picker and for scanning.
   const [shelfImeis, setShelfImeis] = useState<Map<string, string[]>>(new Map());
   const [imeiInput, setImeiInput] = useState<Record<string, string>>({});
@@ -93,6 +105,9 @@ export default function PosPage() {
   const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
+    if (hasPerm("sale.view")) {
+      api<{ sales: RecentSale[] }>("/api/v1/sales?pageSize=5").then((d) => setRecent(d.sales)).catch(() => {});
+    }
     api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1")
       .then((data) => setItems(data.items))
       .catch((error) => push(error.message, "error"));
@@ -113,7 +128,7 @@ export default function PosPage() {
     api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${WARRANTY_SETTING}`)
       .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
       .catch(() => {});
-  }, [push, defaultBranchId]);
+  }, [push, defaultBranchId, hasPerm]);
 
   useEffect(load, [load]);
 
@@ -204,12 +219,20 @@ export default function PosPage() {
     const inStock = (item: Item) => item.stockLevels
       .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
       .reduce((total, level) => total + level.quantity, 0) > 0;
+    // Newest first: what just came in is what the counter is selling.
     return items.filter((item) =>
       inStock(item) &&
       (category === "ALL" || item.category?.name === category) &&
       (!needle || item.name.toLowerCase().includes(needle) || item.sku.toLowerCase().includes(needle) || item.barcode?.toLowerCase().includes(needle))
-    );
+    ).sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
   }, [category, items, q, defaultBranchId]);
+
+  /** The tapped tile pops and the cart bar bounces. */
+  function showAdded(itemId: string) {
+    setFlashId(itemId);
+    setBump((n) => n + 1);
+    window.setTimeout(() => setFlashId((id) => (id === itemId ? null : id)), 700);
+  }
 
   function stockOf(item: Item) {
     return item.stockLevels
@@ -246,6 +269,7 @@ export default function PosPage() {
     // Both tapping a product and scanning a barcode arrive here, so one beep covers both.
     // The out-of-stock case above returns before this: it gets the error tone instead.
     playBeep();
+    showAdded(item.id);
   }
 
   /** A tracked phone: its row is opened, and the IMEI added when one is given. */
@@ -275,6 +299,7 @@ export default function PosPage() {
           warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
         }]);
     playBeep();
+    showAdded(item.id);
   }
 
   function removeImei(itemId: string, imei: string) {
@@ -452,7 +477,7 @@ export default function PosPage() {
   if (!items) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-bold">Sales &amp; POS</h1>
         <div className="flex items-center gap-3">
@@ -494,19 +519,28 @@ export default function PosPage() {
           <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[70vh] xl:grid-cols-4">
             {filtered.map((item) => {
               const available = stockOf(item) - inCart(item.id);
+              const isNew = item.createdAt ? Date.now() - new Date(item.createdAt).getTime() < NEW_FOR_MS : false;
+              const flashing = flashId === item.id;
               return (
                 <button
-                  key={item.id}
+                  key={flashing ? `${item.id}-flash` : item.id}
                   onClick={() => addToCart(item)}
                   disabled={available <= 0}
                   // Full name on hover / long-press; the tile itself shows two lines so a row
                   // of parts with long compatibility lists stays the height of a short one.
                   title={`${item.name}\n${item.sku}`}
                   className={cn(
-                    "flex min-h-[5.5rem] flex-col justify-between gap-1.5 rounded-lg border border-gray-200 bg-white p-2.5 text-left shadow-sm transition hover:border-blue-400 dark:border-gray-800 dark:bg-gray-900",
-                    available <= 0 && "opacity-40"
+                    "relative flex min-h-[5.5rem] flex-col justify-between gap-1.5 rounded-lg border border-gray-200 bg-white p-2.5 text-left shadow-sm transition hover:border-blue-400 dark:border-gray-800 dark:bg-gray-900",
+                    available <= 0 && "opacity-40",
+                    flashing && "animate-tile-pop border-green-500 ring-2 ring-green-400/60"
                   )}
                 >
+                  {flashing && (
+                    <span className="animate-fade-check pointer-events-none absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-[11px] font-bold text-white">✓</span>
+                  )}
+                  {isNew && !flashing && (
+                    <span className="pointer-events-none absolute right-1.5 top-1.5 rounded bg-amber-400 px-1 text-[9px] font-bold leading-4 text-white">NEW</span>
+                  )}
                   <div className="flex items-start gap-2">
                     <ProductKindIcon item={item} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
                     <div className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">
@@ -525,7 +559,9 @@ export default function PosPage() {
           </div>
         </div>
 
-        <Card className="h-fit space-y-3 lg:col-span-2">
+        <div className="space-y-3 lg:col-span-2">
+        <div id="pos-cart" className="scroll-mt-4" />
+        <Card className="h-fit space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Cart ({cart.length})</h3>
             {cart.length > 0 && (
@@ -749,6 +785,27 @@ export default function PosPage() {
             Review sale · {total.toLocaleString()} MMK
           </Button>
         </Card>
+
+        {recent.length > 0 && (
+          <Card className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Recent sales</h3>
+              <Link href="/sales" className="text-xs font-medium text-blue-600 hover:underline">All</Link>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              {recent.map((r) => (
+                <div key={r.id} className={cn("flex items-center gap-2 py-1.5 text-xs", r.status === "CANCELLED" && "opacity-50 line-through")}>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{r.lines.map((l) => `${l.item.name}${l.quantity > 1 ? ` ×${l.quantity}` : ""}`).join(", ")}</div>
+                    <div className="text-gray-500">{r.txnNo} · {new Date(r.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{r.customerName ? ` · ${r.customerName}` : ""}</div>
+                  </div>
+                  <b className="shrink-0 tabular-nums">{fmtMoney(r.total)}</b>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+        </div>
       </div>
 
       <Modal open={Boolean(newCustomer)} onClose={() => setNewCustomer(null)} title="New customer">
@@ -834,6 +891,27 @@ export default function PosPage() {
         }}
       />
       {receipt && <SaleReceipt data={receipt} />}
+      {/* Phones: the cart is below the products, so a bar above the bottom menu says what is
+          in it and takes the cashier there. It bounces each time something is added. */}
+      {cart.length > 0 && (
+        <button
+          type="button"
+          onClick={() => document.getElementById("pos-cart")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className="no-print fixed inset-x-3 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-white shadow-lg lg:hidden"
+        >
+          <span key={bump} className="animate-cart-bump relative">
+            <ShoppingCart size={22} />
+            <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[11px] font-bold text-white">
+              {cart.reduce((sum, line) => sum + line.quantity, 0)}
+            </span>
+          </span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block text-[11px] opacity-80">Cart</span>
+            <span className="block truncate text-base font-bold tabular-nums">{total.toLocaleString()} MMK</span>
+          </span>
+          <span className="rounded-lg bg-white/20 px-3 py-1.5 text-sm font-semibold">View cart ↓</span>
+        </button>
+      )}
     </div>
   );
 }
