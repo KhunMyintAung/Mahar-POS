@@ -531,6 +531,7 @@ const MM: Record<string, string> = {
   "This month": "ယခုလ",
   "No movements this month": "ယခုလ အဝင်အထွက် မရှိပါ",
   "No movements on this day": "ဤနေ့ အဝင်အထွက် မရှိပါ",
+  "Enter a cost for every item, or tick FOC": "ပစ္စည်းတိုင်းအတွက် ဝယ်ဈေးထည့်ပါ၊ အခမဲ့ဆိုရင် FOC ကို အမှန်ခြစ်ပါ",
   "Recent sales": "မကြာသေးမီ အရောင်းများ",
   "Cart": "ခြင်းတောင်း",
   "View cart ↓": "ခြင်းတောင်း ကြည့်မည် ↓",

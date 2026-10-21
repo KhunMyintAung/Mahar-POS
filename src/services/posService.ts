@@ -141,8 +141,9 @@ export async function createPurchase(
     if (lineImeis) {
       await receiveSerials(tx, { businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, purchaseId: purchase.id });
     }
-    // keep the item's latest cost price
-    await tx.item.update({ where: { id: l.itemId }, data: { costPrice: l.unitPrice } });
+    // Keep the item's latest cost price — but not from a free (FOC) line, which would
+    // otherwise make a paid-for item look free in stock value and in every sale's profit.
+    if (l.unitPrice > 0n) await tx.item.update({ where: { id: l.itemId }, data: { costPrice: l.unitPrice } });
   }
 
   if (opts.paidAmount > 0n && opts.walletId) {

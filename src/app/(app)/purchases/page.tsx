@@ -20,7 +20,8 @@ interface Item { id: string; name: string; sku: string; barcode?: string | null;
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
-interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string }
+/** foc: given free by the supplier with the order — stock comes in at no cost. */
+interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string; foc?: boolean; paidPrice?: string }
 type PayMode = "full" | "none" | "part";
 
 const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
@@ -108,7 +109,7 @@ export default function PurchasesPage() {
   const problem =
     lines.length === 0 ? "Add at least one item"
     : imeiProblem ? imeiProblem
-    : lines.some((l) => !num(l.unitPrice)) ? "Enter a cost for every item"
+    : lines.some((l) => !l.foc && !num(l.unitPrice)) ? "Enter a cost for every item, or tick FOC"
     : paid > 0 && !walletId ? "Choose the wallet you paid from"
     : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
     : "";
@@ -121,7 +122,10 @@ export default function PurchasesPage() {
         body: {
           branchId: defaultBranchId,
           supplierId: form.supplierId || undefined,
-          lines: lines.map(({ imeiText, ...l }) => (imeiText === undefined ? l : { ...l, imeis: splitImeis(imeiText) })),
+          lines: lines.map((l) => ({
+            itemId: l.itemId, quantity: l.quantity, unitPrice: l.foc ? "0" : l.unitPrice,
+            ...(l.imeiText === undefined ? {} : { imeis: splitImeis(l.imeiText) }),
+          })),
           discount: String(num(form.discount)),
           paidAmount: String(paid),
           walletId: paid > 0 ? walletId : undefined,
@@ -174,7 +178,7 @@ export default function PurchasesPage() {
               <td className="px-3 py-2 text-xs">{p.txnNo}</td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
               <td className="px-3 py-2">{p.supplierName ?? "—"}</td>
-              <td className="px-3 py-2 text-xs">{p.lines.map((l) => `${l.item.name}×${l.quantity}`).join(", ")}</td>
+              <td className="px-3 py-2 text-xs">{p.lines.map((l) => `${l.item.name}×${l.quantity}${BigInt(l.unitCost) === 0n ? " (FOC)" : ""}`).join(", ")}</td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(p.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(p.paidAmount)}</td>
               <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
@@ -273,12 +277,23 @@ export default function PurchasesPage() {
                     <span className="text-xs text-gray-400">×</span>
                     <input
                       value={l.unitPrice}
+                      disabled={l.foc}
                       inputMode="decimal"
                       onChange={(e) => setLine(i, { unitPrice: e.target.value })}
                       placeholder="Unit cost"
                       title="Unit cost"
-                      className="w-28 rounded-lg border border-gray-300 bg-white px-2 py-2 text-right text-sm tabular-nums dark:border-gray-700 dark:bg-gray-800"
+                      className="w-28 rounded-lg border border-gray-300 bg-white px-2 py-2 text-right text-sm tabular-nums disabled:bg-gray-100 disabled:text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:disabled:bg-gray-900"
                     />
+                    {/* Free with the order: the stock comes in, nothing is paid for it. */}
+                    <label className={cn("flex cursor-pointer items-center gap-1 rounded-lg border px-2 py-2 text-xs font-semibold", l.foc ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" : "border-gray-300 text-gray-500 dark:border-gray-700")}>
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        checked={Boolean(l.foc)}
+                        onChange={(e) => setLine(i, e.target.checked ? { foc: true, paidPrice: l.unitPrice, unitPrice: "0" } : { foc: false, unitPrice: l.paidPrice || l.unitPrice })}
+                      />
+                      FOC
+                    </label>
                     <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove">
                       <Trash2 size={15} />
                     </button>
