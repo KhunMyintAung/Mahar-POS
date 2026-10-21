@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { Button, Card, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
-import { printElement } from "@/lib/printReceipt";
+import { printSaleReceipt } from "@/lib/slipPrint";
 import { getPaperWidth, setPaperWidth, type PaperWidth } from "@/lib/printSettings";
 
 /** Settings → Printing: which roll this device's receipt printer takes, with a test slip
  *  that shows whether the print reaches both edges. */
 export function PrinterPaperCard() {
   const [width, setWidth] = useState<PaperWidth>(58);
-  const sample = useRef<HTMLDivElement>(null);
   const { me } = useAuth();
   const { push } = useToast();
 
@@ -50,25 +49,21 @@ export function PrinterPaperCard() {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" onClick={() => { if (sample.current) void printElement(sample.current); }}>
+        <Button variant="secondary" onClick={() => {
+          printSaleReceipt({
+            txnNo: "TEST-0001", at: new Date().toISOString(),
+            shopName: me?.business?.name ?? "Mahar Mini POS", shopLogo: me?.business?.logoUrl ?? undefined,
+            shopPhone: me?.business?.phone ?? undefined, shopAddress: me?.business?.address ?? undefined,
+            cashierName: me?.user.name, customerName: undefined,
+            lines: [{ name: `Test print · ${width}mm paper`, quantity: 1, unitPrice: 10000 }, { name: "Sample item with a longer name", quantity: 2, unitPrice: 2500 }],
+            subtotal: 15000, discount: 0, total: 15000, paid: 15000, change: 0, credit: 0,
+          });
+        }}>
           <Printer size={16} className="mr-1 inline" />Test print
         </Button>
-        <p className="text-xs text-gray-500">In the print window choose the printer and keep Margins on Default and Scale on 100%.</p>
+        <p className="text-xs text-gray-500">In the print window choose the printer and keep Margins on Default and Scale on 100%. Allow pop-ups for this site if the print window does not open.</p>
       </div>
 
-      {/* The test slip: a box that should touch both edges of the printable width. */}
-      <div className="hidden">
-        <div ref={sample} className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black">
-          <div className="border-2 border-black p-1 text-center">
-            <div className="text-[13px] font-bold">{me?.business?.name ?? "Mahar Mini POS"}</div>
-            <div>Test print · {width}mm</div>
-          </div>
-          <div className="mt-1 flex justify-between"><span>Item</span><span>Amount</span></div>
-          <div className="flex justify-between"><span>Sample item × 1</span><span>10,000</span></div>
-          <div className="flex justify-between font-bold"><span>Total</span><span>10,000 MMK</span></div>
-          <div className="mt-1 text-center">The box above should reach both edges of the paper.</div>
-        </div>
-      </div>
     </Card>
   );
 }

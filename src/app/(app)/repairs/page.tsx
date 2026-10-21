@@ -8,7 +8,7 @@ import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
-import { printReceipt } from "@/lib/printReceipt";
+import { printRepairVoucher } from "@/lib/slipPrint";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
 import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
@@ -724,7 +724,7 @@ export default function RepairsPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => printReceipt()}>
+              <Button variant="secondary" onClick={() => { void printRepairVoucher(voucher).then((ok) => { if (!ok) push("The browser blocked the print window. Allow pop-ups for this site and try again.", "error"); }); }}>
                 <Printer size={16} className="mr-1 inline" />Print voucher
               </Button>
               <Button onClick={() => setVoucher(null)}>Close</Button>

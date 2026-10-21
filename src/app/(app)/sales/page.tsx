@@ -9,7 +9,7 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
-import { printReceipt } from "@/lib/printReceipt";
+import { printSaleReceipt } from "@/lib/slipPrint";
 import { warrantyUntil } from "@/lib/warranty";
 
 interface Sale {
@@ -199,7 +199,7 @@ export default function SalesPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => printReceipt()}>
+              <Button variant="secondary" onClick={() => receipt && printSaleReceipt(receipt)}>
                 <Printer size={16} className="mr-1 inline" />Print slip
               </Button>
               <Button onClick={() => setReceipt(null)}>Close</Button>

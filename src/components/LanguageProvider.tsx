@@ -521,6 +521,8 @@ const MM: Record<string, string> = {
   "That file is not an image this browser can read. Try a PNG or JPG.": "ဤဖိုင်ကို ပုံအဖြစ် ဖတ်၍ မရပါ။ PNG သို့မဟုတ် JPG ဖြင့် စမ်းကြည့်ပါ။",
   "Could not read the file": "ဖိုင်ကို ဖတ်၍ မရပါ",
   "Edit biller": "Biller ပြင်မည်",
+  "In the print window choose the printer and keep Margins on Default and Scale on 100%. Allow pop-ups for this site if the print window does not open.": "Print ပြတင်းတွင် Printer ရွေးပြီး Margins ကို Default၊ Scale ကို 100% ထားပါ။ Print ပြတင်း မပွင့်ပါက ဤဆိုက်အတွက် Pop-up ခွင့်ပြုပါ။",
+  "The browser blocked the print window. Allow pop-ups for this site and try again.": "Browser က Print ပြတင်းကို ပိတ်ထားသည်။ ဤဆိုက်အတွက် Pop-up ခွင့်ပြုပြီး ထပ်စမ်းပါ။",
   "Sale Receipt": "အရောင်း ပြေစာ",
   "Repair Voucher": "ပြုပြင်ရေး ဘောက်ချာ",
   "Invoice": "ဘောက်ချာ",

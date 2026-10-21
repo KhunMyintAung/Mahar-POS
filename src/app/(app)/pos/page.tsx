@@ -16,7 +16,7 @@ import {
   warrantyUntil, type WarrantyOption, type WarrantySettings,
 } from "@/lib/warranty";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
-import { printReceipt } from "@/lib/printReceipt";
+import { printSaleReceipt } from "@/lib/slipPrint";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -683,7 +683,7 @@ export default function PosPage() {
               <p className="mt-1 text-2xl font-bold text-blue-600">{fmtMoney(lastSale.total)} MMK</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => receipt && printReceipt()} disabled={!receipt}>
+              <Button variant="secondary" onClick={() => receipt && printSaleReceipt(receipt)} disabled={!receipt}>
                 <Printer size={16} className="mr-1 inline" />Print slip
               </Button>
               <Button onClick={() => { closeSaleComplete(); searchRef.current?.focus(); }}>New sale</Button>
