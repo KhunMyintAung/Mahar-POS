@@ -40,10 +40,12 @@ export function StatCard({ label, value, sub, onClick, tone }: {
   );
 }
 
-export function Button({ children, onClick, type = "button", variant = "primary", disabled, className, size }: {
+export function Button({ children, onClick, type = "button", variant = "primary", disabled, className, size, title, "aria-label": ariaLabel }: {
   children: ReactNode; onClick?: () => void; type?: "button" | "submit";
   variant?: "primary" | "secondary" | "danger" | "ghost"; disabled?: boolean; className?: string;
   size?: "sm" | "md";
+  /** For an icon-only button: what it does, for screen readers and on hover. */
+  title?: string; "aria-label"?: string;
 }) {
   const variants = {
     primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300",
@@ -56,6 +58,8 @@ export function Button({ children, onClick, type = "button", variant = "primary"
       type={type}
       onClick={onClick}
       disabled={disabled}
+      title={title}
+      aria-label={ariaLabel}
       className={cn(
         "rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
         size === "sm" ? "min-h-9 px-2.5 py-1.5 text-xs" : "min-h-10 px-4 py-2 text-sm",

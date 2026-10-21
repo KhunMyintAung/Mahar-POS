@@ -2,21 +2,24 @@ import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/auth";
-import { DEFAULT_INCOME_CATEGORIES } from "@/lib/incomeCategories";
+import { audit } from "@/lib/audit";
+import { ensureStandardCategories } from "@/lib/incomeCategories";
 
 export const GET = withAuth("income_expense.view", async ({ req, user }) => {
   const type = req.nextUrl.searchParams.get("type") ?? undefined;
-  // Shops opened before the daily income categories existed get them the first time the
-  // list is opened, so they can be picked without setting them up.
-  if (!type || type === "INCOME") {
-    await prisma.category.createMany({
-      data: DEFAULT_INCOME_CATEGORIES.map((name) => ({ businessId: user.businessId, type: "INCOME", name })),
-      skipDuplicates: true,
-    });
-  }
+  // Every shop has the eight standard daily categories; one opened before they existed gets
+  // them the first time the list is read.
+  await prisma.$transaction((tx) => ensureStandardCategories(tx, user.businessId));
   const categories = await prisma.category.findMany({
     where: { businessId: user.businessId, active: true, ...(type ? { type } : {}) },
     orderBy: { name: "asc" },
+  });
+  // The standard ones first, in their set order, then the shop's own A to Z.
+  const order = ["DAILY_SERVICE", "DAILY_SALE", "DAILY_BILL", "DAILY_GENERAL"];
+  categories.sort((a, b) => {
+    const ia = a.systemKey ? order.indexOf(a.systemKey) : 99;
+    const ib = b.systemKey ? order.indexOf(b.systemKey) : 99;
+    return ia - ib || a.name.localeCompare(b.name);
   });
   return json(categories);
 });
@@ -60,6 +63,7 @@ export const DELETE = withAuth(null, async ({ req, user }) => {
     where: { id, businessId: user.businessId },
   });
   if (!category) throw new ApiError(404, "Category not found");
+  if (category.systemKey) throw new ApiError(422, `"${category.name}" is a standard category. It can be renamed but not deleted.`);
 
   const used = await prisma.incomeExpense.count({
     where: { businessId: user.businessId, categoryId: category.id },
@@ -72,4 +76,37 @@ export const DELETE = withAuth(null, async ({ req, user }) => {
 
   await prisma.category.delete({ where: { id: category.id } });
   return json({ id: category.id, removed: true, keptForRecords: 0 });
+});
+
+const renameSchema = z.object({ id: z.string().min(1), name: z.string().trim().min(1).max(80) });
+
+/** Rename a category, standard or not. Entries filed under the old name move to the new
+ *  one, so reports keep them together. */
+export const PATCH = withAuth(null, async ({ req, user }) => {
+  if (!can(user, "income_expense.create") && !can(user, "settings.manage")) {
+    throw new ApiError(403, "You do not have permission to rename categories");
+  }
+  const body = await parseBody(req, renameSchema);
+  const category = await prisma.category.findFirst({ where: { id: body.id, businessId: user.businessId } });
+  if (!category) throw new ApiError(404, "Category not found");
+  if (category.name === body.name) return json(category);
+  const clash = await prisma.category.findFirst({
+    where: { businessId: user.businessId, type: category.type, name: { equals: body.name, mode: "insensitive" }, id: { not: category.id } },
+    select: { id: true },
+  });
+  if (clash) throw new ApiError(422, `There is already a category called "${body.name}"`);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const c = await tx.category.update({ where: { id: category.id }, data: { name: body.name } });
+    await tx.incomeExpense.updateMany({
+      where: { businessId: user.businessId, type: category.type, categoryName: category.name },
+      data: { categoryName: body.name },
+    });
+    await audit(tx, {
+      businessId: user.businessId, userId: user.id, action: "UPDATE", module: "income_expense",
+      resourceType: "Category", resourceId: c.id, before: { name: category.name }, after: { name: c.name },
+    });
+    return c;
+  });
+  return json(updated);
 });

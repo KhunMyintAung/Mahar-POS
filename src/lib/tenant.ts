@@ -5,7 +5,7 @@ import { ApiError } from "@/lib/api";
 import { DEFAULT_ROLES } from "@/lib/permissions";
 import { addItemCategoryPresets, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 import type { AuthUser } from "@/lib/auth";
-import { DEFAULT_INCOME_CATEGORIES } from "@/lib/incomeCategories";
+import { ensureStandardCategories } from "@/lib/incomeCategories";
 import {
   moduleSetting,
   moduleSettingForCategory,
@@ -125,15 +125,8 @@ export async function registerTenant(input: TenantRegistration) {
       });
       // A phone shop opens its item list with phone shop categories ready to pick.
       await addItemCategoryPresets(tx, business.id, itemCategoryPresets(input.businessCategory));
-      await tx.category.createMany({
-        data: [
-          ...DEFAULT_INCOME_CATEGORIES.map((name) => ({ businessId: business.id, type: "INCOME", name })),
-          { businessId: business.id, type: "EXPENSE", name: "Salary" },
-          { businessId: business.id, type: "EXPENSE", name: "Rent" },
-          { businessId: business.id, type: "EXPENSE", name: "Utilities" },
-          { businessId: business.id, type: "EXPENSE", name: "Other Expense" },
-        ],
-      });
+      // The eight standard daily income and expense categories; a shop adds its own after.
+      await ensureStandardCategories(tx, business.id);
       await tx.systemSetting.create({
         data: {
           businessId: business.id,

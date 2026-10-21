@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
@@ -12,7 +12,8 @@ interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
   currency: string; date: string; description?: string; status: string;
 }
-interface Category { id: string; type: string; name: string }
+/** systemKey marks one of the eight standard daily categories: renamed, never deleted. */
+interface Category { id: string; type: string; name: string; systemKey?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 
 export default function IncomeExpensePage() {
@@ -25,6 +26,9 @@ export default function IncomeExpensePage() {
   const [confirmRemove, setConfirmRemove] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  // Categories window: the one being renamed, and the name being typed for each new one.
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [adding, setAdding] = useState<Record<string, string>>({ INCOME: "", EXPENSE: "" });
   const [busy, setBusy] = useState(false);
   const [reverseId, setReverseId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
@@ -90,6 +94,42 @@ export default function IncomeExpensePage() {
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Void failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function refreshCategories() {
+    setCategories(await api<Category[]>("/api/v1/categories"));
+  }
+
+  async function renameCategory() {
+    if (!renaming?.name.trim()) return;
+    setBusy(true);
+    try {
+      await api("/api/v1/categories", { method: "PATCH", body: { id: renaming.id, name: renaming.name.trim() } });
+      push("Renamed");
+      setRenaming(null);
+      await refreshCategories();
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addCategory(type: "INCOME" | "EXPENSE") {
+    const name = adding[type].trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      await api("/api/v1/categories", { method: "POST", body: { type, name } });
+      push(`"${name}" added`);
+      setAdding((a) => ({ ...a, [type]: "" }));
+      await refreshCategories();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
       setBusy(false);
     }
@@ -183,25 +223,58 @@ export default function IncomeExpensePage() {
                 ) : (
                   <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
                     {list.map((category) => (
-                      <div key={category.id} className="flex min-h-12 items-center justify-between gap-3 px-3 py-2">
-                        <span className="text-sm">{category.name}</span>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => setConfirmRemove(category)}
-                        >
-                          <Trash2 size={15} />
-                        </Button>
+                      <div key={category.id} className="flex min-h-12 items-center justify-between gap-2 px-3 py-2">
+                        {renaming?.id === category.id ? (
+                          <>
+                            <input
+                              autoFocus
+                              value={renaming.name}
+                              onChange={(e) => setRenaming({ ...renaming, name: e.target.value })}
+                              onKeyDown={(e) => { if (e.key === "Enter") renameCategory(); if (e.key === "Escape") setRenaming(null); }}
+                              className="min-h-9 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                            />
+                            <Button size="sm" disabled={busy || !renaming.name.trim()} onClick={renameCategory}>Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setRenaming(null)}>Cancel</Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex min-w-0 items-center gap-1.5 text-sm">
+                              {category.systemKey && <Lock size={13} className="shrink-0 text-gray-400" aria-label="Standard category" />}
+                              <span className="truncate">{category.name}</span>
+                            </span>
+                            <span className="flex shrink-0 gap-1">
+                              <Button variant="ghost" size="sm" disabled={busy} aria-label={`Rename ${category.name}`} onClick={() => setRenaming({ id: category.id, name: category.name })}>
+                                <Pencil size={15} />
+                              </Button>
+                              {!category.systemKey && (
+                                <Button variant="secondary" size="sm" disabled={busy} aria-label={`Delete ${category.name}`} onClick={() => setConfirmRemove(category)}>
+                                  <Trash2 size={15} />
+                                </Button>
+                              )}
+                            </span>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={adding[type]}
+                    onChange={(e) => setAdding((a) => ({ ...a, [type]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === "Enter") addCategory(type); }}
+                    placeholder={type === "INCOME" ? "New income category" : "New expense category"}
+                    className="min-h-9 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                  />
+                  <Button size="sm" variant="secondary" disabled={busy || !adding[type].trim()} onClick={() => addCategory(type)}>
+                    <Plus size={14} className="mr-1 inline" />Add
+                  </Button>
+                </div>
               </div>
             );
           })}
           <p className="text-xs text-gray-500">
-            Past entries keep the category they were filed under, whatever happens here.
+            🔒 The eight standard daily categories can be renamed but not deleted. Renaming moves past entries to the new name. A deleted category&apos;s past entries keep its name.
           </p>
         </div>
       </Modal>

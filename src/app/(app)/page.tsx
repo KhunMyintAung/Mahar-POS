@@ -82,7 +82,7 @@ export default function DashboardPage() {
               {([
                 ["Sales", data.income.sales, featureEnabled("pos")],
                 ["Service", data.income.service, featureEnabled("repair")],
-                ["Top-up", data.income.topup, featureEnabled("biller")],
+                ["Top-up & Bill", data.income.topup, featureEnabled("biller")],
                 ["Other income", data.income.other, true],
               ] as const).filter(([, v, on]) => on || BigInt(v) !== 0n).map(([label, v]) => (
                 <div key={label}>

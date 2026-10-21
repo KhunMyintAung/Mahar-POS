@@ -130,7 +130,7 @@ export async function buildDailyReport(businessId: string, date: string): Promis
     `💰 Total income: ${money(income.total)} MMK`,
     `   • Sales: ${money(income.sales)}  (${sales._count} sale${sales._count === 1 ? "" : "s"}, profit ${money(sales._sum.profit ?? 0n)})`,
     `   • Service / repair: ${money(income.service)}`,
-    `   • Top-up: ${money(income.topup)}`,
+    `   • Top-up & bill: ${money(income.topup)}`,
     `   • Other income: ${money(income.other)}`,
     `💸 Expense: ${money(summary.general.expense)} MMK`,
     "",

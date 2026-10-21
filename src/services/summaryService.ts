@@ -1,6 +1,6 @@
 import { Tx } from "@/lib/prisma";
 import { dateRangeUtc } from "@/lib/dates";
-import { incomeBucket } from "@/lib/incomeCategories";
+import { bucketForKey } from "@/lib/incomeCategories";
 
 // Computes the daily business summary used by both the dashboard and daily close.
 
@@ -120,7 +120,7 @@ export async function computeDayIncome(
 ): Promise<DayIncome> {
   const range = dateRangeUtc(date);
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [repairIn, repairOut, topup, sales, incomeByCategory] = await Promise.all([
+  const [repairIn, repairOut, topup, sales, incomeByCategory, keyed] = await Promise.all([
     tx.walletLedgerEntry.aggregate({
       where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
       _sum: { amount: true },
@@ -144,15 +144,19 @@ export async function computeDayIncome(
       where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", date, currency: "MMK", ...branch },
       _sum: { amount: true },
     }),
+    // Entries carry the category's name; the standard ones are told apart by their key, so
+    // a renamed "Daily Sale Income" still counts with sales.
+    tx.category.findMany({ where: { businessId, type: "INCOME", systemKey: { not: null } }, select: { name: true, systemKey: true } }),
   ]);
-  const byBucket = { sales: 0n, service: 0n, other: 0n };
-  for (const row of incomeByCategory) byBucket[incomeBucket(row.categoryName)] += row._sum.amount ?? 0n;
+  const keyOf = new Map(keyed.map((c) => [c.name.toLowerCase(), c.systemKey]));
+  const byBucket = { sales: 0n, service: 0n, topup: 0n, other: 0n };
+  for (const row of incomeByCategory) byBucket[bucketForKey(keyOf.get((row.categoryName ?? "").toLowerCase()))] += row._sum.amount ?? 0n;
   const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
   const topupSales = topup._sum.cashAmount ?? 0n;
   const out = {
     sales: sales + byBucket.sales,
     service: repair + byBucket.service,
-    topup: topupSales,
+    topup: topupSales + byBucket.topup,
     other: byBucket.other,
   };
   return { ...out, total: out.sales + out.service + out.topup + out.other };

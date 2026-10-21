@@ -472,8 +472,12 @@ model Category {
   type       String // INCOME | EXPENSE
   name       String
   active     Boolean @default(true)
+  /// One of the standard daily categories (DAILY_SALE, DAILY_SERVICE, DAILY_BILL,
+  /// DAILY_GENERAL): can be renamed, never deleted, and the dashboard groups by it.
+  systemKey  String?
 
   @@unique([businessId, type, name])
+  @@unique([businessId, type, systemKey])
 }
 
 model IncomeExpense {
