@@ -55,10 +55,11 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
 }
 
 const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
-/** The page margins: 2mm top and bottom to save paper, and at the sides whatever the head
+/** The page margins: none at the top (the cutter already leaves a gap there), 2mm at the
+ *  bottom, and at the sides whatever the head
  *  cannot reach. An XP-80C prints 72mm of its 80mm roll, a 58mm printer about 52mm. */
 const sideMm = () => (getPaperWidth() === 58 ? 3 : 4);
-const margin = () => `2mm ${sideMm()}mm`;
+const margin = () => `0 ${sideMm()}mm 2mm`;
 /** The slip is laid out at exactly the width it prints at, on screen too, so the length
  *  measured on screen is the length printed and nothing is shrunk to fit. */
 const contentWidth = () => `${(getPaperWidth() === 58 ? 58 : 80) - 2 * sideMm()}mm`;
@@ -67,7 +68,7 @@ const contentWidth = () => `${(getPaperWidth() === 58 ? 58 : 80) - 2 * sideMm()}
  *  length of "auto" the printer used its own default length and fed blank paper after the
  *  slip; measuring the slip and naming its length stops that. */
 function autoPrint(): string {
-  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+6;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:${margin()}}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
+  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+3;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:${margin()}}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
 }
 
 function baseStyles(): string {
@@ -83,6 +84,9 @@ function baseStyles(): string {
     h1,h2,p{text-align:center;margin:2px 0}h1{font-size:18px}h2{font-size:14px}.muted{color:#555}.left{text-align:left}.right{text-align:right}.center{text-align:center}
     .meta{margin:6px 0;padding:4px 0;border-top:1px dashed #777;border-bottom:1px dashed #777}.meta div,.summary div{display:flex;justify-content:space-between;gap:10px;padding:1.5px 0}.meta span,.summary span{color:#444}
     table{width:100%;border-collapse:collapse;margin-top:4px}th,td{padding:3px 2px;border-bottom:1px dashed #999;vertical-align:top}th{text-align:left;font-size:10px}td small{display:block;color:#555;margin-top:2px}
+    /* Fixed columns: a long item name wraps instead of pushing the table past the paper. */
+    table.items{table-layout:fixed}table.items td,table.items th{overflow-wrap:anywhere;word-break:break-word}
+    table.items .c-qty{width:9%}table.items .c-price,table.items .c-total{width:23%;white-space:nowrap;overflow-wrap:normal;word-break:normal}
     .summary{margin-top:6px}.grand{font-size:15px;font-weight:bold;border-top:2px solid #111;margin-top:3px;padding-top:4px!important}.void{margin:9px 0;padding:6px;border:2px solid #b91c1c;color:#b91c1c;font-weight:bold;text-align:center;letter-spacing:2px}
     .paid{margin:6px auto;padding:6px 14px;width:fit-content;border:2px solid #111;font-size:15px;font-weight:bold;text-align:center}
     .footer{margin-top:8px;padding-top:5px;border-top:1px dashed #777;text-align:center;white-space:normal}.footer-tag{display:block;margin-top:8px;font-weight:900}.warranty{margin-top:9px;font-size:9px;color:#444;text-align:center}.qr-link{word-break:break-all;font-size:9px;color:#333}
@@ -108,15 +112,15 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
     return `
     <tr>
       <td>${escapeHtml(item.name)}${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</td>
-      <td class="center">${Number(item.quantity || 0)}</td>
-      <td class="right">${money(item.unitPrice)}</td>
-      <td class="right">${money(item.unitPrice * item.quantity)}</td>
+      <td class="center c-qty">${Number(item.quantity || 0)}</td>
+      <td class="right c-price">${money(item.unitPrice)}</td>
+      <td class="right c-total">${money(item.unitPrice * item.quantity)}</td>
     </tr>`;
   }).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sale.txnNo)}</title><style>${baseStyles()}</style></head><body>
     ${brandBlock({ name: sale.shopName, logo: sale.shopLogo, phone: sale.shopPhone, address: sale.shopAddress }, "Sale Receipt")}
     <div class="meta"><div><span>Invoice</span><b>${escapeHtml(sale.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(sale.at))}</b></div>${sale.cashierName ? `<div><span>Cashier</span><b>${escapeHtml(sale.cashierName)}</b></div>` : ""}</div>
-    <table><thead><tr><th>Item</th><th class="center">Qty</th><th class="right">Price</th><th class="right">Total</th></tr></thead><tbody>${items}</tbody></table>
+    <table class="items"><thead><tr><th>Item</th><th class="center c-qty">Qty</th><th class="right c-price">Price</th><th class="right c-total">Total</th></tr></thead><tbody>${items}</tbody></table>
     <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div>${sale.discount > 0 ? `<div><span>Discount</span><b>${money(sale.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div>${sale.paid !== sale.total || sale.change > 0 ? `<div><span>Paid</span><b>${money(sale.paid)}</b></div>` : ""}${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
     <div class="footer">Thank you.</div>
     ${autoPrint()}</body></html>`;
