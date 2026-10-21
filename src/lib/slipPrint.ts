@@ -81,7 +81,8 @@ function baseStyles(): string {
     table.items{table-layout:fixed}table.items td,table.items th{overflow-wrap:anywhere;word-break:break-word}
     table.items .c-qty{width:9%}table.items .c-price,table.items .c-total{width:23%;white-space:nowrap;overflow-wrap:normal;word-break:normal}
     .summary{margin-top:6px}.grand{font-size:15px;font-weight:bold;border-top:2px solid #111;margin-top:3px;padding-top:4px!important}.void{margin:9px 0;padding:6px;border:2px solid #b91c1c;color:#b91c1c;font-weight:bold;text-align:center;letter-spacing:2px}
-    .paid{margin:6px auto;padding:6px 14px;width:fit-content;border:2px solid #111;font-size:15px;font-weight:bold;text-align:center}
+    .voucher-no{margin:6px 0 2px;padding:5px 0 3px;border-top:1px dashed #777;text-align:center}.voucher-no span{display:block;font-size:10px;color:#444}.voucher-no b{display:block;font-size:26px;letter-spacing:1px;line-height:1.1}
+    .summary .paid{display:inline-block;margin-left:6px;padding:0 5px;border:1.5px solid #111;border-radius:3px;color:#111;font-size:11px;font-weight:bold;vertical-align:middle}
     .footer{margin-top:8px;padding-top:5px;border-top:1px dashed #777;text-align:center;white-space:normal}.footer-tag{display:block;margin-top:8px;font-weight:900}.warranty{margin-top:9px;font-size:9px;color:#444;text-align:center}.qr-link{word-break:break-all;font-size:9px;color:#333}
     .terms{margin:4px 0 0 0;padding-left:14px;text-align:left;font-size:9.5px;line-height:1.3}.qr{display:block;width:28mm;height:28mm;margin:5px auto 1px auto}
     .sign{display:flex;justify-content:space-between;margin-top:18px}.sign div{border-top:1px solid #111;padding:2px 6px;text-align:center}
@@ -142,10 +143,10 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(repair.jobNo)}</title><style>${baseStyles()}</style></head><body>
     ${brandBlock({ name: repair.shopName, logo: repair.shopLogo, phone: repair.shopPhone, address: repair.shopAddress, subtitle: repair.tagline }, "Repair Voucher")}
-    <div class="meta"><div><span>ဘောက်ချာနံပါတ်</span><b>${escapeHtml(repair.jobNo)}</b></div><div><span>လက်ခံရက်</span><b>${escapeHtml(when(repair.at))}</b></div><div><span>နာမည်</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>ဖုန်း</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
+    <div class="voucher-no"><span>ဘောက်ချာနံပါတ်</span><b>${escapeHtml(repair.jobNo)}</b></div>
+    <div class="meta" style="margin-top:2px"><div><span>လက်ခံရက်</span><b>${escapeHtml(when(repair.at))}</b></div><div><span>နာမည်</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>ဖုန်း</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
     <table><tbody><tr><th>Device</th><td>${escapeHtml(device)}</td></tr>${repair.imei ? `<tr><th>IMEI / Serial</th><td>${escapeHtml(repair.imei)}</td></tr>` : ""}<tr><th>Problem</th><td>${escapeHtml(repair.problem || "-")}</td></tr>${repair.accessories ? `<tr><th>Accessories</th><td>${escapeHtml(repair.accessories)}</td></tr>` : ""}<tr><th>Status</th><td>${escapeHtml(REPAIR_STATUS_MM[repair.status] ?? repair.status)}</td></tr></tbody></table>
-    <div class="summary"><div><span>${repair.finalCost > 0 ? "Charge" : "Estimated"}</span><b>${charged > 0 ? `${money(charged)} MMK` : "စစ်ဆေးပြီးမှ အတည်ပြုပါမည်"}</b></div><div><span>${repair.finalCost > 0 ? "Paid" : "Deposit"}</span><b>${money(repair.paidAmount)} MMK</b></div>${charged > 0 ? `<div class="grand"><span>Balance</span><b>${money(balance)} MMK</b></div>` : ""}</div>
-    ${settled ? '<div class="paid">✔ ရှင်းပြီး</div>' : ""}
+    <div class="summary"><div><span>${repair.finalCost > 0 ? "Charge" : "Estimated"}</span><b>${charged > 0 ? `${money(charged)} MMK` : "စစ်ဆေးပြီးမှ အတည်ပြုပါမည်"}</b></div><div><span>${repair.finalCost > 0 ? "Paid" : "Deposit"}</span><b>${money(repair.paidAmount)} MMK</b></div>${charged > 0 ? `<div class="grand"><span>Balance</span><b>${money(balance)} MMK${settled ? '<span class="paid">✔ ရှင်းပြီး</span>' : ""}</b></div>` : ""}</div>
     ${qr ? `<img class="qr" src="${qr}" alt="QR"/>${qrCaption ? `<p class="qr-link">${escapeHtml(qrCaption)}</p>` : ""}` : ""}
     <div class="footer">${terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
     <div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>
