@@ -1,11 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
+
+/** Today and this month in the shop's own time zone, for the period picker. */
+function today(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+/** Moves a day ("YYYY-MM-DD") or a month ("YYYY-MM") back or forward. */
+function shiftPeriod(value: string, step: number): string {
+  if (value.length === 7) {
+    const [y, m] = value.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + step, 1));
+    return d.toISOString().slice(0, 7);
+  }
+  const d = new Date(`${value}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + step);
+  return d.toISOString().slice(0, 10);
+}
 
 interface RepairJobOption {
   id: string; jobNo: string; status: string; deviceBrand: string; deviceModel: string; customerName?: string;
@@ -30,6 +47,9 @@ export default function StockPage() {
   const [adjust, setAdjust] = useState(blankAdjust);
   const [openJobs, setOpenJobs] = useState<RepairJobOption[]>([]);
   const [moveType, setMoveType] = useState("ALL");
+  // Movements are looked at a day or a month at a time.
+  const [periodKind, setPeriodKind] = useState<"day" | "month">("day");
+  const [period, setPeriod] = useState(today);
   const [adjustBranchId, setAdjustBranchId] = useState("");
   const [busy, setBusy] = useState(false);
   const [category, setCategory] = useState("ALL");
@@ -48,9 +68,28 @@ export default function StockPage() {
 
   const load = useCallback(() => {
     api<Level[]>("/api/v1/stock").then(setLevels).catch((e) => push(e.message, "error"));
-    api<Movement[]>("/api/v1/stock?movements=1").then(setMovements).catch(() => {});
-  }, [push]);
+    api<Movement[]>(`/api/v1/stock?movements=1&${period.length === 7 ? "month" : "date"}=${period}`).then(setMovements).catch(() => {});
+  }, [push, period]);
   useEffect(load, [load]);
+
+  // The cards over the movement list: what came in, what went out, and the two outs a
+  // phone shop watches, sales and parts used in repairs.
+  const totals = useMemo(() => {
+    let stockIn = 0, stockOut = 0, sold = 0, repair = 0;
+    for (const m of movements) {
+      if (m.quantity > 0) stockIn += m.quantity; else stockOut -= m.quantity;
+      if (m.type === "SALE") sold -= m.quantity;
+      if (m.type === "SALE_RETURN") sold -= m.quantity;
+      if (m.type === "REPAIR_USE") repair -= m.quantity;
+    }
+    return { stockIn, stockOut, sold, repair };
+  }, [movements]);
+
+  function choosePeriodKind(kind: "day" | "month") {
+    setPeriodKind(kind);
+    setMoveType("ALL");
+    setPeriod(kind === "month" ? today().slice(0, 7) : today());
+  }
 
   async function doAdjust() {
     if (!adjustTarget) return;
@@ -197,8 +236,65 @@ export default function StockPage() {
             ])}
           </Table>
         )
-      ) : movements.length === 0 ? <Card><Empty message="No movements" /></Card> : (
+      ) : (
         <>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
+            {(["day", "month"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => choosePeriodKind(k)}
+                className={cn("rounded-md px-3 py-1 font-medium", periodKind === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}
+              >
+                {k === "day" ? "Day" : "Month"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" aria-label="Previous" onClick={() => { setMoveType("ALL"); setPeriod(shiftPeriod(period, -1)); }}><ChevronLeft size={16} /></Button>
+            <input
+              type={periodKind === "month" ? "month" : "date"}
+              value={period}
+              max={periodKind === "month" ? today().slice(0, 7) : today()}
+              onChange={(e) => { if (e.target.value) { setMoveType("ALL"); setPeriod(e.target.value); } }}
+              className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label="Next"
+              disabled={period >= (periodKind === "month" ? today().slice(0, 7) : today())}
+              onClick={() => { setMoveType("ALL"); setPeriod(shiftPeriod(period, 1)); }}
+            >
+              <ChevronRight size={16} />
+            </Button>
+            {period !== (periodKind === "month" ? today().slice(0, 7) : today()) && (
+              <Button size="sm" variant="secondary" onClick={() => choosePeriodKind(periodKind)}>{periodKind === "month" ? "This month" : "Today"}</Button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Stock in</div>
+            <div className="text-xl font-bold tabular-nums text-green-600">+{totals.stockIn.toLocaleString()}</div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Stock out</div>
+            <div className="text-xl font-bold tabular-nums text-red-600">−{totals.stockOut.toLocaleString()}</div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Sold</div>
+            <div className="text-xl font-bold tabular-nums">{totals.sold.toLocaleString()}</div>
+          </Card>
+          <Card className="space-y-1">
+            <div className="text-xs text-gray-500">Used in repairs</div>
+            <div className="text-xl font-bold tabular-nums">{totals.repair.toLocaleString()}</div>
+          </Card>
+        </div>
+
+        {movements.length === 0 ? <Card><Empty message={periodKind === "month" ? "No movements this month" : "No movements on this day"} /></Card> : <>
         {/* Filter by what happened: every part used in repairs, everything damaged… */}
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {["ALL", ...[...new Set(movements.map((m) => m.type))]].map((t) => (
@@ -234,6 +330,7 @@ export default function StockPage() {
             </tr>
           ))}
         </Table>
+        </>}
         </>
       )}
 

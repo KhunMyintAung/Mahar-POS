@@ -6,20 +6,28 @@ import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { moveStock } from "@/services/stockService";
 import { audit } from "@/lib/audit";
+import { dateRangeUtc, isValidBusinessDate, isValidMonth, monthRangeUtc } from "@/lib/dates";
 
-// GET: stock levels (with item info); ?movements=1 returns recent movements instead.
+// GET: stock levels (with item info); ?movements=1 returns movements instead — the latest
+// 100, or every one in a day (?date=YYYY-MM-DD) or a month (?month=YYYY-MM).
 export const GET = withAuth("stock.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
   if (sp.get("movements") === "1") {
+    const date = sp.get("date");
+    const month = sp.get("month");
+    const range = date && isValidBusinessDate(date) ? dateRangeUtc(date)
+      : month && isValidMonth(month) ? monthRangeUtc(month)
+      : null;
     const movements = await prisma.stockMovement.findMany({
       where: {
         businessId: user.businessId,
         ...branchScope(user),
         ...(sp.get("itemId") ? { itemId: sp.get("itemId")! } : {}),
+        ...(range ? { createdAt: range } : {}),
       },
       include: { item: { select: { name: true, sku: true } } },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: range ? 5000 : 100,
     });
     return json(movements);
   }
