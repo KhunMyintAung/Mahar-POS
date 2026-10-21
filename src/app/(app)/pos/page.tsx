@@ -105,7 +105,7 @@ export default function PosPage() {
     if (hasPerm("sale.view")) {
       api<{ sales: RecentSale[] }>("/api/v1/sales?pageSize=5").then((d) => setRecent(d.sales)).catch(() => {});
     }
-    api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1")
+    api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1")
       .then((data) => setItems(data.items))
       .catch((error) => push(error.message, "error"));
     api<{ units: { imei: string; itemId: string }[] }>(`/api/v1/serials?status=IN_STOCK${defaultBranchId ? `&branchId=${defaultBranchId}` : ""}`)

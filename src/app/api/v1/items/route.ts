@@ -32,7 +32,8 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
         unit: { select: { name: true } },
         stockLevels: true,
       },
-      orderBy: { name: "asc" },
+      // Newest first: what was just added is what the shop is looking for.
+      orderBy: [{ createdAt: "desc" }, { name: "asc" }],
       skip, take,
     }),
     prisma.item.count({ where }),

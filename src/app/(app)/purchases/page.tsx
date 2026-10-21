@@ -47,7 +47,7 @@ export default function PurchasesPage() {
     api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=1000")
       .then((d) => setPurchases(d.purchases))
       .catch((e) => push(e.message, "error"));
-    api<{ items: Item[] }>("/api/v1/items?pageSize=200&active=1").then((d) => setItems(d.items)).catch(() => {});
+    api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1").then((d) => setItems(d.items)).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
     api<{ contacts: Contact[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200")
       .then((d) => setSuppliers(d.contacts)).catch(() => {});
