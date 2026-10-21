@@ -55,28 +55,21 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
 }
 
 const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
-/** The page margins: none at the top (the cutter already leaves a gap there), 2mm at the
- *  bottom, and at the sides whatever the head
- *  cannot reach. An XP-80C prints 72mm of its 80mm roll, a 58mm printer about 52mm. */
-const sideMm = () => (getPaperWidth() === 58 ? 3 : 4);
-const margin = () => `0 ${sideMm()}mm 2mm`;
-/** The slip is laid out at exactly the width it prints at, on screen too, so the length
- *  measured on screen is the length printed and nothing is shrunk to fit. */
-const contentWidth = () => `${(getPaperWidth() === 58 ? 58 : 80) - 2 * sideMm()}mm`;
 
-/** Prints once the slip has loaded, on a page exactly as long as the slip. With a page
- *  length of "auto" the printer used its own default length and fed blank paper after the
- *  slip; measuring the slip and naming its length stops that. */
+/** Prints once the slip (and its logo and QR) has loaded. */
 function autoPrint(): string {
-  return `<script>window.onload=()=>{const mm=Math.ceil(document.body.scrollHeight*25.4/96)+3;const s=document.createElement("style");s.textContent="@page{size:${paper()} "+mm+"mm;margin:${margin()}}";document.head.appendChild(s);setTimeout(()=>window.print(),60);};</script>`;
+  return "<script>window.onload=()=>window.print();</script>";
 }
 
 function baseStyles(): string {
   const width = paper();
   return `
-    @page{size:${width} auto;margin:${margin()}}
+    /* No page size and no margins: the printer's own roll is the page, and the slip, as
+       wide as the roll, fills it edge to edge. The shop's current app prints this way on
+       its XP-80C; naming a size and margins made the printer leave blank sides. */
+    @page{margin:0}
     *{box-sizing:border-box}
-    body{width:${contentWidth()};max-width:100%;margin:0 auto;padding:0;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
+    body{width:${width};max-width:100%;margin:0 auto;padding:1mm 2mm;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
     .slip-logo{display:block;max-width:100%;height:56px;object-fit:contain;margin:0 auto 4px auto}
     /* A thermal head prints black or nothing, so a coloured logo loses every shade lighter
        than mid-grey. A see-through PNG logo prints solid black; a JPEG in strong greys. */
