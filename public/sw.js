@@ -1,4 +1,4 @@
-const CACHE = "mahar-pos-v4";
+const CACHE = "mahar-pos-v5";
 const STATIC = [
   "/offline.html",
   "/icon-192.png",
