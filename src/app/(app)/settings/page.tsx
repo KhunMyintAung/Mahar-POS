@@ -10,6 +10,7 @@ import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCar
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
+import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -240,6 +241,8 @@ export default function SettingsPage() {
       </>}
 
       {current === "printing" && <>
+      <PrinterPaperCard />
+
       {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 
       {featureEnabled("pos") && <WarrantySettingsCard />}

@@ -12,6 +12,8 @@
  *  once printed the app screen instead of the slip.
  */
 
+import { printableMm, slipZoom } from "@/lib/printSettings";
+
 const FRAME_ID = "print-frame";
 
 function slipElement(): Element | null {
@@ -26,7 +28,9 @@ function frameDocument(slip: Element): string {
   const htmlClass = document.documentElement.className.replace(/\bdark\b/g, "");
   return `<!doctype html><html lang="my" class="${htmlClass}"><head><meta charset="utf-8">`
     + `<title>${document.title}</title>${styles}`
-    + `<style>@page{margin:0}html,body{margin:0;padding:0;background:#fff;color:#000}</style>`
+    // The slip is laid out at 58mm; on 80mm paper it is scaled up whole, so text, logo and
+    // QR keep their proportions and fill the printable width.
+    + `<style>@page{margin:0}html,body{margin:0;padding:0;background:#fff;color:#000}body{zoom:${slipZoom()}}</style>`
     + `</head><body>${slip.outerHTML}</body></html>`;
 }
 
@@ -62,7 +66,7 @@ export async function printElement(slip: Element) {
   frame.id = FRAME_ID;
   frame.setAttribute("aria-hidden", "true");
   // Off screen but laid out at the roll's width, so the browser renders it for real.
-  frame.style.cssText = "position:fixed;left:-10000px;top:0;width:58mm;height:10px;border:0;";
+  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${printableMm()}mm;height:10px;border:0;`;
   document.body.appendChild(frame);
 
   const doc = frame.contentDocument;
