@@ -8,10 +8,10 @@ import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/
 import { useAuth } from "@/components/AppShell";
 import { GsheetBackupCard } from "@/components/GsheetBackupCard";
 
-/** Reports, kept to three things: the Grand Report (income, expense, profit, salary,
- *  capital and each partner's share), the daily (or monthly) summary, and the stock of
- *  the categories picked in Report settings. The Excel file and the Google Sheet backup
- *  carry the same three. */
+/** Reports: the Grand Report (income, expense, profit, salary, capital and each partner's
+ *  share) and the daily (or monthly) summary. The Excel file and the Google Sheet backup
+ *  carry these two plus a Stock sheet of the categories picked in Report settings; stock
+ *  is not shown on this page. */
 
 type Kind = "day" | "month" | "year" | "range";
 type Money = string;
@@ -222,35 +222,6 @@ export default function ReportsPage() {
             </div>
           </Card>
 
-          {s.stockCategoryIds.length > 0 && (
-            <Card>
-              <h3 className="mb-3 text-sm font-semibold">Stock</h3>
-              <div className="max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                <table className="w-full min-w-max text-sm">
-                  <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
-                    <tr>{["Item", "Category", "Qty", "Cost", "Stock value"].map((h, i) => <th key={h} className={cn("px-3 py-2 font-medium", i > 1 ? "text-right" : "text-left")}>{h}</th>)}</tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-900">
-                    {report.stock.map((i) => (
-                      <tr key={i.name + i.category} className={cn(i.quantity <= 0 && "text-gray-400")}>
-                        <td className="max-w-[16rem] truncate px-3 py-2">{i.name}</td>
-                        <td className="px-3 py-2 text-xs text-gray-500">{i.category}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{i.quantity}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(i.cost)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(i.value)}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-50 font-semibold dark:bg-gray-800/60">
-                      <td className="px-3 py-2">Total</td><td />
-                      <td className="px-3 py-2 text-right tabular-nums">{report.stock.reduce((a, i) => a + i.quantity, 0)}</td><td />
-                      <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(report.stock.reduce((a, i) => a + big(i.value), 0n).toString())}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-
           {owner && <div className="no-print"><GsheetBackupCard period={kind} date={value} from={from} to={to} label={report.period.label} /></div>}
         </>
       )}
@@ -387,7 +358,7 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
 
           <section>
             <div className="mb-1 text-sm font-semibold">5. Stock sheet</div>
-            <p className="mb-2 text-xs text-gray-500">Only the item categories ticked here are listed (for example Spare Parts). Sub-categories come with them.</p>
+            <p className="mb-2 text-xs text-gray-500">Only in Excel and Google Sheet, not on this page. Only the item categories ticked here are listed (for example Spare Parts); sub-categories come with them.</p>
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
               {topCats.length === 0 && <p className="text-xs text-gray-400">No item categories yet</p>}
               {topCats.map((c) => (
