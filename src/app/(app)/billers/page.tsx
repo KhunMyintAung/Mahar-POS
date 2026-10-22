@@ -13,6 +13,9 @@ interface Biller {
   currentBalance: string; active: boolean; notes?: string;
   sellPercent: number; refillPercent: number; refillMode: RefillMode;
 }
+/** On this device, float purchases go into expense without asking. */
+const FLOAT_EXPENSE_KEY = "mahar.floatExpense";
+
 interface Txn {
   id: string; txnNo: string; kind: string;
   faceAmount: string; cashAmount: string; profit: string; balanceAfter: string;
@@ -73,6 +76,13 @@ export default function BillersPage() {
   const [rating, setRating] = useState<Biller | null>(null);
   const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
   const [removing, setRemoving] = useState<Biller | null>(null);
+  // After "Bought float": ask whether the cash paid goes into expense. "always" skips the question.
+  const [floatAsk, setFloatAsk] = useState<{ id: string; txnNo: string; biller: string; cash: string } | null>(null);
+  // Read once on first render; it only shows inside dialogs, never in the server-rendered page.
+  const [floatAlways, setFloatAlways] = useState(() => {
+    try { return typeof window !== "undefined" && localStorage.getItem(FLOAT_EXPENSE_KEY) === "always"; } catch { return false; }
+  });
+  const [rememberFloat, setRememberFloat] = useState(false);
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
@@ -188,7 +198,7 @@ export default function BillersPage() {
     if (!trading) return;
     setBusy(true);
     try {
-      await api("/api/v1/billers/txns", {
+      const saved = await api<{ id: string; txnNo: string; cashAmount: string }>("/api/v1/billers/txns", {
         method: "POST",
         body: {
           billerId: trading.biller.id,
@@ -202,6 +212,12 @@ export default function BillersPage() {
         },
       });
       push(KIND_LABEL[trading.kind] ?? "Saved");
+      // A float purchase paid in cash: add it to expense, asking first unless told not to.
+      if (trading.kind === "TOPUP" && cash > 0 && trade.walletId) {
+        const ask = { id: saved.id, txnNo: saved.txnNo, biller: trading.biller.name, cash: saved.cashAmount };
+        if (floatAlways) addFloatExpense(ask, true);
+        else { setRememberFloat(false); setFloatAsk(ask); }
+      }
       setTrading(null);
       load();
     } catch (e) {
@@ -209,6 +225,26 @@ export default function BillersPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function addFloatExpense(ask: { id: string; txnNo: string; cash: string }, auto = false) {
+    try {
+      await api(`/api/v1/billers/txns/${ask.id}/expense`, { method: "POST" });
+      push(`${fmtMoney(ask.cash)} added to expense${auto ? " (auto)" : ""}`);
+      if (rememberFloat) {
+        try { localStorage.setItem(FLOAT_EXPENSE_KEY, "always"); } catch { /* private mode */ }
+        setFloatAlways(true);
+      }
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Could not add to expense", "error");
+    } finally {
+      setFloatAsk(null);
+    }
+  }
+
+  function askAgain() {
+    try { localStorage.removeItem(FLOAT_EXPENSE_KEY); } catch { /* private mode */ }
+    setFloatAlways(false);
   }
 
   async function applyVoid() {
@@ -518,9 +554,31 @@ export default function BillersPage() {
               </>
             )}
             <Input label="Note" value={trade.note} onChange={(e) => setTrade({ ...trade, note: e.target.value })} />
+            {trading.kind === "TOPUP" && floatAlways && (
+              <p className="text-xs text-gray-500">The cash paid is added to expense automatically. <button type="button" className="text-blue-600" onClick={askAgain}>Ask me instead</button></p>
+            )}
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="secondary" onClick={() => setTrading(null)}>Cancel</Button>
               <Button onClick={applyTrade} disabled={busy || !amountOk || (trading.kind !== "ADJUST" && cash > 0 && !trade.walletId)}>{busy ? "Saving…" : "Save"}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(floatAsk)} onClose={() => setFloatAsk(null)} title="Add to expense?">
+        {floatAsk && (
+          <div className="space-y-3">
+            <p className="text-sm">
+              Add <b className="tabular-nums">{fmtMoney(floatAsk.cash)}</b> paid for <b>{floatAsk.biller}</b> float ({floatAsk.txnNo}) to expense as <b>Daily Bill Expense</b>?
+            </p>
+            <p className="text-xs text-gray-500">The money already left the wallet with this purchase; this only records it as an expense, so it is not taken out twice. Reports then count top-up cost from your float purchases.</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={rememberFloat} onChange={(e) => setRememberFloat(e.target.checked)} />
+              Always add, don&apos;t ask again
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setFloatAsk(null)}>No</Button>
+              <Button onClick={() => addFloatExpense(floatAsk)}>Yes, add to expense</Button>
             </div>
           </div>
         )}

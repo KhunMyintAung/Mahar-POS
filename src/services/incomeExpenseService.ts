@@ -4,6 +4,8 @@ import { nextNumber } from "@/lib/sequence";
 import { postLedger, reverseLedgerEntries } from "./walletService";
 import { assertDateOpen } from "./closeGuard";
 import { audit } from "@/lib/audit";
+import { businessDateOf } from "@/lib/dates";
+import { ensureStandardCategories } from "@/lib/incomeCategories";
 
 // Shared by the HTTP API and the Telegram bot so both stay in lockstep.
 // WITHDRAW behaves like EXPENSE (money leaves the wallet) but is tracked as
@@ -89,7 +91,8 @@ export async function reverseIncomeExpense(
   if (it.status === "REVERSED") throw new ApiError(422, "Already reversed");
   if (!opts.reason.trim()) throw new ApiError(422, "A reason is required");
 
-  await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
+  // A float-purchase record moved no money of its own (the purchase did), so nothing to undo.
+  if (!it.billerTxnId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
 
   await tx.incomeExpense.update({ where: { id: it.id }, data: { status: "REVERSED" } });
 
@@ -100,4 +103,58 @@ export async function reverseIncomeExpense(
     reason: opts.reason,
     before: { status: it.status, type: it.type, amount: it.amount },
   });
+}
+
+/** Records a biller float purchase as an expense (Daily Bill Expense), on the owner's say-so
+ *  after "Bought float". The purchase already took the cash out of the wallet, so this entry
+ *  moves no money: it is the record that puts the cost in Income & Expense and in Reports,
+ *  where it stands in for the top-up cost estimated from sales. One record per purchase. */
+export async function recordFloatExpense(tx: Tx, opts: { businessId: string; userId: string; billerTxnId: string }) {
+  const txn = await tx.billerTxn.findFirst({ where: { id: opts.billerTxnId, businessId: opts.businessId }, include: { biller: true } });
+  if (!txn) throw new ApiError(404, "Float purchase not found");
+  if (txn.kind !== "TOPUP") throw new ApiError(422, "Only a float purchase can be recorded as expense");
+  if (txn.voidedAt) throw new ApiError(422, `${txn.txnNo} is voided`);
+  if (txn.cashAmount <= 0n || !txn.walletId) throw new ApiError(422, "This purchase has no cash paid to record");
+  const existing = await tx.incomeExpense.findUnique({ where: { billerTxnId: txn.id } });
+  if (existing && existing.status !== "REVERSED") return existing;
+
+  await ensureStandardCategories(tx, opts.businessId);
+  const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: "DAILY_BILL" } });
+  const wallet = await tx.wallet.findUnique({ where: { id: txn.walletId } });
+  if (!wallet) throw new ApiError(404, "Wallet not found");
+  const date = businessDateOf(txn.createdAt);
+  // The wallet's branch, else the purchase's, else the shop's first branch.
+  const branchId = wallet.branchId ?? txn.branchId ?? (await tx.branch.findFirst({ where: { businessId: opts.businessId }, orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
+  if (!branchId) throw new ApiError(422, "No branch to file the expense under");
+  const categoryName = category?.name ?? "Daily Bill Expense";
+  const description = `Bought float · ${txn.biller.name} (${txn.txnNo})`;
+
+  const it = existing
+    // Recorded before, then reversed: bring the same record back.
+    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: txn.cashAmount, categoryName, description } })
+    : await tx.incomeExpense.create({
+        data: {
+          txnNo: await nextNumber(tx, opts.businessId, "EXPENSE"),
+          businessId: opts.businessId,
+          branchId,
+          type: "EXPENSE",
+          categoryId: category?.id,
+          categoryName,
+          amount: txn.cashAmount,
+          currency: wallet.currency,
+          walletId: wallet.id,
+          date,
+          reference: txn.txnNo,
+          description,
+          billerTxnId: txn.id,
+          createdById: opts.userId,
+        },
+      });
+
+  await audit(tx, {
+    businessId: opts.businessId, userId: opts.userId, branchId,
+    action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
+    after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount: txn.cashAmount, floatPurchase: txn.txnNo },
+  });
+  return it;
 }

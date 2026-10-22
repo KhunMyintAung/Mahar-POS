@@ -69,15 +69,19 @@ export function parseReportSettings(raw: unknown): ReportSettings {
 }
 
 /** The daily summary's columns: each section's money in and money out.
- *  Expense of a section is what it cost to earn that income: goods sold at cost, the operator's share of top-up cash, plus the section's own expense entries.
- *  So income − expense is the profit, before staff salary. */
-export function incomeExpenseOf(r: PeriodRow) {
+ *  Expense of a section is what it cost to earn that income: goods sold at cost, top-up cost,
+ *  plus the section's own expense entries. So income − expense is the profit, before salary.
+ *
+ *  Top-up cost is the float actually bought when the shop records its float purchases as
+ *  expense (`floatMode`), and otherwise the operator's share of the top-up cash sold. Never
+ *  both, so it is not counted twice. */
+export function incomeExpenseOf(r: PeriodRow, floatMode = false) {
   const income = { sales: r.sales, service: r.service, topup: r.topup, other: r.otherIncome, total: 0n };
   income.total = income.sales + income.service + income.topup + income.other;
   const expense = {
     sales: r.salesCost + r.expSales,
     service: r.expService,
-    topup: r.topup - r.topupMargin + r.expTopup,
+    topup: (floatMode ? r.floatBought : r.topup - r.topupMargin) + r.expTopup,
     other: r.expGeneral,
     total: 0n,
   };
@@ -101,6 +105,8 @@ export interface PeriodRow {
   cashIn: bigint; cashOut: bigint;
   /** expense split by the section it comes out of (salary not included). */
   expSales: bigint; expService: bigint; expTopup: bigint; expGeneral: bigint;
+  /** Float bought from billers, recorded as expense from the Biller page (no second wallet move). */
+  floatBought: bigint;
 }
 
 type Finished = { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint } & ReturnType<typeof incomeExpenseOf>;
@@ -137,7 +143,7 @@ function foldHidden(r: PeriodRow, shown: ReportSections) {
   if (!shown.topup) {
     // Only the margin is the shop's; the rest of top-up cash belongs to the operator.
     r.otherIncome += r.topupMargin; r.expGeneral += r.expTopup;
-    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n;
+    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n; r.floatBought = 0n;
   }
 }
 
@@ -162,7 +168,7 @@ export interface Report {
 const zeroRow = (period: string): PeriodRow => ({
   period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
-  expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n,
+  expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n,
 });
 
 /** Section profits for one row (or the totals). */
@@ -234,7 +240,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: "SALE", createdAt: range, ...branch }, select: { cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
       where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
-      select: { type: true, categoryName: true, amount: true, date: true },
+      select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true },
     }),
     prisma.category.findMany({ where: { businessId, systemKey: { not: null } }, select: { name: true, type: true, systemKey: true } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: range } }),
@@ -282,6 +288,9 @@ export async function buildReport(businessId: string, from: string, to: string, 
       else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; }
       else r.otherIncome += e.amount;
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
+    } else if (e.type === "EXPENSE" && e.billerTxnId) {
+      r.floatBought += e.amount;
+      expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE") {
       if (salarySet.has(name.toLowerCase())) r.salary += e.amount;
       else {
@@ -298,12 +307,16 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }
   }
 
+  // Float purchases recorded as expense in this period: top-up cost comes from them.
+  const floatMode = entries.some((e) => e.type === "EXPENSE" && e.billerTxnId);
   const finish = (r: PeriodRow) => {
     const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
-    // Top-up counts at its margin: the rest of that cash is the operator's credit passing through.
-    const grossProfit = r.sales - r.salesCost + r.service + r.topupMargin + r.otherIncome;
+    // Top-up counts at its margin (or less the float bought): the rest of that cash is the
+    // operator's credit passing through.
+    const topupProfit = floatMode ? r.topup - r.floatBought : r.topupMargin;
+    const grossProfit = r.sales - r.salesCost + r.service + topupProfit + r.otherIncome;
     const netProfit = grossProfit - r.expense - r.salary;
-    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
+    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r, floatMode) };
   };
   for (const r of rows.values()) foldHidden(r, shown);
   const ordered = [...rows.values()].sort((a, b) => a.period.localeCompare(b.period)).map(finish);

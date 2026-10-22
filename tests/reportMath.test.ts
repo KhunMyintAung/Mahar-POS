@@ -5,7 +5,7 @@ import { buildXlsx } from "../src/lib/xlsx";
 
 const row = (over: Partial<PeriodRow>): PeriodRow => ({
   period: "2026-10", sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
-  expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n, expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n,
+  expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n, expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n,
   ...over,
 });
 
@@ -19,6 +19,15 @@ describe("report maths", () => {
     // Top-up expense is the operator's share of the cash: 1,000,000 − 30,000.
     expect(r.exp.topup).toBe(970_000_00n);
     expect(r.net).toBe(3_465_000_00n - 3_088_500_00n + 15_000_00n - 2_000_00n + 30_000_00n + 5_000_00n - 1_000_00n);
+  });
+
+  it("uses the float bought as top-up cost when float purchases are recorded, never both", () => {
+    const r = row({ topup: 500_000_00n, topupMargin: 16_000_00n, floatBought: 484_000_00n, expTopup: 1_000_00n });
+    expect(incomeExpenseOf(r, false).exp.topup).toBe(485_000_00n);
+    expect(incomeExpenseOf(r, true).exp.topup).toBe(485_000_00n);
+    const more = row({ topup: 200_000_00n, topupMargin: 6_000_00n, floatBought: 500_000_00n });
+    expect(incomeExpenseOf(more, false).exp.topup).toBe(194_000_00n);
+    expect(incomeExpenseOf(more, true).exp.topup).toBe(500_000_00n);
   });
 
   it("keeps a percent for next month and splits the rest equally", () => {

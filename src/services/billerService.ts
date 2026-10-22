@@ -246,6 +246,11 @@ export async function voidBillerTxn(
     });
   }
 
+  // Its expense record, if the owner made one, goes with it.
+  if (kind === "TOPUP") {
+    await tx.incomeExpense.updateMany({ where: { businessId: opts.businessId, billerTxnId: record.id, status: "COMPLETED" }, data: { status: "REVERSED" } });
+  }
+
   const voided = await tx.billerTxn.update({
     where: { id: record.id },
     data: { voidedAt: new Date(), voidedById: opts.userId, voidReason: opts.reason },
