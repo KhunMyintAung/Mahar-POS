@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
-import { ImeiAdjustFields, ImeiListModal, ImeiSearch } from "@/components/ImeiTools";
+import { ImeiAdjustFields, ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
 
@@ -176,8 +176,6 @@ export default function StockPage() {
         ))}
       </div>
 
-      {tab === "levels" && levels.some((l) => l.trackSerial) && <ImeiSearch />}
-
       {tab === "levels" && levels.length > 0 && (
         <div className="space-y-2">
           <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -206,9 +204,10 @@ export default function StockPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name or SKU"
-            className="min-h-10 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-800"
+            placeholder={levels.some((l) => l.trackSerial) ? "Search name, SKU or IMEI" : "Search name or SKU"}
+            className="min-h-10 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm"
           />
+          {levels.some((l) => l.trackSerial) && <ImeiMatches query={q} />}
         </div>
       )}
 

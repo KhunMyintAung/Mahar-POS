@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtDateTime } from "@/lib/format";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
-import { Button, Card, Modal, cn, useToast } from "@/components/ui";
+import { Button, Modal, cn, useToast } from "@/components/ui";
 
 export interface ImeiUnit {
   id: string; imei: string; status: "IN_STOCK" | "SOLD" | "REMOVED"; itemId: string; itemName: string; sku: string;
@@ -124,55 +123,38 @@ export function ImeiListModal({ item, branchId, stockQty, canAdjust, onClose, on
   );
 }
 
-/** Look up a phone by its IMEI (or the end of it): which model, in stock or sold, to whom. */
-export function ImeiSearch() {
-  const [q, setQ] = useState("");
-  const [units, setUnits] = useState<ImeiUnit[] | null>(null);
-  const [busy, setBusy] = useState(false);
-  const { push } = useToast();
+/** Phones whose IMEI matches what is typed in the stock search (4 digits or more, the
+ *  whole IMEI or its last digits): which model, in stock or sold, to whom. Shows nothing
+ *  for a name or SKU search. */
+export function ImeiMatches({ query }: { query: string }) {
+  const needle = query.replace(/[\s-]/g, "");
+  const isImei = /^\d{4,20}$/.test(needle);
+  const [found, setFound] = useState<{ needle: string; units: ImeiUnit[] } | null>(null);
 
-  async function find() {
-    const needle = q.replace(/[\s-]/g, "");
-    if (needle.length < 4) return;
-    setBusy(true);
-    try {
-      const d = await api<{ units: ImeiUnit[] }>(`/api/v1/serials?q=${encodeURIComponent(needle)}`);
-      setUnits(d.units);
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    if (!isImei) return;
+    // Waits for a pause in typing, so a scan or a typed IMEI is looked up once.
+    const timer = window.setTimeout(() => {
+      api<{ units: ImeiUnit[] }>(`/api/v1/serials?q=${encodeURIComponent(needle)}`)
+        .then((d) => setFound({ needle, units: d.units }))
+        .catch(() => setFound({ needle, units: [] }));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [needle, isImei]);
 
+  if (!isImei || !found || found.needle !== needle || found.units.length === 0) return null;
   return (
-    <Card className="space-y-2">
-      <div className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-3 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => { setQ(e.target.value); if (!e.target.value) setUnits(null); }}
-            onKeyDown={(e) => { if (e.key === "Enter") find(); }}
-            placeholder="Find a phone by IMEI (or its last digits)"
-            className="min-h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 font-mono text-sm dark:border-gray-700 dark:bg-gray-800"
-          />
-        </div>
-        <Button variant="secondary" disabled={busy || q.replace(/[\s-]/g, "").length < 4} onClick={find}>Find</Button>
-      </div>
-      {units && (units.length === 0 ? <p className="text-sm text-gray-500">No phone with that IMEI.</p> : (
-        <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
-          {units.map((u) => (
-            <div key={u.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-              <span className="font-mono">{u.imei}</span>
-              <span className="font-medium">{u.itemName}</span>
-              <StatusTag status={u.status} />
-              <span className="ml-auto text-xs text-gray-500">{whereNow(u)}</span>
-            </div>
-          ))}
+    <div className="divide-y divide-gray-100 rounded-lg border border-blue-200 bg-blue-50/40 dark:divide-gray-800 dark:border-blue-900 dark:bg-blue-950/20">
+      <div className="px-3 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300">IMEI match</div>
+      {found.units.map((u) => (
+        <div key={u.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+          <span className="font-mono">{u.imei}</span>
+          <span className="font-medium">{u.itemName}</span>
+          <StatusTag status={u.status} />
+          <span className="ml-auto text-xs text-gray-500">{whereNow(u)}</span>
         </div>
       ))}
-    </Card>
+    </div>
   );
 }
 

@@ -984,6 +984,8 @@ const MM: Record<string, string> = {
   "3. Capital for next month": "၃။ နောက်လအတွက် အရင်း",
   "4. Partners": "၄။ အစုရှင်များ",
   "5. Stock sheet": "၅။ Stock စာရင်း",
+  "Search name, SKU or IMEI": "အမည်၊ SKU သို့မဟုတ် IMEI ဖြင့် ရှာရန်",
+  "IMEI match": "IMEI တွေ့သည်",
 };
 
 const originalText = new WeakMap<Node, string>();
