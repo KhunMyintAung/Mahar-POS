@@ -127,3 +127,28 @@ export function businessNameFrom(identity: { email: string; name?: string }): st
   // The registration rule is a minimum of two characters.
   return (local.length >= 2 ? local : `${local}00`).slice(0, 80);
 }
+
+/** The OAuth client id alone. With no secret configured, sign-in uses Google's own button
+ *  (an ID token checked below) instead of the redirect flow. */
+export function googleClientId(): string | null {
+  return process.env.GOOGLE_CLIENT_ID?.trim() || null;
+}
+
+const TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
+
+/** Checks an ID token from Google's sign-in button with Google itself (server to server),
+ *  and that it was issued to this site's client id and has not expired. */
+export async function verifyIdToken(credential: string, clientId: string): Promise<GoogleIdentity> {
+  const res = await fetch(`${TOKENINFO_URL}?id_token=${encodeURIComponent(credential)}`, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new Error(`Google rejected the token (${res.status})`);
+  const info = (await res.json()) as { aud?: string; iss?: string; exp?: string; email?: string; email_verified?: string | boolean; name?: string };
+  if (info.aud !== clientId) throw new Error("Token was issued to another app");
+  if (info.iss !== "accounts.google.com" && info.iss !== "https://accounts.google.com") throw new Error("Token not from Google");
+  if (!info.exp || Number(info.exp) * 1000 < Date.now()) throw new Error("Token expired");
+  if (!info.email) throw new Error("Google returned no email address");
+  return {
+    email: info.email.toLowerCase(),
+    emailVerified: info.email_verified === true || String(info.email_verified) === "true",
+    name: info.name,
+  };
+}

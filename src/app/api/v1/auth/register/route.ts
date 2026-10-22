@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSession, SESSION_COOKIE } from "@/lib/auth";
 import { errorJson, handleError, parseBody } from "@/lib/api";
 import { registerTenant } from "@/lib/tenant";
+import { notifyNewSignup, sendWelcomeEmail } from "@/lib/mail";
 
 const schema = z.object({
   businessName: z.string().trim().min(2).max(80),
@@ -39,7 +40,10 @@ export async function POST(req: NextRequest) {
     }
 
     const input = await parseBody(req, schema);
-    const { owner } = await registerTenant(input);
+    const { business, owner } = await registerTenant(input);
+    // Neither waits: a slow or missing mail service never holds up the new shop.
+    sendWelcomeEmail({ to: input.email, name: owner.name, businessName: business.name, username: owner.username });
+    notifyNewSignup({ businessName: business.name, email: input.email, username: owner.username, method: "Register form" });
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const { token, expiresAt } = await createSession(owner.id, { ip, userAgent });
 

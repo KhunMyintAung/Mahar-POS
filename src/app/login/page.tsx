@@ -71,6 +71,9 @@ export default function LoginPage() {
           <Input label="Username or email" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
           <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="-mt-2 text-right">
+            <Link className="text-xs text-gray-500 hover:text-blue-600" href="/forgot-password">Forgot password?</Link>
+          </div>
           <Button type="submit" disabled={loading || !username || !password} className="w-full">
             {loading ? "Signing in…" : "Sign in"}
           </Button>

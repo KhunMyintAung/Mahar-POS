@@ -37,7 +37,8 @@ const nextConfig: NextConfig = {
           ? [{
               key: "Content-Security-Policy",
               value:
-                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src https://www.openstreetmap.org",
+                // Google's sign-in button loads its script, style and frame from accounts.google.com/gsi.
+                "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://www.openstreetmap.org https://accounts.google.com/gsi/",
             }]
           : []),
       ],

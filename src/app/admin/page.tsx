@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Building2, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { Button, Card, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
+import { AdminShops } from "@/components/AdminShops";
 
 interface AdminStats {
   registeredAccounts: number;
@@ -282,6 +283,8 @@ export default function AdminPage() {
             return <div key={item.key}>{content}</div>;
           })}
         </section>
+
+        {named && <AdminShops />}
 
         <div className="grid items-start gap-4 xl:grid-cols-2">
         {named && <section ref={userAuditRef} className="scroll-mt-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">

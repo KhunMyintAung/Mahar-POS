@@ -986,6 +986,18 @@ const MM: Record<string, string> = {
   "5. Stock sheet": "၅။ Stock စာရင်း",
   "Search name, SKU or IMEI": "အမည်၊ SKU သို့မဟုတ် IMEI ဖြင့် ရှာရန်",
   "IMEI match": "IMEI တွေ့သည်",
+  "Forgot password?": "စကားဝှက် မေ့နေပါသလား?",
+  "Forgot password": "စကားဝှက် မေ့နေသည်",
+  "Send reset link": "ပြန်သတ်မှတ်ရန် လင့်ခ် ပို့မည်",
+  "Back to sign in": "ဝင်ရန် စာမျက်နှာသို့",
+  "Type the email of your account. We will send you a link to set a new password.": "သင့်အကောင့်၏ အီးမေးလ်ကို ရိုက်ပါ။ စကားဝှက်အသစ် သတ်မှတ်ရန် လင့်ခ် ပို့ပေးပါမည်။",
+  "If an account uses that email, a reset link is on its way. Check your inbox (and spam). The link works for 1 hour.": "ထိုအီးမေးလ်ဖြင့် အကောင့်ရှိပါက လင့်ခ် ပို့ပြီးပါပြီ။ Inbox (နှင့် Spam) ကို စစ်ပါ။ လင့်ခ်သည် ၁ နာရီ အသုံးပြုနိုင်ပါသည်။",
+  "Set a new password": "စကားဝှက်အသစ် သတ်မှတ်မည်",
+  "New password": "စကားဝှက်အသစ်",
+  "New password again": "စကားဝှက်အသစ် ထပ်ရိုက်ပါ",
+  "Save new password": "စကားဝှက်အသစ် သိမ်းမည်",
+  "At least 8 characters.": "အနည်းဆုံး စာလုံး ၈ လုံး။",
+  "The two passwords are not the same": "စကားဝှက် နှစ်ခု မတူပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
