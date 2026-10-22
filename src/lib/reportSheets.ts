@@ -1,6 +1,6 @@
 import { addDays, isValidBusinessDate, isValidMonth, todayBusinessDate } from "./dates";
 import { ApiError } from "./api";
-import type { Report } from "@/services/reportService";
+import { STOCK_BRANDS, type Report } from "@/services/reportService";
 import type { Cell, Sheet } from "./xlsx";
 
 /** Shared by the Excel download and the Google Sheet backup, so both carry the same
@@ -70,10 +70,43 @@ export function reportSheets(r: Report, title: string): Sheet[] {
     { name: "Grand Report", rows: grand, boldRows: bold },
     { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [1, daily.length - 1] },
   ];
-  if (s.stockCategoryIds.length) {
-    const total = r.stock.reduce((a, i) => a + i.value, 0n);
-    const stock: Cell[][] = [["Item", "Category", "Qty", "Cost", "Stock value"], ...r.stock.map((i) => [i.name, i.category, i.quantity, n(i.cost), n(i.value)]), ["TOTAL", "", r.stock.reduce((a, i) => a + i.quantity, 0), "", n(total)]];
-    sheets.push({ name: "Stock", rows: stock, boldRows: [stock.length - 1] });
-  }
+  if (s.stockCategoryIds.length) sheets.push(stockSheet(r.stock));
   return sheets;
+}
+
+/** Stock laid out the way the shop keeps it: each brand side by side as a Name / QTY pair,
+ *  and on the right a summary per brand (items, units, and items at zero). */
+function stockSheet(stock: Report["stock"]): Sheet {
+  const order = [...STOCK_BRANDS.map((b) => b.name)];
+  const groups = new Map<string, Report["stock"]>();
+  for (const i of stock) groups.set(i.group, [...(groups.get(i.group) ?? []), i]);
+  const names = [...groups.keys()].sort((a, b) => {
+    const ia = a === "Other" ? 999 : order.indexOf(a) < 0 ? 500 : order.indexOf(a);
+    const ib = b === "Other" ? 999 : order.indexOf(b) < 0 ? 500 : order.indexOf(b);
+    return ia - ib || a.localeCompare(b);
+  });
+  const label = (g: string) => (g === "Other" ? "အခြား ပစ္စည်းများ" : g);
+  const height = Math.max(0, ...names.map((g) => groups.get(g)!.length));
+  const summaryCol = names.length * 2 + 1;
+  const rows: Cell[][] = [[...names.flatMap((g) => [label(g), "QTY"]), "", "Brand / Category", "Items", "Units", "Zero Qty"]];
+  for (let r = 0; r < height; r++) {
+    const row: Cell[] = [];
+    for (const g of names) {
+      const item = groups.get(g)![r];
+      row.push(item ? item.name : "", item ? item.quantity : "");
+    }
+    rows.push(row);
+  }
+  // Summary block beside the columns, one brand per row, then the total.
+  const summary: Cell[][] = names.map((g) => {
+    const list = groups.get(g)!;
+    return [label(g), list.length, list.reduce((a, i) => a + i.quantity, 0), list.filter((i) => i.quantity <= 0).length];
+  });
+  summary.push(["TOTAL", stock.length, stock.reduce((a, i) => a + i.quantity, 0), stock.filter((i) => i.quantity <= 0).length]);
+  summary.forEach((line, k) => {
+    const row = rows[k + 1] ?? (rows[k + 1] = []);
+    while (row.length < summaryCol) row.push("");
+    row.push(...line);
+  });
+  return { name: "Stock", rows, boldRows: [summary.length] };
 }

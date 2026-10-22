@@ -122,7 +122,7 @@ export interface Report {
   rows: (PeriodRow & Finished)[];
   totals: PeriodRow & Finished & { saleCount: number };
   /** Current stock of the chosen categories. */
-  stock: { name: string; category: string; quantity: number; cost: bigint; value: bigint }[];
+  stock: { name: string; category: string; group: string; quantity: number; cost: bigint; value: bigint }[];
   incomeByCategory: { name: string; amount: bigint }[];
   expenseByCategory: { name: string; amount: bigint; salary: boolean }[];
   salesByItem: { name: string; quantity: number; revenue: bigint; cost: bigint; profit: bigint }[];
@@ -329,17 +329,43 @@ export async function buildReport(businessId: string, from: string, to: string, 
   };
 }
 
+/** Phone brands for the Stock sheet's columns, in the shop's order. Sister brands sit
+ *  together (Xiaomi and POCO with Redmi, Realme with Oppo). */
+export const STOCK_BRANDS: { name: string; match: RegExp }[] = [
+  { name: "Redmi", match: /redmi|xiaomi|poco/i },
+  { name: "Oppo", match: /oppo|realme|oneplus/i },
+  { name: "Vivo", match: /vivo|(^|[\s/])[yv]\d/i },
+  { name: "Infinix", match: /infinix/i },
+  { name: "Tecno", match: /tecno|itel|spark|camon|pova/i },
+  { name: "Samsung", match: /samsung|galaxy/i },
+  { name: "Huawei", match: /huawei|honor|nova/i },
+  { name: "iPhone", match: /i\s?phone|apple/i },
+];
+
+/** The brand named first in an item's name, or "Other". */
+export function brandOf(name: string): string {
+  let best = "Other";
+  let at = Infinity;
+  for (const b of STOCK_BRANDS) {
+    const m = b.match.exec(name);
+    if (m && m.index < at) { at = m.index; best = b.name; }
+  }
+  return best;
+}
+
 /** Items in the chosen categories (and their sub-categories) with the stock on hand now. */
 async function stockOf(businessId: string, categoryIds: string[], branchIds?: string[]) {
   if (!categoryIds.length) return [];
   const children = await prisma.itemCategory.findMany({ where: { businessId, parentId: { in: categoryIds } }, select: { id: true } });
   const items = await prisma.item.findMany({
     where: { businessId, deletedAt: null, active: true, categoryId: { in: [...categoryIds, ...children.map((c) => c.id)] } },
-    select: { name: true, costPrice: true, category: { select: { name: true } }, stockLevels: { where: branchIds ? { branchId: { in: branchIds } } : {}, select: { quantity: true } } },
+    select: { name: true, costPrice: true, category: { select: { name: true, parentId: true } }, stockLevels: { where: branchIds ? { branchId: { in: branchIds } } : {}, select: { quantity: true } } },
     orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
   });
   return items.map((i) => {
     const quantity = i.stockLevels.reduce((a, l) => a + l.quantity, 0);
-    return { name: i.name, category: i.category?.name ?? "", quantity, cost: i.costPrice, value: i.costPrice * BigInt(quantity) };
+    // A sub-category (Spare Parts › Redmi) is the brand; otherwise the brand is read from the name.
+    const group = i.category?.parentId ? i.category.name : brandOf(i.name);
+    return { name: i.name, category: i.category?.name ?? "", group, quantity, cost: i.costPrice, value: i.costPrice * BigInt(quantity) };
   });
 }
