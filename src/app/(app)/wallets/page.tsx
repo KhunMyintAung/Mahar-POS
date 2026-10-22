@@ -9,6 +9,7 @@ import { minorToDecimalString } from "@/lib/money";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { WalletDay } from "@/components/WalletDay";
 
 interface Wallet {
   id: string; name: string; code: string; type: string; currency: string;
@@ -138,6 +139,11 @@ export default function WalletsPage() {
           ))}
         </Table>
       )}
+
+      {wallets.length > 0 && <p className="-mt-2 text-xs text-gray-500">Tap a wallet name to see its full history.</p>}
+
+      {/* The day: money in and out, transfers, withdrawals, every movement. */}
+      <WalletDay refreshKey={wallets} />
 
       {/* New wallet */}
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New wallet">

@@ -11,6 +11,9 @@ import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 
+/** On this device, purchases go into expense without asking. */
+const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
+
 interface Purchase {
   id: string; txnNo: string; date: string; total: string; paidAmount: string;
   paymentStatus: string; status: string; supplierName?: string; createdAt: string;
@@ -114,10 +117,32 @@ export default function PurchasesPage() {
     : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
     : "";
 
+  // After a purchase: ask whether its cost goes into expense. "always" skips the question.
+  const [expenseAsk, setExpenseAsk] = useState<{ id: string; txnNo: string; total: string } | null>(null);
+  const [expenseAlways, setExpenseAlways] = useState(() => {
+    try { return typeof window !== "undefined" && localStorage.getItem(PURCHASE_EXPENSE_KEY) === "always"; } catch { return false; }
+  });
+  const [rememberExpense, setRememberExpense] = useState(false);
+
+  async function addPurchaseExpense(ask: { id: string; total: string }, auto = false) {
+    try {
+      await api(`/api/v1/purchases/${ask.id}/expense`, { method: "POST" });
+      push(`${fmtMoney(ask.total)} added to expense${auto ? " (auto)" : ""}`);
+      if (rememberExpense) {
+        try { localStorage.setItem(PURCHASE_EXPENSE_KEY, "always"); } catch { /* private mode */ }
+        setExpenseAlways(true);
+      }
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Could not add to expense", "error");
+    } finally {
+      setExpenseAsk(null);
+    }
+  }
+
   async function create() {
     setBusy(true);
     try {
-      await api("/api/v1/purchases", {
+      const saved = await api<{ id: string; txnNo: string; total: string }>("/api/v1/purchases", {
         method: "POST",
         body: {
           branchId: defaultBranchId,
@@ -133,6 +158,11 @@ export default function PurchasesPage() {
         },
       });
       push("Purchase recorded — stock updated");
+      if (BigInt(saved.total) > 0n) {
+        const ask = { id: saved.id, txnNo: saved.txnNo, total: saved.total };
+        if (expenseAlways) addPurchaseExpense(ask, true);
+        else { setRememberExpense(false); setExpenseAsk(ask); }
+      }
       setShowNew(false);
       load();
     } catch (e) {
@@ -369,6 +399,9 @@ export default function PurchasesPage() {
             )}
           </div>
 
+          {expenseAlways && (
+            <p className="text-xs text-gray-500">The purchase is added to expense automatically. <button type="button" className="text-blue-600" onClick={() => { try { localStorage.removeItem(PURCHASE_EXPENSE_KEY); } catch { /* private mode */ } setExpenseAlways(false); }}>Ask me instead</button></p>
+          )}
           <div className="flex items-center justify-end gap-2">
             {problem && <span className="mr-auto text-xs text-gray-500">{problem}</span>}
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -377,6 +410,23 @@ export default function PurchasesPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal open={Boolean(expenseAsk)} onClose={() => setExpenseAsk(null)} title="Add to expense?">
+        {expenseAsk && (
+          <div className="space-y-3">
+            <p className="text-sm">Add <b className="tabular-nums">{fmtMoney(expenseAsk.total)}</b> for purchase <b>{expenseAsk.txnNo}</b> to expense as <b>Daily Sale Expense</b>?</p>
+            <p className="text-xs text-gray-500">The purchase already paid (or owes) the supplier; this only records it as an expense, so money is not taken out twice. Reports then count sales cost from what you bought.</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={rememberExpense} onChange={(e) => setRememberExpense(e.target.checked)} />
+              Always add, don&apos;t ask again
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setExpenseAsk(null)}>No</Button>
+              <Button onClick={() => addPurchaseExpense(expenseAsk)}>Yes, add to expense</Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Cancel ${cancelTarget?.txnNo}`}>

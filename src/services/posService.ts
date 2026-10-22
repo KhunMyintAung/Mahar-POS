@@ -435,6 +435,7 @@ export async function cancelSaleOrPurchase(
       if (pay) await tx.payable.update({ where: { id: pay.id }, data: { status: "CANCELLED", remainingAmount: 0n } });
     }
     await tx.purchase.update({ where: { id: record.id }, data: { status: "CANCELLED" } });
+    await tx.incomeExpense.updateMany({ where: { businessId: opts.businessId, purchaseId: record.id, status: "COMPLETED" }, data: { status: "REVERSED" } });
   }
 
   await audit(tx, {

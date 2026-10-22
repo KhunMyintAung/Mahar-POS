@@ -498,6 +498,9 @@ model IncomeExpense {
   /// Set on the expense record of a biller float purchase: the purchase already took the
   /// money out of the wallet, so this entry moves no money of its own.
   billerTxnId  String?   @unique
+  /// Set on the expense record of a purchase: the purchase itself paid the supplier, so
+  /// this entry moves no money of its own either.
+  purchaseId   String?   @unique
   createdById  String
   approvedById String?
   createdAt    DateTime  @default(now())

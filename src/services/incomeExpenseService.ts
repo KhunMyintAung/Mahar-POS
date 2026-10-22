@@ -91,8 +91,8 @@ export async function reverseIncomeExpense(
   if (it.status === "REVERSED") throw new ApiError(422, "Already reversed");
   if (!opts.reason.trim()) throw new ApiError(422, "A reason is required");
 
-  // A float-purchase record moved no money of its own (the purchase did), so nothing to undo.
-  if (!it.billerTxnId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
+  // A float or stock purchase record moved no money of its own (the purchase did), so nothing to undo.
+  if (!it.billerTxnId && !it.purchaseId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
 
   await tx.incomeExpense.update({ where: { id: it.id }, data: { status: "REVERSED" } });
 
@@ -155,6 +155,58 @@ export async function recordFloatExpense(tx: Tx, opts: { businessId: string; use
     businessId: opts.businessId, userId: opts.userId, branchId,
     action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
     after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount: txn.cashAmount, floatPurchase: txn.txnNo },
+  });
+  return it;
+}
+
+/** Records a stock purchase as an expense (Daily Sale Expense), on the owner's say-so after
+ *  saving it. Like the float record it moves no money — the purchase paid (or owes) the
+ *  supplier — and in Reports it stands in for the cost of goods sold. One per purchase. */
+export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; userId: string; purchaseId: string }) {
+  const purchase = await tx.purchase.findFirst({ where: { id: opts.purchaseId, businessId: opts.businessId, deletedAt: null } });
+  if (!purchase) throw new ApiError(404, "Purchase not found");
+  if (purchase.status !== "COMPLETED") throw new ApiError(422, `${purchase.txnNo} is cancelled`);
+  if (purchase.total <= 0n) throw new ApiError(422, "This purchase has nothing to record (all FOC)");
+  const existing = await tx.incomeExpense.findUnique({ where: { purchaseId: purchase.id } });
+  if (existing && existing.status !== "REVERSED") return existing;
+
+  await ensureStandardCategories(tx, opts.businessId);
+  const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: "DAILY_SALE" } });
+  // The wallet that paid, or for a purchase on credit the branch's first MMK wallet.
+  const wallet = purchase.walletId
+    ? await tx.wallet.findUnique({ where: { id: purchase.walletId } })
+    : await tx.wallet.findFirst({ where: { businessId: opts.businessId, branchId: purchase.branchId, currency: "MMK", deletedAt: null }, orderBy: { createdAt: "asc" } })
+      ?? await tx.wallet.findFirst({ where: { businessId: opts.businessId, deletedAt: null }, orderBy: { createdAt: "asc" } });
+  if (!wallet) throw new ApiError(422, "Add a wallet first");
+  const supplier = purchase.supplierId ? await tx.contact.findUnique({ where: { id: purchase.supplierId }, select: { name: true } }) : null;
+  const categoryName = category?.name ?? "Daily Sale Expense";
+  const description = `Stock purchase ${purchase.txnNo}${supplier ? ` · ${supplier.name}` : ""}`;
+
+  const it = existing
+    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: purchase.total, categoryName, description } })
+    : await tx.incomeExpense.create({
+        data: {
+          txnNo: await nextNumber(tx, opts.businessId, "EXPENSE"),
+          businessId: opts.businessId,
+          branchId: purchase.branchId,
+          type: "EXPENSE",
+          categoryId: category?.id,
+          categoryName,
+          amount: purchase.total,
+          currency: wallet.currency,
+          walletId: wallet.id,
+          date: purchase.date,
+          reference: purchase.txnNo,
+          description,
+          purchaseId: purchase.id,
+          createdById: opts.userId,
+        },
+      });
+
+  await audit(tx, {
+    businessId: opts.businessId, userId: opts.userId, branchId: purchase.branchId,
+    action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
+    after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount: purchase.total, purchase: purchase.txnNo },
   });
   return it;
 }

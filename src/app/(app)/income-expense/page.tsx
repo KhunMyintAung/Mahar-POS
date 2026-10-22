@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
@@ -16,9 +16,19 @@ interface Item {
 interface Category { id: string; type: string; name: string; systemKey?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 
+const todayDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+const shiftDay = (d: string, by: number) => {
+  const x = new Date(`${d}T00:00:00Z`);
+  x.setUTCDate(x.getUTCDate() + by);
+  return x.toISOString().slice(0, 10);
+};
+
 export default function IncomeExpensePage() {
   const [items, setItems] = useState<Item[] | null>(null);
-  const [totals, setTotals] = useState({ income: "0", expense: "0" });
+  const [totals, setTotals] = useState({ income: "0", expense: "0", withdraw: "0" });
+  // The day shown, or every day when "All dates" is picked.
+  const [day, setDay] = useState(todayDate);
+  const [allDates, setAllDates] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [showNew, setShowNew] = useNewModal();
@@ -38,12 +48,12 @@ export default function IncomeExpensePage() {
   const [form, setForm] = useState({ type: "EXPENSE", categoryName: "", amount: "", walletId: "", date: "", description: "", reference: "" });
 
   const load = useCallback(() => {
-    api<{ items: Item[]; totals: { income: string; expense: string } }>("/api/v1/income-expense?pageSize=100")
+    api<{ items: Item[]; totals: { income: string; expense: string; withdraw: string } }>(`/api/v1/income-expense?pageSize=100${allDates ? "" : `&date=${day}`}`)
       .then((d) => { setItems(d.items); setTotals(d.totals); })
       .catch((e) => push(e.message, "error"));
     api<Category[]>("/api/v1/categories").then(setCategories).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push]);
+  }, [push, day, allDates]);
   useEffect(load, [load]);
 
   async function create() {
@@ -178,13 +188,31 @@ export default function IncomeExpensePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Total income" value={fmtMoney(totals.income, "MMK")} tone="green" />
-        <StatCard label="Total expense" value={fmtMoney(totals.expense, "MMK")} tone="red" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">
+          <button type="button" onClick={() => setAllDates(false)} className={`rounded-md px-3 py-1.5 text-sm ${!allDates ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-300"}`}>Day</button>
+          <button type="button" onClick={() => setAllDates(true)} className={`rounded-md px-3 py-1.5 text-sm ${allDates ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-300"}`}>All dates</button>
+        </div>
+        {!allDates && (
+          <div className="flex items-center gap-1">
+            <button type="button" aria-label="Previous day" onClick={() => setDay(shiftDay(day, -1))} className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronLeft size={18} /></button>
+            <input type="date" value={day} max={todayDate()} onChange={(e) => e.target.value && setDay(e.target.value)}
+              className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
+            <button type="button" aria-label="Next day" disabled={day >= todayDate()} onClick={() => setDay(shiftDay(day, 1))} className="rounded-lg p-2 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800"><ChevronRight size={18} /></button>
+            {day !== todayDate() && <button type="button" onClick={() => setDay(todayDate())} className="ml-1 text-sm text-blue-600">Today</button>}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label={allDates ? "Total income" : day === todayDate() ? "Today's income" : "Income"} value={fmtMoney(totals.income, "MMK")} tone="green" />
+        <StatCard label={allDates ? "Total expense" : day === todayDate() ? "Today's expense" : "Expense"} value={fmtMoney(totals.expense, "MMK")} tone="red" />
+        <StatCard label="Income − expense" value={fmtMoney((BigInt(totals.income) - BigInt(totals.expense)).toString(), "MMK")} tone={BigInt(totals.income) >= BigInt(totals.expense) ? "blue" : "red"} />
+        <StatCard label="Withdrawals" value={fmtMoney(totals.withdraw ?? "0", "MMK")} tone="amber" />
       </div>
 
       {items.length === 0 ? (
-        <Card><Empty message="No entries yet" /></Card>
+        <Card><Empty message={allDates ? "No entries yet" : "No entries on this day"} /></Card>
       ) : (
         <Table headers={["Txn", "Date", "Type", "Category", "Description", "Amount", ""]} rightAlign={[5]}>
           {items.map((it) => (

@@ -5,7 +5,7 @@ import { buildXlsx } from "../src/lib/xlsx";
 
 const row = (over: Partial<PeriodRow>): PeriodRow => ({
   period: "2026-10", sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
-  expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n, expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n,
+  expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n, expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n, stockBought: 0n,
   ...over,
 });
 
@@ -28,6 +28,13 @@ describe("report maths", () => {
     const more = row({ topup: 200_000_00n, topupMargin: 6_000_00n, floatBought: 500_000_00n });
     expect(incomeExpenseOf(more, false).exp.topup).toBe(194_000_00n);
     expect(incomeExpenseOf(more, true).exp.topup).toBe(500_000_00n);
+  });
+
+  it("uses the stock bought as sales cost when purchases are recorded", () => {
+    const r = row({ sales: 1_000_000_00n, salesCost: 800_000_00n, stockBought: 1_500_000_00n, expSales: 5_000_00n });
+    expect(incomeExpenseOf(r).exp.sales).toBe(805_000_00n);
+    expect(incomeExpenseOf(r, false, true).exp.sales).toBe(1_505_000_00n);
+    expect(incomeExpenseOf(r, false, true).net).toBe(-505_000_00n);
   });
 
   it("keeps a percent for next month and splits the rest equally", () => {
