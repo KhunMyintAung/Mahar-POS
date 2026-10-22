@@ -102,6 +102,6 @@ export async function GET(req: NextRequest) {
   return publicJson({
     ok: true,
     total: GUIDES.length,
-    guides: GUIDES.slice(0, limit).map((g) => ({ ...g, categoryLabel: LABEL[g.category], manualUrl: "" })),
+    guides: GUIDES.slice(0, limit).map((g) => ({ ...g, categoryLabel: LABEL[g.category], manualUrl: `https://maharpos.shop/manual/${g.slug}/` })),
   });
 }
