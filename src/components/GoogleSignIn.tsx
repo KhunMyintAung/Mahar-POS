@@ -68,7 +68,9 @@ export function GoogleSignIn({ label = "Continue with Google" }: { label?: strin
             .catch((e) => setError(e instanceof Error ? e.message : "Google sign-in failed"));
         },
       });
-      google.accounts.id.renderButton(el, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", width: el.clientWidth || 320 });
+      // In the app's language (Myanmar or English), not whatever the browser is set to.
+      const locale = document.documentElement.lang?.startsWith("my") ? "my" : "en";
+      google.accounts.id.renderButton(el, { type: "standard", theme: "outline", size: "large", text: "continue_with", shape: "rectangular", width: el.clientWidth || 320, locale });
     }).catch(() => { if (!cancelled) setError("Google sign-in could not load. Check your connection."); });
     return () => { cancelled = true; };
   }, [clientId]);
