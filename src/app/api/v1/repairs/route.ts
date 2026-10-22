@@ -7,6 +7,7 @@ import { toMinor } from "@/lib/money";
 import { createRepairJob, PRIORITIES, REPAIR_STATUSES } from "@/services/repairService";
 import { BENCH_STATUSES } from "@/lib/repairStatus";
 import { trackToken } from "@/lib/repairTrack";
+import { autoCorrectName } from "@/lib/autoCorrect";
 import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
 
 /** What the repair page needs beyond the row: the voucher's QR link and who took it in. */
@@ -84,8 +85,9 @@ const createSchema = z.object({
   customerId: z.string().optional(),
   customerName: z.string().trim().max(120).optional(),
   customerPhone: z.string().trim().max(40).optional(),
-  deviceBrand: z.string().trim().min(1).max(60),
-  deviceModel: z.string().trim().min(1).max(80),
+  // Typos are mended as they are saved: "iphne 12promax" → "iPhone 12 Pro Max".
+  deviceBrand: z.string().trim().min(1).max(60).transform(autoCorrectName),
+  deviceModel: z.string().trim().min(1).max(80).transform(autoCorrectName),
   imei: z.string().trim().max(40).optional(),
   accessories: z.string().trim().max(300).optional(),
   problem: z.string().trim().min(1).max(500),

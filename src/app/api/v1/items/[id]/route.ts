@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
+import { autoCorrectName } from "@/lib/autoCorrect";
 import { itemsWithStock } from "@/lib/itemStock";
 
 export const GET = withAuth("item.view", async ({ user, params }) => {
@@ -19,7 +20,7 @@ export const GET = withAuth("item.view", async ({ user, params }) => {
 });
 
 const schema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(1).transform(autoCorrectName).optional(),
   barcode: z.string().optional(),
   categoryId: z.string().nullable().optional(),
   unitId: z.string().nullable().optional(),

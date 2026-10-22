@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { autoCorrectName } from "@/lib/autoCorrect";
 import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
@@ -312,7 +313,7 @@ export default function ItemsPage() {
 
       <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); }} title={editItem ? `Edit ${editItem.name}` : "New item"}>
         <div className="space-y-3">
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: autoCorrectName(f.name) }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="SKU"

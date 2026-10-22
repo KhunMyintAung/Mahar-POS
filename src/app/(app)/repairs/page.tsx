@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { autoCorrectDevice } from "@/lib/autoCorrect";
 import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
@@ -129,6 +130,12 @@ const blankForm = {
   estimatedCost: "", depositAmount: "", depositWalletId: "",
   promisedAt: "", notes: "",
 };
+
+/** Brand and model with typos mended once the field is left ("iphne 12promax" → iPhone, 12 Pro Max). */
+function correctedDevice(f: { deviceBrand: string; deviceModel: string }) {
+  const { brand, model } = autoCorrectDevice(f.deviceBrand, f.deviceModel);
+  return { deviceBrand: brand, deviceModel: model };
+}
 
 export default function RepairsPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
@@ -552,8 +559,8 @@ export default function RepairsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Customer name" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
             <Input label="Phone" value={form.customerPhone} onChange={(e) => setForm({ ...form, customerPhone: e.target.value })} />
-            <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={form.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, form.deviceModel, (deviceBrand, deviceModel) => setForm({ ...form, deviceBrand, deviceModel }), "repair-model-new")} placeholder="Vivo / Oppo / Redmi" />
-            <Input id="repair-model-new" label="Model" list="repair-model-suggestions" autoComplete="off" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} placeholder={form.deviceBrand ? `${form.deviceBrand} model` : "Y28 / A3x / Note 13"} />
+            <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={form.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, form.deviceModel, (deviceBrand, deviceModel) => setForm({ ...form, deviceBrand, deviceModel }), "repair-model-new")} onBlur={() => setForm((f) => ({ ...f, ...correctedDevice(f) }))} placeholder="Vivo / Oppo / Redmi" />
+            <Input id="repair-model-new" label="Model" list="repair-model-suggestions" autoComplete="off" value={form.deviceModel} onChange={(e) => setForm({ ...form, deviceModel: e.target.value })} onBlur={() => setForm((f) => ({ ...f, ...correctedDevice(f) }))} placeholder={form.deviceBrand ? `${form.deviceBrand} model` : "Y28 / A3x / Note 13"} />
             <Input label="Estimated charge" value={form.estimatedCost} onChange={(e) => setForm({ ...form, estimatedCost: e.target.value })} placeholder="0" />
             <Input label="Deposit taken" value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} placeholder="0" />
           </div>
@@ -645,8 +652,8 @@ export default function RepairsPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Customer name" value={edit.customerName} onChange={(e) => setEdit({ ...edit, customerName: e.target.value })} />
               <Input label="Phone" value={edit.customerPhone} onChange={(e) => setEdit({ ...edit, customerPhone: e.target.value })} />
-              <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} />
-              <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} />
+              <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
+              <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
               <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}

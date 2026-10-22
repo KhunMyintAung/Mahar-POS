@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { generateSku } from "@/lib/sku";
 import { audit } from "@/lib/audit";
+import { autoCorrectName } from "@/lib/autoCorrect";
 import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
@@ -42,7 +43,8 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
 });
 
 const schema = z.object({
-  name: z.string().min(1),
+  // Brand and model words put right ("samsng a15" → "Samsung A15"); the rest kept as typed.
+  name: z.string().min(1).transform(autoCorrectName),
   // Optional: a counter that does not keep product codes should not have to invent
   // one to save an item. Left empty, one is generated from the name.
   sku: z.string().optional(),

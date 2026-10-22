@@ -2,6 +2,7 @@ import { z } from "zod";
 import { withAuth, json, parseBody } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
+import { autoCorrectName } from "@/lib/autoCorrect";
 import { PRIORITIES, updateRepairDetails } from "@/services/repairService";
 
 /** Correct what was written down at intake: names, phone, device, problem, quote. */
@@ -13,8 +14,8 @@ const optional = (max: number) =>
 const schema = z.object({
   customerName: optional(120),
   customerPhone: optional(40),
-  deviceBrand: z.string().trim().min(1).max(60).optional(),
-  deviceModel: z.string().trim().min(1).max(80).optional(),
+  deviceBrand: z.string().trim().min(1).max(60).transform(autoCorrectName).optional(),
+  deviceModel: z.string().trim().min(1).max(80).transform(autoCorrectName).optional(),
   imei: optional(40),
   accessories: optional(300),
   problem: z.string().trim().min(1).max(500).optional(),
