@@ -12,25 +12,55 @@ import { bucketForKey } from "@/lib/incomeCategories";
  *  - Profit: what the shop earned. Sales count at their margin over cost, top-up at its
  *    margin, service and other income in full; operating expenses, staff salary and repair
  *    parts come off. Shares (owner and partner drawings) are shown after net profit.
+ *  - Sections: each part of the shop (sales, service, top-up & bill, general) has its own
+ *    income and expense, and its own profit. Their sum is the profit; staff salary comes off
+ *    that, then the capital kept for next month, and what is left is split among partners.
  *  - Cash flow: money that actually moved through the wallets, in and out, including
  *    buying stock, which is not an expense until the stock is sold. */
 
 export const REPORT_SETTING = "report_settings";
+
+export type Section = "sales" | "service" | "topup" | "general";
+export const SECTIONS: Section[] = ["sales", "service", "topup", "general"];
+
+export interface Partner { name: string; percent: number }
 
 export interface ReportSettings {
   /** Expense categories that are staff pay, shown as their own line. */
   salaryCategories: string[];
   /** Show owner and partner withdrawals as "Shares". */
   showShares: boolean;
+  /** Which section general expenses (Daily General Expense and the shop's own expense
+   *  categories, such as rent) come out of. "general" keeps them in a section of their own. */
+  generalExpenseTo: Section;
+  /** Kept back from net profit as capital for next month: a percent, or an amount (MMK)
+   *  per month. */
+  reserve: { mode: "percent" | "amount"; value: number };
+  /** Who shares what is left. Percents of 0 for everyone mean equal shares. */
+  partners: Partner[];
 }
 
-export const DEFAULT_REPORT_SETTINGS: ReportSettings = { salaryCategories: [], showShares: true };
+export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
+  salaryCategories: [], showShares: true, generalExpenseTo: "service", reserve: { mode: "percent", value: 0 }, partners: [],
+};
 
 export function parseReportSettings(raw: unknown): ReportSettings {
   const v = (raw && typeof raw === "object" ? raw : {}) as Partial<ReportSettings>;
+  const reserve = v.reserve && typeof v.reserve === "object" ? v.reserve : DEFAULT_REPORT_SETTINGS.reserve;
   return {
     salaryCategories: Array.isArray(v.salaryCategories) ? v.salaryCategories.filter((x): x is string => typeof x === "string").slice(0, 20) : [],
     showShares: v.showShares !== false,
+    generalExpenseTo: SECTIONS.includes(v.generalExpenseTo as Section) ? (v.generalExpenseTo as Section) : DEFAULT_REPORT_SETTINGS.generalExpenseTo,
+    reserve: {
+      mode: reserve.mode === "amount" ? "amount" : "percent",
+      value: Number.isFinite(Number(reserve.value)) && Number(reserve.value) >= 0 ? Number(reserve.value) : 0,
+    },
+    partners: Array.isArray(v.partners)
+      ? v.partners
+          .filter((p): p is Partner => Boolean(p && typeof p.name === "string" && p.name.trim()))
+          .map((p) => ({ name: p.name.trim().slice(0, 60), percent: Math.max(0, Math.min(100, Number(p.percent) || 0)) }))
+          .slice(0, 10)
+      : [],
   };
 }
 
@@ -48,6 +78,19 @@ export interface PeriodRow {
   sales: bigint; salesCost: bigint; service: bigint; topup: bigint; topupMargin: bigint; otherIncome: bigint;
   expense: bigint; salary: bigint; repairParts: bigint; shares: bigint;
   cashIn: bigint; cashOut: bigint;
+  /** expense split by the section it comes out of (salary not included). */
+  expSales: bigint; expService: bigint; expTopup: bigint; expGeneral: bigint;
+}
+
+export interface SectionResult { section: Section; income: { label: string; amount: bigint }[]; expense: { label: string; amount: bigint }[]; profit: bigint }
+
+export interface Distribution {
+  netProfit: bigint;
+  reserve: bigint;
+  distributable: bigint;
+  /** Months the reserve amount was counted for. */
+  months: number;
+  partners: { name: string; percent: number; amount: bigint }[];
 }
 
 export interface Report {
@@ -61,12 +104,47 @@ export interface Report {
   repairs: { received: number; finished: number; delivered: number; cancelled: number; collected: bigint };
   wallets: { name: string; currency: string; opening: bigint; moneyIn: bigint; moneyOut: bigint; closing: bigint }[];
   purchases: { count: number; total: bigint };
+  sections: SectionResult[];
+  distribution: Distribution;
 }
 
 const zeroRow = (period: string): PeriodRow => ({
   period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, repairParts: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
+  expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n,
 });
+
+/** Section profits for one row (or the totals). */
+export function sectionsOf(r: PeriodRow): SectionResult[] {
+  return [
+    { section: "sales", income: [{ label: "Sales", amount: r.sales }], expense: [{ label: "Cost of goods sold", amount: r.salesCost }, { label: "Sale expenses", amount: r.expSales }], profit: r.sales - r.salesCost - r.expSales },
+    { section: "service", income: [{ label: "Service / repair", amount: r.service }], expense: [{ label: "Repair parts used", amount: r.repairParts }, { label: "Service expenses", amount: r.expService }], profit: r.service - r.repairParts - r.expService },
+    { section: "topup", income: [{ label: "Top-up & bill margin", amount: r.topupMargin }], expense: [{ label: "Bill expenses", amount: r.expTopup }], profit: r.topupMargin - r.expTopup },
+    { section: "general", income: [{ label: "General income", amount: r.otherIncome }], expense: [{ label: "General expenses", amount: r.expGeneral }], profit: r.otherIncome - r.expGeneral },
+  ];
+}
+
+/** Net profit less the capital kept back, split among the partners in whole kyats. */
+export function distribute(netProfit: bigint, settings: ReportSettings, months: number): Distribution {
+  const positive = netProfit > 0n ? netProfit : 0n;
+  let reserve = settings.reserve.mode === "percent"
+    ? (positive * BigInt(Math.round(Math.min(settings.reserve.value, 100) * 100))) / 10000n
+    : BigInt(Math.round(settings.reserve.value)) * 100n * BigInt(months);
+  if (reserve > positive) reserve = positive;
+  const distributable = positive - reserve;
+  const list = settings.partners;
+  const totalPct = list.reduce((a, p) => a + p.percent, 0);
+  const weights = list.map((p) => BigInt(Math.round((totalPct > 0 ? p.percent : 1) * 100)));
+  const weightSum = weights.reduce((a, w) => a + w, 0n);
+  const kyats = distributable / 100n;
+  const shares = weights.map((w) => (weightSum > 0n ? (kyats * w) / weightSum : 0n));
+  // The kyats lost to rounding go to the first partner, so the shares add up.
+  if (shares.length) shares[0] += kyats - shares.reduce((a, x) => a + x, 0n);
+  return {
+    netProfit, reserve, distributable, months,
+    partners: list.map((p, i) => ({ name: p.name, percent: totalPct > 0 ? p.percent : Math.round(10000 / list.length) / 100, amount: shares[i] * 100n })),
+  };
+}
 
 /** Day keys from one date to another, or month keys. */
 function periodKeys(from: string, to: string, groupBy: "day" | "month"): string[] {
@@ -107,7 +185,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
       select: { type: true, categoryName: true, amount: true, date: true },
     }),
-    prisma.category.findMany({ where: { businessId, type: "INCOME", systemKey: { not: null } }, select: { name: true, systemKey: true } }),
+    prisma.category.findMany({ where: { businessId, systemKey: { not: null } }, select: { name: true, type: true, systemKey: true } }),
     prisma.stockMovement.findMany({ where: { businessId, type: "REPAIR_USE", createdAt: range, ...branch }, select: { quantity: true, createdAt: true, item: { select: { costPrice: true } } } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: range } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, completedAt: range } }),
@@ -133,7 +211,15 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }
   }
   for (const b of billerSales) { const r = at(businessDateOf(b.createdAt)); r.topup += b.cashAmount; r.topupMargin += b.profit; }
-  const keyByName = new Map(keyedCats.map((c) => [c.name.toLowerCase(), c.systemKey]));
+  const keyByName = new Map(keyedCats.filter((c) => c.type === "INCOME").map((c) => [c.name.toLowerCase(), c.systemKey]));
+  const expenseKey = new Map(keyedCats.filter((c) => c.type === "EXPENSE").map((c) => [c.name.toLowerCase(), c.systemKey]));
+  const expenseSection = (name: string): Section => {
+    const k = expenseKey.get(name.toLowerCase());
+    if (k === "DAILY_SALE") return "sales";
+    if (k === "DAILY_SERVICE") return "service";
+    if (k === "DAILY_BILL") return "topup";
+    return settings.generalExpenseTo;
+  };
   const incomeCats = new Map<string, bigint>();
   const expenseCats = new Map<string, bigint>();
   for (const e of entries) {
@@ -147,7 +233,15 @@ export async function buildReport(businessId: string, from: string, to: string, 
       else r.otherIncome += e.amount;
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE") {
-      if (salarySet.has(name.toLowerCase())) r.salary += e.amount; else r.expense += e.amount;
+      if (salarySet.has(name.toLowerCase())) r.salary += e.amount;
+      else {
+        r.expense += e.amount;
+        const sec = expenseSection(name);
+        if (sec === "sales") r.expSales += e.amount;
+        else if (sec === "service") r.expService += e.amount;
+        else if (sec === "topup") r.expTopup += e.amount;
+        else r.expGeneral += e.amount;
+      }
       expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "WITHDRAW") {
       r.shares += e.amount;
@@ -187,10 +281,13 @@ export async function buildReport(businessId: string, from: string, to: string, 
     list.filter((x) => x.walletId === id).reduce((a, x) => a + (x.direction === "DEBIT" ? x.amount : -x.amount), 0n);
   const afterFlat = after.map((a) => ({ walletId: a.walletId, direction: a.direction, amount: a._sum.amount ?? 0n }));
 
+  const totals = finish(sum);
   return {
     from, to, groupBy, settings,
+    sections: sectionsOf(sum),
+    distribution: distribute(totals.netProfit, settings, periodKeys(from, to, "month").length),
     rows: ordered,
-    totals: { ...finish(sum), saleCount: sales.length },
+    totals: { ...totals, saleCount: sales.length },
     incomeByCategory: [...incomeCats].map(([name, amount]) => ({ name, amount })).sort((a, b) => Number(b.amount - a.amount)),
     expenseByCategory: [...expenseCats].map(([name, amount]) => ({ name, amount, salary: salarySet.has(name.toLowerCase()) })).sort((a, b) => Number(b.amount - a.amount)),
     salesByItem: [...byItem.values()].map((i) => ({ ...i, profit: i.revenue - i.cost })).sort((a, b) => Number(b.revenue - a.revenue)),

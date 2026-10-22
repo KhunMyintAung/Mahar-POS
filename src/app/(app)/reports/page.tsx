@@ -19,7 +19,7 @@ interface Row {
 interface Report {
   from: string; to: string; groupBy: "day" | "month";
   period: { kind: Kind; label: string };
-  settings: { salaryCategories: string[]; showShares: boolean };
+  settings: Settings;
   rows: Row[];
   totals: Row & { saleCount: number };
   incomeByCategory: { name: string; amount: Money }[];
@@ -28,7 +28,15 @@ interface Report {
   repairs: { received: number; finished: number; delivered: number; cancelled: number; collected: Money };
   wallets: { name: string; currency: string; opening: Money; moneyIn: Money; moneyOut: Money; closing: Money }[];
   purchases: { count: number; total: Money };
+  sections: { section: Section; income: { label: string; amount: Money }[]; expense: { label: string; amount: Money }[]; profit: Money }[];
+  distribution: { netProfit: Money; reserve: Money; distributable: Money; months: number; partners: { name: string; percent: number; amount: Money }[] };
 }
+type Section = "sales" | "service" | "topup" | "general";
+interface Settings {
+  salaryCategories: string[]; showShares: boolean; generalExpenseTo: Section;
+  reserve: { mode: "percent" | "amount"; value: number }; partners: { name: string; percent: number }[];
+}
+const SECTION_NAME: Record<Section, string> = { sales: "Sales section", service: "Service section", topup: "Top-up & bill section", general: "General section" };
 
 const big = (m: Money) => BigInt(m);
 const num = (m: Money) => Number(BigInt(m)) / 100;
@@ -168,24 +176,37 @@ export default function ReportsPage() {
             <StatCard label="Net cash flow" value={fmtMoney(t.netCash)} sub="Money in − money out" tone={big(t.netCash) < 0n ? "red" : "green"} />
           </div>
 
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">
+            {report.sections.map((x) => (
+              <Card key={x.section}>
+                <h3 className="mb-1 text-sm font-semibold">{SECTION_NAME[x.section]}</h3>
+                {x.income.map((l) => <Line2 key={l.label} label={l.label} value={l.amount} />)}
+                {x.expense.map((l) => <Line2 key={l.label} label={l.label} value={l.amount} minus />)}
+                <Line2 label="Profit" value={x.profit} strong />
+              </Card>
+            ))}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
             <Card>
-              <h3 className="mb-2 text-sm font-semibold">Profit &amp; loss</h3>
-              <Line2 label="Sales" value={t.sales} />
-              <Line2 label="Cost of goods sold" value={t.salesCost} minus />
-              <Line2 label="Service / repair" value={t.service} />
-              <Line2 label="Top-up & bill margin" value={t.topupMargin} hint={`of ${fmtMoney(t.topup)} sold`} />
-              <Line2 label="Other income" value={t.otherIncome} />
-              {big(t.repairParts) > 0n && <Line2 label="Repair parts used" value={t.repairParts} minus />}
-              <Line2 label="Gross profit" value={t.grossProfit} strong />
-              <Line2 label="Expenses" value={t.expense} minus />
-              {showSalary && <Line2 label="Staff salary" value={t.salary} minus />}
+              <h3 className="mb-2 text-sm font-semibold">Profit &amp; split</h3>
+              {report.sections.map((x) => (
+                <Line2 key={x.section} label={SECTION_NAME[x.section]} value={x.profit} />
+              ))}
+              <Line2 label="Profit" value={(big(t.netProfit) + big(t.salary)).toString()} strong />
+              <Line2 label="Staff salary" value={t.salary} minus />
               <Line2 label="Net profit" value={t.netProfit} strong />
-              {s.showShares && (
-                <>
-                  <Line2 label="Shares / owner drawings" value={t.shares} minus />
-                  <Line2 label="Kept in the business" value={(big(t.netProfit) - big(t.shares)).toString()} strong />
-                </>
+              <Line2 label="Capital kept for next month" value={report.distribution.reserve} minus
+                hint={s.reserve.mode === "percent" ? `${s.reserve.value}%` : `${fmtMoney(String(s.reserve.value * 100))} × ${report.distribution.months} month${report.distribution.months === 1 ? "" : "s"}`} />
+              <Line2 label="To share" value={report.distribution.distributable} strong />
+              {report.distribution.partners.length > 0 ? report.distribution.partners.map((p) => (
+                <div key={p.name} className="flex items-baseline justify-between gap-3 py-1 pl-3 text-sm">
+                  <span className="text-gray-600 dark:text-gray-300">{p.name} <span className="text-xs text-gray-400">{p.percent}%</span></span>
+                  <span className="font-semibold tabular-nums text-blue-600 dark:text-blue-400">{fmtMoney(p.amount)}</span>
+                </div>
+              )) : <p className="pt-1 text-xs text-gray-400">Add partners in Report settings (⚙) to see each one&apos;s share.</p>}
+              {s.showShares && big(t.shares) > 0n && (
+                <p className="mt-2 text-xs text-gray-500">Already taken out this period (withdrawals): {fmtMoney(t.shares)}</p>
               )}
             </Card>
             <Card>
@@ -321,6 +342,10 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
   const [cats, setCats] = useState<string[]>([]);
   const [salary, setSalary] = useState<string[]>([]);
   const [shares, setShares] = useState(true);
+  const [generalTo, setGeneralTo] = useState<Section>("service");
+  const [reserveMode, setReserveMode] = useState<"percent" | "amount">("percent");
+  const [reserveValue, setReserveValue] = useState("0");
+  const [partners, setPartners] = useState<{ name: string; percent: string }[]>([]);
   const [busy, setBusy] = useState(false);
 
   const refresh = () => api<{ name: string }[]>("/api/v1/categories?type=EXPENSE").then((list) => setCats(list.map((c) => c.name)));
@@ -328,11 +353,15 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
     if (!open) return;
     Promise.all([
       api<{ name: string }[]>("/api/v1/categories?type=EXPENSE"),
-      api<{ salaryCategories: string[]; showShares: boolean }>("/api/v1/reports/settings"),
+      api<Settings>("/api/v1/reports/settings"),
     ]).then(([list, cfg]) => {
       setCats(list.map((c) => c.name));
       setSalary(cfg.salaryCategories);
       setShares(cfg.showShares);
+      setGeneralTo(cfg.generalExpenseTo);
+      setReserveMode(cfg.reserve.mode);
+      setReserveValue(String(cfg.reserve.value));
+      setPartners(cfg.partners.map((p) => ({ name: p.name, percent: p.percent ? String(p.percent) : "" })));
     }).catch((e) => push(e.message, "error"));
   }, [open, push]);
 
@@ -353,7 +382,14 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
   async function save() {
     setBusy(true);
     try {
-      await api("/api/v1/reports/settings", { method: "PUT", body: { salaryCategories: salary, showShares: shares } });
+      await api("/api/v1/reports/settings", {
+        method: "PUT",
+        body: {
+          salaryCategories: salary, showShares: shares, generalExpenseTo: generalTo,
+          reserve: { mode: reserveMode, value: Number(reserveValue.replace(/,/g, "")) || 0 },
+          partners: partners.filter((p) => p.name.trim()).map((p) => ({ name: p.name.trim(), percent: Number(p.percent) || 0 })),
+        },
+      });
       push("Report settings saved");
       onSaved();
       onClose();
@@ -389,6 +425,43 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
             <span className="block text-xs text-gray-500">Owner and partner withdrawals, shown after net profit. Record them in Income / Expense as Withdraw.</span>
           </span>
         </label>
+        <div>
+          <div className="mb-1 text-sm font-semibold">General expenses come out of</div>
+          <p className="mb-2 text-xs text-gray-500">Daily General Expense and your own expense categories (rent, electricity…).</p>
+          <select value={generalTo} onChange={(e) => setGeneralTo(e.target.value as Section)} className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm w-full">
+            <option value="service">Service section</option>
+            <option value="sales">Sales section</option>
+            <option value="topup">Top-up &amp; bill section</option>
+            <option value="general">A General section of its own</option>
+          </select>
+        </div>
+        <div>
+          <div className="mb-1 text-sm font-semibold">Capital kept for next month</div>
+          <p className="mb-2 text-xs text-gray-500">Taken from net profit (after salary) before the partners share the rest.</p>
+          <div className="flex gap-2">
+            <select value={reserveMode} onChange={(e) => setReserveMode(e.target.value as "percent" | "amount")} className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm">
+              <option value="percent">% of net profit</option>
+              <option value="amount">MMK each month</option>
+            </select>
+            <input inputMode="decimal" value={reserveValue} onChange={(e) => setReserveValue(e.target.value)} className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm min-w-0 flex-1 text-right" />
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-sm font-semibold">Partners</div>
+          <p className="mb-2 text-xs text-gray-500">Leave every % empty to share equally (3 partners = a third each), or give each a % that adds up to 100.</p>
+          <div className="space-y-2">
+            {partners.map((p, i) => (
+              <div key={i} className="flex gap-2">
+                <input placeholder="Name" value={p.name} onChange={(e) => setPartners((l) => l.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm min-w-0 flex-1" />
+                <input placeholder="%" inputMode="decimal" value={p.percent} onChange={(e) => setPartners((l) => l.map((x, j) => (j === i ? { ...x, percent: e.target.value } : x)))} className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm w-20 text-right" />
+                <Button variant="ghost" aria-label="Remove partner" onClick={() => setPartners((l) => l.filter((_, j) => j !== i))}>✕</Button>
+              </div>
+            ))}
+          </div>
+          {partners.length < 10 && (
+            <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPartners((l) => [...l, { name: `Boss ${l.length + 1}`, percent: "" }])}>+ Add partner</Button>
+          )}
+        </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button disabled={busy} onClick={save}>Save</Button>

@@ -37,55 +37,60 @@ const n = (minor: bigint) => Number(minor) / 100;
 export function reportSheets(r: Report, title: string): Sheet[] {
   const t = r.totals;
   const s = r.settings;
+  const SECTION: Record<string, string> = {
+    sales: "SALES SECTION (အရောင်းပိုင်း)", service: "SERVICE SECTION (ဆားဗစ်ပိုင်း)",
+    topup: "TOP-UP & BILL SECTION (ဖုန်းဖြည့် / ဘေလ်ပိုင်း)", general: "GENERAL SECTION (အထွေထွေ)",
+  };
+  const d = r.distribution;
   const summary: Cell[][] = [
     [title, "MMK"],
     ["Period", `${r.from} – ${r.to}`],
-    [],
-    ["INCOME (ဝင်ငွေ)", ""],
-    ["Sales (အရောင်း)", n(t.sales)],
-    ["Service / repair (ဝန်ဆောင်မှု)", n(t.service)],
-    ["Top-up & bill (ဖုန်းဖြည့်)", n(t.topup)],
-    ["Other income (အခြားဝင်ငွေ)", n(t.otherIncome)],
-    ["Total income (စုစုပေါင်းဝင်ငွေ)", n(t.totalIncome)],
-    [],
-    ["PROFIT (အမြတ်)", ""],
-    ["Sales", n(t.sales)],
-    ["− Cost of goods sold (ကုန်ကျစရိတ်)", -n(t.salesCost)],
-    ["Sales profit", n(t.sales - t.salesCost)],
-    ["+ Service / repair", n(t.service)],
-    ["+ Top-up margin (ဖုန်းဖြည့်အမြတ်)", n(t.topupMargin)],
-    ["+ Other income", n(t.otherIncome)],
-    ["− Repair parts used", -n(t.repairParts)],
-    ["Gross profit (အကြမ်းအမြတ်)", n(t.grossProfit)],
-    ["− Expenses (အသုံးစရိတ်)", -n(t.expense)],
   ];
-  if (s.salaryCategories.length || t.salary) summary.push(["− Staff salary (ဝန်ထမ်းလစာ)", -n(t.salary)]);
-  summary.push(["NET PROFIT (အသားတင်အမြတ်)", n(t.netProfit)]);
-  if (s.showShares) {
-    summary.push(["− Shares / owner drawings (ရှယ်ယာ / ထုတ်ယူငွေ)", -n(t.shares)]);
-    summary.push(["Kept in the business", n(t.netProfit - t.shares)]);
+  const bold: number[] = [];
+  const head = (label: string) => { summary.push([]); bold.push(summary.length); summary.push([label, ""]); };
+  const total = (label: string, v: bigint) => { bold.push(summary.length); summary.push([label, n(v)]); };
+  for (const sec of r.sections) {
+    head(SECTION[sec.section]);
+    for (const l of sec.income) summary.push([`+ ${l.label}`, n(l.amount)]);
+    for (const l of sec.expense) summary.push([`− ${l.label}`, -n(l.amount)]);
+    total("Section profit", sec.profit);
   }
+  head("PROFIT & SPLIT (အမြတ်ခွဲဝေ)");
+  for (const sec of r.sections) summary.push([SECTION[sec.section].replace(/ SECTION.*$/, " profit"), n(sec.profit)]);
+  total("PROFIT (အမြတ်)", t.netProfit + t.salary);
+  summary.push(["− Staff salary (ဝန်ထမ်းလစာ)", -n(t.salary)]);
+  total("NET PROFIT (အသားတင်အမြတ်)", t.netProfit);
+  summary.push([`− Capital kept for next month (${s.reserve.mode === "percent" ? `${s.reserve.value}%` : `${s.reserve.value.toLocaleString("en-US")} × ${d.months} month`}) (နောက်လအရင်း)`, -n(d.reserve)]);
+  total("TO SHARE (ခွဲဝေရန်)", d.distributable);
+  for (const p of d.partners) summary.push([`   ${p.name} (${p.percent}%)`, n(p.amount)]);
+  if (s.showShares && t.shares) summary.push(["Already withdrawn this period (ထုတ်ယူပြီးငွေ)", n(t.shares)]);
+  head("TOTALS");
   summary.push(
-    [],
-    ["CASH FLOW (ငွေအဝင်အထွက်)", ""],
+    ["Total income (စုစုပေါင်းဝင်ငွေ)", n(t.totalIncome)],
+    ["Top-up & bill sold (cash)", n(t.topup)],
+    ["All expenses (salary not included)", n(t.expense)],
+  );
+  head("CASH FLOW (ငွေအဝင်အထွက်)");
+  summary.push(
     ["Money in (MMK wallets)", n(t.cashIn)],
     ["Money out (MMK wallets)", -n(t.cashOut)],
-    ["NET CASH FLOW", n(t.netCash)],
+  );
+  total("NET CASH FLOW", t.netCash);
+  summary.push(
     [],
     ["Sales count", t.saleCount],
     ["Stock bought (purchases)", n(r.purchases.total)],
     ["Purchases count", r.purchases.count],
   );
-  const boldLabels = new Set(["INCOME (ဝင်ငွေ)", "PROFIT (အမြတ်)", "CASH FLOW (ငွေအဝင်အထွက်)", "Total income (စုစုပေါင်းဝင်ငွေ)", "Gross profit (အကြမ်းအမြတ်)", "NET PROFIT (အသားတင်အမြတ်)", "NET CASH FLOW"]);
 
-  const head = [r.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Cost of goods", "Gross profit", "Expenses",
+  const headRow = [r.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Cost of goods", "Sales profit", "Service profit", "Top-up profit", "General profit", "Expenses",
     ...(s.salaryCategories.length || t.salary ? ["Staff salary"] : []), "Net profit", ...(s.showShares ? ["Shares"] : []), "Money in", "Money out", "Net cash"];
-  const line = (x: Report["rows"][number], label: string): Cell[] => [label, n(x.sales), n(x.service), n(x.topup), n(x.otherIncome), n(x.totalIncome), n(x.salesCost), n(x.grossProfit), n(x.expense),
+  const line = (x: Report["rows"][number], label: string): Cell[] => [label, n(x.sales), n(x.service), n(x.topup), n(x.otherIncome), n(x.totalIncome), n(x.salesCost), n(x.sales - x.salesCost - x.expSales), n(x.service - x.repairParts - x.expService), n(x.topupMargin - x.expTopup), n(x.otherIncome - x.expGeneral), n(x.expense),
     ...(s.salaryCategories.length || t.salary ? [n(x.salary)] : []), n(x.netProfit), ...(s.showShares ? [n(x.shares)] : []), n(x.cashIn), n(x.cashOut), n(x.netCash)];
-  const breakdown = [head, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
+  const breakdown = [headRow, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
 
   return [
-    { name: "Summary", rows: summary, boldRows: summary.map((row, i) => (boldLabels.has(String(row[0])) ? i : -1)).filter((i) => i > 0) },
+    { name: "Summary", rows: summary, boldRows: bold },
     { name: r.groupBy === "day" ? "Daily" : "Monthly", rows: breakdown, boldRows: [breakdown.length - 1] },
     { name: "Income by category", rows: [["Category", "Amount"], ...r.incomeByCategory.map((c) => [c.name, n(c.amount)])] },
     { name: "Expenses by category", rows: [["Category", "Amount", "Staff salary"], ...r.expenseByCategory.map((c) => [c.name, n(c.amount), c.salary ? "Yes" : ""])] },
