@@ -1,12 +1,12 @@
-import { prisma } from "./prisma";
 import { addDays, isValidBusinessDate, isValidMonth, todayBusinessDate } from "./dates";
 import { ApiError } from "./api";
 import type { Report } from "@/services/reportService";
 import type { Cell, Sheet } from "./xlsx";
 
 /** Shared by the Excel download and the Google Sheet backup, so both carry the same
- *  sheets: a summary, the day-by-day (or month-by-month) table, then one sheet each for
- *  income, expenses, items sold, repairs and wallets, and the raw sales and entries. */
+ *  three sheets: the Grand Report (income, expense, profit, salary, capital and each
+ *  partner's share), the daily (or monthly) summary, and the stock of the chosen
+ *  categories. Nothing else, so the sheets stay easy to read. */
 
 export type PeriodKind = "day" | "month" | "year" | "range";
 
@@ -32,103 +32,48 @@ export function resolvePeriod(kind: string | null, value: string | null, from?: 
   return { kind: "month" as const, from: `${m}-01`, to: `${m}-${String(last).padStart(2, "0")}`, label: m };
 }
 
+
 const n = (minor: bigint) => Number(minor) / 100;
 
 export function reportSheets(r: Report, title: string): Sheet[] {
   const t = r.totals;
-  const s = r.settings;
-  const SECTION: Record<string, string> = {
-    sales: "SALES SECTION (အရောင်းပိုင်း)", service: "SERVICE SECTION (ဆားဗစ်ပိုင်း)",
-    topup: "TOP-UP & BILL SECTION (ဖုန်းဖြည့် / ဘေလ်ပိုင်း)", general: "GENERAL SECTION (အထွေထွေ)",
-  };
   const d = r.distribution;
-  const summary: Cell[][] = [
-    [title, "MMK"],
-    ["Period", `${r.from} – ${r.to}`],
-  ];
+  const s = r.settings;
+  const grand: Cell[][] = [[title, "MMK"], ["Period", `${r.from} – ${r.to}`]];
   const bold: number[] = [];
-  const head = (label: string) => { summary.push([]); bold.push(summary.length); summary.push([label, ""]); };
-  const total = (label: string, v: bigint) => { bold.push(summary.length); summary.push([label, n(v)]); };
-  for (const sec of r.sections) {
-    head(SECTION[sec.section]);
-    for (const l of sec.income) summary.push([`+ ${l.label}`, n(l.amount)]);
-    for (const l of sec.expense) summary.push([`− ${l.label}`, -n(l.amount)]);
-    total("Section profit", sec.profit);
+  const blank = () => grand.push([]);
+  const strong = (label: string, v: bigint | null) => { bold.push(grand.length); grand.push([label, v === null ? "" : n(v)]); };
+
+  blank(); strong("INCOME (ဝင်ငွေ)", null);
+  grand.push(["Sales (အရောင်း)", n(t.inc.sales)], ["Service (ဆားဗစ်)", n(t.inc.service)], ["Top-up (ဖုန်းဖြည့်)", n(t.inc.topup)], ["Other income (အခြား)", n(t.inc.other)]);
+  strong("Total income", t.inc.total);
+  blank(); strong("EXPENSE (ထွက်ငွေ)", null);
+  grand.push(["Sales (အရောင်း)", n(t.exp.sales)], ["Service (ဆားဗစ်)", n(t.exp.service)], ["Top-up (ဖုန်းဖြည့်)", n(t.exp.topup)], ["Other expense (အခြား)", n(t.exp.other)]);
+  strong("Total expense", t.exp.total);
+  blank();
+  strong("PROFIT (အမြတ်) = Income − Expense", t.net);
+  grand.push(["− Staff salary (ဝန်ထမ်းလစာ)", -n(t.salary)]);
+  strong("NET PROFIT (အသားတင်အမြတ်)", t.netProfit);
+  grand.push([`− Capital for next month (နောက်လအရင်း) ${s.reserve.mode === "percent" ? `${s.reserve.value}%` : `${s.reserve.value.toLocaleString("en-US")} × ${d.months}`}`, -n(d.reserve)]);
+  strong("TO SHARE (ခွဲဝေရန်)", d.distributable);
+  for (const p of d.partners) grand.push([`   ${p.name} (${p.percent}%)`, n(p.amount)]);
+
+  const head1: Cell[] = ["", "Income", "", "", "", "", "Expense", "", "", "", "", ""];
+  const head2: Cell[] = [r.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Sales", "Service", "Top-up", "Other Expense", "Total Expense", "Net Profit / Loss"];
+  const line = (x: Report["rows"][number], label: string): Cell[] => [
+    label, n(x.inc.sales), n(x.inc.service), n(x.inc.topup), n(x.inc.other), n(x.inc.total),
+    n(x.exp.sales), n(x.exp.service), n(x.exp.topup), n(x.exp.other), n(x.exp.total), n(x.net),
+  ];
+  const daily = [head1, head2, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
+
+  const sheets: Sheet[] = [
+    { name: "Grand Report", rows: grand, boldRows: bold },
+    { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [1, daily.length - 1] },
+  ];
+  if (s.stockCategoryIds.length) {
+    const total = r.stock.reduce((a, i) => a + i.value, 0n);
+    const stock: Cell[][] = [["Item", "Category", "Qty", "Cost", "Stock value"], ...r.stock.map((i) => [i.name, i.category, i.quantity, n(i.cost), n(i.value)]), ["TOTAL", "", r.stock.reduce((a, i) => a + i.quantity, 0), "", n(total)]];
+    sheets.push({ name: "Stock", rows: stock, boldRows: [stock.length - 1] });
   }
-  head("PROFIT & SPLIT (အမြတ်ခွဲဝေ)");
-  for (const sec of r.sections) summary.push([SECTION[sec.section].replace(/ SECTION.*$/, " profit"), n(sec.profit)]);
-  total("PROFIT (အမြတ်)", t.netProfit + t.salary);
-  summary.push(["− Staff salary (ဝန်ထမ်းလစာ)", -n(t.salary)]);
-  total("NET PROFIT (အသားတင်အမြတ်)", t.netProfit);
-  summary.push([`− Capital kept for next month (${s.reserve.mode === "percent" ? `${s.reserve.value}%` : `${s.reserve.value.toLocaleString("en-US")} × ${d.months} month`}) (နောက်လအရင်း)`, -n(d.reserve)]);
-  total("TO SHARE (ခွဲဝေရန်)", d.distributable);
-  for (const p of d.partners) summary.push([`   ${p.name} (${p.percent}%)`, n(p.amount)]);
-  if (s.showShares && t.shares) summary.push(["Already withdrawn this period (ထုတ်ယူပြီးငွေ)", n(t.shares)]);
-  head("TOTALS");
-  summary.push(
-    ["Total income (စုစုပေါင်းဝင်ငွေ)", n(t.totalIncome)],
-    ["Top-up & bill sold (cash)", n(t.topup)],
-    ["All expenses (salary not included)", n(t.expense)],
-  );
-  head("CASH FLOW (ငွေအဝင်အထွက်)");
-  summary.push(
-    ["Money in (MMK wallets)", n(t.cashIn)],
-    ["Money out (MMK wallets)", -n(t.cashOut)],
-  );
-  total("NET CASH FLOW", t.netCash);
-  summary.push(
-    [],
-    ["Sales count", t.saleCount],
-    ["Stock bought (purchases)", n(r.purchases.total)],
-    ["Purchases count", r.purchases.count],
-  );
-
-  const headRow = [r.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Cost of goods", "Sales profit", "Service profit", "Top-up profit", "General profit", "Expenses",
-    ...(s.salaryCategories.length || t.salary ? ["Staff salary"] : []), "Net profit", ...(s.showShares ? ["Shares"] : []), "Money in", "Money out", "Net cash"];
-  const line = (x: Report["rows"][number], label: string): Cell[] => [label, n(x.sales), n(x.service), n(x.topup), n(x.otherIncome), n(x.totalIncome), n(x.salesCost), n(x.sales - x.salesCost - x.expSales), n(x.service - x.repairParts - x.expService), n(x.topupMargin - x.expTopup), n(x.otherIncome - x.expGeneral), n(x.expense),
-    ...(s.salaryCategories.length || t.salary ? [n(x.salary)] : []), n(x.netProfit), ...(s.showShares ? [n(x.shares)] : []), n(x.cashIn), n(x.cashOut), n(x.netCash)];
-  const breakdown = [headRow, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
-
-  return [
-    { name: "Summary", rows: summary, boldRows: bold },
-    { name: r.groupBy === "day" ? "Daily" : "Monthly", rows: breakdown, boldRows: [breakdown.length - 1] },
-    { name: "Income by category", rows: [["Category", "Amount"], ...r.incomeByCategory.map((c) => [c.name, n(c.amount)])] },
-    { name: "Expenses by category", rows: [["Category", "Amount", "Staff salary"], ...r.expenseByCategory.map((c) => [c.name, n(c.amount), c.salary ? "Yes" : ""])] },
-    { name: "Sales by item", rows: [["Item", "Qty", "Sales", "Cost", "Profit"], ...r.salesByItem.map((i) => [i.name, i.quantity, n(i.revenue), n(i.cost), n(i.profit)])] },
-    { name: "Repairs", rows: [["", "Count"], ["Taken in", r.repairs.received], ["Finished", r.repairs.finished], ["Delivered", r.repairs.delivered], ["Cancelled", r.repairs.cancelled], ["Money collected (MMK)", n(r.repairs.collected)]] },
-    { name: "Wallets", rows: [["Wallet", "Currency", "Opening", "Money in", "Money out", "Closing"], ...r.wallets.map((w) => [w.name, w.currency, n(w.opening), n(w.moneyIn), n(w.moneyOut), n(w.closing)])] },
-  ];
-}
-
-/** Every sale and every income / expense entry of the period, line by line. */
-export async function detailSheets(businessId: string, from: string, to: string, branchIds?: string[]): Promise<Sheet[]> {
-  const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [sales, entries] = await Promise.all([
-    prisma.sale.findMany({
-      where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, ...branch },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      take: 20000,
-      select: { txnNo: true, date: true, total: true, totalCost: true, profit: true, customerId: true, lines: { select: { quantity: true, item: { select: { name: true } } } } },
-    }),
-    prisma.incomeExpense.findMany({
-      where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, ...branch },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-      take: 20000,
-      select: { date: true, type: true, categoryName: true, amount: true, currency: true, description: true },
-    }),
-  ]);
-  const customerIds = [...new Set(sales.map((x) => x.customerId).filter((x): x is string => Boolean(x)))];
-  const customers = new Map((await prisma.contact.findMany({ where: { id: { in: customerIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
-  return [
-    {
-      name: "Sales list",
-      rows: [["Date", "Voucher", "Customer", "Items", "Total", "Cost", "Profit"],
-        ...sales.map((x) => [x.date, x.txnNo, (x.customerId && customers.get(x.customerId)) || "Walk-in", x.lines.map((l) => `${l.item.name} ×${l.quantity}`).join(", "), n(x.total), n(x.totalCost), n(x.profit)])],
-    },
-    {
-      name: "Income-Expense list",
-      rows: [["Date", "Type", "Category", "Amount", "Currency", "Note"],
-        ...entries.map((e) => [e.date, e.type === "WITHDRAW" ? "SHARE / DRAWING" : e.type, e.categoryName ?? "", n(e.amount), e.currency, e.description ?? ""])],
-    },
-  ];
+  return sheets;
 }

@@ -972,6 +972,18 @@ const MM: Record<string, string> = {
   "MMK each month": "လစဉ် MMK",
   "Partners": "အစုရှယ်ယာရှင်များ",
   "+ Add partner": "+ အစုရှင် ထည့်မည်",
+  "Grand Report": "အနှစ်ချုပ် အစီရင်ခံစာ",
+  "Other Expense": "အခြား ထွက်ငွေ",
+  "Total Expense": "စုစုပေါင်း ထွက်ငွေ",
+  "Net Profit / Loss": "အသားတင် အမြတ် / အရှုံး",
+  "Profit (Income − Expense)": "အမြတ် (ဝင်ငွေ − ထွက်ငွေ)",
+  "Capital for next month": "နောက်လအတွက် အရင်း",
+  "Stock value": "လက်ကျန်တန်ဖိုး",
+  "1. Staff salary": "၁။ ဝန်ထမ်းလစာ",
+  "2. General expenses go under": "၂။ အထွေထွေ ထွက်ငွေ ထည့်မည့်နေရာ",
+  "3. Capital for next month": "၃။ နောက်လအတွက် အရင်း",
+  "4. Partners": "၄။ အစုရှင်များ",
+  "5. Stock sheet": "၅။ Stock စာရင်း",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { TIME_PATTERN } from "./telegramReports";
 import { todayBusinessDate } from "./dates";
-import { detailSheets, reportSheets, resolvePeriod } from "./reportSheets";
+import { reportSheets, resolvePeriod } from "./reportSheets";
 import { buildReport } from "@/services/reportService";
 import type { Sheet } from "./xlsx";
 
@@ -58,13 +58,14 @@ export async function saveGsheet(businessId: string, cfg: GsheetBackup) {
   });
 }
 
-/** The report sheets for one period, each tab named after the period ("2026-10 Summary"). */
-async function periodSheets(businessId: string, kind: "month" | "year" | "day" | "range", value: string | null, from?: string | null, to?: string | null, withDetail = true): Promise<Sheet[]> {
+/** The report sheets for one period, each tab named after the period ("2026-10 Grand Report").
+ *  Stock is as it stands now, so its tab is just "Stock". */
+async function periodSheets(businessId: string, kind: "month" | "year" | "day" | "range", value: string | null, from?: string | null, to?: string | null): Promise<Sheet[]> {
   const p = resolvePeriod(kind, value, from, to);
   const business = await prisma.business.findUnique({ where: { id: businessId }, select: { name: true } });
   const report = await buildReport(businessId, p.from, p.to);
-  const sheets = [...reportSheets(report, `${business?.name ?? "Business"} · ${p.label}`), ...(withDetail ? await detailSheets(businessId, p.from, p.to) : [])];
-  return sheets.map((s) => ({ ...s, name: `${p.label} ${s.name}`.slice(0, 31) }));
+  const sheets = reportSheets(report, `${business?.name ?? "Business"} · ${p.label}`);
+  return sheets.map((s) => (s.name === "Stock" ? s : { ...s, name: `${p.label} ${s.name}`.slice(0, 31) }));
 }
 
 /** Posts sheets to the owner's script. Throws with the reason when it does not take them. */
@@ -106,9 +107,10 @@ async function defaultSheets(businessId: string): Promise<Sheet[]> {
     d.setUTCDate(0);
     sheets.push(...await periodSheets(businessId, "month", d.toISOString().slice(0, 7)));
   }
-  const year = await periodSheets(businessId, "year", today.slice(0, 4), null, null, false);
-  sheets.push(...year.filter((s) => / (Summary|Monthly)$/.test(s.name)));
-  return sheets;
+  const year = await periodSheets(businessId, "year", today.slice(0, 4));
+  sheets.push(...year.filter((s) => s.name !== "Stock"));
+  // Last month carries a Stock tab too; send it once.
+  return sheets.filter((s, i) => s.name !== "Stock" || sheets.findIndex((x) => x.name === "Stock") === i);
 }
 
 /** Called every minute: each shop's automatic backup, once a day after its time. */

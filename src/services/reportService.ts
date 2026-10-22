@@ -38,10 +38,12 @@ export interface ReportSettings {
   reserve: { mode: "percent" | "amount"; value: number };
   /** Who shares what is left. Percents of 0 for everyone mean equal shares. */
   partners: Partner[];
+  /** Item categories listed on the Stock sheet (with their sub-categories), e.g. spare parts. */
+  stockCategoryIds: string[];
 }
 
 export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
-  salaryCategories: [], showShares: true, generalExpenseTo: "service", reserve: { mode: "percent", value: 0 }, partners: [],
+  salaryCategories: [], showShares: true, generalExpenseTo: "service", reserve: { mode: "percent", value: 0 }, partners: [], stockCategoryIds: [],
 };
 
 export function parseReportSettings(raw: unknown): ReportSettings {
@@ -61,7 +63,26 @@ export function parseReportSettings(raw: unknown): ReportSettings {
           .map((p) => ({ name: p.name.trim().slice(0, 60), percent: Math.max(0, Math.min(100, Number(p.percent) || 0)) }))
           .slice(0, 10)
       : [],
+    stockCategoryIds: Array.isArray(v.stockCategoryIds) ? v.stockCategoryIds.filter((x): x is string => typeof x === "string").slice(0, 50) : [],
   };
+}
+
+/** The daily summary's columns: each section's money in and money out.
+ *  Expense of a section is what it cost to earn that income: goods sold at cost, repair
+ *  parts, the operator's share of top-up cash, plus the section's own expense entries.
+ *  So income − expense is the profit, before staff salary. */
+export function incomeExpenseOf(r: PeriodRow) {
+  const income = { sales: r.sales, service: r.service, topup: r.topup, other: r.otherIncome, total: 0n };
+  income.total = income.sales + income.service + income.topup + income.other;
+  const expense = {
+    sales: r.salesCost + r.expSales,
+    service: r.repairParts + r.expService,
+    topup: r.topup - r.topupMargin + r.expTopup,
+    other: r.expGeneral,
+    total: 0n,
+  };
+  expense.total = expense.sales + expense.service + expense.topup + expense.other;
+  return { inc: income, exp: expense, net: income.total - expense.total };
 }
 
 export async function loadReportSettings(businessId: string): Promise<ReportSettings> {
@@ -82,6 +103,8 @@ export interface PeriodRow {
   expSales: bigint; expService: bigint; expTopup: bigint; expGeneral: bigint;
 }
 
+type Finished = { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint } & ReturnType<typeof incomeExpenseOf>;
+
 export interface SectionResult { section: Section; income: { label: string; amount: bigint }[]; expense: { label: string; amount: bigint }[]; profit: bigint }
 
 export interface Distribution {
@@ -96,8 +119,10 @@ export interface Distribution {
 export interface Report {
   from: string; to: string; groupBy: "day" | "month";
   settings: ReportSettings;
-  rows: (PeriodRow & { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint })[];
-  totals: PeriodRow & { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint; saleCount: number };
+  rows: (PeriodRow & Finished)[];
+  totals: PeriodRow & Finished & { saleCount: number };
+  /** Current stock of the chosen categories. */
+  stock: { name: string; category: string; quantity: number; cost: bigint; value: bigint }[];
   incomeByCategory: { name: string; amount: bigint }[];
   expenseByCategory: { name: string; amount: bigint; salary: boolean }[];
   salesByItem: { name: string; quantity: number; revenue: bigint; cost: bigint; profit: bigint }[];
@@ -254,7 +279,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     // Top-up counts at its margin: the rest of that cash is the operator's credit passing through.
     const grossProfit = r.sales - r.salesCost + r.service + r.topupMargin + r.otherIncome - r.repairParts;
     const netProfit = grossProfit - r.expense - r.salary;
-    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut };
+    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
   };
   const ordered = [...rows.values()].sort((a, b) => a.period.localeCompare(b.period)).map(finish);
   const sum = ordered.reduce((t, r) => {
@@ -300,5 +325,21 @@ export async function buildReport(businessId: string, from: string, to: string, 
       return { name: w.name, currency: w.currency, opening: closing - moneyIn + moneyOut, moneyIn, moneyOut, closing };
     }),
     purchases: { count: purchases._count, total: purchases._sum.total ?? 0n },
+    stock: await stockOf(businessId, settings.stockCategoryIds, branchIds),
   };
+}
+
+/** Items in the chosen categories (and their sub-categories) with the stock on hand now. */
+async function stockOf(businessId: string, categoryIds: string[], branchIds?: string[]) {
+  if (!categoryIds.length) return [];
+  const children = await prisma.itemCategory.findMany({ where: { businessId, parentId: { in: categoryIds } }, select: { id: true } });
+  const items = await prisma.item.findMany({
+    where: { businessId, deletedAt: null, active: true, categoryId: { in: [...categoryIds, ...children.map((c) => c.id)] } },
+    select: { name: true, costPrice: true, category: { select: { name: true } }, stockLevels: { where: branchIds ? { branchId: { in: branchIds } } : {}, select: { quantity: true } } },
+    orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
+  });
+  return items.map((i) => {
+    const quantity = i.stockLevels.reduce((a, l) => a + l.quantity, 0);
+    return { name: i.name, category: i.category?.name ?? "", quantity, cost: i.costPrice, value: i.costPrice * BigInt(quantity) };
+  });
 }
