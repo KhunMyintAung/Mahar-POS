@@ -1,9 +1,10 @@
 import { runDueDailyReports } from "./telegramReports";
+import { runDueGsheetBackups } from "./gsheetBackup";
 
 const TICK_MS = 60_000;
 const KEY = Symbol.for("mahar.reportScheduler");
 
-/** Checks once a minute for daily Telegram reports that are due. Started once per server
+/** Checks once a minute for daily Telegram reports and Google Sheet backups that are due. Started once per server
  *  process from instrumentation.ts; the guard keeps a second start (hot reload) from
  *  doubling it. The app runs as a single process, so each report is sent by one ticker. */
 export function startReportScheduler() {
@@ -16,6 +17,7 @@ export function startReportScheduler() {
     running = true;
     try {
       await runDueDailyReports();
+      await runDueGsheetBackups();
     } catch (e) {
       console.error("[report scheduler]", e);
     } finally {

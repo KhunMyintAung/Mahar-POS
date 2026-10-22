@@ -4,15 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { moduleSettingFromFeatures, parseModuleAccess } from "@/lib/modules";
 import { TELEGRAM_REPORTS_KEY } from "@/lib/telegramReports";
+import { GSHEET_KEY } from "@/lib/gsheetBackup";
+
+// Keys with secrets in them, read and written only by their own owner-only routes.
+const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY];
 
 // Settings are namespaced JSON documents per business: about, business_profile, modules…
 
 export const GET = withAuth(null, async ({ req, user }) => {
   const key = req.nextUrl.searchParams.get("key");
   const business = await prisma.business.findUnique({ where: { id: user.businessId } });
-  // The reports bot token lives under its own key and is only read by its owner-only route.
   const settings = await prisma.systemSetting.findMany({
-    where: { businessId: user.businessId, key: key ? { equals: key, not: TELEGRAM_REPORTS_KEY } : { not: TELEGRAM_REPORTS_KEY } },
+    where: { businessId: user.businessId, key: key ? { equals: key, notIn: PRIVATE_KEYS } : { notIn: PRIVATE_KEYS } },
   });
   return json({
     business,
@@ -29,7 +32,7 @@ const schema = z.object({
 
 export const PUT = withAuth("settings.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
-  if (body.key === TELEGRAM_REPORTS_KEY) throw new ApiError(422, "Use the Telegram page to change the reports bot");
+  if (PRIVATE_KEYS.includes(body.key)) throw new ApiError(422, "This setting has its own page");
   const stored = body.key === "modules"
     ? await prisma.systemSetting.findUnique({
         where: { businessId_key: { businessId: user.businessId, key: "modules" } },
