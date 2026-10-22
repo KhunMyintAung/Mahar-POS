@@ -18,7 +18,7 @@ export const GET = withAuth("payable.view", async ({ req, user }) => {
     deletedAt: null,
     ...branchScope(user),
     ...(sp.get("status") ? { status: sp.get("status")! } : { status: { not: "CANCELLED" } }),
-    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")! } }, { reference: { contains: sp.get("q")! } }] } : {}),
+    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")!, mode: "insensitive" as const } }, { reference: { contains: sp.get("q")!, mode: "insensitive" as const } }] } : {}),
   };
   const [items, total, agg] = await Promise.all([
     prisma.payable.findMany({

@@ -17,7 +17,7 @@ export const GET = withAuth("sale.view", async ({ req, user }) => {
     ...branchScope(user),
     ...(sp.get("date") ? { date: sp.get("date")! } : {}),
     ...(sp.get("status") ? { status: sp.get("status")! } : {}),
-    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")! } }, { reference: { contains: sp.get("q")! } }] } : {}),
+    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")!, mode: "insensitive" as const } }, { reference: { contains: sp.get("q")!, mode: "insensitive" as const } }] } : {}),
   };
   const [sales, total, agg] = await Promise.all([
     prisma.sale.findMany({

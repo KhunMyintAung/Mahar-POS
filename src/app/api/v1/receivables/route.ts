@@ -17,7 +17,7 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
     ...branchScope(user),
     ...(sp.get("status") ? { status: sp.get("status")! } : { status: { not: "CANCELLED" } }),
     ...(sp.get("customerId") ? { customerId: sp.get("customerId")! } : {}),
-    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")! } }, { reference: { contains: sp.get("q")! } }] } : {}),
+    ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")!, mode: "insensitive" as const } }, { reference: { contains: sp.get("q")!, mode: "insensitive" as const } }] } : {}),
   };
   const [items, total, agg] = await Promise.all([
     prisma.receivable.findMany({

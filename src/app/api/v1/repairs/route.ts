@@ -46,7 +46,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
           OR: [
             { jobNo: { contains: q, mode: "insensitive" as const } },
             { customerName: { contains: q, mode: "insensitive" as const } },
-            { customerPhone: { contains: q } },
+            { customerPhone: { contains: q, mode: "insensitive" as const } },
             { deviceBrand: { contains: q, mode: "insensitive" as const } },
             { deviceModel: { contains: q, mode: "insensitive" as const } },
             { imei: { contains: q, mode: "insensitive" as const } },

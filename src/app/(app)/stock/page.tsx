@@ -27,7 +27,47 @@ function shiftPeriod(value: string, step: number): string {
 }
 
 interface RepairJobOption {
-  id: string; jobNo: string; status: string; deviceBrand: string; deviceModel: string; customerName?: string;
+  id: string; jobNo: string; status: string; deviceBrand: string; deviceModel: string; customerName?: string; receivedAt?: string;
+}
+
+/** Jobs a part can still go into: taken in and not yet finished. */
+const STILL_REPAIRING = new Set(["RECEIVED", "CHECKING", "IN_PROGRESS", "WAITING_PARTS"]);
+const JOB_STATUS_LABEL: Record<string, string> = { RECEIVED: "Taken in", CHECKING: "Checking", IN_PROGRESS: "In progress", WAITING_PARTS: "Waiting part" };
+
+/** Pick the repair a part went into: search by voucher no, model, brand or customer; newest first. */
+function RepairJobPicker({ jobs, value, onChange }: { jobs: RepairJobOption[]; value: string; onChange: (id: string) => void }) {
+  const [q, setQ] = useState("");
+  const picked = jobs.find((j) => j.id === value);
+  const needle = q.trim().toLowerCase().replace(/\s+/g, "");
+  const matches = jobs.filter((j) => !needle || `${j.jobNo}${j.deviceBrand}${j.deviceModel}${j.customerName ?? ""}`.toLowerCase().replace(/\s+/g, "").includes(needle)).slice(0, 8);
+  return (
+    <div>
+      <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Repair job (adds the part cost to it)</span>
+      {picked ? (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm dark:border-blue-800 dark:bg-blue-950/40">
+          <span className="min-w-0 flex-1 truncate"><b>{picked.jobNo}</b> · {picked.deviceBrand} {picked.deviceModel}{picked.customerName ? ` · ${picked.customerName}` : ""}</span>
+          <button type="button" className="shrink-0 text-xs text-blue-600" onClick={() => onChange("")}>Change</button>
+        </div>
+      ) : (
+        <>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Voucher no or model, e.g. MS1215 or A17K"
+            className="min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
+          <div className="mt-1 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+            {matches.map((j) => (
+              <button key={j.id} type="button" onClick={() => { onChange(j.id); setQ(""); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                <b className="shrink-0">{j.jobNo}</b>
+                <span className="min-w-0 flex-1 truncate">{j.deviceBrand} {j.deviceModel}{j.customerName ? ` · ${j.customerName}` : ""}</span>
+                <span className="shrink-0 text-xs text-gray-500">{JOB_STATUS_LABEL[j.status] ?? j.status}</span>
+              </button>
+            ))}
+            {matches.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">{jobs.length ? "No repair matches" : "No repairs waiting"}</p>}
+          </div>
+          <p className="mt-1 text-xs text-gray-500">Only repairs still being worked on. Leave empty to take the part out without a job.</p>
+        </>
+      )}
+    </div>
+  );
 }
 
 interface Level {
@@ -70,7 +110,9 @@ export default function StockPage() {
   useEffect(() => {
     if (!adjustTarget || !canLinkRepairs) return;
     api<{ jobs: RepairJobOption[] }>("/api/v1/repairs?pageSize=200")
-      .then((d) => setOpenJobs(d.jobs.filter((j) => j.status !== "DELIVERED" && j.status !== "CANCELLED")))
+      .then((d) => setOpenJobs(d.jobs
+        .filter((j) => STILL_REPAIRING.has(j.status))
+        .sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? "") || b.jobNo.localeCompare(a.jobNo))))
       .catch(() => {});
   }, [adjustTarget, canLinkRepairs]);
 
@@ -451,12 +493,7 @@ export default function StockPage() {
                 />
                 )}
                 {reason.key === "REPAIR_USE" && canLinkRepairs && (
-                  <Select label="Repair job (adds the part cost to it)" value={adjust.repairJobId} onChange={(e) => setAdjust({ ...adjust, repairJobId: e.target.value })}>
-                    <option value="">— not linked —</option>
-                    {openJobs.map((j) => (
-                      <option key={j.id} value={j.id}>{j.jobNo} · {j.deviceBrand} {j.deviceModel}{j.customerName ? ` · ${j.customerName}` : ""}</option>
-                    ))}
-                  </Select>
+                  <RepairJobPicker jobs={openJobs} value={adjust.repairJobId} onChange={(id) => setAdjust({ ...adjust, repairJobId: id })} />
                 )}
                 <Input
                   label={needsWords ? "Reason (required)" : "Note (optional)"}

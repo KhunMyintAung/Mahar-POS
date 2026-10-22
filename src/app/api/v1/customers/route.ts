@@ -12,7 +12,7 @@ export const GET = withAuth("customer.view", async ({ req, user }) => {
     deletedAt: null,
     ...(sp.get("type") ? { type: sp.get("type")! } : {}),
     ...(sp.get("q")
-      ? { OR: [{ name: { contains: sp.get("q")! } }, { phone: { contains: sp.get("q")! } }] }
+      ? { OR: [{ name: { contains: sp.get("q")!, mode: "insensitive" as const } }, { phone: { contains: sp.get("q")!, mode: "insensitive" as const } }] }
       : {}),
   };
   const [contacts, total] = await Promise.all([

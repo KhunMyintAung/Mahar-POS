@@ -16,9 +16,9 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     ...(sp.get("q")
       ? {
           OR: [
-            { name: { contains: sp.get("q")! } },
-            { sku: { contains: sp.get("q")! } },
-            { barcode: { contains: sp.get("q")! } },
+            { name: { contains: sp.get("q")!, mode: "insensitive" as const } },
+            { sku: { contains: sp.get("q")!, mode: "insensitive" as const } },
+            { barcode: { contains: sp.get("q")!, mode: "insensitive" as const } },
           ],
         }
       : {}),

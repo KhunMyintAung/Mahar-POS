@@ -1040,6 +1040,10 @@ const MM: Record<string, string> = {
   "Repair payment": "ပြင်ခ ငွေရှင်း",
   "Bought float": "Float ဝယ်",
   "Top-up sold": "ဖုန်းဖြည့် ရောင်း",
+  "Voucher no or model, e.g. MS1215 or A17K": "Voucher နံပါတ် သို့ Model — ဥပမာ MS1215၊ A17K",
+  "Only repairs still being worked on. Leave empty to take the part out without a job.": "ပြင်ဆဲ Repair များသာ ပြသည်။ Job မချိတ်ဘဲ ထုတ်လိုပါက ချန်ထားပါ။",
+  "No repair matches": "ကိုက်ညီသော Repair မရှိပါ",
+  "No repairs waiting": "ပြင်ရန် Repair မရှိပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
