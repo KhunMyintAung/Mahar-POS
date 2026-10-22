@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
+import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
 import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
@@ -11,6 +11,7 @@ import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
+import { GsheetSyncCard } from "@/components/GsheetSyncCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -154,6 +155,7 @@ export default function SettingsPage() {
   const tabs = [
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
+    ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -247,6 +249,8 @@ export default function SettingsPage() {
 
       {featureEnabled("pos") && <WarrantySettingsCard />}
       </>}
+
+      {current === "sheets" && <GsheetSyncCard />}
 
       {current === "menu" && (
       <Card>

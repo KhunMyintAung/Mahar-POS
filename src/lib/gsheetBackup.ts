@@ -89,7 +89,12 @@ export async function sendSheets(cfg: GsheetBackup, sheets: Sheet[]): Promise<nu
   let out: { ok?: boolean; error?: string } = {};
   try { out = JSON.parse(text); } catch { /* not JSON: a Google error page */ }
   if (!res.ok || !out.ok) {
-    throw new Error(out.error ?? (res.status === 200 ? "The script did not answer. Check it is deployed as a web app for \"Anyone\"." : `Google answered ${res.status}`));
+    const why =
+      res.status === 404 ? "Google cannot find that script. Copy the Web app URL again from Deploy → Manage deployments." :
+      res.status === 401 || res.status === 403 ? "Google refused. In the deployment, set Who has access to \"Anyone\"." :
+      res.status === 200 ? "The script did not answer. Check it is deployed as a Web app for \"Anyone\" and the newest script is pasted." :
+      `Google answered ${res.status}`;
+    throw new Error(out.error ?? why);
   }
   return sheets.length;
 }

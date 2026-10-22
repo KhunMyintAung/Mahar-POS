@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
-import { GsheetSyncCard } from "@/components/GsheetSyncCard";
+import Link from "next/link";
 
 /** Reports: the Grand Report (income, expense, profit, salary, capital and each partner's
  *  share) and the daily (or monthly) summary. The Excel file and the Google Sheet sync
@@ -222,7 +222,12 @@ export default function ReportsPage() {
             </div>
           </Card>
 
-          {owner && <div className="no-print"><GsheetSyncCard period={kind} date={value} from={from} to={to} label={report.period.label} /></div>}
+          {owner && (
+            <Link href="/settings#sheets" className="no-print flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm hover:border-green-400 dark:border-gray-800 dark:bg-gray-900">
+              <span className="flex items-center gap-2"><FileSpreadsheet size={18} className="text-green-600" />Google Sheet sync</span>
+              <span className="text-blue-600">Settings →</span>
+            </Link>
+          )}
         </>
       )}
 
