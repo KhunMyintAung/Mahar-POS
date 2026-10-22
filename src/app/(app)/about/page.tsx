@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_ABOUT, externalUrl, telegramUrl, tiktokUrl } from "@/lib/about";
 import { useAuth } from "@/components/AppShell";
+import { CustomerLive } from "@/components/CustomerLive";
 
 interface Donation {
   title: string;
@@ -141,9 +142,10 @@ export default function AboutPage() {
               <h2 className="mt-1 text-lg font-bold">Show our customer live</h2></div>
             <Smartphone className="text-blue-700 dark:text-blue-400" size={24} />
           </header>
-          <p className="p-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-            Latest updates, customer service, product information and support channels are available online.
+          <p className="p-4 pb-3 text-sm leading-6 text-gray-600 dark:text-gray-300">
+            Shops using Mahar POS right now. Latest updates, customer service and support are on our website.
           </p>
+          <CustomerLive />
           {about.customerLiveUrl && (
             <a href={externalUrl(about.customerLiveUrl)} target="_blank" rel="noreferrer"
               className="mx-4 mb-4 mt-auto inline-flex min-h-11 w-fit items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white">

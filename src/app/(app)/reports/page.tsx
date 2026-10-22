@@ -6,10 +6,10 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
-import { GsheetBackupCard } from "@/components/GsheetBackupCard";
+import { GsheetSyncCard } from "@/components/GsheetSyncCard";
 
 /** Reports: the Grand Report (income, expense, profit, salary, capital and each partner's
- *  share) and the daily (or monthly) summary. The Excel file and the Google Sheet backup
+ *  share) and the daily (or monthly) summary. The Excel file and the Google Sheet sync
  *  carry these two plus a Stock sheet of the categories picked in Report settings; stock
  *  is not shown on this page. */
 
@@ -222,7 +222,7 @@ export default function ReportsPage() {
             </div>
           </Card>
 
-          {owner && <div className="no-print"><GsheetBackupCard period={kind} date={value} from={from} to={to} label={report.period.label} /></div>}
+          {owner && <div className="no-print"><GsheetSyncCard period={kind} date={value} from={from} to={to} label={report.period.label} /></div>}
         </>
       )}
 

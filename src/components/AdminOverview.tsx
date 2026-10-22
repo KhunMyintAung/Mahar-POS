@@ -76,7 +76,7 @@ export function AdminOverview() {
             <Check ok={health.integrations.email} label="Email (Resend)" detail={health.integrations.email ? `${health.integrations.emailsLast24h} sent in 24 h` : "Off"} />
             <Check ok={health.integrations.adminUsers > 0} label="Admin accounts" detail={String(health.integrations.adminUsers)} />
             <Check ok={health.integrations.telegramReportBots > 0} label="Telegram report bots" detail={String(health.integrations.telegramReportBots)} />
-            <Check ok={health.integrations.googleSheetBackups > 0} label="Google Sheet backups" detail={String(health.integrations.googleSheetBackups)} />
+            <Check ok={health.integrations.googleSheetBackups > 0} label="Google Sheet syncs" detail={String(health.integrations.googleSheetBackups)} />
             <div className="my-2 border-t border-gray-100 dark:border-gray-800" />
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               {Object.entries(health.totals).map(([k, v]) => (

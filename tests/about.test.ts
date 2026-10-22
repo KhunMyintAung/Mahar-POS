@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ABOUT, externalUrl, mergeAbout, telegramUrl, tiktokUrl } from "../src/lib/about";
+import { DEFAULT_ABOUT, externalUrl, telegramUrl, tiktokUrl } from "../src/lib/about";
 
 describe("about content", () => {
-  it("keeps required identity fields when legacy settings are blank", () => {
-    const about = mergeAbout({ appName: "", developer: "", description: "" });
-    expect(about.appName).toBe(DEFAULT_ABOUT.appName);
-    expect(about.developer).toBe("Khun Myint Aung");
-    expect(about.description).toBe(DEFAULT_ABOUT.description);
+  it("points the website and customer live card at maharshwe.shop", () => {
+    expect(DEFAULT_ABOUT.website).toBe("https://maharshwe.shop");
+    expect(DEFAULT_ABOUT.customerLiveUrl).toBe("https://maharshwe.shop/#live");
   });
 
   it("builds safe external support links", () => {

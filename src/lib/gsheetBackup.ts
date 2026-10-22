@@ -6,7 +6,7 @@ import { reportSheets, resolvePeriod } from "./reportSheets";
 import { buildReport } from "@/services/reportService";
 import type { Sheet } from "./xlsx";
 
-/** Backup of the reports to the owner's own Google Sheet.
+/** Sync of the reports to the owner's own Google Sheet.
  *
  *  The owner adds a small Apps Script (shown on the Reports page) to a sheet of their own
  *  and deploys it as a web app; we post the report sheets to that URL and the script writes
@@ -21,10 +21,15 @@ export const SCRIPT_URL = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]{20,2
 export interface GsheetBackup {
   url: string | null;
   secret: string;
-  /** Back up this month and this year once a day at `time`. */
+  /** Sync this month and this year automatically. */
   auto: boolean;
+  /** "hourly" every hour; "daily" once a day at `time`. */
+  interval: "hourly" | "daily";
   time: string;
+  /** The business date of the last daily sync. */
   lastSent: string | null;
+  /** When the last automatic sync ran (ISO), for the hourly one. */
+  lastSyncAt: string | null;
   lastResult: string | null;
 }
 
@@ -34,8 +39,10 @@ export function parseGsheet(raw: unknown): GsheetBackup {
     url: typeof v.url === "string" && SCRIPT_URL.test(v.url) ? v.url : null,
     secret: typeof v.secret === "string" && v.secret.length >= 16 ? v.secret : randomBytes(12).toString("hex"),
     auto: Boolean(v.auto),
+    interval: v.interval === "hourly" ? "hourly" : "daily",
     time: typeof v.time === "string" && TIME_PATTERN.test(v.time) ? v.time : "22:00",
     lastSent: typeof v.lastSent === "string" ? v.lastSent : null,
+    lastSyncAt: typeof v.lastSyncAt === "string" ? v.lastSyncAt : null,
     lastResult: typeof v.lastResult === "string" ? v.lastResult : null,
   };
 }
@@ -113,7 +120,7 @@ async function defaultSheets(businessId: string): Promise<Sheet[]> {
   return sheets.filter((s, i) => s.name !== "Stock" || sheets.findIndex((x) => x.name === "Stock") === i);
 }
 
-/** Called every minute: each shop's automatic backup, once a day after its time. */
+/** Called every minute: each shop's automatic sync, every hour or once a day after its time. */
 export async function runDueGsheetBackups() {
   const rows = await prisma.systemSetting.findMany({ where: { key: GSHEET_KEY } });
   const date = todayBusinessDate();
@@ -121,24 +128,35 @@ export async function runDueGsheetBackups() {
   for (const row of rows) {
     let cfg: GsheetBackup;
     try { cfg = parseGsheet(JSON.parse(row.value)); } catch { continue; }
-    if (!cfg.auto || !cfg.url || time < cfg.time || cfg.lastSent === date) continue;
-    // Marked first, so a slow backup never runs twice.
-    await saveGsheet(row.businessId, { ...cfg, lastSent: date });
+    if (!cfg.auto || !cfg.url) continue;
+    const due = cfg.interval === "hourly"
+      ? !cfg.lastSyncAt || Date.now() - Date.parse(cfg.lastSyncAt) >= 60 * 60_000
+      : time >= cfg.time && cfg.lastSent !== date;
+    if (!due) continue;
+    const stamp = { lastSent: date, lastSyncAt: new Date().toISOString() };
+    // Marked first, so a slow sync never runs twice.
+    await saveGsheet(row.businessId, { ...cfg, ...stamp });
     let result: string;
     try {
       const n = await sendSheets(cfg, await defaultSheets(row.businessId));
-      result = `${new Date().toISOString()} · ${n} sheets backed up`;
+      result = `${new Date().toISOString()} · ${n} sheets synced`;
     } catch (e) {
       result = `${new Date().toISOString()} · failed: ${e instanceof Error ? e.message : "error"}`;
       console.error("[gsheet backup]", row.businessId, result);
     }
-    await saveGsheet(row.businessId, { ...cfg, lastSent: date, lastResult: result });
+    await saveGsheet(row.businessId, { ...cfg, ...stamp, lastResult: result });
   }
 }
 
-/** The Apps Script the owner pastes into their sheet (Extensions → Apps Script). */
+/** The Apps Script the owner pastes into their sheet (Extensions → Apps Script).
+ *
+ *  A sync, not a rebuild: on a tab that already exists only the values change, so the
+ *  owner's own colours, widths, fonts and charts stay as they made them. Formatting is set
+ *  once, when a tab is first created. Rows left over from a longer earlier sync are
+ *  emptied, not deleted. */
 export function appsScript(secret: string): string {
-  return `// Mahar Mini POS → Google Sheet backup
+  return `// Mahar Mini POS → Google Sheet sync
+// Only values are written; your own formatting is kept.
 const KEY = "${secret}";
 
 function doPost(e) {
@@ -146,20 +164,26 @@ function doPost(e) {
   if (body.secret !== KEY) return reply({ ok: false, error: "Wrong key. Copy the script again from Reports." });
   const book = SpreadsheetApp.getActiveSpreadsheet();
   body.sheets.forEach(function (s) {
-    const sheet = book.getSheetByName(s.name) || book.insertSheet(s.name);
-    sheet.clear();
     const width = Math.max.apply(null, [1].concat(s.rows.map(function (r) { return r.length; })));
     const rows = s.rows.map(function (r) { const x = r.slice(); while (x.length < width) x.push(""); return x; });
     if (!rows.length) return;
-    // Columns holding numbers get #,##0; the rest stay plain text, so dates and vouchers are not reshaped.
-    for (let j = 0; j < width; j++) {
-      const numeric = rows.some(function (r) { return typeof r[j] === "number"; });
-      sheet.getRange(1, j + 1, rows.length, 1).setNumberFormat(numeric ? "#,##0" : "@");
-    }
+    let sheet = book.getSheetByName(s.name);
+    const isNew = !sheet;
+    if (isNew) sheet = book.insertSheet(s.name);
+    // Empty what the last sync wrote beyond the new data, keeping its formatting.
+    const lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+    if (lastRow > rows.length) sheet.getRange(rows.length + 1, 1, lastRow - rows.length, Math.max(lastCol, width)).clearContent();
+    if (lastCol > width && lastRow > 0) sheet.getRange(1, width + 1, Math.min(lastRow, rows.length), lastCol - width).clearContent();
     sheet.getRange(1, 1, rows.length, width).setValues(rows);
-    [0].concat(s.boldRows || []).forEach(function (i) { sheet.getRange(i + 1, 1, 1, width).setFontWeight("bold"); });
-    sheet.setFrozenRows(1);
-    sheet.autoResizeColumns(1, width);
+    if (isNew) {
+      for (let j = 0; j < width; j++) {
+        const numeric = rows.some(function (r) { return typeof r[j] === "number"; });
+        if (numeric) sheet.getRange(1, j + 1, rows.length, 1).setNumberFormat("#,##0");
+      }
+      [0].concat(s.boldRows || []).forEach(function (i) { sheet.getRange(i + 1, 1, 1, width).setFontWeight("bold"); });
+      sheet.setFrozenRows(1);
+      sheet.autoResizeColumns(1, width);
+    }
   });
   return reply({ ok: true, sheets: body.sheets.length });
 }

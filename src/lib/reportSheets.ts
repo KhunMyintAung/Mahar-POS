@@ -3,7 +3,7 @@ import { ApiError } from "./api";
 import { STOCK_BRANDS, type Report } from "@/services/reportService";
 import type { Cell, Sheet } from "./xlsx";
 
-/** Shared by the Excel download and the Google Sheet backup, so both carry the same
+/** Shared by the Excel download and the Google Sheet sync, so both carry the same
  *  three sheets: the Grand Report (income, expense, profit, salary, capital and each
  *  partner's share), the daily (or monthly) summary, and the stock of the chosen
  *  categories. Nothing else, so the sheets stay easy to read. */

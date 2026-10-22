@@ -76,9 +76,9 @@ const GUIDES: { slug: string; category: Cat; title: string; description: string;
     steps: ["Reports ကိုဝင်ပါ", "Day / Month / Year / Custom ရွေးပါ", "⚙ တွင် လစာ Category၊ နောက်လအရင်း %၊ အစုရှင်များ သတ်မှတ်ပါ", "Grand Report နှင့် Daily summary ကြည့်ပါ"],
   },
   {
-    slug: "google-sheet-sync", category: "manage", title: "Excel ထုတ်ခြင်းနှင့် Google Sheet Backup",
-    description: "Report ကို Excel (Grand Report, Daily summary, Stock) ထုတ်ခြင်းနှင့် Google Sheet သို့ နေ့စဉ် အလိုအလျောက် Backup လုပ်ခြင်း။",
-    steps: ["Reports တွင် Excel နှိပ်၍ ဖိုင်ထုတ်ပါ", "Google Sheet backup → How to set up တွင် Script ကို Copy ကူးပါ", "Google Sheet → Extensions → Apps Script တွင် ထည့်ပြီး Web app အဖြစ် Deploy လုပ်ပါ", "Web app URL ကို ထည့်ပြီး နေ့စဉ် Backup အချိန် သတ်မှတ်ပါ"],
+    slug: "google-sheet-sync", category: "manage", title: "Excel ထုတ်ခြင်းနှင့် Google Sheet Sync",
+    description: "Report ကို Excel (Grand Report, Daily summary, Stock) ထုတ်ခြင်းနှင့် ကိုယ်ပိုင် Google Sheet နှင့် အလိုအလျောက် Sync လုပ်ခြင်း (Sheet ပုံစံ မပြောင်း)။",
+    steps: ["Reports တွင် Excel နှိပ်၍ ဖိုင်ထုတ်ပါ", "Google Sheet sync → How to set up တွင် Script ကို Copy ကူးပါ", "Google Sheet → Extensions → Apps Script တွင် ထည့်ပြီး Web app အဖြစ် Deploy လုပ်ပါ", "Web app URL ထည့်ပြီး Auto sync (နာရီတိုင်း / နေ့တိုင်း) ရွေးပါ — သင့် Sheet ပုံစံ မပြောင်းပါ"],
   },
   {
     slug: "telegram-reports", category: "manage", title: "Telegram ဖြင့် အရောင်းသတိပေးနှင့် နေ့စဉ် Report",

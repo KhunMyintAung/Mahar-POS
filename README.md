@@ -12,25 +12,27 @@ English: Mahar Mini POS is a free multi-tenant point-of-sale and business-record
 web application for small shops. Every registered business has an isolated
 PostgreSQL workspace.
 
-**3D/2D ချဲမှတ်တမ်းနှင့် ငွေလဲလှယ်မှု (Exchange) Module နှစ်ခုကို ဖယ်ရှားထားပါတယ်**။
+Live: https://app.maharpos.shop · Landing: https://maharpos.shop · User guides: https://maharpos.shop/manual/
 
 ## အဓိကလုပ်ဆောင်ချက်များ
 
-- **Mini Mart POS** - Barcode Scan၊ အရောင်း၊ ပြေစာထုတ်ခြင်း (RawBT 58mm
-  Thermal Printer အပါအဝင်)၊ ကုန်ပစ္စည်း၊ Stock၊ အဝယ်နှင့် Supplier
-- **ဖုန်းဆိုင်လုပ်ငန်း** - ဖုန်းပြင်ဆင်ခ Job များနှင့် Top-up Biller
-  (U9၊ ATOM၊ NEARME၊ MYTEL၊ MPT၊ ELOAD) Float စာရင်း
-- **ငွေစာရင်း** - Wallet၊ ငွေလွှဲ၊ ငွေထုတ်၊ ဝင်ငွေ/ထွက်ငွေနှင့် အကြွေးစာရင်း
-- **Multi-wallet Ledger** - Wallet လက်ကျန်ပြောင်းလဲမှုအားလုံးကို Ledger
-  Entry ဖြင့် စနစ်တကျသိမ်းဆည်းခြင်း
-- **Customer Credit & Payable** - အကြွေးရရန်၊ ပေးရန်နှင့် အရစ်ကျငွေသွင်းမှု
-- **Reports & Audit Logs** - Report များ၊ CSV Export နှင့် လုပ်ဆောင်ချက်
-  မှတ်တမ်းများ
-- **Users & Roles** - Owner၊ Admin၊ Cashier၊ Accountant၊ Viewer နှင့်
-  Custom Permission များ
-- **PWA & Mobile View** - ဖုန်းနှင့် Desktop နှစ်မျိုးလုံးအဆင်ပြေပြီး
-  Home Screen သို့ App အဖြစ်ထည့်သွင်းနိုင်ခြင်း
-- **Myanmar / English** - မြန်မာနှင့် အင်္ဂလိပ် Language ပြောင်းလဲအသုံးပြုနိုင်ခြင်း
+- **Sale POS** — Barcode Scan၊ Walk-in / ဖောက်သည်ရွေး၊ Cash + Wallet ခွဲပေးချေ၊
+  80mm / 58mm Thermal Voucher (PDF ဖိုင်အမည် = Voucher နံပါတ်)
+- **ပစ္စည်း၊ Stock နှင့် IMEI** — ဖုန်းတစ်လုံးချင်း IMEI ဖြင့် ဝယ်/ရောင်း/ရှာ၊ အဝယ်နှင့် FOC၊
+  Stock မှတ်တမ်း (နေ့/လ)၊ Supplier
+- **ဖုန်းဆိုင်လုပ်ငန်း** — Repair Job (စရံ၊ Status၊ QR ဖြင့် ဖောက်သည်ခြေရာခံ)၊ ဖုန်းဖြည့် Biller
+  (Bonus / Discount %၊ Void၊ နေ့စဉ်စာရင်း)
+- **ငွေစာရင်း** — Wallet၊ ငွေလွှဲ၊ ဝင်ငွေ/ထွက်ငွေ (စံ Category ၈ ခု)၊ ဖောက်သည်အကြွေးနှင့် ပေးရန်
+- **Reports** — နေ့/လ/နှစ်ချုပ် Grand Report (ဝင်ငွေ − ထွက်ငွေ = အမြတ် → ဝန်ထမ်းလစာ → နောက်လအရင်း →
+  အစုရှင်ခွဲဝေ)၊ ဆိုင်၏ Module အလိုက် ကော်လံ (Mini Mart တွင် Service/Top-up မပါ)၊
+  Excel ထုတ်ခြင်းနှင့် Google Sheet Sync (တန်ဖိုးသာ ရေး၊ Sheet ပုံစံ မပြောင်း)
+- **Telegram** — ကိုယ်ပိုင် Bot နှင့် အရောင်းချက်ချင်းသတိပေး / နေ့စဉ် Report bot
+- **Login** — Username/Password၊ Google Login၊ Email ဖြင့် စကားဝှက် ပြန်သတ်မှတ်
+- **Grand Admin Portal** (`/admin`) — Overview၊ Shops (Lock/Unlock)၊ Users (Disable / Sign out /
+  Reset)၊ Activity၊ Email (Resend log နှင့် Broadcast)၊ App တွင်းကြေညာချက်
+- **Users & Roles** — Role အလိုက် Permission၊ ဆိုင်ခွဲ (Branch)
+- **PWA, Mobile, Myanmar / English** — ဖုန်းနှင့် Desktop၊ Home Screen App၊ ဘာသာစကား နှစ်မျိုး
+- **စာလုံးမှား Auto ပြင်** — `iphne 12promax` → `iPhone 12 Pro Max`
 
 ## Data လုံခြုံရေး
 

@@ -35,8 +35,8 @@ export const DEFAULT_ABOUT: AboutContent = {
   community: "https://t.me/+2gc9ml7iMgk1ZThl",
   tiktok: "@maharshwemobile",
   facebook: "https://www.facebook.com/Mychoicemylife2018",
-  website: "https://maharshwe.online/",
-  customerLiveUrl: "https://maharshwe.online/",
+  website: "https://maharshwe.shop",
+  customerLiveUrl: "https://maharshwe.shop/#live",
   copyright: "",
   kbzName: "Khun Myint Aung (*******4052)",
   kbzPayload: "hQZLQlpQYXlhQE8C8FACEFECMTFXFgl3g5QFLSYGEBAfnwgEAQGfJAEwF519efdc3ff89=",
@@ -45,18 +45,6 @@ export const DEFAULT_ABOUT: AboutContent = {
   promptPayName: "MR. KHUN MYINT AUNG",
   promptPayPayload: "00020101021229370016A0000006770101110113006694407024653037645802TH6304DEAC",
 };
-
-export function mergeAbout(value?: Partial<AboutContent>): AboutContent {
-  const merged = { ...DEFAULT_ABOUT, ...value };
-  return {
-    ...merged,
-    appName: merged.appName.trim() || DEFAULT_ABOUT.appName,
-    version: merged.version.trim() || DEFAULT_ABOUT.version,
-    description: merged.description.trim() || DEFAULT_ABOUT.description,
-    developer: merged.developer.trim() || DEFAULT_ABOUT.developer,
-    location: merged.location.trim() || DEFAULT_ABOUT.location,
-  };
-}
 
 export function telegramUrl(value: string) {
   if (/^https?:\/\//i.test(value)) return value;
