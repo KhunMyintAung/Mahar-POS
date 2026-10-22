@@ -9,6 +9,7 @@ import { BENCH_STATUSES } from "@/lib/repairStatus";
 import { trackToken } from "@/lib/repairTrack";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
+import { notifyAuditFeed, repairNewNotice } from "@/lib/telegramNotify";
 
 /** What the repair page needs beyond the row: the voucher's QR link and who took it in. */
 async function withVoucherFields<T extends { id: string; createdById: string | null }>(businessId: string, jobs: T[]) {
@@ -143,6 +144,11 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
       notes: body.notes,
     })
   );
+
+  notifyAuditFeed(user.businessId, repairNewNotice({
+    jobNo: job.jobNo, deviceBrand: job.deviceBrand, deviceModel: job.deviceModel, problem: job.problem,
+    customerName: job.customerName, estimatedCost: job.estimatedCost, depositAmount: job.depositAmount, createdByName: user.name,
+  }));
 
   const [withFields] = await withVoucherFields(user.businessId, [job]);
   return json(withFields, { status: 201 });

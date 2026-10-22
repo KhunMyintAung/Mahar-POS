@@ -8,6 +8,7 @@ import { moveStock } from "@/services/stockService";
 import { audit } from "@/lib/audit";
 import { cleanImeis, receiveSerials, removeSerials, trackedItemIds } from "@/services/serialService";
 import { dateRangeUtc, isValidBusinessDate, isValidMonth, monthRangeUtc } from "@/lib/dates";
+import { notifyAuditFeed, stockMoveNotice } from "@/lib/telegramNotify";
 
 // GET: stock levels (with item info); ?movements=1 returns movements instead — the latest
 // 100, or every one in a day (?date=YYYY-MM-DD) or a month (?month=YYYY-MM).
@@ -141,7 +142,11 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
       action: "ADJUST", module: "stock", resourceType: "Item", resourceId: body.itemId,
       reason: notes, after: { reasonType: body.reasonType, quantity, qtyAfter: r.qtyAfter, repairJob: job?.jobNo },
     });
-    return r;
+    return { ...r, notes };
   });
+  notifyAuditFeed(user.businessId, stockMoveNotice({
+    itemName: result.item.name, label, quantity, qtyAfter: result.qtyAfter, createdByName: user.name,
+    detail: result.notes.startsWith(label) ? result.notes.slice(label.length).replace(/^ — /, "") : result.notes,
+  }));
   return json({ qtyAfter: result.qtyAfter }, { status: 201 });
 });

@@ -133,3 +133,51 @@ export function newCreditNotice(opts: { txnNo: string; customerName: string; amo
 export function reversalNotice(opts: { icon: string; label: string; txnNo: string; reason: string; createdByName: string }) {
   return `${opts.icon} ${opts.label} REVERSED — ${opts.txnNo}\nReason: ${opts.reason}\nBy: ${opts.createdByName}`;
 }
+
+const REPAIR_STATUS_LABEL: Record<string, string> = {
+  RECEIVED: "Taken in", CHECKING: "Checking", IN_PROGRESS: "In progress", WAITING_PARTS: "Waiting part",
+  DONE: "Completed", CANNOT_REPAIR: "Cannot repair", DELIVERED: "Delivered", CANCELLED: "Cancelled",
+};
+const statusLabel = (s: string) => REPAIR_STATUS_LABEL[s] ?? s;
+
+/** A phone taken in for repair. */
+export function repairNewNotice(opts: {
+  jobNo: string; deviceBrand: string; deviceModel: string; problem: string; customerName?: string | null;
+  estimatedCost: bigint; depositAmount: bigint; createdByName: string;
+}) {
+  return (
+    `🔧 New repair ${opts.jobNo}\n` +
+    `${opts.deviceBrand} ${opts.deviceModel} — ${opts.problem}` +
+    (opts.customerName ? `\nCustomer: ${opts.customerName}` : "") +
+    `\nEstimate: ${money(opts.estimatedCost)}` + (opts.depositAmount > 0n ? ` · Deposit: ${money(opts.depositAmount)}` : "") +
+    `\nBy: ${opts.createdByName}`
+  );
+}
+
+/** A repair moving from one status to the next, or paid off. */
+export function repairStatusNotice(opts: {
+  jobNo: string; deviceBrand: string; deviceModel: string; from: string; to: string;
+  finalCost?: bigint | null; paid?: bigint; createdByName: string; notes?: string | null;
+}) {
+  const icon = opts.to === "DONE" ? "✅" : opts.to === "DELIVERED" ? "📦" : opts.to === "CANCELLED" || opts.to === "CANNOT_REPAIR" ? "⛔" : "🔄";
+  return (
+    `${icon} Repair ${opts.jobNo} · ${opts.deviceBrand} ${opts.deviceModel}\n` +
+    (opts.from === opts.to ? `Status: ${statusLabel(opts.to)}` : `${statusLabel(opts.from)} → ${statusLabel(opts.to)}`) +
+    (opts.finalCost ? `\nCharge: ${money(opts.finalCost)}` : "") +
+    (opts.paid && opts.paid > 0n ? ` · Paid now: ${money(opts.paid)}` : "") +
+    `\nBy: ${opts.createdByName}` +
+    noteLine(opts.notes)
+  );
+}
+
+/** A stock movement entered by hand: in, out, used for repair, correction. */
+export function stockMoveNotice(opts: {
+  itemName: string; label: string; quantity: number; qtyAfter: number; createdByName: string; detail?: string | null;
+}) {
+  const sign = opts.quantity > 0 ? `+${opts.quantity}` : String(opts.quantity);
+  return (
+    `📦 Stock ${opts.label}: ${opts.itemName} ${sign}\n` +
+    `Now in stock: ${opts.qtyAfter} · By: ${opts.createdByName}` +
+    noteLine(opts.detail)
+  );
+}

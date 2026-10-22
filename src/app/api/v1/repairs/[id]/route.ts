@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { REPAIR_STATUSES, updateRepairStatus } from "@/services/repairService";
+import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 
 export const GET = withAuth("repair.view", async ({ user, params }) => {
   const job = await prisma.repairJob.findFirst({
@@ -23,6 +24,7 @@ const patchSchema = z.object({
 
 export const PATCH = withAuth("repair.update", async ({ req, user, params }) => {
   const body = await parseBody(req, patchSchema);
+  const before = await prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId }, select: { status: true, paidAmount: true } });
   const job = await prisma.$transaction((tx) =>
     updateRepairStatus(tx, {
       businessId: user.businessId,
@@ -36,5 +38,11 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
       walletId: body.walletId,
     })
   );
+  if (before && (before.status !== job.status || job.paidAmount !== before.paidAmount)) {
+    notifyAuditFeed(user.businessId, repairStatusNotice({
+      jobNo: job.jobNo, deviceBrand: job.deviceBrand, deviceModel: job.deviceModel, from: before.status, to: job.status,
+      finalCost: job.finalCost, paid: job.paidAmount - before.paidAmount, createdByName: user.name, notes: body.notes,
+    }));
+  }
   return json(job);
 });
