@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -328,6 +329,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               ) : (
                 <>
+                  <div className="mx-auto max-w-6xl"><AnnouncementBanner /></div>
                   {groupTabs && groupTabs.length > 1 && (
                     <div className="no-print mx-auto mb-4 flex max-w-6xl gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                       {groupTabs.map((t) => {

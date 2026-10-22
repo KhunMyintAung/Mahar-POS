@@ -789,3 +789,48 @@ model ItemSerial {
   @@index([saleId])
   @@index([purchaseId])
 }
+
+/// Every email the app sends through Resend, for the admin portal's email log.
+model EmailLog {
+  id          String   @id @default(uuid())
+  /// Resend's id, used to read the email's latest delivery event.
+  resendId    String?  @unique
+  to          String
+  subject     String
+  /// WELCOME RESET SIGNUP_ALERT BROADCAST TEST
+  kind        String
+  broadcastId String?
+  /// SENT FAILED, then Resend's last event: delivered opened clicked bounced complained…
+  status      String   @default("SENT")
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([broadcastId])
+  @@index([kind, createdAt])
+}
+
+/// A message the platform admin sent to many users at once.
+model EmailBroadcast {
+  id         String    @id @default(uuid())
+  subject    String
+  /// The text as written in the composer; the HTML is built from it when sent.
+  body       String
+  audience   String
+  recipients Int       @default(0)
+  sent       Int       @default(0)
+  failed     Int       @default(0)
+  /// QUEUED SENDING DONE
+  status     String    @default("QUEUED")
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+  finishedAt DateTime?
+}
+
+/// Settings for the whole service rather than one shop, such as the announcement banner.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

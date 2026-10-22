@@ -2,10 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Building2, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { Activity, BarChart3, Building2, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { Button, Card, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { AdminShops } from "@/components/AdminShops";
+import { AdminEmail } from "@/components/AdminEmail";
+import { AdminOverview } from "@/components/AdminOverview";
+import { AdminAnnouncement } from "@/components/AdminAnnouncement";
+
+type Tab = "overview" | "shops" | "users" | "activity" | "email" | "announcement";
+const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
+  { key: "overview", label: "Overview", icon: BarChart3 },
+  { key: "shops", label: "Shops", icon: Building2 },
+  { key: "users", label: "Users", icon: Users },
+  { key: "activity", label: "Activity", icon: Activity },
+  { key: "email", label: "Email", icon: Mail },
+  { key: "announcement", label: "Announcement", icon: Megaphone },
+];
 
 interface AdminStats {
   registeredAccounts: number;
@@ -65,6 +78,9 @@ export default function AdminPage() {
   const [activityQuery, setActivityQuery] = useState("");
   const [activityAction, setActivityAction] = useState("");
   const userAuditRef = useRef<HTMLElement>(null);
+  const [tab, setTab] = useState<Tab>("overview");
+  const [userBusy, setUserBusy] = useState<string | null>(null);
+  const [userNote, setUserNote] = useState("");
   const activityAuditRef = useRef<HTMLElement>(null);
 
   // Access follows from the signed-in account alone. Nothing is typed to get in.
@@ -116,7 +132,26 @@ export default function AdminPage() {
     };
   }, [load]);
 
+  /** Switch an account on or off, sign it out everywhere, or email it a reset link. */
+  const userAction = async (id: string, action: "enable" | "disable" | "signout" | "reset", label: string) => {
+    if (action !== "enable" && !window.confirm(`${label}?`)) return;
+    setUserBusy(id);
+    setUserNote("");
+    try {
+      const response = await fetch(`/api/admin/users/${id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action }) });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "Failed");
+      setUserNote(action === "reset" ? `Reset link sent to ${body.data.sentTo}` : action === "signout" ? `Signed out of ${body.data.signedOut} device(s)` : `Account ${action === "enable" ? "switched on" : "switched off"}`);
+      await load();
+    } catch (failure) {
+      setUserNote(failure instanceof Error ? failure.message : "Failed");
+    } finally {
+      setUserBusy(null);
+    }
+  };
+
   const openUserAudit = (scope: "all" | "today") => {
+    setTab("users");
     setUserScope(scope);
     window.requestAnimationFrame(() => {
       userAuditRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -124,6 +159,7 @@ export default function AdminPage() {
   };
 
   const openActivityAudit = () => {
+    setTab("activity");
     window.requestAnimationFrame(() => {
       activityAuditRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -208,7 +244,7 @@ export default function AdminPage() {
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-bold">Mahar Mini POS Admin</h1>
-              <p className="text-xs text-gray-500">Registration and user activity</p>
+              <p className="text-xs text-gray-500">Grand Admin Portal</p>
             </div>
           </div>
           <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
@@ -223,6 +259,16 @@ export default function AdminPage() {
           </div>
         )}
 
+        <nav className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+          {TABS.map((t) => (
+            <button key={t.key} type="button" onClick={() => setTab(t.key)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${tab === t.key ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"}`}>
+              <t.icon size={16} />{t.label}
+            </button>
+          ))}
+        </nav>
+
+        {tab === "overview" && <>
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {stats.map((item) => {
             const Icon = item.icon;
@@ -284,10 +330,15 @@ export default function AdminPage() {
           })}
         </section>
 
-        {named && <AdminShops />}
+        <AdminOverview />
+        </>}
 
-        <div className="grid items-start gap-4 xl:grid-cols-2">
-        {named && <section ref={userAuditRef} className="scroll-mt-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        {tab === "shops" && <AdminShops />}
+        {tab === "email" && <AdminEmail />}
+        {tab === "announcement" && <AdminAnnouncement />}
+
+        <div className="space-y-4">
+        {tab === "users" && <section ref={userAuditRef} className="scroll-mt-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-800">
             <div>
               <h2 className="text-sm font-semibold">
@@ -327,8 +378,9 @@ export default function AdminPage() {
               </label>
             </div>
           </header>
+          {userNote && <div className="border-b border-gray-200 bg-blue-50 px-4 py-2 text-sm text-blue-800 dark:border-gray-800 dark:bg-blue-950/40 dark:text-blue-200">{userNote}</div>}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs text-gray-500 dark:border-gray-800 dark:bg-gray-950">
                 <tr>
                   <th className="px-4 py-3 font-medium">Business</th>
@@ -337,6 +389,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3 font-medium">Account</th>
                   <th className="px-4 py-3 font-medium">Login session</th>
                   <th className="px-4 py-3 font-medium">Registered</th>
+                  <th className="px-4 py-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -356,10 +409,19 @@ export default function AdminPage() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{fmtDateTime(user.createdAt)}</td>
+                    <td className="whitespace-nowrap px-4 py-2">
+                      <div className="flex gap-1">
+                        {user.active
+                          ? <Button size="sm" variant="secondary" disabled={userBusy === user.id} onClick={() => userAction(user.id, "disable", `Switch off ${user.username} and sign them out`)}>Disable</Button>
+                          : <Button size="sm" variant="secondary" disabled={userBusy === user.id} onClick={() => userAction(user.id, "enable", "")}>Enable</Button>}
+                        <Button size="sm" variant="ghost" disabled={userBusy === user.id || !user.hasValidSession} onClick={() => userAction(user.id, "signout", `Sign ${user.username} out of every device`)}>Sign out</Button>
+                        <Button size="sm" variant="ghost" disabled={userBusy === user.id} onClick={() => userAction(user.id, "reset", `Email ${user.username} a password reset link`)}>Reset pw</Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
                 {!loading && visibleUsers.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-500">No registered users found.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-500">No registered users found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -369,7 +431,7 @@ export default function AdminPage() {
           </footer>
         </section>}
 
-        <section ref={activityAuditRef} className="scroll-mt-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        {tab === "activity" && <section ref={activityAuditRef} className="scroll-mt-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
           <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-800">
             <div>
               <h2 className="text-sm font-semibold">Activity Audit Logs</h2>
@@ -430,7 +492,7 @@ export default function AdminPage() {
           <footer className="border-t border-gray-200 px-4 py-3 text-xs text-gray-500 dark:border-gray-800">
             Showing {visibleActivity.length.toLocaleString()} of {(data?.activityLogs.length ?? 0).toLocaleString()} loaded activities
           </footer>
-        </section>
+        </section>}
         </div>
 
         <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
