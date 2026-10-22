@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { businessDateOf, dateRangeUtc } from "@/lib/dates";
 import { bucketForKey } from "@/lib/incomeCategories";
+import { parseModuleAccess } from "@/lib/modules";
 
 /** The business report for any period: a day, a month, a year or a range.
  *
@@ -115,9 +116,35 @@ export interface Distribution {
   partners: { name: string; percent: number; amount: bigint }[];
 }
 
+/** Which parts of the shop the report shows, from the shop's switched-on modules: a mini
+ *  mart without Repair or Top-up Billers has no Service or Top-up columns. */
+export interface ReportSections { sales: boolean; service: boolean; topup: boolean }
+
+export async function loadReportSections(businessId: string): Promise<ReportSections> {
+  const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: "modules" } } });
+  let features;
+  try { features = parseModuleAccess(row ? JSON.parse(row.value) : undefined).features; } catch { features = parseModuleAccess(undefined).features; }
+  return { sales: features.pos, service: features.repair, topup: features.biller };
+}
+
+/** Money filed under a part the shop does not run (say a Daily Service Income entry in a
+ *  mini mart) is counted as Other, so totals stay whole and no empty column shows. */
+function foldHidden(r: PeriodRow, shown: ReportSections) {
+  if (!shown.service) {
+    r.otherIncome += r.service; r.expGeneral += r.expService;
+    r.service = 0n; r.expService = 0n;
+  }
+  if (!shown.topup) {
+    // Only the margin is the shop's; the rest of top-up cash belongs to the operator.
+    r.otherIncome += r.topupMargin; r.expGeneral += r.expTopup;
+    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n;
+  }
+}
+
 export interface Report {
   from: string; to: string; groupBy: "day" | "month";
   settings: ReportSettings;
+  shown: ReportSections;
   rows: (PeriodRow & Finished)[];
   totals: PeriodRow & Finished & { saleCount: number };
   /** Current stock of the chosen categories. */
@@ -191,7 +218,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const keyOf = (date: string) => (groupBy === "day" ? date : date.slice(0, 7));
   const range = { gte: dateRangeUtc(from).gte, lt: dateRangeUtc(to).lt };
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const settings = await loadReportSettings(businessId);
+  const [settings, shown] = await Promise.all([loadReportSettings(businessId), loadReportSections(businessId)]);
   const salarySet = new Set(settings.salaryCategories.map((c) => c.toLowerCase()));
 
   const [sales, saleLines, ledger, billerSales, entries, keyedCats, jobsIn, jobsDone, jobsDelivered, jobsCancelled, wallets, purchases] = await Promise.all([
@@ -278,6 +305,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     const netProfit = grossProfit - r.expense - r.salary;
     return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
   };
+  for (const r of rows.values()) foldHidden(r, shown);
   const ordered = [...rows.values()].sort((a, b) => a.period.localeCompare(b.period)).map(finish);
   const sum = ordered.reduce((t, r) => {
     for (const k of Object.keys(t) as (keyof PeriodRow)[]) if (k !== "period") (t[k] as bigint) += r[k] as bigint;
@@ -305,7 +333,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
 
   const totals = finish(sum);
   return {
-    from, to, groupBy, settings,
+    from, to, groupBy, settings, shown,
     sections: sectionsOf(sum),
     distribution: distribute(totals.netProfit, settings, periodKeys(from, to, "month").length),
     rows: ordered,

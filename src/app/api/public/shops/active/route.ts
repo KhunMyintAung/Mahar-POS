@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
       search: (sp.get("search") ?? "").slice(0, 80),
       location: (sp.get("location") ?? "").slice(0, 80),
       businessType: (sp.get("businessType") ?? "").slice(0, 40),
-    }));
+    }), 200, req.headers.get("origin"));
   } catch (e) {
     console.error("[public shops]", e);
-    return publicJson({ ok: false }, 500);
+    return publicJson({ ok: false }, 500, req.headers.get("origin"));
   }
 }

@@ -27,6 +27,8 @@ interface Report {
   from: string; to: string; groupBy: "day" | "month";
   period: { kind: Kind; label: string };
   settings: Settings;
+  /** The parts this shop runs; the others have no column. */
+  shown: { sales: boolean; service: boolean; topup: boolean };
   rows: Row[];
   totals: Row;
   distribution: { reserve: Money; distributable: Money; months: number; partners: { name: string; percent: number; amount: Money }[] };
@@ -97,6 +99,7 @@ export default function ReportsPage() {
   const t = report?.totals;
   const d = report?.distribution;
   const s = report?.settings;
+  const parts = ([["sales", "Sales"], ["service", "Service"], ["topup", "Top-up"]] as const).filter(([k]) => report?.shown?.[k] ?? true);
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -153,17 +156,13 @@ export default function ReportsPage() {
             <div className="grid gap-x-8 gap-y-2 md:grid-cols-3">
               <div>
                 <div className="mb-1 text-xs font-semibold uppercase text-gray-500">Income</div>
-                <Line label="Sales" value={t.inc.sales} />
-                <Line label="Service" value={t.inc.service} />
-                <Line label="Top-up" value={t.inc.topup} />
+                {parts.map(([k, label]) => <Line key={k} label={label} value={t.inc[k]} />)}
                 <Line label="Other income" value={t.inc.other} />
                 <Line label="Total income" value={t.inc.total} strong />
               </div>
               <div>
                 <div className="mb-1 text-xs font-semibold uppercase text-gray-500">Expense</div>
-                <Line label="Sales" value={t.exp.sales} />
-                <Line label="Service" value={t.exp.service} />
-                <Line label="Top-up" value={t.exp.topup} />
+                {parts.map(([k, label]) => <Line key={k} label={label} value={t.exp[k]} />)}
                 <Line label="Other Expense" value={t.exp.other} />
                 <Line label="Total Expense" value={t.exp.total} strong />
               </div>
@@ -192,13 +191,13 @@ export default function ReportsPage() {
                 <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
                   <tr>
                     <th />
-                    <th colSpan={5} className="border-l border-gray-200 px-3 pt-2 text-center text-green-700 dark:border-gray-700 dark:text-green-400">Income</th>
-                    <th colSpan={5} className="border-l border-gray-200 px-3 pt-2 text-center text-red-700 dark:border-gray-700 dark:text-red-400">Expense</th>
+                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-3 pt-2 text-center text-green-700 dark:border-gray-700 dark:text-green-400">Income</th>
+                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-3 pt-2 text-center text-red-700 dark:border-gray-700 dark:text-red-400">Expense</th>
                     <th className="border-l border-gray-200 dark:border-gray-700" />
                   </tr>
                   <tr className="border-b border-gray-200 dark:border-gray-800">
-                    {[report.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Sales", "Service", "Top-up", "Other Expense", "Total Expense", "Net Profit / Loss"].map((h, i) => (
-                      <th key={i} className={cn("px-3 py-2 font-medium", i > 0 && "text-right", (i === 1 || i === 6 || i === 11) && "border-l border-gray-200 dark:border-gray-700")}>{h}</th>
+                    {[report.groupBy === "day" ? "Date" : "Month", ...parts.map(([, l]) => l), "Other income", "Total income", ...parts.map(([, l]) => l), "Other Expense", "Total Expense", "Net Profit / Loss"].map((h, i, all) => (
+                      <th key={i} className={cn("px-3 py-2 font-medium", i > 0 && "text-right", (i === 1 || i === parts.length + 3 || i === all.length - 1) && "border-l border-gray-200 dark:border-gray-700")}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -206,12 +205,13 @@ export default function ReportsPage() {
                   {[...report.rows, { ...t, period: "Total" }].map((r) => {
                     const total = r.period === "Total";
                     const empty = !total && big(r.inc.total) === 0n && big(r.exp.total) === 0n;
-                    const cells = [r.inc.sales, r.inc.service, r.inc.topup, r.inc.other, r.inc.total, r.exp.sales, r.exp.service, r.exp.topup, r.exp.other, r.exp.total];
+                    const cells = [...parts.map(([k]) => r.inc[k]), r.inc.other, r.inc.total, ...parts.map(([k]) => r.exp[k]), r.exp.other, r.exp.total];
+                    const half = parts.length + 2;
                     return (
                       <tr key={r.period} className={cn(total && "bg-gray-50 font-semibold dark:bg-gray-800/60", empty && "text-gray-400")}>
                         <td className="whitespace-nowrap px-3 py-2 text-xs">{r.period}</td>
                         {cells.map((v, i) => (
-                          <td key={i} className={cn("px-3 py-2 text-right tabular-nums", (i === 0 || i === 5) && "border-l border-gray-100 dark:border-gray-800", (i === 4 || i === 9) && "font-semibold")}>{fmtMoney(v)}</td>
+                          <td key={i} className={cn("px-3 py-2 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>{fmtMoney(v)}</td>
                         ))}
                         <td className={cn("border-l border-gray-100 px-3 py-2 text-right font-semibold tabular-nums dark:border-gray-800", !empty && tone(r.net))}>{fmtMoney(r.net)}</td>
                       </tr>
@@ -226,14 +226,14 @@ export default function ReportsPage() {
         </>
       )}
 
-      {owner && <ReportSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} />}
+      {owner && <ReportSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} shown={report?.shown ?? { sales: true, service: true, topup: true }} />}
     </div>
   );
 }
 
 /** Staff salary categories, where general expenses go, capital for next month, partners
  *  and the stock categories. Owner only. */
-function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean; onClose: () => void; onSaved: () => void; shown: Report["shown"] }) {
   const { push } = useToast();
   const [cats, setCats] = useState<string[]>([]);
   const [itemCats, setItemCats] = useState<{ id: string; name: string; parentId: string | null }[]>([]);
@@ -320,9 +320,9 @@ function ReportSettingsModal({ open, onClose, onSaved }: { open: boolean; onClos
             <div className="mb-1 text-sm font-semibold">2. General expenses go under</div>
             <p className="mb-2 text-xs text-gray-500">Daily General Expense and your own expense categories (rent, electricity…).</p>
             <select value={cfg.generalExpenseTo} onChange={(e) => setCfg({ ...cfg, generalExpenseTo: e.target.value as Sec })} className={cn(field, "w-full")}>
-              <option value="service">Service</option>
-              <option value="sales">Sales</option>
-              <option value="topup">Top-up</option>
+              {shown.service && <option value="service">Service</option>}
+              {shown.sales && <option value="sales">Sales</option>}
+              {shown.topup && <option value="topup">Top-up</option>}
               <option value="general">Other Expense</option>
             </select>
           </section>

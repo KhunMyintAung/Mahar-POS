@@ -44,11 +44,18 @@ export function reportSheets(r: Report, title: string): Sheet[] {
   const blank = () => grand.push([]);
   const strong = (label: string, v: bigint | null) => { bold.push(grand.length); grand.push([label, v === null ? "" : n(v)]); };
 
+  const sh = r.shown;
+  // Columns for the parts this shop runs; Other is always there.
+  const parts = [
+    ...(sh.sales ? [["sales", "Sales", "အရောင်း"]] : []),
+    ...(sh.service ? [["service", "Service", "ဆားဗစ်"]] : []),
+    ...(sh.topup ? [["topup", "Top-up", "ဖုန်းဖြည့်"]] : []),
+  ] as ["sales" | "service" | "topup", string, string][];
   blank(); strong("INCOME (ဝင်ငွေ)", null);
-  grand.push(["Sales (အရောင်း)", n(t.inc.sales)], ["Service (ဆားဗစ်)", n(t.inc.service)], ["Top-up (ဖုန်းဖြည့်)", n(t.inc.topup)], ["Other income (အခြား)", n(t.inc.other)]);
+  grand.push(...parts.map(([k, en, mm]) => [`${en} (${mm})`, n(t.inc[k])]), ["Other income (အခြား)", n(t.inc.other)]);
   strong("Total income", t.inc.total);
   blank(); strong("EXPENSE (ထွက်ငွေ)", null);
-  grand.push(["Sales (အရောင်း)", n(t.exp.sales)], ["Service (ဆားဗစ်)", n(t.exp.service)], ["Top-up (ဖုန်းဖြည့်)", n(t.exp.topup)], ["Other expense (အခြား)", n(t.exp.other)]);
+  grand.push(...parts.map(([k, en, mm]) => [`${en} (${mm})`, n(t.exp[k])]), ["Other expense (အခြား)", n(t.exp.other)]);
   strong("Total expense", t.exp.total);
   blank();
   strong("PROFIT (အမြတ်) = Income − Expense", t.net);
@@ -58,11 +65,14 @@ export function reportSheets(r: Report, title: string): Sheet[] {
   strong("TO SHARE (ခွဲဝေရန်)", d.distributable);
   for (const p of d.partners) grand.push([`   ${p.name} (${p.percent}%)`, n(p.amount)]);
 
-  const head1: Cell[] = ["", "Income", "", "", "", "", "Expense", "", "", "", "", ""];
-  const head2: Cell[] = [r.groupBy === "day" ? "Date" : "Month", "Sales", "Service", "Top-up", "Other income", "Total income", "Sales", "Service", "Top-up", "Other Expense", "Total Expense", "Net Profit / Loss"];
+  const width = parts.length + 2;
+  const head1: Cell[] = ["", "Income", ...Array(width - 1).fill(""), "Expense", ...Array(width - 1).fill(""), ""];
+  const head2: Cell[] = [r.groupBy === "day" ? "Date" : "Month",
+    ...parts.map(([, en]) => en), "Other income", "Total income",
+    ...parts.map(([, en]) => en), "Other Expense", "Total Expense", "Net Profit / Loss"];
   const line = (x: Report["rows"][number], label: string): Cell[] => [
-    label, n(x.inc.sales), n(x.inc.service), n(x.inc.topup), n(x.inc.other), n(x.inc.total),
-    n(x.exp.sales), n(x.exp.service), n(x.exp.topup), n(x.exp.other), n(x.exp.total), n(x.net),
+    label, ...parts.map(([k]) => n(x.inc[k])), n(x.inc.other), n(x.inc.total),
+    ...parts.map(([k]) => n(x.exp[k])), n(x.exp.other), n(x.exp.total), n(x.net),
   ];
   const daily = [head1, head2, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
 

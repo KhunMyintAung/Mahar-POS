@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const limit = Math.min(20, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 4));
   try {
-    return publicJson(await publicActiveUsers(limit));
+    return publicJson(await publicActiveUsers(limit), 200, req.headers.get("origin"));
   } catch (e) {
     console.error("[public active users]", e);
-    return publicJson({ ok: false }, 500);
+    return publicJson({ ok: false }, 500, req.headers.get("origin"));
   }
 }
