@@ -35,11 +35,13 @@ interface Wallet { id: string; name: string; currency: string; currentBalance: s
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
 /** imeis: for an IMEI-tracked item, the phones being sold; quantity is their count. */
-interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[] }
+/** foc: a free gift with the sale (charger, case, glass…): sold at 0, still leaves stock,
+ *  its cost counts against the sale's profit. listPrice is the price to go back to. */
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }
 interface SaleResult { txnNo: string; total: string; profit: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[] }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -151,9 +153,9 @@ export default function PosPage() {
               .reduce((total, level) => total + level.quantity, 0);
             if (item.trackSerial) {
               const imeis = (line.imeis ?? []).slice(0, stock);
-              return [{ item, quantity: imeis.length, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, imeis }];
+              return [{ item, quantity: imeis.length, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, imeis, foc: line.foc, listPrice: line.listPrice }];
             }
-            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note }];
+            return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, foc: line.foc, listPrice: line.listPrice }];
           }).filter((line) => line.quantity > 0 || line.item.trackSerial));
           setDiscount(draft.discount);
           setWalletId(draft.walletId);
@@ -176,7 +178,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -419,7 +421,7 @@ export default function PosPage() {
             warranty: line.warranty?.label,
             warrantyDays: line.warranty?.days,
             warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
-            note: line.note?.trim() || undefined,
+            note: [line.foc ? "FOC (gift)" : "", line.note?.trim() ?? ""].filter(Boolean).join(" · ") || undefined,
             imeis: line.item.trackSerial ? line.imeis : undefined,
           })),
           discount: disc.toString(),
@@ -449,6 +451,7 @@ export default function PosPage() {
           warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
           note: line.note?.trim() || undefined,
           imeis: line.imeis?.length ? line.imeis : undefined,
+          foc: line.foc || undefined,
         })),
         subtotal,
         discount: disc,
@@ -611,16 +614,33 @@ export default function PosPage() {
                     );
                   })()}
                   <div className="flex items-end justify-between gap-2">
-                    <Input
-                      label="Selling price"
-                      value={line.unitPrice.toString()}
-                      onChange={(event) => {
-                        const value = Math.max(0, readAmount(event.target.value));
-                        setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, unitPrice: value } : entry));
-                      }}
-                      inputMode="decimal"
-                      className="max-w-32"
-                    />
+                    <div className="flex items-end gap-2">
+                      {line.foc ? (
+                        <div className="flex h-10 items-center rounded-lg bg-pink-50 px-3 text-sm font-bold text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">🎁 FOC · 0 MMK</div>
+                      ) : (
+                        <Input
+                          label="Selling price"
+                          value={line.unitPrice.toString()}
+                          onChange={(event) => {
+                            const value = Math.max(0, readAmount(event.target.value));
+                            setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, unitPrice: value } : entry));
+                          }}
+                          inputMode="decimal"
+                          className="max-w-32"
+                        />
+                      )}
+                      <label className="flex h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 px-2 text-xs font-medium dark:border-gray-700" title="Free gift with the sale">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(line.foc)}
+                          onChange={(e) => setCart((current) => current.map((entry) => entry.item.id !== line.item.id ? entry
+                            : e.target.checked
+                              ? { ...entry, foc: true, listPrice: entry.unitPrice, unitPrice: 0 }
+                              : { ...entry, foc: false, unitPrice: entry.listPrice ?? Number(BigInt(entry.item.sellingPrice)) / 100 }))}
+                        />
+                        FOC
+                      </label>
+                    </div>
                     {line.item.trackSerial ? (
                       <span className="flex h-10 shrink-0 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                         {line.quantity} pc{line.quantity === 1 ? "" : "s"}

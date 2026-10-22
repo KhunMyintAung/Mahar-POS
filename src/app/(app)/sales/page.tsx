@@ -143,7 +143,7 @@ export default function SalesPage() {
                   <ul className="mt-1 space-y-0.5 text-gray-500">
                     {s.lines.map((l) => (
                       <li key={l.id}>
-                        {l.item.name} × {l.quantity} @ {fmtMoney(l.unitPrice)}
+                        {l.item.name} × {l.quantity} {BigInt(l.unitPrice) === 0n ? <b className="text-pink-600">FOC</b> : <>@ {fmtMoney(l.unitPrice)}</>}
                         {l.warranty && <span className="ml-1 text-green-600">· {l.warranty}</span>}
                         {l.note && <span className="ml-1 text-gray-400">· {l.note}</span>}
                       </li>

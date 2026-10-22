@@ -78,7 +78,9 @@ export function buildTextReceipt(data: ReceiptData, width = WIDTH_58MM): string 
   for (const line of data.lines) {
     // The name gets its own line so a long one never squeezes the numbers.
     for (const part of wrap(line.name, width)) lines.push(part);
-    lines.push(row(`  ${line.quantity} x ${money(line.unitPrice)}`, money(line.quantity * line.unitPrice), width));
+    lines.push(line.unitPrice === 0
+      ? row(`  ${line.quantity} x FOC (gift)`, "FOC", width)
+      : row(`  ${line.quantity} x ${money(line.unitPrice)}`, money(line.quantity * line.unitPrice), width));
   }
   lines.push(rule);
 

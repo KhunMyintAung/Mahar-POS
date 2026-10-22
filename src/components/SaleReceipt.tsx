@@ -22,7 +22,7 @@ export interface ReceiptData {
   cashierName?: string;
   /** warranty is the label given at the till; warrantyUntil (ISO) is set when it has a length. */
   lines: {
-    name: string; quantity: number; unitPrice: number;
+    name: string; quantity: number; unitPrice: number; foc?: boolean;
     warranty?: string; warrantyUntil?: string; warrantyCondition?: string; note?: string;
     /** The phones sold on this line, by IMEI. */
     imeis?: string[];
@@ -116,8 +116,8 @@ export function SaleReceiptSlip({ data }: { data: ReceiptData }) {
                 {line.note && <small className="block text-[9px] text-gray-600">Note: {line.note}</small>}
               </td>
               <td className="py-1 pl-1 text-center tabular-nums">{line.quantity}</td>
-              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{money(line.unitPrice)}</td>
-              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{money(line.quantity * line.unitPrice)}</td>
+              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{line.unitPrice === 0 ? "FOC" : money(line.unitPrice)}</td>
+              <td className="whitespace-nowrap py-1 pl-1.5 text-right tabular-nums">{line.unitPrice === 0 ? "FOC" : money(line.quantity * line.unitPrice)}</td>
             </tr>
           ))}
         </tbody>

@@ -117,6 +117,8 @@ export default function PurchasesPage() {
     : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
     : "";
 
+  // Purchases whose full item list is opened in the table.
+  const [openLines, setOpenLines] = useState<Set<string>>(new Set());
   // After a purchase: ask whether its cost goes into expense. "always" skips the question.
   const [expenseAsk, setExpenseAsk] = useState<{ id: string; txnNo: string; total: string } | null>(null);
   const [expenseAlways, setExpenseAlways] = useState(() => {
@@ -208,7 +210,24 @@ export default function PurchasesPage() {
               <td className="px-3 py-2 text-xs">{p.txnNo}</td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
               <td className="px-3 py-2">{p.supplierName ?? "—"}</td>
-              <td className="px-3 py-2 text-xs">{p.lines.map((l) => `${l.item.name}×${l.quantity}${BigInt(l.unitCost) === 0n ? " (FOC)" : ""}`).join(", ")}</td>
+              <td className="max-w-md px-3 py-2 text-xs">
+                {(() => {
+                  const names = p.lines.map((l) => `${l.item.name}×${l.quantity}${BigInt(l.unitCost) === 0n ? " (FOC)" : ""}`);
+                  const open = openLines.has(p.id);
+                  const shown = open ? names : names.slice(0, 2);
+                  return (
+                    <>
+                      <span className={open ? "" : "line-clamp-2"}>{shown.join(", ")}</span>
+                      {names.length > 2 && (
+                        <button type="button" className="ml-1 font-medium text-blue-600"
+                          onClick={() => setOpenLines((s) => { const n = new Set(s); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n; })}>
+                          {open ? "less" : `+${names.length - 2} more`}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(p.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(p.paidAmount)}</td>
               <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>

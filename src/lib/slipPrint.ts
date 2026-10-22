@@ -108,8 +108,8 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
     <tr>
       <td>${escapeHtml(item.name)}${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</td>
       <td class="center c-qty">${Number(item.quantity || 0)}</td>
-      <td class="right c-price">${money(item.unitPrice)}</td>
-      <td class="right c-total">${money(item.unitPrice * item.quantity)}</td>
+      <td class="right c-price">${item.unitPrice === 0 ? "FOC" : money(item.unitPrice)}</td>
+      <td class="right c-total">${item.unitPrice === 0 ? "FOC" : money(item.unitPrice * item.quantity)}</td>
     </tr>`;
   }).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sale.txnNo)}</title><style>${baseStyles()}</style></head><body>
