@@ -140,34 +140,56 @@ const REPAIR_STATUS_LABEL: Record<string, string> = {
 };
 const statusLabel = (s: string) => REPAIR_STATUS_LABEL[s] ?? s;
 
-/** A phone taken in for repair. */
-export function repairNewNotice(opts: {
-  jobNo: string; deviceBrand: string; deviceModel: string; problem: string; customerName?: string | null;
-  estimatedCost: bigint; depositAmount: bigint; createdByName: string;
-}) {
-  return (
-    `🔧 New repair ${opts.jobNo}\n` +
-    `${opts.deviceBrand} ${opts.deviceModel} — ${opts.problem}` +
-    (opts.customerName ? `\nCustomer: ${opts.customerName}` : "") +
-    `\nEstimate: ${money(opts.estimatedCost)}` + (opts.depositAmount > 0n ? ` · Deposit: ${money(opts.depositAmount)}` : "") +
-    `\nBy: ${opts.createdByName}`
-  );
+/** The repair fields every repair alert shows. */
+export interface RepairForNotice {
+  jobNo: string; deviceBrand: string; deviceModel: string; problem: string;
+  customerName?: string | null; customerPhone?: string | null;
+  estimatedCost: bigint; finalCost?: bigint | null; depositAmount?: bigint; paidAmount?: bigint;
 }
 
-/** A repair moving from one status to the next, or paid off. */
-export function repairStatusNotice(opts: {
-  jobNo: string; deviceBrand: string; deviceModel: string; from: string; to: string;
-  finalCost?: bigint | null; paid?: bigint; createdByName: string; notes?: string | null;
+const ks = (minor: bigint) => `${money(minor, "").trim()} Ks`;
+
+/** One detail per line, so it reads at a glance on a phone:
+ *  job · status, device, customer, problem, amount, then who did it. */
+function repairLines(job: RepairForNotice, amountLine: string) {
+  const customer = [job.customerName?.trim(), job.customerPhone?.trim()].filter(Boolean).join(" · ");
+  return [
+    `📱 ${job.deviceBrand} ${job.deviceModel}`.trim(),
+    customer ? `👤 ${customer}` : "",
+    job.problem?.trim() ? `🛠 ${job.problem.trim()}` : "",
+    amountLine,
+  ].filter(Boolean).join("\n");
+}
+
+/** A phone taken in for repair. */
+export function repairNewNotice(job: RepairForNotice & { createdByName: string }) {
+  const amount = `💰 ${ks(job.estimatedCost)}` + (job.depositAmount && job.depositAmount > 0n ? ` · Deposit ${ks(job.depositAmount)}` : "");
+  return [
+    `🆕 Repair ${job.jobNo} · New`,
+    repairLines(job, amount),
+    "Status: Taken in",
+    `By: ${job.createdByName}`,
+  ].join("\n");
+}
+
+/** A repair moving from one status to the next, or paid. */
+export function repairStatusNotice(job: RepairForNotice & {
+  from: string; to: string; paidNow?: bigint; createdByName: string; notes?: string | null;
 }) {
-  const icon = opts.to === "DONE" ? "✅" : opts.to === "DELIVERED" ? "📦" : opts.to === "CANCELLED" || opts.to === "CANNOT_REPAIR" ? "⛔" : "🔄";
-  return (
-    `${icon} Repair ${opts.jobNo} · ${opts.deviceBrand} ${opts.deviceModel}\n` +
-    (opts.from === opts.to ? `Status: ${statusLabel(opts.to)}` : `${statusLabel(opts.from)} → ${statusLabel(opts.to)}`) +
-    (opts.finalCost ? `\nCharge: ${money(opts.finalCost)}` : "") +
-    (opts.paid && opts.paid > 0n ? ` · Paid now: ${money(opts.paid)}` : "") +
-    `\nBy: ${opts.createdByName}` +
-    noteLine(opts.notes)
-  );
+  const icon = job.to === "DONE" ? "✅" : job.to === "DELIVERED" ? "📦" : job.to === "CANCELLED" || job.to === "CANNOT_REPAIR" ? "⛔" : "🔄";
+  const charge = job.finalCost && job.finalCost > 0n ? job.finalCost : job.estimatedCost;
+  const paid = job.paidAmount ?? 0n;
+  const due = charge - paid;
+  const amount = `💰 ${ks(charge)}` +
+    (paid > 0n ? ` · Paid ${ks(paid)}` : "") +
+    (due > 0n && paid > 0n ? ` · Due ${ks(due)}` : "") +
+    (job.paidNow && job.paidNow > 0n ? `\n💵 Paid now: ${ks(job.paidNow)}` : "");
+  return [
+    `${icon} Repair ${job.jobNo} · ${statusLabel(job.to)}`,
+    repairLines(job, amount),
+    job.from === job.to ? `Status: ${statusLabel(job.to)}` : `Status: ${statusLabel(job.from)} → ${statusLabel(job.to)}`,
+    `By: ${job.createdByName}` + (job.notes?.trim() ? `\nNote: ${job.notes.trim()}` : ""),
+  ].join("\n");
 }
 
 /** A stock movement entered by hand: in, out, used for repair, correction. */
