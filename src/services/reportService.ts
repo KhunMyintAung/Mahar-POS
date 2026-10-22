@@ -10,8 +10,8 @@ import { bucketForKey } from "@/lib/incomeCategories";
  *
  *  Profit and cash are kept apart on purpose:
  *  - Profit: what the shop earned. Sales count at their margin over cost, top-up at its
- *    margin, service and other income in full; operating expenses, staff salary and repair
- *    parts come off. Shares (owner and partner drawings) are shown after net profit.
+ *    margin, service and other income in full; operating expenses and staff salary come
+ *    off. Spare parts taken from stock for repairs are not counted (the shop's choice). Shares (owner and partner drawings) are shown after net profit.
  *  - Sections: each part of the shop (sales, service, top-up & bill, general) has its own
  *    income and expense, and its own profit. Their sum is the profit; staff salary comes off
  *    that, then the capital kept for next month, and what is left is split among partners.
@@ -68,15 +68,14 @@ export function parseReportSettings(raw: unknown): ReportSettings {
 }
 
 /** The daily summary's columns: each section's money in and money out.
- *  Expense of a section is what it cost to earn that income: goods sold at cost, repair
- *  parts, the operator's share of top-up cash, plus the section's own expense entries.
+ *  Expense of a section is what it cost to earn that income: goods sold at cost, the operator's share of top-up cash, plus the section's own expense entries.
  *  So income − expense is the profit, before staff salary. */
 export function incomeExpenseOf(r: PeriodRow) {
   const income = { sales: r.sales, service: r.service, topup: r.topup, other: r.otherIncome, total: 0n };
   income.total = income.sales + income.service + income.topup + income.other;
   const expense = {
     sales: r.salesCost + r.expSales,
-    service: r.repairParts + r.expService,
+    service: r.expService,
     topup: r.topup - r.topupMargin + r.expTopup,
     other: r.expGeneral,
     total: 0n,
@@ -97,7 +96,7 @@ export async function loadReportSettings(businessId: string): Promise<ReportSett
 export interface PeriodRow {
   period: string;
   sales: bigint; salesCost: bigint; service: bigint; topup: bigint; topupMargin: bigint; otherIncome: bigint;
-  expense: bigint; salary: bigint; repairParts: bigint; shares: bigint;
+  expense: bigint; salary: bigint; shares: bigint;
   cashIn: bigint; cashOut: bigint;
   /** expense split by the section it comes out of (salary not included). */
   expSales: bigint; expService: bigint; expTopup: bigint; expGeneral: bigint;
@@ -135,7 +134,7 @@ export interface Report {
 
 const zeroRow = (period: string): PeriodRow => ({
   period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
-  expense: 0n, salary: 0n, repairParts: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
+  expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
   expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n,
 });
 
@@ -143,7 +142,7 @@ const zeroRow = (period: string): PeriodRow => ({
 export function sectionsOf(r: PeriodRow): SectionResult[] {
   return [
     { section: "sales", income: [{ label: "Sales", amount: r.sales }], expense: [{ label: "Cost of goods sold", amount: r.salesCost }, { label: "Sale expenses", amount: r.expSales }], profit: r.sales - r.salesCost - r.expSales },
-    { section: "service", income: [{ label: "Service / repair", amount: r.service }], expense: [{ label: "Repair parts used", amount: r.repairParts }, { label: "Service expenses", amount: r.expService }], profit: r.service - r.repairParts - r.expService },
+    { section: "service", income: [{ label: "Service / repair", amount: r.service }], expense: [{ label: "Service expenses", amount: r.expService }], profit: r.service - r.expService },
     { section: "topup", income: [{ label: "Top-up & bill margin", amount: r.topupMargin }], expense: [{ label: "Bill expenses", amount: r.expTopup }], profit: r.topupMargin - r.expTopup },
     { section: "general", income: [{ label: "General income", amount: r.otherIncome }], expense: [{ label: "General expenses", amount: r.expGeneral }], profit: r.otherIncome - r.expGeneral },
   ];
@@ -195,7 +194,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const settings = await loadReportSettings(businessId);
   const salarySet = new Set(settings.salaryCategories.map((c) => c.toLowerCase()));
 
-  const [sales, saleLines, ledger, billerSales, entries, keyedCats, repairUse, jobsIn, jobsDone, jobsDelivered, jobsCancelled, wallets, purchases] = await Promise.all([
+  const [sales, saleLines, ledger, billerSales, entries, keyedCats, jobsIn, jobsDone, jobsDelivered, jobsCancelled, wallets, purchases] = await Promise.all([
     prisma.sale.findMany({ where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, ...branch }, select: { date: true, total: true, totalCost: true } }),
     prisma.saleLine.findMany({
       where: { sale: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, ...branch } },
@@ -211,7 +210,6 @@ export async function buildReport(businessId: string, from: string, to: string, 
       select: { type: true, categoryName: true, amount: true, date: true },
     }),
     prisma.category.findMany({ where: { businessId, systemKey: { not: null } }, select: { name: true, type: true, systemKey: true } }),
-    prisma.stockMovement.findMany({ where: { businessId, type: "REPAIR_USE", createdAt: range, ...branch }, select: { quantity: true, createdAt: true, item: { select: { costPrice: true } } } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: range } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, completedAt: range } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, deliveredAt: range } }),
@@ -272,12 +270,11 @@ export async function buildReport(businessId: string, from: string, to: string, 
       r.shares += e.amount;
     }
   }
-  for (const m of repairUse) at(businessDateOf(m.createdAt)).repairParts += BigInt(-m.quantity) * m.item.costPrice;
 
   const finish = (r: PeriodRow) => {
     const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
     // Top-up counts at its margin: the rest of that cash is the operator's credit passing through.
-    const grossProfit = r.sales - r.salesCost + r.service + r.topupMargin + r.otherIncome - r.repairParts;
+    const grossProfit = r.sales - r.salesCost + r.service + r.topupMargin + r.otherIncome;
     const netProfit = grossProfit - r.expense - r.salary;
     return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
   };
