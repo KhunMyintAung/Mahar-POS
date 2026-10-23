@@ -146,17 +146,18 @@ export default function ReportsPage() {
           <Card>
             <h3 className="mb-3 text-sm font-semibold">{report.groupBy === "day" ? "Daily summary" : "Monthly summary"}</h3>
             <div className="max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-              <table className="w-full min-w-max text-sm">
-                <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
+              {/* Fits the page on a computer: small type, headings that wrap, tight cells. */}
+              <table className="w-full min-w-max text-xs lg:min-w-0">
+                <thead className="bg-gray-50 text-[11px] text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
                   <tr>
                     <th />
-                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-3 pt-2 text-center text-green-700 dark:border-gray-700 dark:text-green-400">Income</th>
-                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-3 pt-2 text-center text-red-700 dark:border-gray-700 dark:text-red-400">Expense</th>
+                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-1.5 pt-1.5 text-center font-semibold uppercase tracking-wide text-green-700 dark:border-gray-700 dark:text-green-400">Income</th>
+                    <th colSpan={parts.length + 2} className="border-l border-gray-200 px-1.5 pt-1.5 text-center font-semibold uppercase tracking-wide text-red-700 dark:border-gray-700 dark:text-red-400">Expense</th>
                     <th className="border-l border-gray-200 dark:border-gray-700" />
                   </tr>
                   <tr className="border-b border-gray-200 dark:border-gray-800">
                     {[report.groupBy === "day" ? "Date" : "Month", ...parts.map(([, l]) => l), "Other income", "Total income", ...parts.map(([, l]) => l), "Other Expense", "Total Expense", "Net Profit / Loss"].map((h, i, all) => (
-                      <th key={i} className={cn("px-3 py-2 font-medium", i > 0 && "text-right", (i === 1 || i === parts.length + 3 || i === all.length - 1) && "border-l border-gray-200 dark:border-gray-700")}>{h}</th>
+                      <th key={i} className={cn("px-1.5 py-1.5 align-bottom font-medium leading-tight", i > 0 && "text-right", (i === 1 || i === parts.length + 3 || i === all.length - 1) && "border-l border-gray-200 dark:border-gray-700")}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -168,11 +169,11 @@ export default function ReportsPage() {
                     const half = parts.length + 2;
                     return (
                       <tr key={r.period} className={cn(total && "bg-gray-50 font-semibold dark:bg-gray-800/60", empty && "text-gray-400")}>
-                        <td className="whitespace-nowrap px-3 py-2 text-xs">{r.period}</td>
+                        <td className="whitespace-nowrap px-1.5 py-1.5">{report.groupBy === "day" && !total ? r.period.slice(5) : r.period}</td>
                         {cells.map((v, i) => (
-                          <td key={i} className={cn("px-3 py-2 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>{fmtMoney(v)}</td>
+                          <td key={i} className={cn("px-1.5 py-1.5 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>{fmtMoney(v)}</td>
                         ))}
-                        <td className={cn("border-l border-gray-100 px-3 py-2 text-right font-semibold tabular-nums dark:border-gray-800", !empty && tone(r.net))}>{fmtMoney(r.net)}</td>
+                        <td className={cn("border-l border-gray-100 px-1.5 py-1.5 text-right font-semibold tabular-nums dark:border-gray-800", !empty && tone(r.net))}>{fmtMoney(r.net)}</td>
                       </tr>
                     );
                   })}

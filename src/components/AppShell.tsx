@@ -18,7 +18,7 @@ import { SoundToggle } from "./SoundToggle";
 import { LanguageSwitch } from "./LanguageProvider";
 import type { FeatureKey, FeatureVisibility, ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
-import { TopBarSlots } from "./PageHeader";
+import { TopBarTitle } from "./PageHeader";
 
 interface Me {
   user: {
@@ -140,9 +140,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
   const [dark, setDark] = useState(false);
-  // Where a page's <PageHeader> puts its name and buttons (callback refs, set once mounted).
+  // Where a page's <PageHeader> puts its name (a callback ref, set once mounted).
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
-  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   const pathname = usePathname();
   const sidebarHidden = sidebarPref?.path === pathname ? sidebarPref.hidden : pathname.startsWith("/pos");
   const router = useRouter();
@@ -252,6 +251,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={logout}
+        className="mt-2 flex items-center gap-3 rounded-lg border-t border-gray-100 px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+      >
+        <LogOut size={18} />Sign out
+      </button>
     </nav>
   );
 
@@ -304,7 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Top bar */}
-            <header className="no-print sticky top-0 z-30 flex min-h-14 items-center justify-between border-b border-gray-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 sm:px-4">
+            <header className="no-print relative z-30 flex min-h-14 items-center justify-between border-b border-gray-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 sm:px-4">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <button className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden" onClick={() => setDrawer(true)}>
                   <Menu size={20} />
@@ -323,8 +329,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className="menu-title truncate text-base font-bold text-gray-900 dark:text-gray-100">{pageName}</span>
                 </div>
               </div>
-              {/* Desktop: the page's own buttons, up here and within reach, not a row below. */}
-              <div ref={setActionsSlot} className="hidden min-w-0 flex-1 items-center justify-end gap-2 px-3 lg:flex" />
+              {/* Language, sound, theme and sign out live on the Dashboard only; other pages
+                  keep the bar for their name. Sign out is in the menu too. */}
+              {pathname === "/" && (
               <div className="flex shrink-0 items-center gap-1">
                 <LanguageSwitch className="mr-1" />
                 <PwaInstall compact />
@@ -336,6 +343,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <LogOut size={18} />
                 </button>
               </div>
+              )}
             </header>
 
             <main className="min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:pb-6">
@@ -365,7 +373,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       })}
                     </div>
                   )}
-                  <TopBarSlots.Provider value={{ title: titleSlot, actions: actionsSlot }}>{children}</TopBarSlots.Provider>
+                  <TopBarTitle.Provider value={titleSlot}>{children}</TopBarTitle.Provider>
                 </>
               )}
             </main>

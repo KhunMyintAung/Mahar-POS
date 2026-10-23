@@ -555,7 +555,7 @@ export default function PosPage() {
         {/* Desktop: the cart is a panel the height of the screen. Lines and payment scroll
             inside it, and the total with the Review button stays pinned at its foot, so the
             cashier never scrolls the page to see what the sale comes to. */}
-        <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100dvh-5.5rem)]">
+        <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-3 lg:max-h-[calc(100dvh-1.5rem)]">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2.5 dark:border-gray-800">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <ShoppingCart size={16} className="text-blue-600" />Cart
