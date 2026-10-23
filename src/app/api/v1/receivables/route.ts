@@ -37,7 +37,9 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
 });
 
 const schema = z.object({
-  customerId: z.string().min(1),
+  /** A saved contact, or `person` for someone not saved yet — a friend, a walk-in customer. */
+  customerId: z.string().min(1).optional(),
+  person: z.object({ name: z.string().trim().min(1, "Enter a name").max(120), phone: z.string().trim().max(40).optional() }).optional(),
   branchId: z.string().min(1),
   amount: z.string().min(1),
   currency: z.enum(["MMK", "THB"]).default("MMK"),
@@ -45,24 +47,39 @@ const schema = z.object({
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
-});
+  /** A cash loan: the wallet the money was handed out from, taken out of it now. */
+  walletId: z.string().min(1).optional(),
+}).refine((b) => b.customerId || b.person, { message: "Choose who owes it, or type a name" });
 
 export const POST = withAuth("credit.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   await assertBranchAccess(user, body.branchId);
-  const rec = await prisma.$transaction((tx) =>
-    createReceivable(tx, {
+  const rec = await prisma.$transaction(async (tx) => {
+    // Someone not saved yet is saved now, as a debtor (or found again by their phone).
+    let customerId = body.customerId;
+    if (!customerId && body.person) {
+      const phone = body.person.phone || null;
+      const known = phone
+        ? await tx.contact.findFirst({ where: { businessId: user.businessId, phone, deletedAt: null }, select: { id: true } })
+        : null;
+      customerId = known?.id ?? (await tx.contact.create({
+        data: { businessId: user.businessId, name: body.person.name, phone, type: "DEBTOR" },
+        select: { id: true },
+      })).id;
+    }
+    return createReceivable(tx, {
       businessId: user.businessId,
       branchId: body.branchId,
       userId: user.id,
-      customerId: body.customerId,
+      customerId: customerId!,
       amount: toMinor(body.amount),
       currency: body.currency,
       creditDate: body.creditDate,
       dueDate: body.dueDate,
       reference: body.reference,
       notes: body.notes,
-    })
-  );
+      walletId: body.walletId,
+    });
+  });
   return json(rec, { status: 201 });
 });

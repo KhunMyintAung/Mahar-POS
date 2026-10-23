@@ -32,7 +32,9 @@ function CreditContent() {
   const { push } = useToast();
   const { hasPerm, defaultBranchId } = useAuth();
 
-  const [form, setForm] = useState({ contactId: "", amount: "", dueDate: "", reference: "", notes: "", category: "", walletId: "" });
+  // loan: money handed out (to a friend, a walk-in customer) — it leaves a wallet now.
+  // contactId "new": someone not saved yet, by name and phone.
+  const [form, setForm] = useState({ contactId: "", amount: "", dueDate: "", reference: "", notes: "", category: "", walletId: "", loan: false, personName: "", personPhone: "" });
   const [pay, setPay] = useState({ amount: "", walletId: "", notes: "" });
 
   const isRec = tab === "receivable";
@@ -58,17 +60,19 @@ function CreditContent() {
         method: "POST",
         body: {
           branchId: defaultBranchId,
-          [isRec ? "customerId" : "supplierId"]: form.contactId,
+          ...(isRec && form.contactId === "new"
+            ? { person: { name: form.personName, phone: form.personPhone || undefined } }
+            : { [isRec ? "customerId" : "supplierId"]: form.contactId }),
           amount: form.amount,
           dueDate: form.dueDate || undefined,
           reference: form.reference || undefined,
           notes: form.notes || undefined,
-          ...(isRec ? { walletId: form.walletId || undefined } : { category: form.category || undefined }),
+          ...(isRec ? { walletId: form.loan ? form.walletId : undefined } : { category: form.category || undefined }),
         },
       });
-      push(isRec ? "Customer debt recorded" : "Payable recorded");
+      push(isRec ? (form.loan ? "Loan recorded" : "Customer debt recorded") : "Payable recorded");
       setShowNew(false);
-      setForm({ contactId: "", amount: "", dueDate: "", reference: "", notes: "", category: "", walletId: "" });
+      setForm({ contactId: "", amount: "", dueDate: "", reference: "", notes: "", category: "", walletId: "", loan: false, personName: "", personPhone: "" });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -188,37 +192,49 @@ function CreditContent() {
       )}
 
       {/* New */}
-      <Modal open={showNew} onClose={() => setShowNew(false)} title={isRec ? "Record customer debt" : "New business payable"}>
+      <Modal open={showNew} onClose={() => setShowNew(false)} title={isRec ? (form.loan ? "ငွေချေး မှတ်ရန်" : "Record customer debt") : "New business payable"}>
         <div className="space-y-3">
-          <Select label={isRec ? "Customer" : "Supplier / creditor"} value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
+          {isRec && (
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
+              {([[true, "💵 ငွေချေး (ငွေထုတ်ပေး)"], [false, "🛒 အကြွေး (ပစ္စည်း)"]] as const).map(([loan, label]) => (
+                <button key={label} type="button" onClick={() => setForm({ ...form, loan })} className={cn("rounded-md px-2 py-1.5 font-medium", form.loan === loan ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>{label}</button>
+              ))}
+            </div>
+          )}
+          <Select label={isRec ? (form.loan ? "ဘယ်သူ ချေးသလဲ" : "Customer") : "Supplier / creditor"} value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
             <option value="">Select…</option>
+            {isRec && <option value="new">+ လူသစ် (သူငယ်ချင်း / Walk-in)</option>}
             {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
           </Select>
+          {isRec && form.contactId === "new" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="နာမည်" autoFocus value={form.personName} onChange={(e) => setForm({ ...form, personName: e.target.value })} />
+              <Input label="ဖုန်း" value={form.personPhone} inputMode="tel" onChange={(e) => setForm({ ...form, personPhone: e.target.value })} />
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label={isRec ? "Amount customer owes (MMK)" : "Amount (MMK)"} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputMode="decimal" />
+            <Input label={isRec ? (form.loan ? "ချေးငွေ (MMK)" : "Amount customer owes (MMK)") : "Amount (MMK)"} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputMode="decimal" />
             <Input label="Due date" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           </div>
           {!isRec && <Input label="Expense category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Rent" />}
-          {isRec && (
+          {isRec && form.loan && (
             <>
-              <Select label="ငွေထုတ်ပေးမည့် Wallet (optional)" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
-                <option value="">— Wallet မရွေး (ငွေမပေးရသေး) —</option>
-                {wallets.map((w) => (
+              <Select label="ငွေထုတ်ပေးမည့် Wallet" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
+                <option value="">Select…</option>
+                {wallets.filter((w) => w.currency === "MMK").map((w) => (
                   <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)} {w.currency})</option>
                 ))}
               </Select>
-              {form.walletId ? (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  ရွေးထားသော Wallet ထဲမှ ချက်ချင်းနုတ်မည် — အကြွေး UNPAID အဖြစ် မှတ်သားမည်
-                </p>
-              ) : null}
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                ဒီ Wallet ထဲက ငွေ ချက်ချင်း လျော့မည်။ ပြန်ဆပ်ရင် &quot;Collect&quot; နဲ့ Wallet ထဲ ပြန်ဝင်မည်။
+              </p>
             </>
           )}
           <Input label="Reference" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
-            <Button onClick={create} disabled={busy || !form.contactId || !form.amount}>Save</Button>
+            <Button onClick={create} disabled={busy || !form.contactId || !form.amount || (form.contactId === "new" && !form.personName.trim()) || (isRec && form.loan && !form.walletId)}>Save</Button>
           </div>
         </div>
       </Modal>
