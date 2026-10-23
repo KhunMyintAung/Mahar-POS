@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
-import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
+import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
@@ -68,6 +68,8 @@ export default function BillersPage() {
   const [billers, setBillers] = useState<Biller[] | null>(null);
   const [totalFloat, setTotalFloat] = useState("0");
   const [txns, setTxns] = useState<Txn[]>([]);
+  // The day's history, one kind at a time: what was sold, what float was bought, or all.
+  const [historyKind, setHistoryKind] = useState<"SALE" | "TOPUP" | "ALL">("SALE");
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [filter, setFilter] = useState("");
   const [date, setDate] = useState(today);
@@ -411,15 +413,44 @@ export default function BillersPage() {
 
 
 
-      <h2 className="pt-2 font-semibold">Movements</h2>
-      {txns.length === 0 ? (
-        <Card><Empty message="Nothing recorded on this day." /></Card>
-      ) : (
+      {/* History split by kind: sales and float bought each on their own, adjustments under All. */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        {([["SALE", "Sold"], ["TOPUP", "Bought"], ["ALL", "All"]] as const).map(([k, label]) => {
+          const rows = k === "ALL" ? txns : txns.filter((t) => t.kind === k);
+          const live = rows.filter((t) => !t.voidedAt);
+          const face = live.reduce((a, t) => a + BigInt(t.faceAmount), 0n);
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setHistoryKind(k)}
+              className={cn("flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium", historyKind === k ? "border-blue-600 bg-blue-600 text-white" : "border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200")}
+            >
+              <span>{label}</span>
+              <span className={cn("rounded-full px-1.5 text-xs tabular-nums", historyKind === k ? "bg-white/25" : "bg-gray-100 dark:bg-gray-800")}>{rows.length}</span>
+              {k !== "ALL" && live.length > 0 && <span className="text-xs tabular-nums opacity-80">{fmtMoney(face.toString())}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {(() => {
+        const rows = historyKind === "ALL" ? txns : txns.filter((t) => t.kind === historyKind);
+        const all = historyKind === "ALL";
+        if (rows.length === 0) {
+          return <Card><Empty message={historyKind === "SALE" ? "No sales on this day." : historyKind === "TOPUP" ? "No float bought on this day." : "Nothing recorded on this day."} /></Card>;
+        }
+        return (
         <Table
-          headers={["No", "Biller", "What", "Face", "Cash", "Margin", "Float after", ""]}
-          rightAlign={[3, 4, 5, 6]}
+          headers={[
+            "No", "Biller", ...(all ? ["What"] : []),
+            historyKind === "TOPUP" ? "Balance added" : "Face",
+            historyKind === "TOPUP" ? "Cash paid" : historyKind === "SALE" ? "Cash received" : "Cash",
+            historyKind === "TOPUP" ? "Bonus" : "Margin",
+            "Float after", "",
+          ]}
+          rightAlign={all ? [3, 4, 5, 6] : [2, 3, 4, 5]}
         >
-          {txns.map((t) => (
+          {rows.map((t) => (
             <tr key={t.id} className={t.voidedAt ? "text-gray-400 line-through decoration-gray-400" : ""}>
               <td className="px-3 py-2.5">
                 <div className="font-mono text-xs">{t.txnNo}</div>
@@ -428,11 +459,14 @@ export default function BillersPage() {
               <td className="px-3 py-2.5">
                 <div>{t.biller.name}</div>
                 {t.customerPhone && <div className="text-xs text-gray-500">{t.customerPhone}</div>}
+                {!all && t.voidedAt && <div className="text-xs font-semibold text-red-600 no-underline" title={t.voidReason ?? ""}>Voided</div>}
               </td>
-              <td className="px-3 py-2.5 text-sm">
-                {KIND_LABEL[t.kind] ?? t.kind}
-                {t.voidedAt && <div className="inline-block text-xs font-semibold text-red-600" title={t.voidReason ?? ""}>&nbsp;Voided</div>}
-              </td>
+              {all ? (
+                <td className="px-3 py-2.5 text-sm">
+                  {KIND_LABEL[t.kind] ?? t.kind}
+                  {t.voidedAt && <div className="inline-block text-xs font-semibold text-red-600" title={t.voidReason ?? ""}>&nbsp;Voided</div>}
+                </td>
+              ) : null}
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.faceAmount)}</td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.cashAmount)}</td>
               <td className={`px-3 py-2.5 text-right tabular-nums ${Number(t.profit) < 0 ? "text-red-600" : Number(t.profit) > 0 ? "text-green-600" : "text-gray-400"}`}>
@@ -447,7 +481,8 @@ export default function BillersPage() {
             </tr>
           ))}
         </Table>
-      )}
+        );
+      })()}
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New biller">
         <div className="space-y-3">

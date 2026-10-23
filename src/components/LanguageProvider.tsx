@@ -1230,6 +1230,10 @@ const MM: Record<string, string> = {
   "Variant": "အမျိုးအစားခွဲ",
   "+ Variant": "+ အမျိုးအစားခွဲ",
   "Add a variant of this model (another storage, colour…)": "ဒီ Model ရဲ့ အမျိုးအစားခွဲ ထည့်မည် (Storage / အရောင် ကွဲ…)",
+  "Bought": "ဝယ်ပြီး",
+  "Bonus": "ဘောနပ်",
+  "No sales on this day.": "ဒီနေ့ ရောင်းချမှု မရှိပါ။",
+  "No float bought on this day.": "ဒီနေ့ Float ဝယ်ထားခြင်း မရှိပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();
