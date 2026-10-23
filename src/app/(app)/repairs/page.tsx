@@ -150,6 +150,8 @@ export default function RepairsPage() {
   const [suggestions, setSuggestions] = useState<Suggestions>({ brands: [], pairs: [] });
   const [busy, setBusy] = useState(false);
   const [quickSaving, setQuickSaving] = useState<string | null>(null);
+  // The row whose problem text is shown in full in the list.
+  const [openProblem, setOpenProblem] = useState<string | null>(null);
   const [working, setWorking] = useState<Job | null>(null);
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
@@ -500,11 +502,20 @@ export default function RepairsPage() {
                   <div>{job.customerName || "-"}</div>
                   {job.customerPhone && <div className="text-xs text-gray-500">{job.customerPhone}</div>}
                 </td>
-                <td className="max-w-[16rem] px-3 py-2.5 text-sm text-gray-600 dark:text-gray-300">
-                  {job.problem}
-                  {job.intakeCondition && <div className="text-xs text-gray-400">Condition: {job.intakeCondition}</div>}
+                {/* One short line so the buttons on the right stay in view; a tap shows all of
+                    it (the intake condition too), and Edit and the voucher have it in full. */}
+                <td className="w-44 max-w-[11rem] px-3 py-2.5 text-sm text-gray-600 dark:text-gray-300">
+                  <button
+                    type="button"
+                    title={job.intakeCondition ? `${job.problem}\nCondition: ${job.intakeCondition}` : job.problem}
+                    onClick={() => setOpenProblem((id) => (id === job.id ? null : job.id))}
+                    className={cn("block w-full text-left [overflow-wrap:anywhere]", openProblem !== job.id && "truncate")}
+                  >
+                    {job.problem}
+                  </button>
+                  {openProblem === job.id && job.intakeCondition && <div className="text-xs text-gray-400 [overflow-wrap:anywhere]">Condition: {job.intakeCondition}</div>}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="whitespace-nowrap px-2 py-2.5">
                   {canQuick ? (
                     // Picking a status here saves it at once, so a mistake is one more pick away.
                     <StatusMenu
