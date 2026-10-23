@@ -6,11 +6,20 @@ import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
 
+/** Cash first: every "pay with" picker lists wallets in this order, and the ones that
+ *  pick the first MMK wallet for you then pick cash. */
+// A wallet named cash comes first, then other cash-type wallets, then the rest.
+const cashRank = (w: { type: string; name: string }) => (/cash|ငွေသား/i.test(w.name) ? 0 : w.type === "CASH" ? 1 : 2);
+
 export const GET = withAuth("wallet.view", async ({ user }) => {
   const wallets = await prisma.wallet.findMany({
     where: { businessId: user.businessId, deletedAt: null, ...branchScope(user) },
     orderBy: { name: "asc" },
   });
+  wallets.sort((a, b) =>
+    cashRank(a) - cashRank(b) ||
+    Number(b.currency === "MMK") - Number(a.currency === "MMK") ||
+    a.name.localeCompare(b.name));
   return json(wallets);
 });
 
