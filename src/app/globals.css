@@ -150,3 +150,11 @@ body {
   .rtable.has-actions tbody > tr > td:last-child > div { justify-content: flex-start; flex-wrap: wrap; }
   .rtable-wrap { border: 0 !important; overflow: visible !important; }
 }
+
+/* Row buttons (Voucher, Edit, Mark as paid…) never break a word over two lines: their text
+   stays on one line, and where room is short the type gets smaller instead. */
+.rtable.has-actions tbody > tr > td:last-child :is(button, a) { white-space: nowrap; }
+.rtable.has-actions tbody > tr > td:last-child > div { gap: 0.25rem; }
+@media (max-width: 1279.98px) {
+  .rtable.has-actions tbody > tr > td:last-child :is(button, a) { font-size: 0.75rem; padding-inline: 0.5rem; min-height: 2rem; }
+}

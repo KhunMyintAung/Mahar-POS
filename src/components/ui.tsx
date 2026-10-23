@@ -61,7 +61,7 @@ export function Button({ children, onClick, type = "button", variant = "primary"
       title={title}
       aria-label={ariaLabel}
       className={cn(
-        "rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+        "whitespace-nowrap rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
         size === "sm" ? "min-h-9 px-2.5 py-1.5 text-xs" : "min-h-10 px-4 py-2 text-sm",
         variants[variant],
         className
@@ -111,7 +111,7 @@ export function Select({ label, children, ...props }: {
 
 export function Badge({ status }: { status: string }) {
   return (
-    <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs font-medium", STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
+    <span className={cn("inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", STATUS_COLORS[status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
       {status.replace(/_/g, " ")}
     </span>
   );
