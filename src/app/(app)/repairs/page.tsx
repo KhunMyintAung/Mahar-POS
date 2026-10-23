@@ -417,12 +417,11 @@ export default function RepairsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Repair Jobs</>}>
+      <PageHeader title={<RepairTabs />}>
         {hasPerm("repair.create") && (
           <Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
         )}
       </PageHeader>
-      <RepairTabs />
 
       {/* One slim strip: the month's counts and the month they are for, side by side. */}
       <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">

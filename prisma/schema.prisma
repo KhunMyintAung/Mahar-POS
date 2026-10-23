@@ -892,10 +892,11 @@ model OnlineOrderLine {
   unitPrice BigInt
 }
 
-/// The shop's order list (အမှာစာရင်း): a part a customer asked the shop to get — a screen,
-/// a battery — often with a deposit and without leaving the phone. It stays on the list until
-/// the part is in (GOT), then handed over (DONE); `note` keeps where it was tried. A plain
-/// list, apart from repair jobs; the deposit is written down here, not paid into a wallet.
+/// The shop's order list (အမှာစာရင်း): a part to get — a screen, a battery — often for a
+/// customer who left a deposit and kept their phone. TODO until it is sent to a supplier,
+/// ORDERED (with that supplier) while it is awaited, RECEIVED once it is in, when it leaves the
+/// list. A supplier without it sends it back to TODO for the next one; `note` keeps where it
+/// was tried. Apart from repair jobs; the deposit is written down here, not paid into a wallet.
 model PartOrder {
   id            String   @id @default(uuid())
   businessId    String
@@ -907,7 +908,10 @@ model PartOrder {
   customerPhone String?
   deposit       BigInt   @default(0)
   note          String?
-  status        String   @default("WAITING") // WAITING GOT DONE
+  status        String   @default("TODO") // TODO ORDERED RECEIVED
+  /// The supplier it was last sent to, and when.
+  supplier      String?
+  orderedAt     DateTime?
   createdById   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

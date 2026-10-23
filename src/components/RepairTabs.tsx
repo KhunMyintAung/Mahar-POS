@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardList, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { cn } from "@/components/ui";
 
-/** Repair Jobs and the order list (parts customers asked for) side by side, with how many
- *  orders are still open, so one waiting for a part is never out of sight. */
+/** Repair Jobs and the order list side by side, as the page's name in the top bar (passed to
+ *  PageHeader as its title), with how many parts are still to get — so a part waiting is never
+ *  out of sight, and neither page gives up a row to the switch. */
 export function RepairTabs({ openOrders }: { openOrders?: number }) {
   const pathname = usePathname();
   const [fetched, setFetched] = useState<number | null>(null);
@@ -18,26 +18,24 @@ export function RepairTabs({ openOrders }: { openOrders?: number }) {
   }, [openOrders]);
   const open = openOrders ?? fetched ?? 0;
   const tabs = [
-    { href: "/repairs", label: "Repair Jobs", icon: Wrench, on: pathname === "/repairs" },
-    { href: "/repairs/orders", label: "အမှာစာရင်း", icon: ClipboardList, on: pathname.startsWith("/repairs/orders") },
+    { href: "/repairs", label: "ပြုပြင်ရေး", on: pathname === "/repairs" },
+    { href: "/repairs/orders", label: "အမှာစာရင်း", on: pathname.startsWith("/repairs/orders") },
   ];
   return (
-    <div className="no-print flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+    <span className="inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5 align-middle dark:bg-gray-800">
       {tabs.map((t) => (
         <Link
           key={t.href}
           href={t.href}
           className={cn(
-            "flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
-            t.on ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
+            "flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-sm font-semibold transition",
+            t.on ? "bg-white text-blue-600 shadow-sm dark:bg-gray-900" : "font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400"
           )}
         >
-          <t.icon size={16} />{t.label}
-          {t.href === "/repairs/orders" && open > 0 && (
-            <span className="rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">{open}</span>
-          )}
+          {t.label}
+          {t.href === "/repairs/orders" && open > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">{open}</span>}
         </Link>
       ))}
-    </div>
+    </span>
   );
 }

@@ -20,10 +20,12 @@ const schema = z.object({
   customerPhone: optional(40),
   deposit: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   note: optional(1000),
-  status: z.enum(["WAITING", "GOT", "DONE"]).optional(),
+  status: z.enum(["TODO", "ORDERED", "RECEIVED"]).optional(),
+  supplier: optional(80),
 });
 
-/** Change an order: what it is, who for, where it was tried, or how far it has got. */
+/** Change a part: what it is, how many, its quoted price, who for, where it was tried, or its
+ *  step — "not in stock" there sends it back to TODO for the next supplier. */
 export const PATCH = withAuth("repair.update", async ({ req, user, params }) => {
   const body = await parseBody(req, schema);
   await own(user.businessId, params.id);
