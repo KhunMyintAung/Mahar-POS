@@ -1079,6 +1079,8 @@ const MM: Record<string, string> = {
   "Up to 4 photos. The first is the cover on the shop page. Photos are made smaller before they upload.": "ဓာတ်ပုံ ၄ ပုံအထိ။ ပထမပုံက ဆိုင်စာမျက်နှာတွင် မျက်နှာဖုံး ဖြစ်မည်။ တင်မီ ပုံကို သေးအောင် ချုံ့ပေးပါသည်။",
   "No new orders. Orders customers send from your shop page show here.": "အော်ဒါအသစ် မရှိသေးပါ။ ဆိုင်စာမျက်နှာမှ ဝယ်သူများ မှာသည့် အော်ဒါများ ဤနေရာတွင် ပေါ်မည်။",
   "No orders here": "အော်ဒါ မရှိပါ",
+  "+ Order items": "+ မှာရန်ပစ္စည်း",
+  "One part per line. For the shop only, not printed on the voucher.": "တစ်ကြောင်းလျှင် ပစ္စည်းတစ်ခု။ ဆိုင်အတွက်သာ၊ ဘောက်ချာတွင် မပါပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

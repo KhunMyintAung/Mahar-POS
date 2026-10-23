@@ -21,6 +21,8 @@ interface Job {
   customerName?: string; customerPhone?: string;
   deviceBrand: string; deviceModel: string; imei?: string;
   accessories?: string; problem: string; intakeCondition?: string; notes?: string;
+  /** Parts to order for the repair: a plain note, one part per line. */
+  orderItems?: string;
   estimatedCost: string; partsCost: string; finalCost: string;
   depositAmount: string; paidAmount: string;
   receivedAt: string; deliveredAt?: string; promisedAt?: string | null;
@@ -127,7 +129,7 @@ function StatusMenu({ status, options, disabled, onPick }: {
 const blankForm = {
   customerName: "", customerPhone: "",
   deviceBrand: "", deviceModel: "", imei: "",
-  accessories: "", problem: "", intakeCondition: "", priority: "NORMAL",
+  accessories: "", problem: "", intakeCondition: "", orderItems: "", priority: "NORMAL",
   estimatedCost: "", depositAmount: "", depositWalletId: "",
   promisedAt: "", notes: "",
 };
@@ -153,6 +155,8 @@ export default function RepairsPage() {
   const [quickSaving, setQuickSaving] = useState<string | null>(null);
   // The row whose problem text is shown in full in the list.
   const [openProblem, setOpenProblem] = useState<string | null>(null);
+  // The repair whose Order Items note is open for a quick change from the list.
+  const [orderNote, setOrderNote] = useState<{ job: Job; text: string } | null>(null);
   const [working, setWorking] = useState<Job | null>(null);
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
@@ -242,6 +246,7 @@ export default function RepairsPage() {
           imei: form.imei || undefined,
           accessories: form.accessories || undefined,
           intakeCondition: form.intakeCondition || undefined,
+          orderItems: form.orderItems || undefined,
           notes: form.notes || undefined,
         },
       });
@@ -316,6 +321,7 @@ export default function RepairsPage() {
       accessories: job.accessories ?? "",
       problem: job.problem,
       intakeCondition: job.intakeCondition ?? "",
+      orderItems: job.orderItems ?? "",
       priority: job.priority || "NORMAL",
       estimatedCost: String(Number(job.estimatedCost) / 100),
       promisedAt: job.promisedAt ? job.promisedAt.slice(0, 10) : "",
@@ -338,6 +344,7 @@ export default function RepairsPage() {
           accessories: edit.accessories,
           problem: edit.problem,
           intakeCondition: edit.intakeCondition,
+          orderItems: edit.orderItems,
           priority: edit.priority,
           estimatedCost: edit.estimatedCost || "0",
           promisedAt: edit.promisedAt,
@@ -511,6 +518,19 @@ export default function RepairsPage() {
                     {job.problem}
                   </button>
                   {openProblem === job.id && job.intakeCondition && <div className="text-xs text-gray-400 [overflow-wrap:anywhere]">Condition: {job.intakeCondition}</div>}
+                  {job.orderItems ? (
+                    <button
+                      type="button"
+                      disabled={!hasPerm("repair.update")}
+                      onClick={() => setOrderNote({ job, text: job.orderItems ?? "" })}
+                      title={job.orderItems}
+                      className="mt-1 block w-full truncate rounded-md bg-amber-50 px-1.5 py-0.5 text-left text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                    >
+                      📦 {job.orderItems.split("\n").filter(Boolean).join(" · ")}
+                    </button>
+                  ) : hasPerm("repair.update") && (
+                    <button type="button" onClick={() => setOrderNote({ job, text: "" })} className="mt-0.5 text-xs text-gray-400 hover:text-blue-600">+ Order items</button>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-2 py-2.5">
                   {canQuick ? (
@@ -595,6 +615,7 @@ export default function RepairsPage() {
                 <Input label="Promised date" type="date" value={form.promisedAt} onChange={(e) => setForm({ ...form, promisedAt: e.target.value })} />
               </div>
               <Input label="Intake condition" value={form.intakeCondition} onChange={(e) => setForm({ ...form, intakeCondition: e.target.value })} placeholder="Screen crack, water mark, body condition" />
+              <OrderItemsField value={form.orderItems} onChange={(orderItems) => setForm({ ...form, orderItems })} />
               <Input
                 label="Came in with"
                 value={form.accessories}
@@ -669,6 +690,7 @@ export default function RepairsPage() {
             </div>
             <Input label="Problem" value={edit.problem} onChange={(e) => setEdit({ ...edit, problem: e.target.value })} />
             <Input label="Intake condition" value={edit.intakeCondition} onChange={(e) => setEdit({ ...edit, intakeCondition: e.target.value })} />
+            <OrderItemsField value={edit.orderItems} onChange={(orderItems) => setEdit({ ...edit, orderItems })} />
             <Input label="Came in with" value={edit.accessories} onChange={(e) => setEdit({ ...edit, accessories: e.target.value })} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
@@ -750,7 +772,49 @@ export default function RepairsPage() {
           </div>
         )}
       </Modal>
+      <Modal open={Boolean(orderNote)} onClose={() => setOrderNote(null)} title={orderNote ? `${orderNote.job.jobNo} · Order items` : ""}>
+        {orderNote && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">{orderNote.job.deviceBrand} {orderNote.job.deviceModel}{orderNote.job.customerName ? ` · ${orderNote.job.customerName}` : ""}</p>
+            <OrderItemsField value={orderNote.text} autoFocus onChange={(text) => setOrderNote({ ...orderNote, text })} />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setOrderNote(null)}>Cancel</Button>
+              <Button disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  await api(`/api/v1/repairs/${orderNote.job.id}/details`, { method: "PATCH", body: { orderItems: orderNote.text } });
+                  setOrderNote(null);
+                  load();
+                } catch (e) {
+                  push(e instanceof Error ? e.message : "Failed", "error");
+                } finally {
+                  setBusy(false);
+                }
+              }}>Save</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
       {voucher && <RepairVoucher data={voucher} />}
     </div>
+  );
+}
+
+/** The parts to order for a repair, written like a note: one part per line. */
+function OrderItemsField({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Order Items (မှာယူသည့် ပစ္စည်း/အပိုပစ္စည်း အသေးစိတ်)</span>
+      <textarea
+        value={value}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        maxLength={1000}
+        placeholder={"Screen (OLED) – Ko Aung shop\nBattery"}
+        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:text-sm"
+      />
+      <span className="mt-0.5 block text-xs text-gray-500">One part per line. For the shop only, not printed on the voucher.</span>
+    </label>
   );
 }

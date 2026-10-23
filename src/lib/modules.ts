@@ -95,8 +95,13 @@ function visibility(enabled: readonly FeatureKey[]): FeatureVisibility {
   ) as FeatureVisibility;
 }
 
+/** Off until the shop turns it on in Settings, whatever the shop's type: a public page is a
+ *  step a shop takes on purpose. A stored menu without the key (every shop from before the
+ *  Online Shop) falls back to this too, so none of them finds it switched on. */
+const OPT_IN_FEATURES: FeatureKey[] = ["onlineShop"];
+
 export function defaultFeaturesForMode(mode: ModuleMode): FeatureVisibility {
-  const hidden = new Set<FeatureKey>();
+  const hidden = new Set<FeatureKey>(OPT_IN_FEATURES);
   if (mode === "WALLET_ONLY") MINI_MART_FEATURES.forEach((key) => hidden.add(key));
   if (mode === "MINI_MART_ONLY") WALLET_FEATURES.forEach((key) => hidden.add(key));
   return Object.fromEntries(
@@ -112,19 +117,19 @@ export function categoryPreset(category: BusinessCategory): FeatureVisibility {
       ]);
     case "MINI_MART":
       return visibility([
-        "pos", "purchases", "items", "stock", "onlineShop", "wallets", "transfers", "withdraw",
+        "pos", "purchases", "items", "stock", "wallets", "transfers", "withdraw",
         "credit", "incomeExpense", "reports", "customers", "suppliers", "telegram", "about",
       ]);
     case "MOBILE_SHOP":
       // A phone shop sells handsets and accessories and repairs them, so it wants the
       // whole retail side plus repair jobs.
       return visibility([
-        "pos", "purchases", "items", "stock", "onlineShop", "repair", "biller", "wallets", "transfers",
+        "pos", "purchases", "items", "stock", "repair", "biller", "wallets", "transfers",
         "withdraw", "credit", "incomeExpense", "reports", "customers", "suppliers", "telegram",
         "about",
       ]);
     case "ALL_IN_ONE":
-      return visibility(FEATURE_KEYS);
+      return visibility(FEATURE_KEYS.filter((key) => !OPT_IN_FEATURES.includes(key)));
   }
 }
 

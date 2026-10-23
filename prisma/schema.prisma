@@ -145,6 +145,11 @@ model RepairJob {
    * The state it arrived in — cracked screen, water mark — recorded before anyone opens it.
    */
   intakeCondition String?
+  /**
+   * Parts to order for this repair (screen, battery, from which supplier…): a plain note,
+   * one part per line, for the shop's own use. Never printed on the voucher.
+   */
+  orderItems      String?
   priority        String  @default("NORMAL") // LOW NORMAL HIGH URGENT
 
   status        String @default("RECEIVED") // RECEIVED CHECKING IN_PROGRESS WAITING_PARTS DONE CANNOT_REPAIR DELIVERED CANCELLED

@@ -20,6 +20,7 @@ const schema = z.object({
   accessories: optional(300),
   problem: z.string().trim().min(1).max(500).optional(),
   intakeCondition: optional(500),
+  orderItems: optional(1000),
   priority: z.enum(PRIORITIES).optional(),
   estimatedCost: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   promisedAt: z.string().trim().optional(),
