@@ -99,3 +99,54 @@ body {
      cannot drive at all — those go through RawBT. What is left is what actually works:
      hide everything else, print the slip, let the dialog pick the paper. */
 }
+
+/* Lists (the shared <Table>) on a phone: each row is a card, no sideways scrolling. The
+   first named column is the card's heading; the other cells sit two to a row, each with its
+   column name (data-label, set by Table) small above the value; the buttons column runs
+   along the foot of the card. Computers keep the table. */
+@media (max-width: 1023.98px) {
+  .rtable thead { display: none; }
+  .rtable, .rtable tbody { display: block; width: 100%; }
+  .rtable tbody { background: transparent; }
+  .rtable tbody > tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+    margin: 0 0 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-gray-200);
+    border-radius: 0.75rem;
+    background: #fff;
+  }
+  .dark .rtable tbody > tr { border-color: var(--color-gray-800); background: var(--color-gray-900); }
+  .rtable tbody > tr > td {
+    display: block;
+    padding: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    text-align: left !important;
+    overflow-wrap: anywhere;
+  }
+  .rtable tbody > tr > td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    color: var(--color-gray-500);
+  }
+  .rtable tbody > tr > td[data-heading] { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 600; }
+  /* A cell with no column name (a tick box) and an empty cell. */
+  .rtable tbody > tr > td:not([data-label]):not([data-heading]) { grid-column: 1 / -1; }
+  .rtable tbody > tr > td:empty { display: none; }
+  /* Buttons: one row along the foot, from the left. */
+  .rtable.has-actions tbody > tr > td:last-child {
+    grid-column: 1 / -1;
+    margin-top: 0.15rem;
+    padding-top: 0.5rem !important;
+    border-top: 1px dashed var(--color-gray-200);
+  }
+  .dark .rtable.has-actions tbody > tr > td:last-child { border-color: var(--color-gray-800); }
+  .rtable.has-actions tbody > tr > td:last-child > div { justify-content: flex-start; flex-wrap: wrap; }
+  .rtable-wrap { border: 0 !important; overflow: visible !important; }
+}

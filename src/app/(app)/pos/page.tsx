@@ -480,8 +480,8 @@ export default function PosPage() {
   return (
     <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
       <PageHeader title={<>Sales &amp; POS</>} />
-      <div className="grid gap-4 lg:grid-cols-5">
-        <div className="space-y-3 lg:col-span-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <div className="min-w-0 space-y-3 lg:col-span-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-3 text-gray-400" />
@@ -550,7 +550,7 @@ export default function PosPage() {
           </div>
         </div>
 
-        <div className="space-y-3 lg:col-span-2">
+        <div className="min-w-0 space-y-3 lg:col-span-2">
         <div id="pos-cart" className="scroll-mt-4" />
         {/* Desktop: the cart is a panel the height of the screen. Lines and payment scroll
             inside it, and the total with the Review button stays pinned at its foot, so the

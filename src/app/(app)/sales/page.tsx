@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Printer, Search, ShieldCheck } from "lucide-react";
 import { WarrantyCardDialog } from "@/components/WarrantyCard";
 import { api } from "@/lib/client";
@@ -106,9 +105,7 @@ export default function SalesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <PageHeader title={<>Sale History</>}>
-        {hasPerm("sale.create") && <Link href="/pos"><Button>Open POS</Button></Link>}
-      </PageHeader>
+      <PageHeader title={<>Sale History</>} />
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total sales" value={fmtMoney(totals.amount, "MMK")} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, ReactNode } from "react";
 import { X } from "lucide-react";
 import { STATUS_COLORS } from "@/lib/format";
 import { playError, playSuccess } from "@/lib/sound";
@@ -151,16 +151,33 @@ export function Table({ headers, children, rightAlign }: {
   headers: string[]; children: ReactNode; rightAlign?: number[];
 }) {
   // A last column with no heading holds the row's buttons (Voucher, Edit, Mark as paid…).
-  // It is pinned to the right edge, so the buttons are in view without scrolling sideways.
   const actions = headers.length > 1 && headers[headers.length - 1] === "";
+  const ref = useRef<HTMLTableElement>(null);
+  // On a phone each row is shown as a card (globals.css, .rtable), and each cell needs its
+  // column's name beside it. The names are read from the header cells as shown, so they
+  // follow the Myanmar / English switch, and are put back whenever the rows change.
+  useLayoutEffect(() => {
+    const table = ref.current;
+    if (!table) return;
+    const label = () => {
+      const names = [...table.querySelectorAll("thead th")].map((th) => th.textContent?.trim() ?? "");
+      const heading = names.findIndex((n) => n !== "");
+      table.querySelectorAll("tbody > tr").forEach((tr) => {
+        [...tr.children].forEach((td, i) => {
+          const name = names[i] ?? "";
+          if (name && i !== heading) td.setAttribute("data-label", name); else td.removeAttribute("data-label");
+          if (i === heading) td.setAttribute("data-heading", ""); else td.removeAttribute("data-heading");
+        });
+      });
+    };
+    label();
+    const watch = new MutationObserver(label);
+    watch.observe(table, { childList: true, subtree: true, characterData: true });
+    return () => watch.disconnect();
+  }, []);
   return (
-    <div className="max-w-full overscroll-x-contain overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
-      {/* min-w-max only on phones, where the table scrolls; on a wider screen it fits the
-          page and its cells wrap. */}
-      <table className={cn(
-        "w-full min-w-max text-sm lg:min-w-0",
-        actions && "[&_tr>*:last-child]:sticky [&_tr>*:last-child]:right-0 [&_tr>*:last-child]:bg-white [&_tr>*:last-child]:shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.15)] dark:[&_tr>*:last-child]:bg-gray-900 [&_thead_tr>*:last-child]:bg-gray-50 dark:[&_thead_tr>*:last-child]:bg-gray-900"
-      )}>
+    <div className="rtable-wrap max-w-full overscroll-x-contain overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+      <table ref={ref} className={cn("rtable w-full text-sm", actions && "has-actions")}>
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400">
             {headers.map((h, i) => (
