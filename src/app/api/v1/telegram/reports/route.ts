@@ -77,10 +77,12 @@ export const PUT = withAuth("settings.manage", async ({ req, user }) => {
   return json(view(next));
 });
 
-const postSchema = z.object({ action: z.enum(["test", "daily-now", "chats"]) });
+const postSchema = z.object({ action: z.enum(["test", "daily-now", "chats", "preview"]) });
 
 export const POST = withAuth("settings.manage", async ({ req, user }) => {
   const { action } = await parseBody(req, postSchema);
+  // Today's report as it would go out, without sending it (no bot needed).
+  if (action === "preview") return json({ text: await buildDailyReport(user.businessId, todayBusinessDate()) });
   const cfg = await loadTelegramReports(user.businessId);
   if (!cfg.botToken) throw new ApiError(422, "Add the bot token first");
 

@@ -22,6 +22,7 @@ export function TelegramReportsCard() {
   const [token, setToken] = useState("");
   const [chats, setChats] = useState<{ id: string; title: string; type: string }[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [previewText, setPreviewText] = useState<string | null>(null);
   const { push } = useToast();
 
   const load = useCallback(() => {
@@ -53,6 +54,18 @@ export function TelegramReportsCard() {
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
       return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function preview() {
+    setBusy(true);
+    try {
+      const d = await api<{ text: string }>("/api/v1/telegram/reports", { method: "POST", body: { action: "preview" } });
+      setPreviewText(d.text);
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
       setBusy(false);
     }
@@ -180,8 +193,18 @@ export function TelegramReportsCard() {
       <div className="flex flex-wrap gap-2">
         <Button disabled={busy} onClick={() => save()}>{busy ? "Saving…" : "Save"}</Button>
         {cfg.hasToken && <Button variant="secondary" disabled={busy} onClick={() => act("test")}><Send size={14} className="mr-1 inline" />Send test</Button>}
+        <Button variant="secondary" disabled={busy} onClick={preview}>Preview today&apos;s report</Button>
         {cfg.hasToken && <Button variant="secondary" disabled={busy} onClick={() => act("daily-now")}>Send today&apos;s report now</Button>}
       </div>
+      {previewText && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+          <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-500">
+            <span>Preview — today&apos;s daily report</span>
+            <button type="button" className="text-blue-600" onClick={() => setPreviewText(null)}>Close</button>
+          </div>
+          <pre className="whitespace-pre-wrap font-sans text-sm">{previewText}</pre>
+        </div>
+      )}
     </Card>
   );
 }

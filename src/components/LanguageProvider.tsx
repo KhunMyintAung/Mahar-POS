@@ -1044,6 +1044,13 @@ const MM: Record<string, string> = {
   "Only repairs still being worked on. Leave empty to take the part out without a job.": "ပြင်ဆဲ Repair များသာ ပြသည်။ Job မချိတ်ဘဲ ထုတ်လိုပါက ချန်ထားပါ။",
   "No repair matches": "ကိုက်ညီသော Repair မရှိပါ",
   "No repairs waiting": "ပြင်ရန် Repair မရှိပါ",
+  "Showing income only": "ဝင်ငွေသာ ပြနေသည်",
+  "Showing expense only": "ထွက်ငွေသာ ပြနေသည်",
+  "Tap to list income": "နှိပ်၍ ဝင်ငွေ စာရင်းကြည့်ရန်",
+  "Tap to list expense": "နှိပ်၍ ထွက်ငွေ စာရင်းကြည့်ရန်",
+  "Tap to show all": "နှိပ်၍ အားလုံးပြရန်",
+  "Show all": "အားလုံးပြမည်",
+  "Preview today's report": "ဒီနေ့ Report ကြိုကြည့်မည်",
 };
 
 const originalText = new WeakMap<Node, string>();

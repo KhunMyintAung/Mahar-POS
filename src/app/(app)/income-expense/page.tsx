@@ -29,6 +29,9 @@ export default function IncomeExpensePage() {
   // The day shown, or every day when "All dates" is picked.
   const [day, setDay] = useState(todayDate);
   const [allDates, setAllDates] = useState(false);
+  // Tapping a card lists only that kind; tapping it again lists everything.
+  const [typeFilter, setTypeFilter] = useState<"" | "INCOME" | "EXPENSE" | "WITHDRAW">("");
+  const pickType = (t: "INCOME" | "EXPENSE" | "WITHDRAW") => setTypeFilter((cur) => (cur === t ? "" : t));
   const [categories, setCategories] = useState<Category[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [showNew, setShowNew] = useNewModal();
@@ -176,6 +179,8 @@ export default function IncomeExpensePage() {
     !!form.walletId &&
     (newCategory ? newCategoryName.trim().length > 0 : !!form.categoryName);
 
+  const shownItems = typeFilter ? items.filter((it) => it.type === typeFilter) : items;
+
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -205,17 +210,30 @@ export default function IncomeExpensePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label={allDates ? "Total income" : day === todayDate() ? "Today's income" : "Income"} value={fmtMoney(totals.income, "MMK")} tone="green" />
-        <StatCard label={allDates ? "Total expense" : day === todayDate() ? "Today's expense" : "Expense"} value={fmtMoney(totals.expense, "MMK")} tone="red" />
-        <StatCard label="Income − expense" value={fmtMoney((BigInt(totals.income) - BigInt(totals.expense)).toString(), "MMK")} tone={BigInt(totals.income) >= BigInt(totals.expense) ? "blue" : "red"} />
-        <StatCard label="Withdrawals" value={fmtMoney(totals.withdraw ?? "0", "MMK")} tone="amber" />
+        <div className={typeFilter === "INCOME" ? "rounded-lg ring-2 ring-green-500" : ""}>
+          <StatCard label={allDates ? "Total income" : day === todayDate() ? "Today's income" : "Income"} value={fmtMoney(totals.income, "MMK")} tone="green" onClick={() => pickType("INCOME")} sub={typeFilter === "INCOME" ? "Showing income only" : "Tap to list income"} />
+        </div>
+        <div className={typeFilter === "EXPENSE" ? "rounded-lg ring-2 ring-red-500" : ""}>
+          <StatCard label={allDates ? "Total expense" : day === todayDate() ? "Today's expense" : "Expense"} value={fmtMoney(totals.expense, "MMK")} tone="red" onClick={() => pickType("EXPENSE")} sub={typeFilter === "EXPENSE" ? "Showing expense only" : "Tap to list expense"} />
+        </div>
+        <StatCard label="Income − expense" value={fmtMoney((BigInt(totals.income) - BigInt(totals.expense)).toString(), "MMK")} tone={BigInt(totals.income) >= BigInt(totals.expense) ? "blue" : "red"} onClick={() => setTypeFilter("")} sub={typeFilter ? "Tap to show all" : undefined} />
+        <div className={typeFilter === "WITHDRAW" ? "rounded-lg ring-2 ring-amber-500" : ""}>
+          <StatCard label="Withdrawals" value={fmtMoney(totals.withdraw ?? "0", "MMK")} tone="amber" onClick={() => pickType("WITHDRAW")} />
+        </div>
       </div>
 
-      {items.length === 0 ? (
+      {typeFilter && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-gray-600 dark:text-gray-300">Showing {typeFilter === "INCOME" ? "income" : typeFilter === "EXPENSE" ? "expense" : "withdrawals"} only</span>
+          <button type="button" className="text-blue-600" onClick={() => setTypeFilter("")}>Show all</button>
+        </div>
+      )}
+
+      {shownItems.length === 0 ? (
         <Card><Empty message={allDates ? "No entries yet" : "No entries on this day"} /></Card>
       ) : (
         <Table headers={["Txn", "Date", "Type", "Category", "Description", "Amount", ""]} rightAlign={[5]}>
-          {items.map((it) => (
+          {shownItems.map((it) => (
             <tr key={it.id}>
               <td className="px-3 py-2 text-xs">{it.txnNo}</td>
               <td className="px-3 py-2 text-xs">{it.date}</td>

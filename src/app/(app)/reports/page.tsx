@@ -8,10 +8,10 @@ import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/
 import { useAuth } from "@/components/AppShell";
 import Link from "next/link";
 
-/** Reports: the Grand Report (income, expense, profit, salary, capital and each partner's
- *  share) and the daily (or monthly) summary. The Excel file and the Google Sheet sync
- *  carry these two plus a Stock sheet of the categories picked in Report settings; stock
- *  is not shown on this page. */
+/** Reports: the daily (or monthly) summary of income and expense. The Grand Report (profit,
+ *  salary, capital for next month, each partner's share) goes out in Excel, the Google Sheet
+ *  sync and the Telegram daily report, with a Stock sheet of the categories picked in Report
+ *  settings; neither is shown on this page. */
 
 type Kind = "day" | "month" | "year" | "range";
 type Money = string;
@@ -51,14 +51,6 @@ function shift(kind: Kind, value: string, by: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function Line({ label, value, strong, minus, big: large }: { label: string; value: Money; strong?: boolean; minus?: boolean; big?: boolean }) {
-  return (
-    <div className={cn("flex items-baseline justify-between gap-3 py-1.5", strong && "border-t border-gray-200 pt-2 font-semibold dark:border-gray-700")}>
-      <span className={cn("text-sm", !strong && "text-gray-600 dark:text-gray-300")}>{minus && <span className="mr-1 text-gray-400">−</span>}{label}</span>
-      <span className={cn("tabular-nums", large ? "text-lg" : "text-sm", strong && tone(value))}>{fmtMoney(value)}</span>
-    </div>
-  );
-}
 
 export default function ReportsPage() {
   const { hasPerm } = useAuth();
@@ -150,39 +142,6 @@ export default function ReportsPage() {
 
       {!report || !t || !d || !s ? <Spinner /> : (
         <>
-          <Card>
-            <h2 className="text-base font-bold">Grand Report</h2>
-            <p className="mb-3 text-xs text-gray-500">{report.from} – {report.to}</p>
-            <div className="grid gap-x-8 gap-y-2 md:grid-cols-3">
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase text-gray-500">Income</div>
-                {parts.map(([k, label]) => <Line key={k} label={label} value={t.inc[k]} />)}
-                <Line label="Other income" value={t.inc.other} />
-                <Line label="Total income" value={t.inc.total} strong />
-              </div>
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase text-gray-500">Expense</div>
-                {parts.map(([k, label]) => <Line key={k} label={label} value={t.exp[k]} />)}
-                <Line label="Other Expense" value={t.exp.other} />
-                <Line label="Total Expense" value={t.exp.total} strong />
-              </div>
-              <div>
-                <div className="mb-1 text-xs font-semibold uppercase text-gray-500">Profit</div>
-                <Line label="Profit (Income − Expense)" value={t.net} strong big />
-                <Line label="Staff salary" value={t.salary} minus />
-                <Line label="Net profit" value={t.netProfit} strong big />
-                <Line label="Capital for next month" value={d.reserve} minus />
-                <Line label="To share" value={d.distributable} strong big />
-                {d.partners.map((p) => (
-                  <div key={p.name} className="flex items-baseline justify-between gap-3 py-1 pl-3 text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">{p.name} <span className="text-xs text-gray-400">{p.percent}%</span></span>
-                    <span className="font-semibold tabular-nums text-blue-600 dark:text-blue-400">{fmtMoney(p.amount)}</span>
-                  </div>
-                ))}
-                {d.partners.length === 0 && owner && <p className="pt-1 text-xs text-gray-400">Add partners in Report settings (⚙) to see each one&apos;s share.</p>}
-              </div>
-            </div>
-          </Card>
 
           <Card>
             <h3 className="mb-3 text-sm font-semibold">{report.groupBy === "day" ? "Daily summary" : "Monthly summary"}</h3>

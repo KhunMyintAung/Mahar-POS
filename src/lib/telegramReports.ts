@@ -1,7 +1,8 @@
 import { prisma } from "./prisma";
 import { sendMessageWith } from "./telegram";
 import { dateRangeUtc, todayBusinessDate } from "./dates";
-import { computeDayIncome, computeDaySummary } from "@/services/summaryService";
+import { computeDaySummary } from "@/services/summaryService";
+import { buildReport } from "@/services/reportService";
 
 /** The shop's send-only Telegram bot: it posts the live transaction feed and a daily
  *  report to chats the owner picks (themselves, a staff group, a channel) and never
@@ -108,31 +109,53 @@ function money(minor: bigint): string {
   return `${neg ? "-" : ""}${whole}`;
 }
 
-/** One day's figures as a Telegram message. */
+/** One day's figures as a Telegram message: the day's income and expense by part of the
+ *  shop (the same columns as the Reports daily summary), its net profit or loss, then the
+ *  month so far with salary, capital for next month and each partner's share. */
 export async function buildDailyReport(businessId: string, date: string): Promise<string> {
-  const [business, summary, income, repairsIn, repairsDone, sales, wallets] = await Promise.all([
+  const monthStart = `${date.slice(0, 7)}-01`;
+  const [business, day, month, summary, repairsIn, repairsDone, wallets] = await Promise.all([
     prisma.business.findUnique({ where: { id: businessId }, select: { name: true } }),
+    buildReport(businessId, date, date),
+    buildReport(businessId, monthStart, date),
     computeDaySummary(prisma, businessId, date),
-    computeDayIncome(prisma, businessId, date),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: dateRangeUtc(date) } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, completedAt: dateRangeUtc(date) } }),
-    prisma.sale.aggregate({ where: { businessId, deletedAt: null, status: "COMPLETED", date }, _count: true, _sum: { profit: true } }),
     prisma.wallet.findMany({
       where: { businessId, deletedAt: null, active: true },
       select: { name: true, currency: true, currentBalance: true },
       orderBy: { name: "asc" },
     }),
   ]);
+  const t = day.totals;
+  const parts = ([["sales", "Sales"], ["service", "Service"], ["topup", "Top-up"]] as const).filter(([k]) => day.shown[k]);
+  const col = (label: string, v: bigint) => `   • ${label}: ${money(v)}`;
+  const m = month.totals;
+  const d = month.distribution;
+
   const lines = [
     `📊 Daily report · ${business?.name ?? ""}`,
     `📅 ${date}`,
     "",
-    `💰 Total income: ${money(income.total)} MMK`,
-    `   • Sales: ${money(income.sales)}  (${sales._count} sale${sales._count === 1 ? "" : "s"}, profit ${money(sales._sum.profit ?? 0n)})`,
-    `   • Service / repair: ${money(income.service)}`,
-    `   • Top-up & bill: ${money(income.topup)}`,
-    `   • Other income: ${money(income.other)}`,
-    `💸 Expense: ${money(summary.general.expense)} MMK`,
+    "💰 Income",
+    ...parts.map(([k, label]) => col(label, t.inc[k])),
+    col("Other income", t.inc.other),
+    `   = Total income: ${money(t.inc.total)} MMK`,
+    "",
+    "💸 Expense",
+    ...parts.map(([k, label]) => col(label, t.exp[k])),
+    col("Other expense", t.exp.other),
+    `   = Total expense: ${money(t.exp.total)} MMK`,
+    "",
+    `${t.net >= 0n ? "📈 Net profit" : "📉 Net loss"}: ${money(t.net)} MMK`,
+    "",
+    `🗓 This month (${monthStart.slice(8)}–${date.slice(8)})`,
+    `   Income ${money(m.inc.total)} · Expense ${money(m.exp.total)}`,
+    `   Profit: ${money(m.net)}`,
+    ...(m.salary > 0n || month.settings.salaryCategories.length ? [`   − Staff salary: ${money(m.salary)}`] : []),
+    `   Net profit: ${money(m.netProfit)}`,
+    ...(d.reserve > 0n ? [`   − Capital for next month: ${money(d.reserve)}`] : []),
+    ...(d.partners.length ? [`   To share: ${money(d.distributable)}`, ...d.partners.map((p) => `     · ${p.name} (${p.percent}%): ${money(p.amount)}`)] : []),
     "",
     `🔧 Repairs taken in: ${repairsIn} · finished: ${repairsDone}`,
     "",

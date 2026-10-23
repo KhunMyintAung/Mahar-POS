@@ -186,12 +186,15 @@ export function sectionsOf(r: PeriodRow): SectionResult[] {
 
 /** Net profit less the capital kept back, split among the partners in whole kyats. */
 export function distribute(netProfit: bigint, settings: ReportSettings, months: number): Distribution {
-  const positive = netProfit > 0n ? netProfit : 0n;
-  let reserve = settings.reserve.mode === "percent"
-    ? (positive * BigInt(Math.round(Math.min(settings.reserve.value, 100) * 100))) / 10000n
-    : BigInt(Math.round(settings.reserve.value)) * 100n * BigInt(months);
-  if (reserve > positive) reserve = positive;
-  const distributable = positive - reserve;
+  // Worked in whole kyats: nobody keeps or shares a fraction of a kyat.
+  const positiveKs = netProfit > 0n ? netProfit / 100n : 0n;
+  const pct = BigInt(Math.round(Math.min(settings.reserve.value, 100) * 100)); // hundredths of a percent
+  let reserveKs = settings.reserve.mode === "percent"
+    ? (positiveKs * pct + 5000n) / 10000n // rounded to the nearest kyat
+    : BigInt(Math.round(settings.reserve.value)) * BigInt(months);
+  if (reserveKs > positiveKs) reserveKs = positiveKs;
+  const reserve = reserveKs * 100n;
+  const distributable = (positiveKs - reserveKs) * 100n;
   const list = settings.partners;
   const totalPct = list.reduce((a, p) => a + p.percent, 0);
   const weights = list.map((p) => BigInt(Math.round((totalPct > 0 ? p.percent : 1) * 100)));
