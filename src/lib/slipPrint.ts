@@ -69,14 +69,16 @@ function baseStyles(): string {
        its XP-80C; naming a size and margins made the printer leave blank sides. */
     @page{margin:0}
     *{box-sizing:border-box}
-    body{width:${width};max-width:100%;margin:0 auto;padding:1mm 2mm;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff}
+    body{width:${width};max-width:100%;margin:0 auto;padding:1mm 2mm;font-family:Arial,'Pyidaungsu','Myanmar Text',sans-serif;color:#111;font-size:11px;background:#fff;overflow-wrap:anywhere}
     .slip-logo{display:block;max-width:100%;height:56px;object-fit:contain;margin:0 auto 4px auto}
     /* A thermal head prints black or nothing, so a coloured logo loses every shade lighter
        than mid-grey. A see-through PNG logo prints solid black; a JPEG in strong greys. */
     @media print{.slip-logo{filter:grayscale(1) contrast(1.8)}.slip-logo[src^="data:image/png"]{filter:grayscale(1) brightness(0)}}
     h1,h2,p{text-align:center;margin:2px 0}h1{font-size:18px}h2{font-size:14px}.muted{color:#555}.left{text-align:left}.right{text-align:right}.center{text-align:center}
     .meta{margin:6px 0;padding:4px 0;border-top:1px dashed #777;border-bottom:1px dashed #777}.meta div,.summary div{display:flex;justify-content:space-between;gap:10px;padding:1.5px 0}.meta span,.summary span{color:#444}
-    table{width:100%;border-collapse:collapse;margin-top:4px}th,td{padding:3px 2px;border-bottom:1px dashed #999;vertical-align:top}th{text-align:left;font-size:10px}td small{display:block;color:#555;margin-top:2px}
+    /* Fixed layout + anywhere-wrap (body): a long run with no spaces, like an email in the
+       repair problem, wraps instead of pushing the slip past the paper. */
+    table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:4px}table:not(.items) th{width:34%}th,td{padding:3px 2px;border-bottom:1px dashed #999;vertical-align:top}th{text-align:left;font-size:10px}td small{display:block;color:#555;margin-top:2px}
     /* Fixed columns: a long item name wraps instead of pushing the table past the paper. */
     table.items{table-layout:fixed}table.items td,table.items th{overflow-wrap:anywhere;word-break:break-word}
     table.items .c-qty{width:9%}table.items .c-price,table.items .c-total{width:23%;white-space:nowrap;overflow-wrap:normal;word-break:normal}

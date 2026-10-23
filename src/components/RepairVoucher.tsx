@@ -91,7 +91,9 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
   ];
 
   return (
-      <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black" style={{ fontFamily: "Arial, 'Pyidaungsu', 'Myanmar Text', sans-serif" }}>
+      // overflow-wrap:anywhere: a long run with no spaces (an email, an Apple ID) wraps
+      // instead of widening the slip past the paper and losing its end.
+      <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black [overflow-wrap:anywhere]" style={{ fontFamily: "Arial, 'Pyidaungsu', 'Myanmar Text', sans-serif" }}>
         <div className="text-center">
           {data.shopLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
@@ -112,7 +114,7 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
           {data.customerPhone && <div className={row}><span className={label}>ဖုန်းနံပါတ်</span><b>{data.customerPhone}</b></div>}
         </div>
 
-        <table className="w-full border-collapse">
+        <table className="w-full table-fixed border-collapse">
           <tbody>
             {details.map(([k, v]) => (
               <tr key={k} className="border-b border-dashed border-gray-400 align-top">
