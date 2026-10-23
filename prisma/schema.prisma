@@ -900,6 +900,9 @@ model PartOrder {
   id            String   @id @default(uuid())
   businessId    String
   item          String
+  quantity      Int      @default(1)
+  /// The unit price the supplier quoted, once their quotation is in; 0 until then.
+  price         BigInt   @default(0)
   customerName  String?
   customerPhone String?
   deposit       BigInt   @default(0)

@@ -23,8 +23,15 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   return json({ orders, open });
 });
 
+const line = z.object({
+  item: z.string().trim().min(1).max(200).transform(autoCorrectName),
+  quantity: z.number().int().min(1).max(999).default(1),
+});
+
+/** One order, or a whole pasted list at once ("Vivo Y17s TL 3" per line, read in the browser):
+ *  every line its own order, sharing the customer, deposit and note given. */
 const schema = z.object({
-  item: z.string().trim().min(1, "What to order?").max(200).transform(autoCorrectName),
+  lines: z.array(line).min(1, "What to order?").max(100),
   customerName: z.string().trim().max(120).optional(),
   customerPhone: z.string().trim().max(40).optional(),
   deposit: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
@@ -33,12 +40,18 @@ const schema = z.object({
 
 export const POST = withAuth("repair.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
-  const order = await prisma.partOrder.create({
-    data: {
-      businessId: user.businessId, item: body.item,
-      customerName: body.customerName || null, customerPhone: body.customerPhone || null,
-      deposit: toMinor(body.deposit), note: body.note || null, createdById: user.id,
-    },
-  });
-  return json(order, { status: 201 });
+  const shared = {
+    businessId: user.businessId, createdById: user.id,
+    customerName: body.customerName || null, customerPhone: body.customerPhone || null, note: body.note || null,
+  };
+  const deposit = toMinor(body.deposit);
+  // One after another, so the list keeps the pasted order (oldest first).
+  const created = [];
+  for (const [i, l] of body.lines.entries()) {
+    created.push(await prisma.partOrder.create({
+      // A deposit is for the customer's order as a whole: it goes on the first line only.
+      data: { ...shared, item: l.item, quantity: l.quantity, deposit: i === 0 ? deposit : 0n },
+    }));
+  }
+  return json({ created: created.length }, { status: 201 });
 });

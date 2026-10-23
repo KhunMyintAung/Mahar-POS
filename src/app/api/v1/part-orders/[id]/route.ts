@@ -14,6 +14,8 @@ const optional = (max: number) => z.string().trim().max(max).transform((v) => (v
 
 const schema = z.object({
   item: z.string().trim().min(1).max(200).transform(autoCorrectName).optional(),
+  quantity: z.number().int().min(1).max(999).optional(),
+  price: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   customerName: optional(120),
   customerPhone: optional(40),
   deposit: z.string().regex(/^\d+(\.\d+)?$/).optional(),
@@ -27,7 +29,11 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
   await own(user.businessId, params.id);
   const order = await prisma.partOrder.update({
     where: { id: params.id },
-    data: { ...body, deposit: body.deposit === undefined ? undefined : toMinor(body.deposit) },
+    data: {
+      ...body,
+      deposit: body.deposit === undefined ? undefined : toMinor(body.deposit),
+      price: body.price === undefined ? undefined : toMinor(body.price),
+    },
   });
   return json(order);
 });

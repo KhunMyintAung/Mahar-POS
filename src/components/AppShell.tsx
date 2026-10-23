@@ -221,7 +221,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // "+" creates for whatever section is open, so it is only shown where that means
   // something and the user is allowed to do it.
-  const matchedCreate = CREATE_ACTIONS.find(
+  // The order list under Repairs adds from its own box, and "+" there would cover its button.
+  const matchedCreate = pathname.startsWith("/repairs/orders") ? undefined : CREATE_ACTIONS.find(
     (action) => pathname === action.section || pathname.startsWith(`${action.section}/`)
   );
   const createAction =
