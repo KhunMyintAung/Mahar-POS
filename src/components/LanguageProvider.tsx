@@ -1277,6 +1277,8 @@ function translate(value: string) {
     [/^Remove (.+)\? It will stop appearing when you record income or expense\. Entries already filed under it are not changed\.$/, (name) => `${name} ကို ဖယ်မလား? ဝင်ငွေ/ထွက်ငွေ မှတ်ရာတွင် မပေါ်တော့ပါ။ ယခင်မှတ်ထားသည်များ မပြောင်းပါ။`],
     [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^Add (.+) for purchase (.+) to expense as Daily Sale Expense\?$/, (amount, txn) => `အဝယ် ${txn} ၏ ${amount} ကို Daily Sale Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^Today's transfers \((.+)\)$/, (cur) => `ဒီနေ့ ငွေလွှဲ (${cur})`],
+    [/^Total withdrawn \((.+)\)$/, (cur) => `စုစုပေါင်း ငွေထုတ် (${cur})`],
     // Wallet history lines the app writes.
     [/^Collection for (.+)$/, (ref) => `${ref} အကြွေး ပြန်ရ`],
     [/^Cash given for (.+)$/, (ref) => `${ref} ချေးငွေ ထုတ်ပေး`],

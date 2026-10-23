@@ -311,30 +311,33 @@ export default function BillersPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Top-up Billers</>}>
+      <PageHeader
+        title={<>Top-up Billers</>}
+        lead={
+          <>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day"><ChevronLeft size={16} /></Button>
+              <input
+                type="date"
+                value={date}
+                max={today()}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+              />
+              <Button size="sm" variant="ghost" disabled={date >= today()} onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day"><ChevronRight size={16} /></Button>
+              {date !== today() && <Button size="sm" variant="secondary" onClick={() => setDate(today())}>Today</Button>}
+            </div>
+            <select value={filter} onChange={(e) => setFilter(e.target.value)} className="min-h-9 w-44 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800">
+              <option value="">All billers</option>
+              {billers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </>
+        }
+      >
         {hasPerm("biller.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New biller</Button>
         )}
       </PageHeader>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <Button size="sm" variant="ghost" onClick={() => setDate(shiftDate(date, -1))} aria-label="Previous day"><ChevronLeft size={16} /></Button>
-          <input
-            type="date"
-            value={date}
-            max={today()}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-          />
-          <Button size="sm" variant="ghost" disabled={date >= today()} onClick={() => setDate(shiftDate(date, 1))} aria-label="Next day"><ChevronRight size={16} /></Button>
-          {date !== today() && <Button size="sm" variant="secondary" onClick={() => setDate(today())}>Today</Button>}
-        </div>
-        <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-48">
-          <option value="">All billers</option>
-          {billers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </Select>
-      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Card className="col-span-2 space-y-1 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 lg:col-span-1">

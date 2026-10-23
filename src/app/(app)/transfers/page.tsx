@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
-import { Button, Card, Input, Select, Modal, Spinner, Badge, StatCard, Table, Empty, useToast } from "@/components/ui";
+import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
@@ -103,20 +103,21 @@ export default function TransfersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Money Transfer</>}>
+      <PageHeader
+        title={<>Money Transfer</>}
+        lead={todayTotal.length > 0 && (
+          <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
+            {todayTotal.map((t) => (
+              <span key={t.currency} className="whitespace-nowrap"><span>{`Today's transfers (${t.currency})`}</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{`${fmtMoney(t.amount)} ${t.currency}`}</b></span>
+            ))}
+          </span>
+        )}
+      >
         <Button onClick={() => setShowNew(true)}>
           <Send size={16} className="mr-1 inline" />
           New transfer
         </Button>
       </PageHeader>
-
-      {todayTotal.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {todayTotal.map((t) => (
-            <StatCard key={t.currency} label={`Today's transfers (${t.currency})`} value={`${fmtMoney(t.amount)} ${t.currency}`} />
-          ))}
-        </div>
-      )}
 
       {transfers.length === 0 ? (
         <Card><Empty message="No transfers yet" /></Card>

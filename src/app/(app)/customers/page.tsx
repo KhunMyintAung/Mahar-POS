@@ -68,19 +68,22 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Customers & Contacts</>}>
+      <PageHeader
+        title={<>Customers & Contacts</>}
+        lead={
+          <>
+            <input placeholder="Search name or phone…" value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm min-w-0 flex-1 sm:max-w-xs" />
+            <select value={type} onChange={(e) => setType(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800">
+              <option value="">All types</option>
+              {CONTACT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </>
+        }
+      >
         {hasPerm("customer.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New contact</Button>
         )}
       </PageHeader>
-
-      <div className="flex flex-wrap gap-2">
-        <Input placeholder="Search name or phone…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
-        <Select value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">All types</option>
-          {CONTACT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </Select>
-      </div>
 
       {!contacts ? <Spinner /> : contacts.length === 0 ? (
         <Card><Empty message="No contacts found" /></Card>

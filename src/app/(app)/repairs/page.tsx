@@ -417,7 +417,21 @@ export default function RepairsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<RepairTabs />}>
+      <PageHeader
+        title={<RepairTabs />}
+        lead={
+          <>
+            <label className="relative min-w-0 flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Voucher no, customer, phone, brand, model or IMEI" className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm pl-9" />
+            </label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 w-40">
+              <option value="">All statuses</option>
+              {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
+            </select>
+          </>
+        }
+      >
         {hasPerm("repair.create") && (
           <Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
         )}
@@ -452,22 +466,6 @@ export default function RepairsPage() {
           onChange={(e) => setMonth(e.target.value)}
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
-        <label className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Voucher no, customer, phone, brand, model or IMEI"
-            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800"
-          />
-        </label>
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
-        </Select>
       </div>
 
       {jobs.length === 0 ? (

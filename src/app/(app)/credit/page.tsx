@@ -103,28 +103,29 @@ function CreditContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Credit & Payable</>}>
+      <PageHeader
+        title={<>Credit & Payable</>}
+        lead={
+          <>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+              {(["receivable", "payable"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={cn("whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium", tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}
+                >
+                  {t === "receivable" ? "Customers owe us" : "We owe suppliers"}
+                </button>
+              ))}
+            </div>
+            <span className="whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+              <span>Total outstanding:</span> <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(outstanding)} MMK</b>
+            </span>
+          </>
+        }
+      >
         {canCreate && <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />{isRec ? "Record debt" : "New payable"}</Button>}
       </PageHeader>
-
-      <div className="flex w-full gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800 sm:w-fit">
-        {(["receivable", "payable"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "min-w-0 flex-1 rounded-md px-3 py-2 text-sm font-medium sm:flex-none sm:px-4 sm:py-1.5",
-              tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500"
-            )}
-          >
-            {t === "receivable" ? "Customers owe us" : "We owe suppliers"}
-          </button>
-        ))}
-      </div>
-
-      <Card className="py-3 text-sm">
-        Total outstanding: <b className="tabular-nums text-lg">{fmtMoney(outstanding)} MMK</b>
-      </Card>
 
       {!items ? <Spinner /> : items.length === 0 ? (
         <Card><Empty message={`No ${tab} records`} /></Card>

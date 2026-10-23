@@ -149,21 +149,24 @@ export default function UsersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Users & Roles</>}>
+      <PageHeader
+        title={<>Users & Roles</>}
+        lead={
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+            {(["users", "roles"] as const).map((t) => (
+              <button key={t} onClick={() => setTab(t)} className={cn("rounded-md px-3 py-1 text-sm font-medium capitalize", tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                {t}
+              </button>
+            ))}
+          </div>
+        }
+      >
         {tab === "users" ? (
           <Button onClick={() => { setUform(emptyUser); setShowNewUser(true); }}><Plus size={16} className="mr-1 inline" />New user</Button>
         ) : (
           <Button onClick={() => setShowNewRole(true)}><Plus size={16} className="mr-1 inline" />New role</Button>
         )}
       </PageHeader>
-
-      <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
-        {(["users", "roles"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn("rounded-md px-4 py-1.5 text-sm font-medium capitalize", tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
-            {t}
-          </button>
-        ))}
-      </div>
 
       {tab === "users" ? (
         <Table headers={["Name", "Username", "Role", "Branches", "Status", ""]}>

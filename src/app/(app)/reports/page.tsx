@@ -96,20 +96,10 @@ export default function ReportsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Reports</>}>
-        <div className="flex flex-wrap gap-2">
-          {hasPerm("report.export") && (
-            <a href={`/api/v1/reports/xlsx?${query}`} className="inline-flex min-h-10 items-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700">
-              <FileSpreadsheet size={16} className="mr-1.5" />Excel
-            </a>
-          )}
-          <Button variant="secondary" onClick={() => window.print()}><Printer size={16} className="mr-1 inline" />Print</Button>
-          {owner && <Button variant="secondary" aria-label="Report settings" onClick={() => setSettingsOpen(true)}><Settings2 size={16} /></Button>}
-        </div>
-      </PageHeader>
-
-      <Card className="no-print">
-        <div className="flex flex-wrap items-end gap-3">
+      <PageHeader
+        title={<>Reports</>}
+        lead={
+          <>
           <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">
             {([["day", "Day"], ["month", "Month"], ["year", "Year"], ["range", "Custom"]] as const).map(([k, label]) => (
               <button key={k} onClick={() => pick(k)}
@@ -137,8 +127,19 @@ export default function ReportsPage() {
             </div>
           )}
           {loading && <span className="text-xs text-gray-400">Loading…</span>}
+          </>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
+          {hasPerm("report.export") && (
+            <a href={`/api/v1/reports/xlsx?${query}`} className="inline-flex min-h-10 items-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700">
+              <FileSpreadsheet size={16} className="mr-1.5" />Excel
+            </a>
+          )}
+          <Button variant="secondary" onClick={() => window.print()}><Printer size={16} className="mr-1 inline" />Print</Button>
+          {owner && <Button variant="secondary" aria-label="Report settings" onClick={() => setSettingsOpen(true)}><Settings2 size={16} /></Button>}
         </div>
-      </Card>
+      </PageHeader>
 
       {!report || !t || !d || !s ? <Spinner /> : (
         <>

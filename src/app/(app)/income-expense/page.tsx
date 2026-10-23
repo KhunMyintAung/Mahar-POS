@@ -184,16 +184,10 @@ export default function IncomeExpensePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Income & Expense</>}>
-        {hasPerm("income_expense.create") && (
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setShowCategories(true)}>Categories</Button>
-            <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New entry</Button>
-          </div>
-        )}
-      </PageHeader>
-
-      <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={<>Income & Expense</>}
+        lead={
+          <>
         <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">
           <button type="button" onClick={() => setAllDates(false)} className={`rounded-md px-3 py-1.5 text-sm ${!allDates ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-300"}`}>Day</button>
           <button type="button" onClick={() => setAllDates(true)} className={`rounded-md px-3 py-1.5 text-sm ${allDates ? "bg-blue-600 text-white" : "text-gray-600 dark:text-gray-300"}`}>All dates</button>
@@ -202,12 +196,21 @@ export default function IncomeExpensePage() {
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Previous day" onClick={() => setDay(shiftDay(day, -1))} className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-800"><ChevronLeft size={18} /></button>
             <input type="date" value={day} max={todayDate()} onChange={(e) => e.target.value && setDay(e.target.value)}
-              className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
+              className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
             <button type="button" aria-label="Next day" disabled={day >= todayDate()} onClick={() => setDay(shiftDay(day, 1))} className="rounded-lg p-2 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800"><ChevronRight size={18} /></button>
             {day !== todayDate() && <button type="button" onClick={() => setDay(todayDate())} className="ml-1 text-sm text-blue-600">Today</button>}
           </div>
         )}
-      </div>
+          </>
+        }
+      >
+        {hasPerm("income_expense.create") && (
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowCategories(true)}>Categories</Button>
+            <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New entry</Button>
+          </div>
+        )}
+      </PageHeader>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className={typeFilter === "INCOME" ? "rounded-lg ring-2 ring-green-500" : ""}>

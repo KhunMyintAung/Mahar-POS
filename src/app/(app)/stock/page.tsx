@@ -199,7 +199,28 @@ export default function StockPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Stock</>}>
+      <PageHeader
+        title={<>Stock</>}
+        lead={
+          <>
+            <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+              {(["levels", "movements"] as const).map((t) => (
+                <button key={t} onClick={() => setTab(t)} className={cn("rounded-md px-3 py-1 text-sm font-medium capitalize", tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            {tab === "levels" && levels.length > 0 && (
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={levels.some((l) => l.trackSerial) ? "Search name, SKU or IMEI" : "Search name or SKU"}
+                className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm min-w-0 basis-full sm:max-w-sm sm:flex-1 sm:basis-auto"
+              />
+            )}
+          </>
+        }
+      >
         <div className="flex items-center gap-2">
           {lowCount > 0 && <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">{lowCount} low stock</span>}
           {tab === "levels" && (
@@ -209,14 +230,6 @@ export default function StockPage() {
           )}
         </div>
       </PageHeader>
-
-      <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
-        {(["levels", "movements"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn("rounded-md px-4 py-1.5 text-sm font-medium capitalize", tab === t ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
-            {t}
-          </button>
-        ))}
-      </div>
 
       {tab === "levels" && levels.length > 0 && (
         <div className="space-y-2">
@@ -243,12 +256,6 @@ export default function StockPage() {
               );
             })}
           </div>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={levels.some((l) => l.trackSerial) ? "Search name, SKU or IMEI" : "Search name or SKU"}
-            className="min-h-10 w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm"
-          />
           {levels.some((l) => l.trackSerial) && <ImeiMatches query={q} />}
         </div>
       )}

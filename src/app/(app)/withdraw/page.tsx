@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { MinusCircle } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
-import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
+import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
@@ -111,25 +111,21 @@ export default function WithdrawPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Withdraw</>}>
+      <PageHeader
+        title={<>Withdraw</>}
+        lead={totals.length > 0 && (
+          <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
+            {totals.map((total) => (
+              <span key={total.currency} className="whitespace-nowrap"><span>{`Total withdrawn (${total.currency})`}</span>: <b className="tabular-nums text-red-600">{`${fmtMoney(total.amount)} ${total.currency}`}</b></span>
+            ))}
+          </span>
+        )}
+      >
         <Button onClick={() => setShowNew(true)}>
           <MinusCircle size={16} className="mr-1 inline" />
           New withdrawal
         </Button>
       </PageHeader>
-
-      {totals.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {totals.map((total) => (
-            <StatCard
-              key={total.currency}
-              label={`Total withdrawn (${total.currency})`}
-              value={`${fmtMoney(total.amount)} ${total.currency}`}
-              tone="red"
-            />
-          ))}
-        </div>
-      )}
 
       {items.length === 0 ? (
         <Card><Empty message="No withdrawals yet" /></Card>

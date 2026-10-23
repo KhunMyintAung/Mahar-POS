@@ -180,8 +180,11 @@ export default function ItemsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Items</>}>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title={<>Items</>}
+        lead={<input placeholder="Search name, SKU, or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm sm:max-w-sm" />}
+      >
+        <div className="flex flex-wrap gap-1.5">
           {/* Exports the category being viewed, in the import's own columns. */}
           <a
             href={`/api/v1/items/export${category === "ALL" ? "" : `?category=${encodeURIComponent(category)}`}`}
@@ -200,8 +203,6 @@ export default function ItemsPage() {
           )}
         </div>
       </PageHeader>
-
-      <Input placeholder="Search name, SKU, or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
 
       {items.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto pb-1">

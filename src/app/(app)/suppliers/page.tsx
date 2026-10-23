@@ -62,20 +62,16 @@ export default function SuppliersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title={<>Suppliers</>}>
+      <PageHeader
+        title={<>Suppliers</>}
+        lead={<input placeholder="Search supplier name or phone..." value={q} onChange={(event) => setQ(event.target.value)} className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm sm:max-w-xs" />}
+      >
         {hasPerm("customer.manage") && (
           <Button onClick={() => { setForm(emptyForm); setShowNew(true); }}>
             <Plus size={16} className="mr-1 inline" />New supplier
           </Button>
         )}
       </PageHeader>
-
-      <Input
-        placeholder="Search supplier name or phone..."
-        value={q}
-        onChange={(event) => setQ(event.target.value)}
-        className="max-w-xs"
-      />
 
       {!suppliers ? <Spinner /> : suppliers.length === 0 ? (
         <Card><Empty message="No suppliers found" /></Card>

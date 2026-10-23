@@ -5,7 +5,7 @@ import { Printer, Search, ShieldCheck } from "lucide-react";
 import { WarrantyCardDialog } from "@/components/WarrantyCard";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
-import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
+import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
@@ -105,22 +105,22 @@ export default function SalesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Sale History</>} />
-
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Total sales" value={fmtMoney(totals.amount, "MMK")} />
-        <StatCard label="Total profit" value={fmtMoney(totals.profit, "MMK")} tone={BigInt(totals.profit) >= 0n ? "green" : "red"} />
-      </div>
-
-      <label className="relative block">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by transaction no"
-          className="min-h-11 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800"
-        />
-      </label>
+      {/* Search and the totals on one row, so the list starts high. */}
+      <PageHeader
+        title={<>Sale History</>}
+        lead={
+          <>
+            <label className="relative min-w-0 flex-1 sm:max-w-sm">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by transaction no" className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm pl-9" />
+            </label>
+            <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
+              <span className="whitespace-nowrap"><span>Total sales</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(totals.amount, "MMK")}</b></span>
+              <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, "MMK")}</b></span>
+            </span>
+          </>
+        }
+      />
 
       {sales.length === 0 ? (
         <Card><Empty message="No sales yet — open the POS to make the first sale" /></Card>
