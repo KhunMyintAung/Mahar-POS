@@ -28,6 +28,8 @@ const schema = z.object({
   sellingPrice: z.string().optional(),
   minStock: z.number().int().min(0).optional(),
   description: z.string().optional(),
+  model: z.string().trim().max(120).transform((v) => (v === "" ? null : autoCorrectName(v))).nullable().optional(),
+  variant: z.string().trim().max(80).transform((v) => (v === "" ? null : v)).nullable().optional(),
   active: z.boolean().optional(),
   trackSerial: z.boolean().optional(),
 });

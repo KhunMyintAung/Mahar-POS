@@ -55,6 +55,9 @@ const schema = z.object({
   sellingPrice: z.string().default("0"),
   minStock: z.number().int().min(0).default(0),
   description: z.string().optional(),
+  /** Variants: the model it belongs to ("iPhone 13") and what sets it apart ("128GB · Blue"). */
+  model: z.string().trim().max(120).transform(autoCorrectName).optional(),
+  variant: z.string().trim().max(80).optional(),
   /** Keep an IMEI per unit. Left out, it is on for phones (Phone New / Phone Second). */
   trackSerial: z.boolean().optional(),
 });
@@ -112,6 +115,8 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         sellingPrice: toMinor(body.sellingPrice),
         minStock: body.minStock,
         description: body.description,
+        model: body.model || null,
+        variant: body.model ? body.variant || null : null,
         trackSerial: body.trackSerial ?? isPhoneCategory(categoryName),
       },
     });

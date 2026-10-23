@@ -17,6 +17,7 @@ import {
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { PageHeader } from "@/components/PageHeader";
+import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -24,6 +25,8 @@ interface Item {
   category?: { name: string }; unit?: { name: string };
   /** One IMEI per unit: picked at the till, one line per phone model. */
   trackSerial?: boolean;
+  /** Variants: items of one model share a tile, and the variant is picked from it. */
+  model?: string | null; variant?: string | null;
 }
 
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
@@ -88,6 +91,8 @@ export default function PosPage() {
   const [partialAmount, setPartialAmount] = useState("");
   const [cashReceived, setCashReceived] = useState("");
   const [onlineOrder, setOnlineOrder] = useState<OnlineOrderRef | null>(null);
+  // A model tile tapped: its variants, to pick one from.
+  const [picking, setPicking] = useState<ModelGroup<Item> | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
@@ -513,7 +518,41 @@ export default function PosPage() {
             </Select>
           </div>
           <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[calc(100dvh-9.5rem)] xl:grid-cols-4">
-            {filtered.map((item) => {
+            {groupByModel(filtered).map((g) => {
+              // A model with variants is one tile; the variant is picked from it.
+              if (g.items.length > 1) {
+                const left = g.items.reduce((n, it) => n + Math.max(0, stockOf(it) - inCart(it.id)), 0);
+                const prices = g.items.map((it) => BigInt(it.sellingPrice));
+                const low = prices.reduce((a, b) => (b < a ? b : a));
+                const high = prices.reduce((a, b) => (b > a ? b : a));
+                return (
+                  <button
+                    key={g.key}
+                    onClick={() => setPicking(g)}
+                    disabled={left <= 0}
+                    title={g.items.map((it) => it.name).join("\n")}
+                    className={cn(
+                      "relative flex min-h-[5.5rem] flex-col justify-between gap-1.5 rounded-lg border border-blue-200 bg-blue-50/40 p-2.5 text-left shadow-sm transition hover:border-blue-400 dark:border-blue-900 dark:bg-blue-950/20",
+                      left <= 0 && "opacity-40"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <ProductKindIcon item={g.items[0]} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
+                      <div className="min-w-0 flex-1">
+                        <div className="line-clamp-2 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">{g.model}</div>
+                        <div className="text-[11px] text-blue-700 dark:text-blue-300">{`${g.items.length} variants`}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-bold tabular-nums text-blue-600">{low === high ? fmtMoney(low.toString()) : `${fmtMoney(low.toString())}+`}</span>
+                      <span className={cn("shrink-0 text-[11px]", left <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>
+                        stock {left}
+                      </span>
+                    </div>
+                  </button>
+                );
+              }
+              const item = g.items[0];
               const available = stockOf(item) - inCart(item.id);
               const flashing = flashId === item.id;
               return (
@@ -835,6 +874,32 @@ export default function PosPage() {
               <Button variant="secondary" onClick={() => setNewCustomer(null)}>Cancel</Button>
               <Button onClick={addCustomer} disabled={busy || !newCustomer.name.trim()}>Add</Button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(picking)} onClose={() => setPicking(null)} title={picking?.model ?? ""}>
+        {picking && (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {picking.items.map((it) => {
+              const left = stockOf(it) - inCart(it.id);
+              return (
+                <button
+                  key={it.id}
+                  type="button"
+                  disabled={left <= 0}
+                  onClick={() => { addToCart(it); setPicking(null); }}
+                  className="flex w-full items-center gap-3 px-1 py-2.5 text-left hover:bg-gray-50 disabled:opacity-40 dark:hover:bg-gray-800"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{variantLabel(it)}</span>
+                    <span className="block truncate text-[11px] text-gray-500">{it.sku}</span>
+                  </span>
+                  <span className={cn("shrink-0 text-xs", left <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{`stock ${left}`}</span>
+                  <b className="w-24 shrink-0 text-right text-sm tabular-nums text-blue-600">{fmtMoney(it.sellingPrice)}</b>
+                </button>
+              );
+            })}
           </div>
         )}
       </Modal>

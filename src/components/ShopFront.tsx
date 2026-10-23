@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, MapPin, Minus, Phone, Plus, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
 import { fmtMoney } from "@/lib/format";
 import { cn } from "@/components/ui";
+import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
 
 /** The customer's side of the Online Shop: the shop's items as cards with photos, price and
  *  stock; a cart; and a short form (name, phone, address) that sends the order. Written in
  *  Myanmar first, for the shop's own customers. */
 
-interface ShopItem { id: string; name: string; description: string; category: string; price: string; stock: number; images: string[] }
+interface ShopItem { id: string; name: string; description: string; category: string; price: string; stock: number; images: string[]; model: string; variant: string }
 interface ShopInfo { name: string; logo: string; address: string; phone: string; intro: string; delivery: string; payment: string }
 
 const imageUrl = (id: string) => `/api/public/item-image/${id}`;
@@ -19,7 +20,7 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
   const [cart, setCart] = useState<Record<string, number>>({});
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
-  const [viewing, setViewing] = useState<ShopItem | null>(null);
+  const [viewing, setViewing] = useState<ModelGroup<ShopItem> | null>(null);
   const [checkout, setCheckout] = useState(false);
   const [done, setDone] = useState<{ orderNo: string; total: string } | null>(null);
 
@@ -94,28 +95,40 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
         </div>
       </div>
 
-      {/* Products */}
+      {/* Products: one card per model; a model with variants is chosen inside its sheet. */}
       <section className="mx-auto grid max-w-5xl grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
-        {shown.map((item) => {
-          const inCart = cart[item.id] ?? 0;
-          const out = item.stock <= 0;
+        {groupByModel(shown).map((g) => {
+          const item = g.items[0];
+          const many = g.items.length > 1;
+          const stock = g.items.reduce((n, it) => n + it.stock, 0);
+          const inCart = many ? g.items.reduce((n, it) => n + (cart[it.id] ?? 0), 0) : cart[item.id] ?? 0;
+          const out = stock <= 0;
+          const cover = g.items.find((it) => it.images.length)?.images[0];
+          const prices = g.items.map((it) => BigInt(it.price));
+          const low = prices.reduce((a, b) => (b < a ? b : a));
+          const high = prices.reduce((a, b) => (b > a ? b : a));
           return (
-            <div key={item.id} className={cn("flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100", out && "opacity-60")}>
-              <button type="button" onClick={() => setViewing(item)} className="relative aspect-square bg-gray-100">
-                {item.images[0]
+            <div key={g.key} className={cn("flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100", out && "opacity-60")}>
+              <button type="button" onClick={() => setViewing(g)} className="relative aspect-square bg-gray-100">
+                {cover
                   // eslint-disable-next-line @next/next/no-img-element -- photos come from our own image route
-                  ? <img src={imageUrl(item.images[0])} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
+                  ? <img src={imageUrl(cover)} alt={g.model} loading="lazy" className="h-full w-full object-cover" />
                   : <ShoppingBag size={32} className="absolute inset-0 m-auto text-gray-300" />}
                 {out && <span className="absolute left-2 top-2 rounded-full bg-gray-900/80 px-2 py-0.5 text-xs font-medium text-white">ကုန်သွားပါပြီ</span>}
+                {many && <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-medium text-gray-700">{g.items.length} မျိုး</span>}
               </button>
               <div className="flex flex-1 flex-col gap-1.5 p-2.5">
-                <button type="button" onClick={() => setViewing(item)} className="line-clamp-2 min-h-[2.5rem] text-left text-sm font-medium leading-tight [overflow-wrap:anywhere]">{item.name}</button>
+                <button type="button" onClick={() => setViewing(g)} className="line-clamp-2 min-h-[2.5rem] text-left text-sm font-medium leading-tight [overflow-wrap:anywhere]">{g.model}</button>
                 <div className="flex items-baseline justify-between gap-1">
-                  <span className="text-base font-bold text-blue-600 tabular-nums">{fmtMoney(item.price)}</span>
-                  <span className={cn("shrink-0 text-[11px]", item.stock <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{out ? "" : `ကျန် ${item.stock}`}</span>
+                  <span className="text-base font-bold text-blue-600 tabular-nums">{low === high ? fmtMoney(low.toString()) : `${fmtMoney(low.toString())}+`}</span>
+                  <span className={cn("shrink-0 text-[11px]", stock <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{out ? "" : `ကျန် ${stock}`}</span>
                 </div>
                 <div className="mt-auto">
-                  {inCart > 0 ? (
+                  {many ? (
+                    <button type="button" disabled={out} onClick={() => setViewing(g)} className="flex min-h-10 w-full items-center justify-center gap-1 rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:bg-gray-300">
+                      {inCart > 0 ? `ခြင်းထဲ ${inCart} · ရွေးမည်` : "အမျိုးအစား ရွေးမည်"}
+                    </button>
+                  ) : inCart > 0 ? (
                     <Stepper value={inCart} max={item.stock} onChange={(n) => setQty(item, n)} />
                   ) : (
                     <button type="button" disabled={out} onClick={() => setQty(item, 1)} className="flex min-h-10 w-full items-center justify-center gap-1 rounded-xl bg-blue-600 text-sm font-semibold text-white disabled:bg-gray-300">
@@ -150,7 +163,7 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
         </div>
       )}
 
-      {viewing && <ItemSheet item={viewing} inCart={cart[viewing.id] ?? 0} onQty={(n) => setQty(viewing, n)} onClose={() => setViewing(null)} />}
+      {viewing && <ItemSheet group={viewing} cart={cart} onQty={setQty} onClose={() => setViewing(null)} />}
       {checkout && (
         <Checkout
           slug={slug}
@@ -190,10 +203,16 @@ function Sheet({ children, onClose, title }: { children: React.ReactNode; onClos
   );
 }
 
-function ItemSheet({ item, inCart, onQty, onClose }: { item: ShopItem; inCart: number; onQty: (n: number) => void; onClose: () => void }) {
+function ItemSheet({ group, cart, onQty, onClose }: {
+  group: ModelGroup<ShopItem>; cart: Record<string, number>;
+  onQty: (item: ShopItem, n: number) => void; onClose: () => void;
+}) {
+  const [chosen, setChosen] = useState(() => group.items.find((it) => it.stock > 0)?.id ?? group.items[0].id);
   const [shown, setShown] = useState(0);
+  const item = group.items.find((it) => it.id === chosen) ?? group.items[0];
+  const inCart = cart[item.id] ?? 0;
   return (
-    <Sheet title={item.name} onClose={onClose}>
+    <Sheet title={group.model} onClose={onClose}>
       <div className="aspect-square bg-gray-100">
         {item.images[shown]
           // eslint-disable-next-line @next/next/no-img-element -- photos come from our own image route
@@ -211,6 +230,24 @@ function ItemSheet({ item, inCart, onQty, onClose }: { item: ShopItem; inCart: n
         </div>
       )}
       <div className="space-y-3 p-4">
+        {group.items.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {group.items.map((it) => (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => { setChosen(it.id); setShown(0); }}
+                className={cn(
+                  "rounded-xl border px-3 py-1.5 text-sm font-medium",
+                  it.id === item.id ? "border-blue-600 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700",
+                  it.stock <= 0 && "opacity-50 line-through"
+                )}
+              >
+                {variantLabel(it)}{cart[it.id] ? ` · ${cart[it.id]}` : ""}
+              </button>
+            ))}
+          </div>
+        )}
         <div>
           <h3 className="text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{item.name}</h3>
           <div className="mt-1 flex items-baseline justify-between">
@@ -220,8 +257,8 @@ function ItemSheet({ item, inCart, onQty, onClose }: { item: ShopItem; inCart: n
         </div>
         {item.description && <p className="whitespace-pre-line text-sm text-gray-600">{item.description}</p>}
         {item.stock > 0 && (inCart > 0
-          ? <Stepper value={inCart} max={item.stock} onChange={onQty} />
-          : <button type="button" onClick={() => onQty(1)} className="flex min-h-12 w-full items-center justify-center gap-1 rounded-xl bg-blue-600 font-semibold text-white"><Plus size={18} />ခြင်းထဲထည့်</button>)}
+          ? <Stepper value={inCart} max={item.stock} onChange={(n) => onQty(item, n)} />
+          : <button type="button" onClick={() => onQty(item, 1)} className="flex min-h-12 w-full items-center justify-center gap-1 rounded-xl bg-blue-600 font-semibold text-white"><Plus size={18} />ခြင်းထဲထည့်</button>)}
       </div>
     </Sheet>
   );

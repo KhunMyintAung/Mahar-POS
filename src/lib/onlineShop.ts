@@ -100,7 +100,7 @@ export async function publicShop(slug: string) {
   const items = await prisma.item.findMany({
     where: { businessId: business.id, onlineVisible: true, active: true, deletedAt: null },
     select: {
-      id: true, name: true, description: true, sellingPrice: true,
+      id: true, name: true, description: true, sellingPrice: true, model: true, variant: true,
       category: { select: { name: true } },
       images: { select: { id: true }, orderBy: [{ sort: "asc" }, { createdAt: "asc" }] },
     },
@@ -115,6 +115,8 @@ export async function publicShop(slug: string) {
       name: i.name,
       description: i.description ?? "",
       category: i.category?.name ?? "",
+      model: i.model ?? "",
+      variant: i.variant ?? "",
       price: i.sellingPrice,
       stock: Math.max(0, stock.get(i.id) ?? 0),
       images: i.images.map((im) => im.id),

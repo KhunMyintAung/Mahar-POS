@@ -635,6 +635,11 @@ model Item {
   description  String?
   /// Shown in the shop's Online Shop, with its photos.
   onlineVisible Boolean      @default(false)
+  /// Variants, the light way: items with the same model ("iPhone 13") are shown together in
+  /// Items, POS and the Online Shop, each with its own variant ("128GB · Blue"). Each variant
+  /// is still an item of its own — its own price, stock, IMEIs and SKU.
+  model        String?
+  variant      String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
@@ -648,6 +653,7 @@ model Item {
 
   @@unique([businessId, sku])
   @@index([businessId, name])
+  @@index([businessId, model])
 }
 
 model StockLevel {

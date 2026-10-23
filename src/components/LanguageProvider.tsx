@@ -1226,6 +1226,10 @@ const MM: Record<string, string> = {
   "Turn sounds off": "အသံ ပိတ်မည်",
   "Turn sounds on": "အသံ ဖွင့်မည်",
   "Language": "ဘာသာစကား",
+  "Model (groups variants)": "Model (အမျိုးအစားခွဲများ စုရန်)",
+  "Variant": "အမျိုးအစားခွဲ",
+  "+ Variant": "+ အမျိုးအစားခွဲ",
+  "Add a variant of this model (another storage, colour…)": "ဒီ Model ရဲ့ အမျိုးအစားခွဲ ထည့်မည် (Storage / အရောင် ကွဲ…)",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1277,6 +1281,10 @@ function translate(value: string) {
     [/^Remove (.+)\? It will stop appearing when you record income or expense\. Entries already filed under it are not changed\.$/, (name) => `${name} ကို ဖယ်မလား? ဝင်ငွေ/ထွက်ငွေ မှတ်ရာတွင် မပေါ်တော့ပါ။ ယခင်မှတ်ထားသည်များ မပြောင်းပါ။`],
     [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^Add (.+) for purchase (.+) to expense as Daily Sale Expense\?$/, (amount, txn) => `အဝယ် ${txn} ၏ ${amount} ကို Daily Sale Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^(\d+) variants$/, (n) => `အမျိုးအစားခွဲ ${n} မျိုး`],
+    [/^(\d+) variants · stock (-?\d+)$/, (n, qty) => `အမျိုးအစားခွဲ ${n} မျိုး · လက်ကျန် ${qty}`],
+    [/^New variant of (.+)$/, (model) => `${model} — အမျိုးအစားခွဲ အသစ်`],
+    [/^stock (-?\d+)$/, (n) => `လက်ကျန် ${n}`],
     [/^Today's transfers \((.+)\)$/, (cur) => `ဒီနေ့ ငွေလွှဲ (${cur})`],
     [/^Total withdrawn \((.+)\)$/, (cur) => `စုစုပေါင်း ငွေထုတ် (${cur})`],
     // Wallet history lines the app writes.

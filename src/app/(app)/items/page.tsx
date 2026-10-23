@@ -14,6 +14,7 @@ import { BarcodeInput } from "@/components/BarcodeScanner";
 import { ProductImport } from "@/components/ProductImport";
 import { repriced, validRule, type RepriceDirection, type RepriceMode, type RepriceRule } from "@/lib/reprice";
 import { PageHeader } from "@/components/PageHeader";
+import { groupByModel, variantLabel, variantName } from "@/lib/variants";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
@@ -21,6 +22,8 @@ interface Item {
   categoryId?: string | null; unitId?: string | null;
   category?: { name: string }; unit?: { name: string };
   stockLevels: { branchId: string; quantity: number }[];
+  /** Variants: the model this item belongs to, and what sets it apart. */
+  model?: string | null; variant?: string | null;
 }
 interface Meta { categories: { id: string; name: string }[]; units: { id: string; name: string }[] }
 
@@ -83,7 +86,9 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "" };
+  // The item a new variant is copied from, so it can be put under the same model too.
+  const [variantOf, setVariantOf] = useState<Item | null>(null);
   const [form, setForm] = useState(empty);
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
 
@@ -129,6 +134,7 @@ export default function ItemsPage() {
             categoryId: form.categoryId || null, unitId: form.unitId || null,
             costPrice: form.costPrice, sellingPrice: form.sellingPrice, minStock: form.minStock,
             trackSerial: form.trackSerial,
+            model: form.model, variant: form.model ? form.variant : "",
           },
         });
         push("Item updated");
@@ -140,11 +146,17 @@ export default function ItemsPage() {
             barcode: form.barcode || undefined,
             categoryId: form.categoryId || undefined,
             unitId: form.unitId || undefined,
+            model: form.model || undefined,
+            variant: form.model ? form.variant || undefined : undefined,
           },
         });
+        // A variant made from an item that had no model yet: put that item under it too.
+        if (variantOf && !variantOf.model && form.model) {
+          await api(`/api/v1/items/${variantOf.id}`, { method: "PATCH", body: { model: form.model } });
+        }
         push("Item created");
       }
-      setShowNew(false); setEditItem(null); setForm(empty);
+      setShowNew(false); setEditItem(null); setVariantOf(null); setForm(empty);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -264,10 +276,22 @@ export default function ItemsPage() {
       {shownItems.length === 0 ? (
         <Card><Empty message="No items found" /></Card>
       ) : (
-        <Paginated rows={shownItems} resetKey={[category, q]}>{(pageRows) => (
+        <Paginated rows={groupByModel(shownItems)} resetKey={[category, q]}>{(pageGroups) => (
         <Table headers={["", "Item", "Stock", "Category", "Unit", "Cost", "Price", "SKU", ""]} rightAlign={[2, 5, 6]}>
-          {pageRows.map((it) => {
+          {pageGroups.flatMap((g) => [
+            ...(g.items.length > 1 ? [(
+              <tr key={g.key} className="bg-gray-50 dark:bg-gray-800/50">
+                <td className="w-8 px-3 py-2" />
+                <td className="px-3 py-2 font-semibold" colSpan={2}>
+                  {g.model}
+                  <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants · stock ${g.items.reduce((n, it) => n + it.stockLevels.reduce((a, l) => a + l.quantity, 0), 0)}`}</span>
+                </td>
+                <td className="px-3 py-2" colSpan={6} />
+              </tr>
+            )] : []),
+            ...g.items.map((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
+            const inGroup = g.items.length > 1;
             return (
               <tr key={it.id} className={cn(!it.active && "opacity-50", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
                 <td className="w-8 px-3 py-2.5">
@@ -275,8 +299,8 @@ export default function ItemsPage() {
                     <input type="checkbox" className="h-4 w-4" aria-label={`Select ${it.name}`} checked={selected.has(it.id)} onChange={() => toggle(it.id)} />
                   )}
                 </td>
-                <td className="px-3 py-2.5 font-medium">
-                  {it.name}
+                <td className={cn("px-3 py-2.5 font-medium", inGroup && "pl-7")}>
+                  {inGroup ? <><span className="text-gray-400">└ </span>{variantLabel(it)}</> : it.name}
                   {it.trackSerial && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
@@ -299,21 +323,64 @@ export default function ItemsPage() {
                         sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
                         minStock: it.minStock,
                         trackSerial: Boolean(it.trackSerial),
+                        model: it.model ?? "", variant: it.variant ?? "",
                       });
                       setEditItem(it);
                       setShowNew(true);
                     }}>Edit</Button>
                   )}
+                  {hasPerm("item.manage") && (
+                    <Button size="sm" variant="ghost" title="Add a variant of this model (another storage, colour…)" onClick={() => {
+                      // A copy of this item, ready for the one thing that differs.
+                      setForm({
+                        ...empty,
+                        categoryId: it.categoryId ?? "", unitId: it.unitId ?? "",
+                        costPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
+                        sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
+                        minStock: it.minStock,
+                        trackSerial: Boolean(it.trackSerial),
+                        model: it.model || it.name,
+                      });
+                      setEditItem(null);
+                      setVariantOf(it);
+                      setShowNew(true);
+                    }}>+ Variant</Button>
+                  )}
                 </td>
               </tr>
             );
-          })}
+          }),
+          ])}
         </Table>
         )}</Paginated>
       )}
 
-      <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); }} title={editItem ? `Edit ${editItem.name}` : "New item"}>
+      <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
         <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Model (groups variants)"
+              value={form.model}
+              placeholder="iPhone 13"
+              onChange={(e) => {
+                const model = e.target.value;
+                const auto = !form.name || form.name === variantName(form.model, form.variant);
+                setForm({ ...form, model, ...(auto ? { name: variantName(model, form.variant) } : {}) });
+              }}
+            />
+            <Input
+              label="Variant"
+              value={form.variant}
+              placeholder="128GB · Blue"
+              autoFocus={Boolean(variantOf)}
+              disabled={!form.model}
+              onChange={(e) => {
+                const variant = e.target.value;
+                const auto = !form.name || form.name === variantName(form.model, form.variant);
+                setForm({ ...form, variant, ...(auto ? { name: variantName(form.model, variant) } : {}) });
+              }}
+            />
+          </div>
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: autoCorrectName(f.name) }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
