@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client";
 import { fmtDateTime } from "@/lib/format";
 import { Button, Card, Select, Spinner, Table, Empty, useToast } from "@/components/ui";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Log {
   id: string; action: string; module: string; resourceType?: string; resourceId?: string;
@@ -31,15 +32,14 @@ export default function AuditPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Audit Logs</h1>
+      <PageHeader title={<>Audit Logs</>}>
         <Select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }}>
           <option value="">All modules</option>
           {["auth", "wallet", "credit", "payable", "income_expense", "customer", "daily_close", "users", "settings"].map((m) => (
             <option key={m} value={m}>{m}</option>
           ))}
         </Select>
-      </div>
+      </PageHeader>
 
       {data.logs.length === 0 ? (
         <Card><Empty message="No audit entries" /></Card>

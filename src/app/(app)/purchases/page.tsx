@@ -10,6 +10,7 @@ import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
+import { PageHeader } from "@/components/PageHeader";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -193,12 +194,11 @@ export default function PurchasesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Purchases</h1>
+      <PageHeader title={<>Purchases</>}>
         {hasPerm("purchase.create") && (
           <Button onClick={openNew}><Plus size={16} className="mr-1 inline" />New purchase</Button>
         )}
-      </div>
+      </PageHeader>
 
       {purchases.length === 0 ? (
         <Card><Empty message="No purchases yet" /></Card>

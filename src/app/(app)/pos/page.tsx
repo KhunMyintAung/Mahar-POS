@@ -17,6 +17,7 @@ import {
 } from "@/lib/warranty";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printSaleReceipt } from "@/lib/slipPrint";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -478,7 +479,7 @@ export default function PosPage() {
 
   return (
     <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
-      <h1 className="sr-only">Sales &amp; POS</h1>
+      <PageHeader title={<>Sales &amp; POS</>} />
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="space-y-3 lg:col-span-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">

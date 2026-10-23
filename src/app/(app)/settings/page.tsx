@@ -20,6 +20,7 @@ import {
   parseModuleAccess,
   type FeatureVisibility,
 } from "@/lib/modules";
+import { PageHeader } from "@/components/PageHeader";
 interface SettingsData {
   business: { id: string; name: string; logoUrl?: string | null; phone?: string; address?: string; telegram?: string; website?: string; websiteLabel?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; currency: string; timezone: string };
   settings: Record<string, Record<string, unknown>>;
@@ -165,7 +166,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-xl font-bold">Settings</h1>
+      <PageHeader title={<>Settings</>} />
 
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
         {tabs.map((t) => (

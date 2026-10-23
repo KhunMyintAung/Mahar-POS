@@ -7,6 +7,7 @@ import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import Link from "next/link";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Reports: the daily (or monthly) summary of income and expense. The Grand Report (profit,
  *  salary, capital for next month, each partner's share) goes out in Excel, the Google Sheet
@@ -95,8 +96,7 @@ export default function ReportsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="no-print flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Reports</h1>
+      <PageHeader title={<>Reports</>}>
         <div className="flex flex-wrap gap-2">
           {hasPerm("report.export") && (
             <a href={`/api/v1/reports/xlsx?${query}`} className="inline-flex min-h-10 items-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700">
@@ -106,7 +106,7 @@ export default function ReportsPage() {
           <Button variant="secondary" onClick={() => window.print()}><Printer size={16} className="mr-1 inline" />Print</Button>
           {owner && <Button variant="secondary" aria-label="Report settings" onClick={() => setSettingsOpen(true)}><Settings2 size={16} /></Button>}
         </div>
-      </div>
+      </PageHeader>
 
       <Card className="no-print">
         <div className="flex flex-wrap items-end gap-3">

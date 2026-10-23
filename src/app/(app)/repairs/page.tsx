@@ -14,6 +14,7 @@ import { printRepairVoucher } from "@/lib/slipPrint";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
 import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Job {
   id: string; jobNo: string; status: string; priority: string;
@@ -415,15 +416,11 @@ export default function RepairsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Wrench size={20} className="shrink-0 text-blue-600" />
-          <h1 className="truncate text-xl font-bold">Repair Jobs</h1>
-        </div>
+      <PageHeader title={<>Repair Jobs</>}>
         {hasPerm("repair.create") && (
           <Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
         )}
-      </div>
+      </PageHeader>
 
       {/* One slim strip: the month's counts and the month they are for, side by side. */}
       <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">

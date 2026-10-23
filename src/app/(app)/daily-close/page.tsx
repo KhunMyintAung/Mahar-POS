@@ -5,6 +5,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Close { id: string; date: string; branchId: string; status: string; summary: string; reopenReason?: string }
 interface Summary {
@@ -80,7 +81,7 @@ export default function DailyClosePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <h1 className="text-xl font-bold">Daily Close</h1>
+      <PageHeader title={<>Daily Close</>} />
 
       {hasPerm("daily_close.create") && (
         <Card>

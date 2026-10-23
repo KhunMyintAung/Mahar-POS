@@ -7,6 +7,7 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, StatCard, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Transfer {
   id: string;
@@ -102,13 +103,12 @@ export default function TransfersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Money Transfer</h1>
+      <PageHeader title={<>Money Transfer</>}>
         <Button onClick={() => setShowNew(true)}>
           <Send size={16} className="mr-1 inline" />
           New transfer
         </Button>
-      </div>
+      </PageHeader>
 
       {todayTotal.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

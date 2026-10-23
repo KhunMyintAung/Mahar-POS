@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Contact { id: string; name: string; phone?: string; type: string; active: boolean; notes?: string }
 
@@ -67,12 +68,11 @@ export default function CustomersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Customers & Contacts</h1>
+      <PageHeader title={<>Customers & Contacts</>}>
         {hasPerm("customer.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New contact</Button>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap gap-2">
         <Input placeholder="Search name or phone…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />

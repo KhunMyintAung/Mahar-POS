@@ -5,6 +5,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Entry {
   id: string; direction: string; amount: string; balanceAfter: string;
@@ -75,7 +76,7 @@ export default function WalletLedgerPage({ params }: { params: Promise<{ id: str
     <div className="mx-auto max-w-5xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">{data.wallet.name}</h1>
+          <PageHeader title={<>{data.wallet.name}</>} />
           <p className="text-sm text-gray-500">Ledger · {data.wallet.code}</p>
         </div>
         <div className="text-right">

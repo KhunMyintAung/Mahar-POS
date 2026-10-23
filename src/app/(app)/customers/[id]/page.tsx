@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, use } from "react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Card, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Data {
   contact: { id: string; name: string; phone?: string; telegram?: string; address?: string; type: string; creditLimit: string; notes?: string };
@@ -28,7 +29,7 @@ export default function CustomerDetail({ params }: { params: Promise<{ id: strin
   return (
     <div className="mx-auto max-w-5xl space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{c.name}</h1>
+        <PageHeader title={<>{c.name}</>} />
         <p className="text-sm text-gray-500">
           {c.type} {c.phone && `· ${c.phone}`} {c.telegram && `· ${c.telegram}`}
         </p>

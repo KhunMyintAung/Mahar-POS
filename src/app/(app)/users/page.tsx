@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Select, Modal, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface User {
   id: string; name: string; username: string; phone?: string; active: boolean;
@@ -148,14 +149,13 @@ export default function UsersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Users & Roles</h1>
+      <PageHeader title={<>Users & Roles</>}>
         {tab === "users" ? (
           <Button onClick={() => { setUform(emptyUser); setShowNewUser(true); }}><Plus size={16} className="mr-1 inline" />New user</Button>
         ) : (
           <Button onClick={() => setShowNewRole(true)}><Plus size={16} className="mr-1 inline" />New role</Button>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
         {(["users", "roles"] as const).map((t) => (

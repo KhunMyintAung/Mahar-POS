@@ -18,6 +18,7 @@ import { SoundToggle } from "./SoundToggle";
 import { LanguageSwitch } from "./LanguageProvider";
 import type { FeatureKey, FeatureVisibility, ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
+import { TopBarSlots } from "./PageHeader";
 
 interface Me {
   user: {
@@ -139,6 +140,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
   const [dark, setDark] = useState(false);
+  // Where a page's <PageHeader> puts its name and buttons (callback refs, set once mounted).
+  const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
+  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   const pathname = usePathname();
   const sidebarHidden = sidebarPref?.path === pathname ? sidebarPref.hidden : pathname.startsWith("/pos");
   const router = useRouter();
@@ -212,6 +216,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // The tab bar for the group the current page belongs to, when it has more than one page.
   const groupTabs = visibleNav.find((n) => n.tabs && isActive(n))?.tabs;
   const mobileNav = visibleNav.slice(0, 4);
+  // The menu name of the page, for the top bar until (or unless) the page names itself.
+  const pageName = groupTabs?.find((t) => pathname.startsWith(t.href))?.label ?? visibleNav.find(isActive)?.label ?? "";
 
   // "+" creates for whatever section is open, so it is only shown where that means
   // something and the user is allowed to do it.
@@ -272,7 +278,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <aside className={cn("no-print sticky top-0 hidden h-screen w-60 shrink-0 overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", !sidebarHidden && "lg:block")}>
             <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-800">
               <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100 dark:ring-gray-800"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
-              <span className="font-bold">Mahar Mini POS</span>
+              <div className="min-w-0">
+                <div className="font-bold leading-tight">Mahar Mini POS</div>
+                <div className="truncate text-xs text-gray-500 dark:text-gray-400">{me.user.name} · {me.user.roleName}</div>
+              </div>
             </div>
             {sidebar}
           </aside>
@@ -282,7 +291,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setDrawer(false)}>
               <aside className="h-full w-[min(18rem,88vw)] overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-800">
-                  <span className="font-bold">Mahar Mini POS</span>
+                  <div className="min-w-0">
+                    <div className="font-bold leading-tight">Mahar Mini POS</div>
+                    <div className="truncate text-xs text-gray-500 dark:text-gray-400">{me.user.name} · {me.user.roleName}</div>
+                  </div>
                   <button onClick={() => setDrawer(false)}><X size={20} /></button>
                 </div>
                 {sidebar}
@@ -305,18 +317,22 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   {sidebarHidden ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
                 </button>
-                <span className="truncate text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {me.user.name} · {me.user.roleName}
-                </span>
+                {/* The page's name. A page with a <PageHeader> puts its own here (a
+                    customer's name, say), and the menu name steps aside for it. */}
+                <div ref={setTitleSlot} className="flex min-w-0 items-center [&:has(.page-title)>.menu-title]:hidden">
+                  <span className="menu-title truncate text-base font-bold text-gray-900 dark:text-gray-100">{pageName}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
+              {/* Desktop: the page's own buttons, up here and within reach, not a row below. */}
+              <div ref={setActionsSlot} className="hidden min-w-0 flex-1 items-center justify-end gap-2 px-3 lg:flex" />
+              <div className="flex shrink-0 items-center gap-1">
                 <LanguageSwitch className="mr-1" />
                 <PwaInstall compact />
                 <SoundToggle />
                 <button onClick={toggleTheme} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title="Toggle theme">
                   {dark ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
-                <button onClick={logout} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title="Sign out">
+                <button onClick={logout} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title={`Sign out (${me.user.name} · ${me.user.roleName})`}>
                   <LogOut size={18} />
                 </button>
               </div>
@@ -349,7 +365,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       })}
                     </div>
                   )}
-                  {children}
+                  <TopBarSlots.Provider value={{ title: titleSlot, actions: actionsSlot }}>{children}</TopBarSlots.Provider>
                 </>
               )}
             </main>

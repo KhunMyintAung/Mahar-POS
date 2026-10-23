@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { TelegramReportsCard } from "@/components/TelegramReportsCard";
+import { PageHeader } from "@/components/PageHeader";
 
 interface TelegramStatus {
   configured: boolean;
@@ -63,7 +64,7 @@ export default function TelegramPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-xl font-bold">Telegram</h1>
+      <PageHeader title={<>Telegram</>} />
 
       {hasPerm("settings.manage") && <TelegramReportsCard />}
 

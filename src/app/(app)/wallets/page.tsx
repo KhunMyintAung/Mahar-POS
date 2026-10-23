@@ -10,6 +10,7 @@ import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } f
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { WalletDay } from "@/components/WalletDay";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Wallet {
   id: string; name: string; code: string; type: string; currency: string;
@@ -82,8 +83,7 @@ export default function WalletsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Wallets</h1>
+      <PageHeader title={<>Wallets</>}>
         <div className="flex flex-wrap gap-2">
           {hasPerm("wallet.transfer") && (
             <Button variant="secondary" onClick={() => setShowTransfer(true)}>
@@ -96,7 +96,7 @@ export default function WalletsPage() {
             </Button>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       {wallets.length === 0 ? (
         <Card><Empty message="No wallets" /></Card>

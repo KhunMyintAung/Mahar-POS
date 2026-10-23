@@ -8,6 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Item {
   id: string; txnNo: string; originalAmount: string; paidAmount: string; remainingAmount: string;
@@ -98,10 +99,9 @@ function CreditContent() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Credit & Payable</h1>
+      <PageHeader title={<>Credit & Payable</>}>
         {canCreate && <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />{isRec ? "Record debt" : "New payable"}</Button>}
-      </div>
+      </PageHeader>
 
       <div className="flex w-full gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800 sm:w-fit">
         {(["receivable", "payable"] as const).map((t) => (

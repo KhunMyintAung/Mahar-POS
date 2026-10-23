@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Empty, Input, Modal, Spinner, Table, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Supplier {
   id: string;
@@ -61,14 +62,13 @@ export default function SuppliersPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Suppliers</h1>
+      <PageHeader title={<>Suppliers</>}>
         {hasPerm("customer.manage") && (
           <Button onClick={() => { setForm(emptyForm); setShowNew(true); }}>
             <Plus size={16} className="mr-1 inline" />New supplier
           </Button>
         )}
-      </div>
+      </PageHeader>
 
       <Input
         placeholder="Search supplier name or phone..."

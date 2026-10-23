@@ -12,6 +12,7 @@ import { useAuth } from "@/components/AppShell";
 import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { warrantyUntil } from "@/lib/warranty";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Sale {
   id: string; txnNo: string; date: string; total: string; paidAmount: string; profit: string;
@@ -105,10 +106,9 @@ export default function SalesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Sale History</h1>
+      <PageHeader title={<>Sale History</>}>
         {hasPerm("sale.create") && <Link href="/pos"><Button>Open POS</Button></Link>}
-      </div>
+      </PageHeader>
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Total sales" value={fmtMoney(totals.amount, "MMK")} />

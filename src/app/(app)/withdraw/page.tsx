@@ -7,6 +7,7 @@ import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Withdrawal {
   id: string;
@@ -110,13 +111,12 @@ export default function WithdrawPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Withdraw</h1>
+      <PageHeader title={<>Withdraw</>}>
         <Button onClick={() => setShowNew(true)}>
           <MinusCircle size={16} className="mr-1 inline" />
           New withdrawal
         </Button>
-      </div>
+      </PageHeader>
 
       {totals.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

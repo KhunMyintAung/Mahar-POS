@@ -9,6 +9,7 @@ import { Paginated } from "@/components/Pager";
 import { ImeiAdjustFields, ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
+import { PageHeader } from "@/components/PageHeader";
 
 /** Today and this month in the shop's own time zone, for the period picker. */
 function today(): string {
@@ -198,8 +199,7 @@ export default function StockPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Stock</h1>
+      <PageHeader title={<>Stock</>}>
         <div className="flex items-center gap-2">
           {lowCount > 0 && <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">{lowCount} low stock</span>}
           {tab === "levels" && (
@@ -208,7 +208,7 @@ export default function StockPage() {
             </span>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
         {(["levels", "movements"] as const).map((t) => (

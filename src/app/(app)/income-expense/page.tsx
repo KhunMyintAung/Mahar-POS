@@ -7,6 +7,7 @@ import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
@@ -183,15 +184,14 @@ export default function IncomeExpensePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Income & Expense</h1>
+      <PageHeader title={<>Income & Expense</>}>
         {hasPerm("income_expense.create") && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowCategories(true)}>Categories</Button>
             <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New entry</Button>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">

@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Smartphone, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Biller {
   id: string; name: string; type: string; currency: string;
@@ -310,15 +311,11 @@ export default function BillersPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Smartphone size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold">Top-up Billers</h1>
-        </div>
+      <PageHeader title={<>Top-up Billers</>}>
         {hasPerm("biller.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New biller</Button>
         )}
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">

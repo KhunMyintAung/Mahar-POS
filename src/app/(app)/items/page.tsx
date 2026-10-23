@@ -13,6 +13,7 @@ import { useNewModal } from "@/lib/useNewModal";
 import { BarcodeInput } from "@/components/BarcodeScanner";
 import { ProductImport } from "@/components/ProductImport";
 import { repriced, validRule, type RepriceDirection, type RepriceMode, type RepriceRule } from "@/lib/reprice";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
@@ -179,8 +180,7 @@ export default function ItemsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Items</h1>
+      <PageHeader title={<>Items</>}>
         <div className="flex flex-wrap gap-2">
           {/* Exports the category being viewed, in the import's own columns. */}
           <a
@@ -199,7 +199,7 @@ export default function ItemsPage() {
             </>
           )}
         </div>
-      </div>
+      </PageHeader>
 
       <Input placeholder="Search name, SKU, or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-sm" />
 

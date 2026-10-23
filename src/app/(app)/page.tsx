@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { StatCard, Card, Select, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 
 interface Summary {
   wallets: { totalMmk: string; totalThb: string; thbWallets: number; lowBalance: { id: string; name: string; currentBalance: string; minBalance: string }[] };
@@ -59,7 +60,7 @@ export default function DashboardPage() {
     <div className="mx-auto max-w-7xl space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Dashboard</h1>
+          <PageHeader title={<>Dashboard</>} />
           <p className="text-sm text-gray-500 dark:text-gray-400">{data.date}</p>
         </div>
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
