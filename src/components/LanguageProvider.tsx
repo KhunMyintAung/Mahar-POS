@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { Languages } from "lucide-react";
 import { cn } from "./ui";
 
@@ -1081,6 +1081,151 @@ const MM: Record<string, string> = {
   "No orders here": "အော်ဒါ မရှိပါ",
   "+ Order items": "+ မှာရန်ပစ္စည်း",
   "One part per line. For the shop only, not printed on the voucher.": "တစ်ကြောင်းလျှင် ပစ္စည်းတစ်ခု။ ဆိုင်အတွက်သာ၊ ဘောက်ချာတွင် မပါပါ။",
+  "Order list": "အမှာစာရင်း",
+  "Nothing received yet": "ရပြီးသား မရှိသေးပါ",
+  "Opened again": "ပြန်ဖွင့်ပြီ",
+  "Part and count (Vivo Y17s TL 3) — or paste a whole list": "မှာမည့်ပစ္စည်း + အရေအတွက် (Vivo Y17s TL 3) — စာရင်းလိုက် Paste လည်းရ",
+  "Deposit": "စရံ",
+  "Customer / deposit": "ဝယ်သူ / စရံ",
+  "Added": "ထည့်ပြီး",
+  "Nothing to order": "မှာစရာ မရှိပါ",
+  "To order": "မှာရန်",
+  "All": "အားလုံး",
+  "Which supplier? (Ko Aung…)": "ဘယ်ဆိုင်ကို မှာမလဲ (Ko Aung…)",
+  "Sent + copy": "မှာပြီး + Copy",
+  "today": "ဒီနေ့",
+  "Not in stock": "မရ",
+  "Not in stock there — back to order for the next supplier": "ဒီဆိုင်မှာ မရ — နောက်ဆိုင် မှာရန်",
+  "Note (price, supplier, when it comes…)": "မှတ်ချက် (ဈေး၊ ဆိုင်၊ ဘယ်တော့ရမလဲ…)",
+  "Undo — not received": "ပြန်ဖွင့်မည် — မရသေး",
+  "Record a cash loan": "ငွေချေး မှတ်ရန်",
+  "💵 Cash loan": "💵 ငွေချေး (ငွေထုတ်ပေး)",
+  "🛒 Owes for goods": "🛒 အကြွေး (ပစ္စည်း)",
+  "Who borrowed it": "ဘယ်သူ ချေးသလဲ",
+  "+ New person (friend / walk-in)": "+ လူသစ် (သူငယ်ချင်း / Walk-in)",
+  "Amount lent (MMK)": "ချေးငွေ (MMK)",
+  "Paid out from wallet": "ငွေထုတ်ပေးမည့် Wallet",
+  "The money leaves this wallet now. When it is paid back, Collect puts it back in.": "ဒီ Wallet ထဲက ငွေ ချက်ချင်း လျော့မည်။ ပြန်ဆပ်ရင် \"Collect\" နဲ့ Wallet ထဲ ပြန်ဝင်မည်။",
+  "Loan recorded": "ငွေချေး မှတ်ပြီး",
+  "Got it": "ရပြီ",
+  "Not got yet": "မရသေး",
+  "(voided)": "(ပယ်ဖျက်ပြီး)",
+  "+ Add new category": "+ အမျိုးအစားအသစ် ထည့်မည်",
+  "1 year warranty": "အာမခံ ၁ နှစ်",
+  "1. General expenses go under": "၁။ အထွေထွေ အသုံးစရိတ် ထည့်မည့်အပိုင်း",
+  "2. Stock sheet": "၂။ Stock Sheet",
+  "Adjustment": "ချိန်ညှိမှု",
+  "Biller added": "Biller ထည့်ပြီး",
+  "Bot connected": "Bot ချိတ်ပြီး",
+  "Bot:": "Bot:",
+  "CUSTOMER LIVE": "လက်ရှိ သုံးနေသော ဆိုင်များ",
+  "Case, SIM, memory card": "Case၊ SIM၊ Memory card",
+  "Change status": "အခြေအနေ ပြောင်းမည်",
+  "Choose a local, worldwide, or Thailand donation method.": "ပြည်တွင်း၊ ကမ္ဘာတစ်ဝှမ်း သို့မဟုတ် ထိုင်း လှူဒါန်းနည်း ရွေးပါ။",
+  "Contact & Community": "ဆက်သွယ်ရန်နှင့် Community",
+  "Contact created": "Contact ထည့်ပြီး",
+  "Could not copy": "Copy မကူးနိုင်ပါ",
+  "Could not copy. Select the script and copy it.": "Copy မကူးနိုင်ပါ။ Script ကို ရွေးပြီး ကူးပါ။",
+  "Could not open POS": "POS ဖွင့်၍ မရပါ",
+  "Day closed": "နေ့စာရင်း ပိတ်ပြီး",
+  "Day reopened": "နေ့စာရင်း ပြန်ဖွင့်ပြီး",
+  "Days": "ရက်",
+  "days": "ရက်",
+  "FOR SUPPORT": "အကူအညီအတွက်",
+  "Free gift with the sale": "ရောင်းချမှုနှင့်အတူ လက်ဆောင်",
+  "Free gift · 0 MMK": "လက်ဆောင် · 0 MMK",
+  "Generating QR": "QR ပြုလုပ်နေသည်",
+  "In the sheet:": "Sheet ထဲတွင်:",
+  "Item created": "ပစ္စည်း ထည့်ပြီး",
+  "Item updated": "ပစ္စည်း ပြင်ပြီး",
+  "Less": "လျော့",
+  "More": "တိုး",
+  "Module setting saved": "Module ဆက်တင် သိမ်းပြီး",
+  "Next day": "နောက်နေ့",
+  "Previous day": "ရှေ့နေ့",
+  "Next page": "နောက်စာမျက်နှာ",
+  "Previous page": "ရှေ့စာမျက်နှာ",
+  "No IMEIs recorded in stock here. Record them first with the IMEIs button.": "ဒီမှာ Stock IMEI မှတ်ထားခြင်း မရှိပါ။ IMEIs ခလုတ်ဖြင့် အရင်မှတ်ပါ။",
+  "No chat is set to get this. Tick Daily report for a chat.": "ဒါကို ရမည့် Chat မရှိပါ။ Chat တစ်ခုတွင် Daily report ကို ခြစ်ပါ။",
+  "No item categories yet": "ပစ္စည်း အမျိုးအစား မရှိသေးပါ",
+  "Note: IMEI, traded in with iPhone 8…": "မှတ်ချက်: IMEI၊ iPhone 8 နှင့်လဲ…",
+  "Owner / Staff group": "ပိုင်ရှင် / ဝန်ထမ်း Group",
+  "PLEASE DONATE": "လှူဒါန်းရန်",
+  "Preview — today's daily report": "ကြိုကြည့် — ဒီနေ့ Daily report",
+  "Private business workspace": "ကိုယ်ပိုင် လုပ်ငန်း စာရင်း",
+  "Purchase cancelled": "အဝယ် ပယ်ဖျက်ပြီး",
+  "Purchase recorded — stock updated": "အဝယ် မှတ်ပြီး — Stock တိုးပြီး",
+  "Rent": "အိမ်ငှားခ",
+  "Report settings saved": "Report ဆက်တင် သိမ်းပြီး",
+  "Role created": "Role ထည့်ပြီး",
+  "Screen crack, water mark, body condition": "မှန်ကွဲ၊ ရေဝင်အမှတ်၊ Body အခြေအနေ",
+  "Screen cracked, no display": "မှန်ကွဲ၊ Display မပေါ်",
+  "Settings saved": "ဆက်တင် သိမ်းပြီး",
+  "Settings →": "ဆက်တင် →",
+  "Show our customer live": "သုံးနေသော ဆိုင်များကို ကြည့်ရန်",
+  "Shops using Mahar POS right now. Latest updates, customer service and support are on our website.": "Mahar POS ကို လက်ရှိ သုံးနေသော ဆိုင်များ။ နောက်ဆုံးသတင်း၊ ဝန်ဆောင်မှုနှင့် အကူအညီများ Website တွင် ရှိသည်။",
+  "Sold top-up": "ဖုန်းဖြည့် ရောင်း",
+  "Standard category": "ပုံမှန် အမျိုးအစား",
+  "Stock adjusted": "Stock ညှိပြီး",
+  "Stock returns to inventory and any wallet receipt is reversed. This is logged.": "Stock ပြန်ဝင်ပြီး Wallet ထဲ ဝင်ထားသောငွေ ပြန်နုတ်မည်။ မှတ်တမ်းတင်ထားမည်။",
+  "Summary month": "အနှစ်ချုပ် လ",
+  "Supplier created": "Supplier ထည့်ပြီး",
+  "Telegram bot disconnected": "Telegram bot ဖြုတ်ပြီး",
+  "The cash paid is added to expense automatically.": "ပေးလိုက်သော ငွေကို ထွက်ငွေထဲ အလိုအလျောက် ထည့်မည်။",
+  "The customer's payment will be added to this wallet. The wallet does not need an existing balance.": "ဝယ်သူ ပေးငွေကို ဒီ Wallet ထဲ ထည့်မည်။ Wallet ထဲ လက်ကျန် ရှိစရာ မလိုပါ။",
+  "The money already left the wallet with this purchase; this only records it as an expense, so it is not taken out twice. Reports then count top-up cost from your float purchases.": "ဒီဝယ်ယူမှုနဲ့ Wallet ထဲက ငွေ ထွက်ပြီးသားပါ။ ဒါက ထွက်ငွေအဖြစ် မှတ်ရုံသာ ဖြစ်လို့ နှစ်ခါ မနုတ်ပါ။ Report က ဖုန်းဖြည့် ကုန်ကျစရိတ်ကို Float ဝယ်မှုမှ တွက်မည်။",
+  "The purchase is added to expense automatically.": "အဝယ်ကို ထွက်ငွေထဲ အလိုအလျောက် ထည့်မည်။",
+  "The purchase already paid (or owes) the supplier; this only records it as an expense, so money is not taken out twice. Reports then count sales cost from what you bought.": "ဒီအဝယ်က Supplier ကို ပေးပြီး (သို့ အကြွေးရှိ) သားပါ။ ဒါက ထွက်ငွေအဖြစ် မှတ်ရုံသာ ဖြစ်လို့ ငွေ နှစ်ခါ မနုတ်ပါ။ Report က အရောင်းကုန်ကျစရိတ်ကို ဝယ်ထားသည်မှ တွက်မည်။",
+  "These items will be removed from the item list and the POS. Past sales and purchases keep them. This is logged.": "ဒီပစ္စည်းများကို ပစ္စည်းစာရင်းနှင့် POS မှ ဖယ်မည်။ အရင်ရောင်း/ဝယ်ထားမှုများတွင် ကျန်မည်။ မှတ်တမ်းတင်ထားမည်။",
+  "This browser cannot share its location": "ဒီ Browser က တည်နေရာ မပေးနိုင်ပါ",
+  "Undo": "ပြန်ဖျက်မည်",
+  "User created": "User ထည့်ပြီး",
+  "User updated": "User ပြင်ပြီး",
+  "Vivo / Oppo / Redmi": "Vivo / Oppo / Redmi",
+  "Void sale": "အရောင်း ပယ်ဖျက်မည်",
+  "Your reports in your own Google Sheet. Only the numbers change — your colours, column widths and fonts stay as you set them.": "ကိုယ်ပိုင် Google Sheet ထဲသို့ Report များ။ ဂဏန်းများသာ ပြောင်းမည် — အရောင်၊ ကော်လံအကျယ်၊ Font များ သင်ထားသည့်အတိုင်း ကျန်မည်။",
+  "Each sync sends this month (daily summary, Stock) and this year's monthly summary, one tab each.": "Sync တစ်ခါစီ ဒီလ (နေ့စဉ်အနှစ်ချုပ်၊ Stock) နှင့် ဒီနှစ် လစဉ်အနှစ်ချုပ်ကို Tab တစ်ခုစီ ပို့မည်။",
+  "e.g. 8GB / 256GB, 1 year warranty, box and charger included": "ဥပမာ 8GB / 256GB၊ အာမခံ ၁ နှစ်၊ ဘူးနှင့် အားသွင်းကြိုး ပါ",
+  "estimate": "ခန့်မှန်း",
+  "new": "အသစ်",
+  "off": "ပိတ်",
+  "skipped": "ကျော်ခဲ့",
+  "unchanged": "မပြောင်း",
+  "updated": "ပြင်ပြီး",
+  "🛍️ Online order": "🛍️ Online အော်ဒါ",
+  "What the operator is holding for this shop today. A minus figure is fine if the shop has sold ahead of paying.": "ဒီနေ့ Operator ဘက်မှာ ဒီဆိုင်အတွက် ရှိနေသော ငွေ။ ငွေမပေးခင် ကြိုရောင်းထားရင် အနုတ်ဖြစ်လည်း ရပါသည်။",
+  "Balance and currency are not editable here — the balance comes from the ledger, so use Adjust to change it and keep the history in step.": "လက်ကျန်နှင့် ငွေကြေးကို ဒီမှာ ပြင်မရပါ — လက်ကျန်က စာရင်းမှ လာသည်။ ပြောင်းလိုလျှင် Adjust ကိုသုံးပါ၊ မှတ်တမ်းလည်း ကိုက်နေမည်။",
+  "This wallet is removed from the app. Its past entries stay in the ledger and in any record that used it, so your history keeps adding up.": "ဒီ Wallet ကို App မှ ဖယ်မည်။ အရင်မှတ်တမ်းများ စာရင်းထဲ ကျန်မည်ဖြစ်လို့ စာရင်း ကိုက်နေမည်။",
+  "Erases this business and everything in it — wallets and their history, credits, sales, purchases, stock, records, users and audit logs. It happens immediately and cannot be undone, and there is no copy afterwards.": "ဒီလုပ်ငန်းနှင့် ပါဝင်သမျှ — Wallet နှင့် မှတ်တမ်း၊ အကြွေး၊ အရောင်း၊ အဝယ်၊ Stock၊ စာရင်း၊ User နှင့် Audit log များ အကုန်ဖျက်မည်။ ချက်ချင်း ဖြစ်ပြီး ပြန်ယူ၍ မရပါ၊ Copy လည်း မကျန်ပါ။",
+  "Columns: name, sku, barcode, category, unit, cost, price, stock, min stock. Only the name is required — a SKU is made from the name when the column is empty, and a category or unit (pcs, box…) that does not exist yet is created; a new item with no unit gets pcs. Stock is the count on hand: it sets the stock to that number, and an empty stock cell leaves it as it is.": "ကော်လံများ: name, sku, barcode, category, unit, cost, price, stock, min stock။ name တစ်ခုသာ မဖြစ်မနေ လိုသည် — sku မပါလျှင် နာမည်မှ လုပ်ပေးမည်၊ မရှိသေးသော category / unit ကို အသစ်လုပ်မည်၊ unit မပါသော ပစ္စည်းအသစ်ကို pcs ပေးမည်။ stock က လက်ရှိ အရေအတွက် — ထိုအရေအတွက်အတိုင်း ထားမည်၊ stock အကွက် ဗလာဆိုလျှင် မပြောင်းပါ။",
+  "Offered at the till when a phone is sold. A category with \"New\" (e.g. Phone New) uses the first list; one with \"Second\" or \"Used\" (e.g. Phone Second) uses the second. The first option is picked by default.": "ဖုန်းရောင်းချိန် POS တွင် ပြမည်။ \"New\" ပါသော အမျိုးအစား (ဥပမာ Phone New) က ပထမစာရင်းကို၊ \"Second\" သို့ \"Used\" ပါသော အမျိုးအစား (ဥပမာ Phone Second) က ဒုတိယစာရင်းကို သုံးမည်။ ပထမ ရွေးချယ်မှုကို အလိုအလျောက် ရွေးထားမည်။",
+  "Partial": "တစ်စိတ်",
+  "Credit": "အကြွေး",
+  "stock": "လက်ကျန်",
+  "Value:": "တန်ဖိုး:",
+  "levels": "လက်ကျန်",
+  "movements": "အဝင်အထွက်",
+  "users": "Users",
+  "roles": "Roles",
+  "Disable": "ပိတ်မည်",
+  "Record debt": "အကြွေး မှတ်မည်",
+  "Record payment": "ငွေရ မှတ်မည်",
+  "Current": "မကျော်သေး",
+  "DEBTOR": "ကြွေးတင်သူ",
+  "Walk-in": "ပုံမှန်ဝယ်သူ",
+  "Export CSV": "CSV ထုတ်မည်",
+  "— money in & out": "— ငွေ အဝင်အထွက်",
+  "Sale": "အရောင်း",
+  "Purchase": "အဝယ်",
+  "Exchange in": "ငွေလဲ ဝင်",
+  "Exchange out": "ငွေလဲ ထွက်",
+  "Credit collected": "အကြွေး ပြန်ရ",
+  "Credit given": "ချေးငွေ ထုတ်ပေး",
+  "Supplier paid": "Supplier ကို ပေးပြီး",
+  "Opening": "အဖွင့် လက်ကျန်",
+  "Turn sounds off": "အသံ ပိတ်မည်",
+  "Turn sounds on": "အသံ ဖွင့်မည်",
+  "Language": "ဘာသာစကား",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1099,6 +1244,43 @@ function translate(value: string) {
     [/^Records \((\d+)\)$/, (count) => `မှတ်တမ်းများ (${count})`],
     [/^Amount \((.+)\)$/, (currency) => `ငွေပမာဏ (${currency})`],
     [/^Customer \(owes (.+)\)$/, (amount) => `ဖောက်သည် (ပေးရန် ${amount})`],
+    // Order list and other lines built from a number or a name.
+    [/^Sent (\d+) to (.+) — list copied$/, (n, who) => `${who} သို့ ${n} ခု — စာရင်း Copy ပြီး`],
+    [/^(.+) list copied$/, (who) => `${who} စာရင်း Copy ပြီး`],
+    [/^(.+) — back to order$/, (item) => `${item} — မှာရန် ပြန်ရောက်ပြီ`],
+    [/^(.+) — received$/, (item) => `${item} — ရပြီ`],
+    [/^Send to supplier \((\d+)\)$/, (n) => `ဆိုင်ကို မှာမည် (${n})`],
+    [/^Add (\d+)$/, (n) => `${n} ခု ထည့်မည်`],
+    [/^(\d+) added$/, (n) => `${n} ခု ထည့်ပြီး`],
+    [/^(\d+) pcs$/, (n) => `${n} ခု`],
+    [/^(\d+) days?$/, (n) => `${n} ရက်`],
+    [/^Deposit ([\d,.]+)$/, (amount) => `စရံ ${amount}`],
+    // "To order · 4": the words translated, the count kept.
+    [/^([^·]+) · (\d+)$/, (words, n) => `${translate(words)} · ${n}`],
+    // Counts and amounts on the dashboard, sales, stock and items.
+    [/^(\d+) sale\(s\)$/, (n) => `ရောင်းချမှု ${n} ကြိမ်`],
+    [/^(\d+) item\(s\) in stock$/, (n) => `လက်ကျန်ရှိ ပစ္စည်း ${n} မျိုး`],
+    [/^(.+) if it all sells$/, (amount) => `အကုန်ရောင်းရလျှင် ${amount}`],
+    [/^(\d+) item\(s\)$/, (n) => `ပစ္စည်း ${n} ခု`],
+    [/^(\d+) item\(s\) deleted$/, (n) => `ပစ္စည်း ${n} ခု ဖျက်ပြီး`],
+    [/^Delete (\d+) item\(s\)$/, (n) => `ပစ္စည်း ${n} ခု ဖျက်မည်`],
+    [/^Reprice (\d+) item\(s\)$/, (n) => `ပစ္စည်း ${n} ခု ဈေးပြင်မည်`],
+    [/^(\d+) item\(s\) would sell below cost\.$/, (n) => `ပစ္စည်း ${n} ခု အရင်းထက် နည်းပြီး ရောင်းမိမည်။`],
+    [/^(\d+) item\(s\) still have stock and cannot be deleted\. Sell them or adjust their stock to 0 first\.$/, (n) => `ပစ္စည်း ${n} ခုမှာ Stock ရှိနေလို့ ဖျက်မရပါ။ အရင်ရောင်းပါ သို့ Stock ကို 0 ညှိပါ။`],
+    [/^\(min (.+)\)$/, (min) => `(အနည်းဆုံး ${min})`],
+    [/^Due: (.+)$/, (date) => `ပေးရမည့်ရက်: ${date}`],
+    [/^(\d+-\d+|\d+\+) days$/, (range) => `${range} ရက်`],
+    [/^Default currency: (.+) · Time zone: (.+)$/, (cur, tz) => `ငွေကြေး: ${cur} · အချိန်ဇုန်: ${tz}`],
+    [/^bal (.+)$/, (amount) => `လက်ကျန် ${amount}`],
+    [/^Sign out \((.+)\)$/, (who) => `ထွက်မည် (${who})`],
+    [/^This wallet still holds (.+)\. Transfer or adjust it to zero first, so the money is not simply hidden\.$/, (amount) => `ဒီ Wallet ထဲ ${amount} ကျန်သေးသည်။ ငွေ မပျောက်သွားစေရန် အရင် လွှဲပါ သို့ 0 ညှိပါ။`],
+    [/^Remove (.+)\? It will stop appearing when you record income or expense\. Entries already filed under it are not changed\.$/, (name) => `${name} ကို ဖယ်မလား? ဝင်ငွေ/ထွက်ငွေ မှတ်ရာတွင် မပေါ်တော့ပါ။ ယခင်မှတ်ထားသည်များ မပြောင်းပါ။`],
+    [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^Add (.+) for purchase (.+) to expense as Daily Sale Expense\?$/, (amount, txn) => `အဝယ် ${txn} ၏ ${amount} ကို Daily Sale Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    // Wallet history lines the app writes.
+    [/^Collection for (.+)$/, (ref) => `${ref} အကြွေး ပြန်ရ`],
+    [/^Cash given for (.+)$/, (ref) => `${ref} ချေးငွေ ထုတ်ပေး`],
+    [/^(\S+) sale receipt$/, (ref) => `${ref} အရောင်း ငွေရ`],
   ];
   for (const [pattern, formatter] of patterns) {
     const match = trimmed.match(pattern);
@@ -1144,6 +1326,14 @@ function applyLanguage(root: ParentNode, language: Language) {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
 
+  // Myanmar before the first paint, so a page never shows its English first and then
+  // changes over; the state (and the buttons) follow on the next frame.
+  useLayoutEffect(() => {
+    if (localStorage.getItem("wn-language") !== "mm") return;
+    document.documentElement.lang = "my";
+    applyLanguage(document.body, "mm");
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem("wn-language");
     const frame = window.requestAnimationFrame(() => {
@@ -1153,6 +1343,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Still "en" only because the saved choice is read a frame late: leave the Myanmar the
+    // layout effect already put on, rather than turning it back to English for a moment.
+    if (language === "en" && localStorage.getItem("wn-language") === "mm") return;
     document.documentElement.lang = language === "mm" ? "my" : "en";
     applyLanguage(document.body, language);
     let frame = 0;

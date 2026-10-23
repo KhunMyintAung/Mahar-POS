@@ -310,7 +310,7 @@ export default function BillersPage() {
 
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Top-up Billers</>}>
         {hasPerm("biller.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New biller</Button>
@@ -566,7 +566,7 @@ export default function BillersPage() {
         {floatAsk && (
           <div className="space-y-3">
             <p className="text-sm">
-              Add <b className="tabular-nums">{fmtMoney(floatAsk.cash)}</b> paid for <b>{floatAsk.biller}</b> float ({floatAsk.txnNo}) to expense as <b>Daily Bill Expense</b>?
+              {`Add ${fmtMoney(floatAsk.cash)} paid for ${floatAsk.biller} float (${floatAsk.txnNo}) to expense as Daily Bill Expense?`}
             </p>
             <p className="text-xs text-gray-500">The money already left the wallet with this purchase; this only records it as an expense, so it is not taken out twice. Reports then count top-up cost from your float purchases.</p>
             <label className="flex items-center gap-2 text-sm">

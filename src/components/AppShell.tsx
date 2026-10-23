@@ -312,7 +312,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Top bar */}
-            <header className="no-print relative z-30 flex min-h-14 items-center justify-between border-b border-gray-200 bg-white/90 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 sm:px-4">
+            <header className="no-print relative z-30 flex min-h-11 items-center justify-between border-b border-gray-200 bg-white/90 px-3 py-1 backdrop-blur dark:border-gray-800 dark:bg-gray-900/90 sm:px-4">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <button className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 lg:hidden" onClick={() => setDrawer(true)}>
                   <Menu size={20} />
@@ -348,7 +348,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               )}
             </header>
 
-            <main className="min-w-0 flex-1 p-3 pb-24 sm:p-4 lg:pb-6">
+            <main className="min-w-0 flex-1 px-3 pb-24 pt-2 sm:px-4 sm:pt-2.5 lg:pb-6">
               {blockedModulePath ? (
                 <div className="flex min-h-40 items-center justify-center">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
@@ -357,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <>
                   <div className="mx-auto max-w-6xl"><AnnouncementBanner /></div>
                   {groupTabs && groupTabs.length > 1 && (
-                    <div className="no-print mx-auto mb-4 flex max-w-6xl gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                    <div className="no-print mx-auto mb-2.5 flex max-w-6xl gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                       {groupTabs.map((t) => {
                         const on = pathname.startsWith(t.href);
                         return (

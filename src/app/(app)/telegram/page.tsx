@@ -63,7 +63,7 @@ export default function TelegramPage() {
   if (!tg) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-2xl space-y-3">
       <PageHeader title={<>Telegram</>} />
 
       {hasPerm("settings.manage") && <TelegramReportsCard />}

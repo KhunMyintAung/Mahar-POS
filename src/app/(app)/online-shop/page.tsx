@@ -44,7 +44,7 @@ const field = "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-
 export default function OnlineShopPage() {
   const [tab, setTab] = useState<Tab>("orders");
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Online Shop</>} />
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
         {TABS.map(([key, label]) => (

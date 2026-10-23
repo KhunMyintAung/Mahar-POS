@@ -18,8 +18,8 @@ export function RepairTabs({ openOrders }: { openOrders?: number }) {
   }, [openOrders]);
   const open = openOrders ?? fetched ?? 0;
   const tabs = [
-    { href: "/repairs", label: "ပြုပြင်ရေး", on: pathname === "/repairs" },
-    { href: "/repairs/orders", label: "အမှာစာရင်း", on: pathname.startsWith("/repairs/orders") },
+    { href: "/repairs", label: "Repairs", on: pathname === "/repairs" },
+    { href: "/repairs/orders", label: "Order list", on: pathname.startsWith("/repairs/orders") },
   ];
   return (
     <span className="inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5 align-middle dark:bg-gray-800">

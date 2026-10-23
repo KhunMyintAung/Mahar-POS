@@ -165,7 +165,7 @@ export default function SettingsPage() {
   const current = tabs.some((t) => t.key === tab) ? tab : "shop";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl space-y-3">
       <PageHeader title={<>Settings</>} />
 
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
@@ -235,7 +235,7 @@ export default function SettingsPage() {
           <p className="-mt-1 text-xs text-gray-500">
             The website button on the repair QR page shows this text, for example Game Shop or Visit Our Website.
           </p>
-          <p className="text-xs text-gray-500">Default currency: {data.business.currency} · Time zone: {data.business.timezone}</p>
+          <p className="text-xs text-gray-500">{`Default currency: ${data.business.currency} · Time zone: ${data.business.timezone}`}</p>
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>
       </Card>

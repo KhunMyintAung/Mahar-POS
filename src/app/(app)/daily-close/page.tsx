@@ -80,7 +80,7 @@ export default function DailyClosePage() {
   const s = preview?.summary;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Daily Close</>} />
 
       {hasPerm("daily_close.create") && (

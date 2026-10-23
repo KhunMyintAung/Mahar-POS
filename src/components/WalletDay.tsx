@@ -107,7 +107,7 @@ export function WalletDay({ refreshKey }: { refreshKey?: unknown }) {
                     <div className={cn("font-semibold tabular-nums", e.direction === "DEBIT" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
                       {e.direction === "DEBIT" ? "+" : "−"}{fmtMoney(e.amount)}
                     </div>
-                    <div className="text-[11px] tabular-nums text-gray-400">bal {fmtMoney(e.balanceAfter)}</div>
+                    <div className="text-[11px] tabular-nums text-gray-400">{`bal ${fmtMoney(e.balanceAfter)}`}</div>
                   </div>
                 </div>
               ))}

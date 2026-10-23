@@ -193,7 +193,7 @@ export default function PurchasesPage() {
   if (!purchases) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Purchases</>}>
         {hasPerm("purchase.create") && (
           <Button onClick={openNew}><Plus size={16} className="mr-1 inline" />New purchase</Button>
@@ -434,7 +434,7 @@ export default function PurchasesPage() {
       <Modal open={Boolean(expenseAsk)} onClose={() => setExpenseAsk(null)} title="Add to expense?">
         {expenseAsk && (
           <div className="space-y-3">
-            <p className="text-sm">Add <b className="tabular-nums">{fmtMoney(expenseAsk.total)}</b> for purchase <b>{expenseAsk.txnNo}</b> to expense as <b>Daily Sale Expense</b>?</p>
+            <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} for purchase ${expenseAsk.txnNo} to expense as Daily Sale Expense?`}</p>
             <p className="text-xs text-gray-500">The purchase already paid (or owes) the supplier; this only records it as an expense, so money is not taken out twice. Reports then count sales cost from what you bought.</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={rememberExpense} onChange={(e) => setRememberExpense(e.target.checked)} />

@@ -82,7 +82,7 @@ export default function AboutPage() {
   ].filter((link) => link.value && link.href);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <section className="relative flex min-h-80 items-end overflow-hidden bg-gray-950 px-5 py-7 text-white sm:min-h-96 sm:px-8">
         <Image
           src={about.developerPhoto || "/khun-myint-aung.jpg"}

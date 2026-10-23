@@ -67,7 +67,7 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Customers & Contacts</>}>
         {hasPerm("customer.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New contact</Button>

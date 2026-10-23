@@ -73,7 +73,7 @@ export default function WalletLedgerPage({ params }: { params: Promise<{ id: str
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <PageHeader title={<>{data.wallet.name}</>} />

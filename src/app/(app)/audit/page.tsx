@@ -31,7 +31,7 @@ export default function AuditPage() {
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Audit Logs</>}>
         <Select value={moduleFilter} onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }}>
           <option value="">All modules</option>

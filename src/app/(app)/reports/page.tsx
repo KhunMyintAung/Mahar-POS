@@ -95,7 +95,7 @@ export default function ReportsPage() {
   const parts = ([["sales", "Sales"], ["service", "Service"], ["topup", "Top-up"]] as const).filter(([k]) => report?.shown?.[k] ?? true);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Reports</>}>
         <div className="flex flex-wrap gap-2">
           {hasPerm("report.export") && (

@@ -179,7 +179,7 @@ export default function ItemsPage() {
   const chosenWithStock = chosen.filter((it) => stockOf(it) > 0);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Items</>}>
         <div className="flex flex-wrap gap-2">
           {/* Exports the category being viewed, in the import's own columns. */}
@@ -375,8 +375,7 @@ export default function ItemsPage() {
           {chosenWithStock.length > 0 && (
             <div className="space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
               <p>
-                {chosenWithStock.length} item(s) still have stock and cannot be deleted. Sell them or adjust their
-                stock to 0 first.
+                {`${chosenWithStock.length} item(s) still have stock and cannot be deleted. Sell them or adjust their stock to 0 first.`}
               </p>
               <Button
                 size="sm"
@@ -453,7 +452,7 @@ export default function ItemsPage() {
                 <>
                   {below > 0 && (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                      {below} item(s) would sell below cost.
+                      {`${below} item(s) would sell below cost.`}
                     </p>
                   )}
                   <div className="max-h-64 overflow-y-auto">

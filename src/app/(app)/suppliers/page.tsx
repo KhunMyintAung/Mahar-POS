@@ -61,7 +61,7 @@ export default function SuppliersPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Suppliers</>}>
         {hasPerm("customer.manage") && (
           <Button onClick={() => { setForm(emptyForm); setShowNew(true); }}>

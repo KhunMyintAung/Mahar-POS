@@ -102,7 +102,7 @@ function CreditContent() {
   const contactOptions = contacts.filter((c) => (isRec ? true : c.type === "SUPPLIER" || c.type === "CREDITOR" || c.type === "OTHER"));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Credit & Payable</>}>
         {canCreate && <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />{isRec ? "Record debt" : "New payable"}</Button>}
       </PageHeader>
@@ -155,7 +155,7 @@ function CreditContent() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
-                  <span>Due: {it.dueDate ?? "-"}</span>
+                  <span>{`Due: ${it.dueDate ?? "-"}`}</span>
                   {canPay && it.status !== "PAID" && it.status !== "CANCELLED" && (
                     <Button size="sm" variant="secondary" onClick={() => { setPay({ amount: "", walletId: "", notes: "" }); setPayItem(it); }}>
                       {isRec ? "Record payment" : "Pay supplier"}
@@ -192,41 +192,41 @@ function CreditContent() {
       )}
 
       {/* New */}
-      <Modal open={showNew} onClose={() => setShowNew(false)} title={isRec ? (form.loan ? "ငွေချေး မှတ်ရန်" : "Record customer debt") : "New business payable"}>
+      <Modal open={showNew} onClose={() => setShowNew(false)} title={isRec ? (form.loan ? "Record a cash loan" : "Record customer debt") : "New business payable"}>
         <div className="space-y-3">
           {isRec && (
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
-              {([[true, "💵 ငွေချေး (ငွေထုတ်ပေး)"], [false, "🛒 အကြွေး (ပစ္စည်း)"]] as const).map(([loan, label]) => (
+              {([[true, "💵 Cash loan"], [false, "🛒 Owes for goods"]] as const).map(([loan, label]) => (
                 <button key={label} type="button" onClick={() => setForm({ ...form, loan })} className={cn("rounded-md px-2 py-1.5 font-medium", form.loan === loan ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>{label}</button>
               ))}
             </div>
           )}
-          <Select label={isRec ? (form.loan ? "ဘယ်သူ ချေးသလဲ" : "Customer") : "Supplier / creditor"} value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
+          <Select label={isRec ? (form.loan ? "Who borrowed it" : "Customer") : "Supplier / creditor"} value={form.contactId} onChange={(e) => setForm({ ...form, contactId: e.target.value })}>
             <option value="">Select…</option>
-            {isRec && <option value="new">+ လူသစ် (သူငယ်ချင်း / Walk-in)</option>}
+            {isRec && <option value="new">+ New person (friend / walk-in)</option>}
             {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
           </Select>
           {isRec && form.contactId === "new" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="နာမည်" autoFocus value={form.personName} onChange={(e) => setForm({ ...form, personName: e.target.value })} />
-              <Input label="ဖုန်း" value={form.personPhone} inputMode="tel" onChange={(e) => setForm({ ...form, personPhone: e.target.value })} />
+              <Input label="Name" autoFocus value={form.personName} onChange={(e) => setForm({ ...form, personName: e.target.value })} />
+              <Input label="Phone" value={form.personPhone} inputMode="tel" onChange={(e) => setForm({ ...form, personPhone: e.target.value })} />
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input label={isRec ? (form.loan ? "ချေးငွေ (MMK)" : "Amount customer owes (MMK)") : "Amount (MMK)"} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputMode="decimal" />
+            <Input label={isRec ? (form.loan ? "Amount lent (MMK)" : "Amount customer owes (MMK)") : "Amount (MMK)"} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputMode="decimal" />
             <Input label="Due date" type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           </div>
           {!isRec && <Input label="Expense category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Rent" />}
           {isRec && form.loan && (
             <>
-              <Select label="ငွေထုတ်ပေးမည့် Wallet" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
+              <Select label="Paid out from wallet" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
                 <option value="">Select…</option>
                 {wallets.filter((w) => w.currency === "MMK").map((w) => (
                   <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)} {w.currency})</option>
                 ))}
               </Select>
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                ဒီ Wallet ထဲက ငွေ ချက်ချင်း လျော့မည်။ ပြန်ဆပ်ရင် &quot;Collect&quot; နဲ့ Wallet ထဲ ပြန်ဝင်မည်။
+                The money leaves this wallet now. When it is paid back, Collect puts it back in.
               </p>
             </>
           )}

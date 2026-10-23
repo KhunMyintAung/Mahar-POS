@@ -102,7 +102,7 @@ export default function TransfersPage() {
   if (!transfers) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Money Transfer</>}>
         <Button onClick={() => setShowNew(true)}>
           <Send size={16} className="mr-1 inline" />

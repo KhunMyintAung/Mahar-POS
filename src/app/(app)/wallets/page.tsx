@@ -82,7 +82,7 @@ export default function WalletsPage() {
   const crossCurrency = source && dest && source.currency !== dest.currency;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Wallets</>}>
         <div className="flex flex-wrap gap-2">
           {hasPerm("wallet.transfer") && (
@@ -321,8 +321,7 @@ export default function WalletsPage() {
           </p>
           {showDelete && BigInt(showDelete.currentBalance) !== 0n ? (
             <p className="text-sm font-medium text-red-600 dark:text-red-400">
-              This wallet still holds {fmtMoney(showDelete.currentBalance)} {showDelete.currency}.
-              Transfer or adjust it to zero first, so the money is not simply hidden.
+              {`This wallet still holds ${fmtMoney(showDelete.currentBalance)} ${showDelete.currency}. Transfer or adjust it to zero first, so the money is not simply hidden.`}
             </p>
           ) : null}
           <div className="flex justify-end gap-2">

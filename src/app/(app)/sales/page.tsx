@@ -104,7 +104,7 @@ export default function SalesPage() {
   if (!sales) return <Spinner />;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Sale History</>} />
 
       <div className="grid grid-cols-2 gap-3">
@@ -134,7 +134,7 @@ export default function SalesPage() {
               <td className="px-3 py-2">{s.customerName ?? "Walk-in"}</td>
               <td className="px-3 py-2 text-xs">
                 <button className="text-blue-600 hover:underline" onClick={() => setExpanded(expanded === s.id ? null : s.id)}>
-                  {s.lines.length} item(s)
+                  {`${s.lines.length} item(s)`}
                 </button>
                 {expanded === s.id && (
                   <ul className="mt-1 space-y-0.5 text-gray-500">

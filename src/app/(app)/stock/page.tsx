@@ -198,7 +198,7 @@ export default function StockPage() {
   const valueOf = (rows: Level[]) => rows.reduce((sum, l) => sum + BigInt(l.costPrice) * BigInt(l.totalQty), 0n);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader title={<>Stock</>}>
         <div className="flex items-center gap-2">
           {lowCount > 0 && <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">{lowCount} low stock</span>}
@@ -264,7 +264,7 @@ export default function StockPage() {
               <tr key={`group-${g.name}`} className="bg-gray-50 dark:bg-gray-800/60">
                 <td colSpan={2} className="px-3 py-2 text-sm font-semibold">
                   {g.name === UNCATEGORISED ? "No category" : g.name}
-                  <span className="ml-2 text-xs font-normal text-gray-500">{all.length} item(s)</span>
+                  <span className="ml-2 text-xs font-normal text-gray-500">{`${all.length} item(s)`}</span>
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-semibold tabular-nums">{all.reduce((n, l) => n + l.totalQty, 0)}</td>
                 <td />

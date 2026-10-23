@@ -110,7 +110,7 @@ export default function WithdrawPage() {
   const walletOptions = cashWallets.length > 0 ? cashWallets : wallets;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Withdraw</>}>
         <Button onClick={() => setShowNew(true)}>
           <MinusCircle size={16} className="mr-1 inline" />

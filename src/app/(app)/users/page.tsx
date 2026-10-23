@@ -148,7 +148,7 @@ export default function UsersPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Users & Roles</>}>
         {tab === "users" ? (
           <Button onClick={() => { setUform(emptyUser); setShowNewUser(true); }}><Plus size={16} className="mr-1 inline" />New user</Button>

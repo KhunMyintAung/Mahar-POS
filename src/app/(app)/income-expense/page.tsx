@@ -183,7 +183,7 @@ export default function IncomeExpensePage() {
   const shownItems = typeFilter ? items.filter((it) => it.type === typeFilter) : items;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <PageHeader title={<>Income & Expense</>}>
         {hasPerm("income_expense.create") && (
           <div className="flex gap-2">
@@ -329,8 +329,7 @@ export default function IncomeExpensePage() {
         {confirmRemove && (
           <div className="space-y-3">
             <p className="text-sm">
-              Remove <b>{confirmRemove.name}</b>? It will stop appearing when you record income
-              or expense. Entries already filed under it are not changed.
+              {`Remove ${confirmRemove.name}? It will stop appearing when you record income or expense. Entries already filed under it are not changed.`}
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setConfirmRemove(null)}>Cancel</Button>

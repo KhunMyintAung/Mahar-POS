@@ -57,7 +57,7 @@ export default function DashboardPage() {
   const s = data.summary;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="mx-auto max-w-7xl space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <PageHeader title={<>Dashboard</>} />
@@ -151,7 +151,7 @@ export default function DashboardPage() {
           <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {data.pos.lowStock.map((it) => (
               <li key={it.id}>
-                {it.name}: <b className="text-red-600">{it.qty}</b> (min {it.minStock})
+                {it.name}: <b className="text-red-600">{it.qty}</b> {`(min ${it.minStock})`}
               </li>
             ))}
           </ul>
@@ -164,7 +164,7 @@ export default function DashboardPage() {
           <ul className="space-y-1 text-sm">
             {s.wallets.lowBalance.map((w) => (
               <li key={w.id}>
-                {w.name}: <span className="font-medium text-red-600">{fmtMoney(w.currentBalance)}</span> (min {fmtMoney(w.minBalance)})
+                {w.name}: <span className="font-medium text-red-600">{fmtMoney(w.currentBalance)}</span> {`(min ${fmtMoney(w.minBalance)})`}
               </li>
             ))}
           </ul>

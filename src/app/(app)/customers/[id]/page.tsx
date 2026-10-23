@@ -27,7 +27,7 @@ export default function CustomerDetail({ params }: { params: Promise<{ id: strin
   const c = data.contact;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-3">
       <div>
         <PageHeader title={<>{c.name}</>} />
         <p className="text-sm text-gray-500">

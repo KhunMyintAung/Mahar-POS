@@ -88,7 +88,7 @@ export default function PartOrdersPage() {
     setBusy(true);
     try {
       await api("/api/v1/part-orders/send", { method: "POST", body: { ids: list.map((o) => o.id), supplier } });
-      await copy(list, `${supplier} သို့ ${list.length} ခု — စာရင်း Copy ပြီး`);
+      await copy(list, `Sent ${list.length} to ${supplier} — list copied`);
       setSendTo(null);
       load();
     } catch (e) {
@@ -114,8 +114,8 @@ export default function PartOrdersPage() {
   const notThere = (o: PartOrder) =>
     change(o, {
       status: "TODO", supplier: "",
-      note: [o.note, `${fmtDate(new Date())}: ${o.supplier ?? "ဆိုင်"} မှာ မရ`].filter(Boolean).join("\n"),
-    }, `${o.item} — မှာရန် ပြန်ရောက်ပြီ`);
+      note: [o.note, `${fmtDate(new Date())}: ✗ ${o.supplier ?? "—"}`].filter(Boolean).join("\n"),
+    }, `${o.item} — back to order`);
 
   async function remove(order: PartOrder) {
     if (!window.confirm(`Delete "${order.item}"?`)) return;
@@ -144,15 +144,15 @@ export default function PartOrdersPage() {
     <div className="mx-auto max-w-4xl space-y-2.5">
       <PageHeader title={<RepairTabs openOrders={open} />}>
         <button type="button" onClick={() => setHistory((h) => !h)} className="flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-          {history ? <><X size={13} />ပိတ်မည်</> : <><History size={13} />ရပြီးသား</>}
+          {history ? <><X size={13} />Close</> : <><History size={13} />Received</>}
         </button>
       </PageHeader>
 
       {history ? (
-        !orders ? <Spinner /> : all.length === 0 ? <Empty message="ရပြီးသား မရှိသေးပါ" /> : (
-          <Section title={`ရပြီးသား · ${all.length}`}>
+        !orders ? <Spinner /> : all.length === 0 ? <Empty message="Nothing received yet" /> : (
+          <Section title={`Received · ${all.length}`}>
             {all.map((o) => row(o, <Check size={18} className="shrink-0 text-green-600" />,
-              canEdit && <button type="button" onClick={() => change(o, { status: o.supplier ? "ORDERED" : "TODO" }, "ပြန်ဖွင့်ပြီ")} className="shrink-0 rounded-md p-1 text-gray-400 hover:text-blue-600" title="Undo — not received" aria-label="Undo"><RotateCcw size={15} /></button>))}
+              canEdit && <button type="button" onClick={() => change(o, { status: o.supplier ? "ORDERED" : "TODO" }, "Opened again")} className="shrink-0 rounded-md p-1 text-gray-400 hover:text-blue-600" title="Undo — not received" aria-label="Undo"><RotateCcw size={15} /></button>))}
           </Section>
         )
       ) : (
@@ -163,7 +163,7 @@ export default function PartOrdersPage() {
                 value={text}
                 onChange={(e) => { setText(e.target.value); setLines(parseLines(e.target.value)); }}
                 rows={lines.length > 1 ? 2 : 1}
-                placeholder="မှာမည့်ပစ္စည်း + အရေအတွက် (Vivo Y17s TL 3) — စာရင်းလိုက် Paste လည်းရ"
+                placeholder="Part and count (Vivo Y17s TL 3) — or paste a whole list"
                 className={cn(input, "w-full resize-none py-2 text-base sm:text-sm")}
               />
               {lines.length > 0 && (
@@ -181,45 +181,45 @@ export default function PartOrdersPage() {
                   </div>
                   {who && (
                     <div className="grid grid-cols-3 gap-1.5">
-                      <input value={who.customerName} onChange={(e) => setWho({ ...who, customerName: e.target.value })} placeholder="ဝယ်သူ" className={input} />
-                      <input value={who.customerPhone} onChange={(e) => setWho({ ...who, customerPhone: e.target.value })} placeholder="ဖုန်း" inputMode="tel" className={input} />
-                      <input value={who.deposit} onChange={(e) => setWho({ ...who, deposit: e.target.value })} placeholder="စရံ" inputMode="decimal" className={input} />
+                      <input value={who.customerName} onChange={(e) => setWho({ ...who, customerName: e.target.value })} placeholder="Customer" className={input} />
+                      <input value={who.customerPhone} onChange={(e) => setWho({ ...who, customerPhone: e.target.value })} placeholder="Phone" inputMode="tel" className={input} />
+                      <input value={who.deposit} onChange={(e) => setWho({ ...who, deposit: e.target.value })} placeholder="Deposit" inputMode="decimal" className={input} />
                     </div>
                   )}
                   <div className="flex items-center gap-2">
-                    {!who && <button type="button" onClick={() => setWho({ customerName: "", customerPhone: "", deposit: "" })} className="flex items-center gap-1 text-xs font-medium text-blue-600"><UserPlus size={14} />ဝယ်သူ / စရံ</button>}
+                    {!who && <button type="button" onClick={() => setWho({ customerName: "", customerPhone: "", deposit: "" })} className="flex items-center gap-1 text-xs font-medium text-blue-600"><UserPlus size={14} />Customer / deposit</button>}
                     <span className="flex-1" />
                     <Button size="sm" variant="ghost" onClick={() => { setText(""); setLines([]); setWho(null); }}>Cancel</Button>
-                    <Button size="sm" disabled={busy} onClick={add}>{lines.length === 1 ? "ထည့်မည်" : `${lines.length} ခု ထည့်မည်`}</Button>
+                    <Button size="sm" disabled={busy} onClick={add}>{lines.length === 1 ? "Add" : `Add ${lines.length}`}</Button>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {!orders ? <Spinner /> : todo.length + ordered.length === 0 ? <Empty message="မှာစရာ မရှိပါ" /> : (
+          {!orders ? <Spinner /> : todo.length + ordered.length === 0 ? <Empty message="Nothing to order" /> : (
             <>
               {/* Step 1: to order. Tick what goes to one supplier, then send. */}
               {todo.length > 0 && (
                 <Section
-                  title={`မှာရန် · ${todo.length}`}
+                  title={`To order · ${todo.length}`}
                   tone="amber"
                   action={canEdit && (
                     <div className="flex items-center gap-1.5">
                       <label className="flex items-center gap-1 text-xs text-gray-500">
                         <input type="checkbox" checked={pickedCount === todo.length} onChange={(e) => setPicked(e.target.checked ? new Set(todo.map((o) => o.id)) : new Set())} />
-                        အားလုံး
+                        All
                       </label>
-                      <Button size="sm" disabled={!pickedCount} onClick={() => setSendTo(sendTo === null ? "" : null)}><Send size={13} className="mr-1 inline" />ဆိုင်ကို မှာမည် ({pickedCount})</Button>
+                      <Button size="sm" disabled={!pickedCount} onClick={() => setSendTo(sendTo === null ? "" : null)}><Send size={13} className="mr-1 inline" />{`Send to supplier (${pickedCount})`}</Button>
                     </div>
                   )}
                 >
                   {sendTo !== null && (
                     <div className="flex flex-wrap items-center gap-1.5 bg-blue-50 px-2.5 py-2 dark:bg-blue-950/40">
                       <Store size={15} className="text-blue-600" />
-                      <input autoFocus list="part-suppliers" value={sendTo} onChange={(e) => setSendTo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }} placeholder="ဘယ်ဆိုင်ကို မှာမလဲ (Ko Aung…)" className={cn(input, "min-w-0 flex-1")} />
+                      <input autoFocus list="part-suppliers" value={sendTo} onChange={(e) => setSendTo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send(); }} placeholder="Which supplier? (Ko Aung…)" className={cn(input, "min-w-0 flex-1")} />
                       <datalist id="part-suppliers">{suppliers.map((s) => <option key={s} value={s} />)}</datalist>
-                      <Button size="sm" disabled={busy || !sendTo.trim()} onClick={send}>မှာပြီး + Copy</Button>
+                      <Button size="sm" disabled={busy || !sendTo.trim()} onClick={send}>Sent + copy</Button>
                     </div>
                   )}
                   {todo.map((o) => row(o,
@@ -231,13 +231,13 @@ export default function PartOrdersPage() {
               {bySupplier.map(({ supplier, list }) => (
                 <Section
                   key={supplier}
-                  title={`🏪 ${supplier} · ${list.length} ခု · ${daysFrom(list[0].orderedAt, now) === 0 ? "ဒီနေ့" : `${daysFrom(list[0].orderedAt, now)} ရက်`}`}
+                  title={<>🏪 {supplier} · <span>{`${list.length} pcs`}</span> · <span>{daysFrom(list[0].orderedAt, now) === 0 ? "today" : `${daysFrom(list[0].orderedAt, now)} days`}</span></>}
                   tone="blue"
-                  action={<button type="button" onClick={() => copy(list, `${supplier} စာရင်း Copy ပြီး`)} className="flex items-center gap-1 text-xs font-medium text-blue-600"><Copy size={13} />Copy</button>}
+                  action={<button type="button" onClick={() => copy(list, `${supplier} list copied`)} className="flex items-center gap-1 text-xs font-medium text-blue-600"><Copy size={13} />Copy</button>}
                 >
                   {list.map((o) => row(o,
-                    <button type="button" disabled={!canEdit} onClick={() => change(o, { status: "RECEIVED" }, `${o.item} — ရပြီ`)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-transparent hover:border-green-600 hover:text-green-600 dark:border-gray-600" title="ရပြီ" aria-label={`Received ${o.item}`}><Check size={14} /></button>,
-                    canEdit && <button type="button" onClick={() => notThere(o)} className="shrink-0 rounded-md border border-red-200 px-1.5 py-0.5 text-[11px] font-medium text-red-600 dark:border-red-900" title="ဒီဆိုင်မှာ မရ — နောက်ဆိုင် မှာရန်">မရ</button>))}
+                    <button type="button" disabled={!canEdit} onClick={() => change(o, { status: "RECEIVED" }, `${o.item} — received`)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-gray-300 text-transparent hover:border-green-600 hover:text-green-600 dark:border-gray-600" title="Received" aria-label={`Received ${o.item}`}><Check size={14} /></button>,
+                    canEdit && <button type="button" onClick={() => notThere(o)} className="shrink-0 rounded-md border border-red-200 px-1.5 py-0.5 text-[11px] font-medium text-red-600 dark:border-red-900" title="Not in stock there — back to order for the next supplier">Not in stock</button>))}
                 </Section>
               ))}
             </>
@@ -248,7 +248,7 @@ export default function PartOrdersPage() {
   );
 }
 
-function Section({ title, tone, action, children }: { title: string; tone?: "amber" | "blue"; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, tone, action, children }: { title: React.ReactNode; tone?: "amber" | "blue"; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className={cn("flex items-center justify-between gap-2 px-2.5 py-1.5", tone === "amber" ? "bg-amber-50 dark:bg-amber-950/30" : tone === "blue" ? "bg-blue-50/70 dark:bg-blue-950/30" : "bg-gray-50 dark:bg-gray-800/60")}>
@@ -271,10 +271,10 @@ function OrderRow({ order: o, now, open, canEdit, lead, trail, onToggle, onChang
   const waited = daysFrom(o.createdAt, now);
   const meta = [
     o.customerName,
-    deposit > 0n ? `စရံ ${fmtMoney(o.deposit)}` : "",
+    deposit > 0n ? `Deposit ${fmtMoney(o.deposit)}` : "",
     o.note ? `📝 ${o.note.split("\n").pop()}` : "",
-    o.status === "RECEIVED" ? [o.supplier, fmtDate(o.updatedAt)].filter(Boolean).join(" · ") : waited > 0 ? `${waited} ရက်` : "",
-  ].filter(Boolean).join(" · ");
+    o.status === "RECEIVED" ? [o.supplier, fmtDate(o.updatedAt)].filter(Boolean).join(" · ") : waited > 0 ? `${waited} days` : "",
+  ].filter(Boolean);
 
   async function addNote() {
     if (!note.trim()) return;
@@ -288,7 +288,11 @@ function OrderRow({ order: o, now, open, canEdit, lead, trail, onToggle, onChang
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{o.item}</span>
-            {meta && <span className={cn("block truncate text-[11px]", waited >= 3 && o.status !== "RECEIVED" ? "text-red-600" : "text-gray-500")}>{meta}</span>}
+            {meta.length > 0 && (
+              <span className={cn("block truncate text-[11px]", waited >= 3 && o.status !== "RECEIVED" ? "text-red-600" : "text-gray-500")}>
+                {meta.map((m, i) => <span key={i}>{i > 0 && " · "}<span>{m}</span></span>)}
+              </span>
+            )}
           </span>
           {priced > 0n && <span className="shrink-0 text-xs tabular-nums text-gray-600 dark:text-gray-300">{fmtMoney(o.price)}</span>}
           <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold tabular-nums dark:bg-gray-800">×{o.quantity}</span>
@@ -303,21 +307,21 @@ function OrderRow({ order: o, now, open, canEdit, lead, trail, onToggle, onChang
             <div className="flex flex-wrap items-center gap-3 text-sm">
               {o.customerName && <span>{o.customerName}</span>}
               {o.customerPhone && <a href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-1 text-blue-600"><Phone size={13} />{o.customerPhone}</a>}
-              {deposit > 0n && <span className="text-xs text-blue-700 dark:text-blue-300">စရံ {fmtMoney(o.deposit)}</span>}
+              {deposit > 0n && <span className="text-xs text-blue-700 dark:text-blue-300">{`Deposit ${fmtMoney(o.deposit)}`}</span>}
             </div>
           )}
           {o.note && <p className="whitespace-pre-line rounded-md bg-gray-50 px-2 py-1.5 text-xs text-gray-700 [overflow-wrap:anywhere] dark:bg-gray-800 dark:text-gray-300">{o.note}</p>}
           {canEdit && (
             <>
               <div className="flex gap-1.5">
-                <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addNote(); }} placeholder="မှတ်ချက် (ဈေး၊ ဆိုင်၊ ဘယ်တော့ရမလဲ…)" className={cn(input, "min-w-0 flex-1")} />
-                <Button size="sm" variant="secondary" disabled={!note.trim()} onClick={addNote}>မှတ်မည်</Button>
+                <input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addNote(); }} placeholder="Note (price, supplier, when it comes…)" className={cn(input, "min-w-0 flex-1")} />
+                <Button size="sm" variant="secondary" disabled={!note.trim()} onClick={addNote}>Note</Button>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                <label className="flex items-center gap-1">ဈေး
+                <label className="flex items-center gap-1">Price
                   <input value={price} onChange={(e) => setPrice(e.target.value)} onBlur={() => { const v = price.replace(/,/g, "") || "0"; if (v !== String(Number(priced) / 100)) onChange({ price: v }); }} inputMode="decimal" placeholder="0" className={cn(input, "w-24 text-right tabular-nums")} />
                 </label>
-                <label className="flex items-center gap-1">အရေအတွက်
+                <label className="flex items-center gap-1">Qty
                   <input defaultValue={o.quantity} onBlur={(e) => { const q = Math.max(1, Math.min(999, Number(e.target.value) || 1)); if (q !== o.quantity) onChange({ quantity: q }); }} inputMode="numeric" className={cn(input, "w-14 text-center tabular-nums")} />
                 </label>
                 <span className="flex-1" />
