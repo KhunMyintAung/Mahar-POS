@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Moon, Sun, Receipt, Plus, ShoppingCart, Package, Boxes, Truck, Building2, MessageCircle,
-  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen,
+  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn } from "./ui";
@@ -118,6 +118,7 @@ const NAV: NavItem[] = [
   { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases" },
   { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items" },
   { href: "/stock", label: "Stock", icon: Boxes, perm: "stock.view", feature: "stock" },
+  { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.view", feature: "onlineShop" },
   { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS },
   { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },

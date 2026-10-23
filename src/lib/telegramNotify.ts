@@ -203,3 +203,17 @@ export function stockMoveNotice(opts: {
     noteLine(opts.detail)
   );
 }
+
+/** An order a customer sent from the Online Shop. */
+export function onlineOrderNotice(opts: {
+  orderNo: string; customerName: string; customerPhone: string; address?: string | null; note?: string | null;
+  lines: { name: string; quantity: number; unitPrice: bigint }[]; total: bigint;
+}) {
+  return [
+    `🛍️ Online order ${opts.orderNo} · New`,
+    `👤 ${opts.customerName} · ${opts.customerPhone}`,
+    ...(opts.address?.trim() ? [`📍 ${opts.address.trim()}`] : []),
+    ...opts.lines.map((l) => `• ${l.name} × ${l.quantity} = ${money(l.unitPrice * BigInt(l.quantity))}`),
+    `💰 Total: ${money(opts.total)}`,
+  ].join("\n") + noteLine(opts.note);
+}

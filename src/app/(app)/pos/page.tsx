@@ -33,7 +33,9 @@ interface Contact { id: string; name: string; type: string }
 /** foc: a free gift with the sale (charger, case, glass…): sold at 0, still leaves stock,
  *  its cost counts against the sale's profit. listPrice is the price to go back to. */
 interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }
-interface SaleResult { txnNo: string; total: string; profit: string }
+interface SaleResult { id: string; txnNo: string; total: string; profit: string }
+/** An Online Shop order being rung up: Online Shop → Orders puts it in the draft. */
+interface OnlineOrderRef { id: string; orderNo: string; customerName: string; customerPhone: string }
 interface Draft {
   savedAt: number;
   lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }[];
@@ -43,6 +45,7 @@ interface Draft {
   payMode: "full" | "credit" | "partial";
   partialAmount: string;
   cashReceived: string;
+  onlineOrder?: OnlineOrderRef | null;
 }
 
 const DRAFT_LIFETIME = 12 * 60 * 60 * 1000;
@@ -84,6 +87,7 @@ export default function PosPage() {
   const [payMode, setPayMode] = useState<"full" | "credit" | "partial">("full");
   const [partialAmount, setPartialAmount] = useState("");
   const [cashReceived, setCashReceived] = useState("");
+  const [onlineOrder, setOnlineOrder] = useState<OnlineOrderRef | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastSale, setLastSale] = useState<SaleResult | null>(null);
@@ -154,6 +158,7 @@ export default function PosPage() {
           setPayMode(draft.payMode);
           setPartialAmount(draft.partialAmount);
           setCashReceived(draft.cashReceived);
+          setOnlineOrder(draft.onlineOrder ?? null);
         } else if (raw) {
           localStorage.removeItem(draftKey);
         }
@@ -170,10 +175,10 @@ export default function PosPage() {
     const draft: Draft = {
       savedAt: Date.now(),
       lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice })),
-      discount, walletId, customerId, payMode, partialAmount, cashReceived,
+      discount, walletId, customerId, payMode, partialAmount, cashReceived, onlineOrder,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [cart, cashReceived, customerId, discount, draftKey, draftReady, partialAmount, payMode, walletId]);
+  }, [cart, cashReceived, customerId, discount, draftKey, draftReady, onlineOrder, partialAmount, payMode, walletId]);
 
   // Ready for a barcode scanner on a computer. On a phone the keyboard would pop up over
   // the products every time the page opens, so the cursor waits for a tap there.
@@ -374,6 +379,7 @@ export default function PosPage() {
     setSplitOn(false);
     setWallet2Id("");
     setSplitAmount("");
+    setOnlineOrder(null);
     localStorage.removeItem(draftKey);
   }
 
@@ -421,8 +427,14 @@ export default function PosPage() {
           payments: split
             ? [{ walletId, amount: part1.toString() }, { walletId: wallet2Id, amount: part2.toString() }]
             : undefined,
+          notes: onlineOrder ? `Online order ${onlineOrder.orderNo} · ${onlineOrder.customerName} ${onlineOrder.customerPhone}` : undefined,
         },
       });
+      // The online order this sale rang up is done; the sale stands even if this fails.
+      if (onlineOrder) {
+        api(`/api/v1/online-shop/orders/${onlineOrder.id}`, { method: "PATCH", body: { status: "COMPLETED", saleId: sale.id } })
+          .catch((e) => push(e instanceof Error ? e.message : "Could not close the online order", "error"));
+      }
       // Captured before clearSale empties the cart, or there would be nothing to print.
       setReceipt({
         txnNo: sale.txnNo,
@@ -555,6 +567,12 @@ export default function PosPage() {
               <button type="button" onClick={clearSale} className="text-xs font-medium text-red-600">Clear</button>
             )}
           </div>
+          {onlineOrder && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-purple-100 bg-purple-50 px-3 py-1.5 text-xs text-purple-800 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-200">
+              <span className="min-w-0 flex-1 truncate">🛍️ Online order <b>{onlineOrder.orderNo}</b> · {onlineOrder.customerName} {onlineOrder.customerPhone}</span>
+              <button type="button" className="shrink-0 font-medium hover:underline" onClick={() => setOnlineOrder(null)}>Unlink</button>
+            </div>
+          )}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2.5">
           {cart.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-400">Tap items to add them</p>

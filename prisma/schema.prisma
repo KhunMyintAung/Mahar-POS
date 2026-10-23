@@ -28,6 +28,8 @@ model Business {
   latitude  Float?
   longitude Float?
   logoUrl   String?
+  /// The shop's Online Shop address: app.maharpos.shop/shop/<shopSlug>. Empty = no shop yet.
+  shopSlug  String?  @unique
   currency  String   @default("MMK")
   timezone  String   @default("Asia/Yangon")
   createdAt DateTime @default(now())
@@ -631,6 +633,8 @@ model Item {
   /// Each unit has its own IMEI or serial, recorded when it comes in and picked when sold.
   trackSerial  Boolean       @default(false)
   description  String?
+  /// Shown in the shop's Online Shop, with its photos.
+  onlineVisible Boolean      @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
@@ -640,6 +644,7 @@ model Item {
   movements     StockMovement[]
   purchaseLines PurchaseLine[]
   saleLines     SaleLine[]
+  images        ItemImage[]
 
   @@unique([businessId, sku])
   @@index([businessId, name])
@@ -839,4 +844,50 @@ model PlatformSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// A photo of an item for the Online Shop. Resized in the browser before upload, so each is
+/// small (about 100 KB) and kept in the database with the rest of the shop's books.
+model ItemImage {
+  id         String   @id @default(uuid())
+  businessId String
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  mime       String
+  data       Bytes
+  sort       Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([itemId, sort])
+}
+
+/// An order a customer sent from the shop's Online Shop. NEW until the shop answers it;
+/// COMPLETED once it is rung up as a sale in POS (saleId), or CANCELLED.
+model OnlineOrder {
+  id            String            @id @default(uuid())
+  businessId    String
+  orderNo       String
+  status        String            @default("NEW")
+  customerName  String
+  customerPhone String
+  address       String?
+  note          String?
+  total         BigInt
+  saleId        String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  lines         OnlineOrderLine[]
+
+  @@unique([businessId, orderNo])
+  @@index([businessId, createdAt])
+}
+
+model OnlineOrderLine {
+  id        String      @id @default(uuid())
+  orderId   String
+  order     OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId    String
+  name      String
+  quantity  Int
+  unitPrice BigInt
 }

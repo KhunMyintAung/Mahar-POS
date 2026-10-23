@@ -14,6 +14,7 @@ export const FEATURE_KEYS = [
   "purchases",
   "items",
   "stock",
+  "onlineShop",
   "repair",
   "biller",
   "wallets",
@@ -41,6 +42,7 @@ export const FEATURE_DEFINITIONS: {
   { key: "purchases", label: "Purchases", group: "Mini Mart" },
   { key: "items", label: "Items", group: "Mini Mart" },
   { key: "stock", label: "Stock", group: "Mini Mart" },
+  { key: "onlineShop", label: "Online Shop", group: "Mini Mart" },
   { key: "repair", label: "Repair Jobs", group: "Mobile Shop" },
   { key: "biller", label: "Top-up Billers", group: "Mobile Shop" },
   { key: "suppliers", label: "Suppliers", group: "Mini Mart" },
@@ -77,7 +79,7 @@ export const SELECTABLE_BUSINESS_CATEGORIES = BUSINESS_CATEGORIES.filter(
     category !== "PERSONAL" && category !== "ALL_IN_ONE"
 );
 
-const MINI_MART_FEATURES: FeatureKey[] = ["pos", "purchases", "items", "stock", "suppliers", "repair", "biller"];
+const MINI_MART_FEATURES: FeatureKey[] = ["pos", "purchases", "items", "stock", "onlineShop", "suppliers", "repair", "biller"];
 const WALLET_FEATURES: FeatureKey[] = [
   "wallets",
   "transfers",
@@ -110,14 +112,14 @@ export function categoryPreset(category: BusinessCategory): FeatureVisibility {
       ]);
     case "MINI_MART":
       return visibility([
-        "pos", "purchases", "items", "stock", "wallets", "transfers", "withdraw",
+        "pos", "purchases", "items", "stock", "onlineShop", "wallets", "transfers", "withdraw",
         "credit", "incomeExpense", "reports", "customers", "suppliers", "telegram", "about",
       ]);
     case "MOBILE_SHOP":
       // A phone shop sells handsets and accessories and repairs them, so it wants the
       // whole retail side plus repair jobs.
       return visibility([
-        "pos", "purchases", "items", "stock", "repair", "biller", "wallets", "transfers",
+        "pos", "purchases", "items", "stock", "onlineShop", "repair", "biller", "wallets", "transfers",
         "withdraw", "credit", "incomeExpense", "reports", "customers", "suppliers", "telegram",
         "about",
       ]);
