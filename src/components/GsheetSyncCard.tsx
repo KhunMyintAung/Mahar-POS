@@ -181,7 +181,7 @@ export function GsheetSyncCard() {
               </label>
             )}
           </div>
-          <p className="text-xs text-gray-500">Each sync sends this month (Grand Report, daily summary, Stock) and this year&apos;s monthly summary, one tab each.</p>
+          <p className="text-xs text-gray-500">Each sync sends this month (daily summary, Stock) and this year&apos;s monthly summary, one tab each.</p>
 
           <div className="flex flex-wrap gap-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
             <button type="button" className="flex items-center gap-1 text-blue-600" onClick={() => setSetupOpen(!setupOpen)}><Link2 size={14} />{setupOpen ? "Hide setup" : "Change sheet / update script"}</button>

@@ -196,45 +196,23 @@ export default function ReportsPage() {
   );
 }
 
-/** Staff salary categories, where general expenses go, capital for next month, partners
- *  and the stock categories. Owner only. */
+/** Where general expenses go, and the stock categories. Owner only. */
 function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean; onClose: () => void; onSaved: () => void; shown: Report["shown"] }) {
   const { push } = useToast();
-  const [cats, setCats] = useState<string[]>([]);
   const [itemCats, setItemCats] = useState<{ id: string; name: string; parentId: string | null }[]>([]);
   const [cfg, setCfg] = useState<Settings | null>(null);
-  const [reserveValue, setReserveValue] = useState("0");
-  const [partners, setPartners] = useState<{ name: string; percent: string }[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     Promise.all([
-      api<{ name: string }[]>("/api/v1/categories?type=EXPENSE"),
       api<{ categories: { id: string; name: string; parentId: string | null }[] }>("/api/v1/item-meta"),
       api<Settings>("/api/v1/reports/settings"),
-    ]).then(([list, meta, c]) => {
-      setCats(list.map((x) => x.name));
+    ]).then(([meta, c]) => {
       setItemCats(meta.categories);
       setCfg(c);
-      setReserveValue(String(c.reserve.value));
-      setPartners(c.partners.map((p) => ({ name: p.name, percent: p.percent ? String(p.percent) : "" })));
     }).catch((e) => push(e.message, "error"));
   }, [open, push]);
-
-  async function addSalaryCategory() {
-    setBusy(true);
-    try {
-      const name = "Staff Salary";
-      await api("/api/v1/categories", { method: "POST", body: { type: "EXPENSE", name } });
-      setCats((c) => [...c, name]);
-      setCfg((c) => (c ? { ...c, salaryCategories: [...c.salaryCategories, name] } : c));
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function save() {
     if (!cfg) return;
@@ -242,11 +220,7 @@ function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean;
     try {
       await api("/api/v1/reports/settings", {
         method: "PUT",
-        body: {
-          ...cfg,
-          reserve: { mode: cfg.reserve.mode, value: Number(reserveValue.replace(/,/g, "")) || 0 },
-          partners: partners.filter((p) => p.name.trim()).map((p) => ({ name: p.name.trim(), percent: Number(p.percent) || 0 })),
-        },
+        body: cfg,
       });
       push("Report settings saved");
       onSaved();
@@ -266,23 +240,7 @@ function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean;
       {!cfg ? <Spinner /> : (
         <div className="space-y-5">
           <section>
-            <div className="mb-1 text-sm font-semibold">1. Staff salary</div>
-            <p className="mb-2 text-xs text-gray-500">Tick the expense categories that are staff pay. They come off after profit.</p>
-            <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-              {cats.map((c) => (
-                <label key={c} className="flex min-h-9 items-center gap-2 text-sm">
-                  <input type="checkbox" checked={cfg.salaryCategories.includes(c)} onChange={(e) => setCfg({ ...cfg, salaryCategories: toggle(cfg.salaryCategories, c, e.target.checked) })} />
-                  {c}
-                </label>
-              ))}
-            </div>
-            {!cats.some((c) => /salary|လစာ/i.test(c)) && (
-              <Button size="sm" variant="secondary" className="mt-2" disabled={busy} onClick={addSalaryCategory}>+ Add a &quot;Staff Salary&quot; category</Button>
-            )}
-          </section>
-
-          <section>
-            <div className="mb-1 text-sm font-semibold">2. General expenses go under</div>
+            <div className="mb-1 text-sm font-semibold">1. General expenses go under</div>
             <p className="mb-2 text-xs text-gray-500">Daily General Expense and your own expense categories (rent, electricity…).</p>
             <select value={cfg.generalExpenseTo} onChange={(e) => setCfg({ ...cfg, generalExpenseTo: e.target.value as Sec })} className={cn(field, "w-full")}>
               {shown.service && <option value="service">Service</option>}
@@ -293,36 +251,7 @@ function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean;
           </section>
 
           <section>
-            <div className="mb-1 text-sm font-semibold">3. Capital for next month</div>
-            <p className="mb-2 text-xs text-gray-500">Kept from net profit before the partners share the rest.</p>
-            <div className="flex gap-2">
-              <select value={cfg.reserve.mode} onChange={(e) => setCfg({ ...cfg, reserve: { ...cfg.reserve, mode: e.target.value as "percent" | "amount" } })} className={field}>
-                <option value="percent">% of net profit</option>
-                <option value="amount">MMK each month</option>
-              </select>
-              <input inputMode="decimal" value={reserveValue} onChange={(e) => setReserveValue(e.target.value)} className={cn(field, "min-w-0 flex-1 text-right")} />
-            </div>
-          </section>
-
-          <section>
-            <div className="mb-1 text-sm font-semibold">4. Partners</div>
-            <p className="mb-2 text-xs text-gray-500">Leave % empty to share equally (3 partners = a third each), or give each a % adding up to 100.</p>
-            <div className="space-y-2">
-              {partners.map((p, i) => (
-                <div key={i} className="flex gap-2">
-                  <input placeholder="Name" value={p.name} onChange={(e) => setPartners((l) => l.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} className={cn(field, "min-w-0 flex-1")} />
-                  <input placeholder="%" inputMode="decimal" value={p.percent} onChange={(e) => setPartners((l) => l.map((x, j) => (j === i ? { ...x, percent: e.target.value } : x)))} className={cn(field, "w-20 text-right")} />
-                  <Button variant="ghost" aria-label="Remove partner" onClick={() => setPartners((l) => l.filter((_, j) => j !== i))}>✕</Button>
-                </div>
-              ))}
-            </div>
-            {partners.length < 10 && (
-              <Button size="sm" variant="secondary" className="mt-2" onClick={() => setPartners((l) => [...l, { name: `Boss ${l.length + 1}`, percent: "" }])}>+ Add partner</Button>
-            )}
-          </section>
-
-          <section>
-            <div className="mb-1 text-sm font-semibold">5. Stock sheet</div>
+            <div className="mb-1 text-sm font-semibold">2. Stock sheet</div>
             <p className="mb-2 text-xs text-gray-500">Only in Excel and Google Sheet, not on this page. Only the item categories ticked here are listed (for example Spare Parts); sub-categories come with them.</p>
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
               {topCats.length === 0 && <p className="text-xs text-gray-400">No item categories yet</p>}

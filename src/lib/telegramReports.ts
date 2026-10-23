@@ -110,14 +110,12 @@ function money(minor: bigint): string {
 }
 
 /** One day's figures as a Telegram message: the day's income and expense by part of the
- *  shop (the same columns as the Reports daily summary), its net profit or loss, then the
- *  month so far with salary, capital for next month and each partner's share. */
+ *  shop (the same columns as the Reports daily summary) and its net profit or loss, then
+ *  repairs, wallets and debts. */
 export async function buildDailyReport(businessId: string, date: string): Promise<string> {
-  const monthStart = `${date.slice(0, 7)}-01`;
-  const [business, day, month, summary, repairsIn, repairsDone, wallets] = await Promise.all([
+  const [business, day, summary, repairsIn, repairsDone, wallets] = await Promise.all([
     prisma.business.findUnique({ where: { id: businessId }, select: { name: true } }),
     buildReport(businessId, date, date),
-    buildReport(businessId, monthStart, date),
     computeDaySummary(prisma, businessId, date),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: dateRangeUtc(date) } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, completedAt: dateRangeUtc(date) } }),
@@ -130,8 +128,6 @@ export async function buildDailyReport(businessId: string, date: string): Promis
   const t = day.totals;
   const parts = ([["sales", "Sales"], ["service", "Service"], ["topup", "Top-up"]] as const).filter(([k]) => day.shown[k]);
   const col = (label: string, v: bigint) => `   • ${label}: ${money(v)}`;
-  const m = month.totals;
-  const d = month.distribution;
 
   const lines = [
     `📊 Daily report · ${business?.name ?? ""}`,
@@ -148,14 +144,6 @@ export async function buildDailyReport(businessId: string, date: string): Promis
     `   = Total expense: ${money(t.exp.total)} MMK`,
     "",
     `${t.net >= 0n ? "📈 Net profit" : "📉 Net loss"}: ${money(t.net)} MMK`,
-    "",
-    `🗓 This month (${monthStart.slice(8)}–${date.slice(8)})`,
-    `   Income ${money(m.inc.total)} · Expense ${money(m.exp.total)}`,
-    `   Profit: ${money(m.net)}`,
-    ...(m.salary > 0n || month.settings.salaryCategories.length ? [`   − Staff salary: ${money(m.salary)}`] : []),
-    `   Net profit: ${money(m.netProfit)}`,
-    ...(d.reserve > 0n ? [`   − Capital for next month: ${money(d.reserve)}`] : []),
-    ...(d.partners.length ? [`   To share: ${money(d.distributable)}`, ...d.partners.map((p) => `     · ${p.name} (${p.percent}%): ${money(p.amount)}`)] : []),
     "",
     `🔧 Repairs taken in: ${repairsIn} · finished: ${repairsDone}`,
     "",

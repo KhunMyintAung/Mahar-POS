@@ -3,10 +3,9 @@ import { ApiError } from "./api";
 import { STOCK_BRANDS, type Report } from "@/services/reportService";
 import type { Cell, Sheet } from "./xlsx";
 
-/** Shared by the Excel download and the Google Sheet sync, so both carry the same
- *  three sheets: the Grand Report (income, expense, profit, salary, capital and each
- *  partner's share), the daily (or monthly) summary, and the stock of the chosen
- *  categories. Nothing else, so the sheets stay easy to read. */
+/** Shared by the Excel download and the Google Sheet sync, so both carry the same sheets:
+ *  the daily (or monthly) summary, and the stock of the chosen categories. Nothing else,
+ *  so the sheets stay easy to read. */
 
 export type PeriodKind = "day" | "month" | "year" | "range";
 
@@ -37,33 +36,13 @@ const n = (minor: bigint) => Number(minor) / 100;
 
 export function reportSheets(r: Report, title: string): Sheet[] {
   const t = r.totals;
-  const d = r.distribution;
-  const s = r.settings;
-  const grand: Cell[][] = [[title, "MMK"], ["Period", `${r.from} – ${r.to}`]];
-  const bold: number[] = [];
-  const blank = () => grand.push([]);
-  const strong = (label: string, v: bigint | null) => { bold.push(grand.length); grand.push([label, v === null ? "" : n(v)]); };
-
   const sh = r.shown;
   // Columns for the parts this shop runs; Other is always there.
   const parts = [
-    ...(sh.sales ? [["sales", "Sales", "အရောင်း"]] : []),
-    ...(sh.service ? [["service", "Service", "ဆားဗစ်"]] : []),
-    ...(sh.topup ? [["topup", "Top-up", "ဖုန်းဖြည့်"]] : []),
-  ] as ["sales" | "service" | "topup", string, string][];
-  blank(); strong("INCOME (ဝင်ငွေ)", null);
-  grand.push(...parts.map(([k, en, mm]) => [`${en} (${mm})`, n(t.inc[k])]), ["Other income (အခြား)", n(t.inc.other)]);
-  strong("Total income", t.inc.total);
-  blank(); strong("EXPENSE (ထွက်ငွေ)", null);
-  grand.push(...parts.map(([k, en, mm]) => [`${en} (${mm})`, n(t.exp[k])]), ["Other expense (အခြား)", n(t.exp.other)]);
-  strong("Total expense", t.exp.total);
-  blank();
-  strong("PROFIT (အမြတ်) = Income − Expense", t.net);
-  grand.push(["− Staff salary (ဝန်ထမ်းလစာ)", -n(t.salary)]);
-  strong("NET PROFIT (အသားတင်အမြတ်)", t.netProfit);
-  grand.push([`− Capital for next month (နောက်လအရင်း) ${s.reserve.mode === "percent" ? `${s.reserve.value}%` : `${s.reserve.value.toLocaleString("en-US")} × ${d.months}`}`, -n(d.reserve)]);
-  strong("TO SHARE (ခွဲဝေရန်)", d.distributable);
-  for (const p of d.partners) grand.push([`   ${p.name} (${p.percent}%)`, n(p.amount)]);
+    ...(sh.sales ? [["sales", "Sales"]] : []),
+    ...(sh.service ? [["service", "Service"]] : []),
+    ...(sh.topup ? [["topup", "Top-up"]] : []),
+  ] as ["sales" | "service" | "topup", string][];
 
   const width = parts.length + 2;
   const head1: Cell[] = ["", "Income", ...Array(width - 1).fill(""), "Expense", ...Array(width - 1).fill(""), ""];
@@ -74,13 +53,13 @@ export function reportSheets(r: Report, title: string): Sheet[] {
     label, ...parts.map(([k]) => n(x.inc[k])), n(x.inc.other), n(x.inc.total),
     ...parts.map(([k]) => n(x.exp[k])), n(x.exp.other), n(x.exp.total), n(x.net),
   ];
-  const daily = [head1, head2, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
+  // The shop and the period on top, then the two heading rows and a line per day / month.
+  const daily = [[title, "MMK"], [], head1, head2, ...r.rows.map((x) => line(x, x.period)), line(t, "TOTAL")];
 
   const sheets: Sheet[] = [
-    { name: "Grand Report", rows: grand, boldRows: bold },
-    { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [1, daily.length - 1] },
+    { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [0, 3, daily.length - 1] },
   ];
-  if (s.stockCategoryIds.length) sheets.push(stockSheet(r.stock));
+  if (r.settings.stockCategoryIds.length) sheets.push(stockSheet(r.stock));
   return sheets;
 }
 
