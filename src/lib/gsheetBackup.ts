@@ -65,13 +65,12 @@ export async function saveGsheet(businessId: string, cfg: GsheetBackup) {
   });
 }
 
-/** The report sheets for one period, each tab named after the period ("2026-10 Grand Report").
+/** The report sheets for one period, each tab named after the period ("2026-10 Daily summary").
  *  Stock is as it stands now, so its tab is just "Stock". */
 async function periodSheets(businessId: string, kind: "month" | "year" | "day" | "range", value: string | null, from?: string | null, to?: string | null): Promise<Sheet[]> {
   const p = resolvePeriod(kind, value, from, to);
-  const business = await prisma.business.findUnique({ where: { id: businessId }, select: { name: true } });
   const report = await buildReport(businessId, p.from, p.to);
-  const sheets = reportSheets(report, `${business?.name ?? "Business"} · ${p.label}`);
+  const sheets = reportSheets(report);
   return sheets.map((s) => (s.name === "Stock" ? s : { ...s, name: `${p.label} ${s.name}`.slice(0, 31) }));
 }
 
