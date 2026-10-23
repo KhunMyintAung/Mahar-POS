@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { Camera, CheckCircle2, Minus, Plus, Printer, Search, ShieldCheck, Trash2, ShoppingCart } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
-import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
+import { Button, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
@@ -27,11 +26,6 @@ interface Item {
   trackSerial?: boolean;
 }
 
-/** A recent sale, for the list under the cart. */
-interface RecentSale {
-  id: string; txnNo: string; total: string; status: string; createdAt: string; customerName?: string;
-  lines: { quantity: number; item: { name: string } }[];
-}
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
@@ -70,7 +64,6 @@ export default function PosPage() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [bump, setBump] = useState(0);
-  const [recent, setRecent] = useState<RecentSale[]>([]);
   // Every IMEI on the shelf in this branch, by item, for the picker and for scanning.
   const [shelfImeis, setShelfImeis] = useState<Map<string, string[]>>(new Map());
   const [imeiInput, setImeiInput] = useState<Record<string, string>>({});
@@ -105,9 +98,6 @@ export default function PosPage() {
   const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
-    if (hasPerm("sale.view")) {
-      api<{ sales: RecentSale[] }>("/api/v1/sales?pageSize=5").then((d) => setRecent(d.sales)).catch(() => {});
-    }
     api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1")
       .then((data) => setItems(data.items))
       .catch((error) => push(error.message, "error"));
@@ -128,7 +118,7 @@ export default function PosPage() {
     api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${WARRANTY_SETTING}`)
       .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
       .catch(() => {});
-  }, [push, defaultBranchId, hasPerm]);
+  }, [push, defaultBranchId]);
 
   useEffect(load, [load]);
 
@@ -815,25 +805,6 @@ export default function PosPage() {
           </div>
         </div>
 
-        {recent.length > 0 && (
-          <Card className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Recent sales</h3>
-              <Link href="/sales" className="text-xs font-medium text-blue-600 hover:underline">All</Link>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {recent.map((r) => (
-                <div key={r.id} className={cn("flex items-center gap-2 py-1.5 text-xs", r.status === "CANCELLED" && "opacity-50 line-through")}>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{r.lines.map((l) => `${l.item.name}${l.quantity > 1 ? ` ×${l.quantity}` : ""}`).join(", ")}</div>
-                    <div className="text-gray-500">{r.txnNo} · {new Date(r.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{r.customerName ? ` · ${r.customerName}` : ""}</div>
-                  </div>
-                  <b className="shrink-0 tabular-nums">{fmtMoney(r.total)}</b>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
         </div>
       </div>
 
