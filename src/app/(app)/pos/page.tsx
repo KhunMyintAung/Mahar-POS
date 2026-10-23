@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, CheckCircle2, History, Minus, Plus, Printer, Search, ShieldCheck, Trash2, ShoppingCart } from "lucide-react";
+import { Camera, CheckCircle2, Minus, Plus, Printer, Search, ShieldCheck, Trash2, ShoppingCart } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
@@ -478,14 +478,7 @@ export default function PosPage() {
 
   return (
     <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">Sales &amp; POS</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">{cart.reduce((sum, line) => sum + line.quantity, 0)} item(s)</span>
-          {hasPerm("sale.view") && <Link href="/sales"><Button variant="secondary" size="sm"><History size={15} className="mr-1 inline" />Sale History</Button></Link>}
-        </div>
-      </div>
-
+      <h1 className="sr-only">Sales &amp; POS</h1>
       <div className="grid gap-4 lg:grid-cols-5">
         <div className="space-y-3 lg:col-span-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
@@ -516,7 +509,7 @@ export default function PosPage() {
               {categories.map((name) => <option key={name} value={name}>{name}</option>)}
             </Select>
           </div>
-          <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[70vh] xl:grid-cols-4">
+          <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[calc(100dvh-9.5rem)] xl:grid-cols-4">
             {filtered.map((item) => {
               const available = stockOf(item) - inCart(item.id);
               const flashing = flashId === item.id;
@@ -558,32 +551,84 @@ export default function PosPage() {
 
         <div className="space-y-3 lg:col-span-2">
         <div id="pos-cart" className="scroll-mt-4" />
-        <Card className="h-fit space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Cart ({cart.length})</h3>
+        {/* Desktop: the cart is a panel the height of the screen. Lines and payment scroll
+            inside it, and the total with the Review button stays pinned at its foot, so the
+            cashier never scrolls the page to see what the sale comes to. */}
+        <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100dvh-5.5rem)]">
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2.5 dark:border-gray-800">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <ShoppingCart size={16} className="text-blue-600" />Cart
+              {cart.length > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">{cart.reduce((sum, line) => sum + line.quantity, 0)}</span>}
+            </h3>
             {cart.length > 0 && (
               <button type="button" onClick={clearSale} className="text-xs font-medium text-red-600">Clear</button>
             )}
           </div>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2.5">
           {cart.length === 0 ? (
             <p className="py-6 text-center text-sm text-gray-400">Tap items to add them</p>
           ) : (
-            <div className="max-h-72 space-y-3 overflow-y-auto">
+            <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800 lg:max-h-none lg:overflow-visible">
               {cart.map((line) => (
-                <div key={line.item.id} className="space-y-2 border-b border-gray-100 pb-2 text-sm last:border-0 dark:border-gray-800">
+                <div key={line.item.id} className="space-y-1.5 py-2 text-sm first:pt-0">
                   <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1 truncate font-medium">{line.item.name}</div>
-                    <b className="tabular-nums">{(line.unitPrice * line.quantity).toLocaleString()} MMK</b>
-                    <button onClick={() => changeQuantity(line.item.id, 0)} className="min-h-9 min-w-9 rounded-lg p-2 text-gray-400 hover:text-red-500" aria-label={`Remove ${line.item.name}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium leading-tight" title={line.item.name}>{line.item.name}</div>
+                      <div className="text-[11px] tabular-nums text-gray-500">{line.foc ? "🎁 FOC" : `${line.unitPrice.toLocaleString()} × ${line.quantity}`}</div>
+                    </div>
+                    {line.item.trackSerial ? (
+                      <span className="flex h-8 shrink-0 items-center rounded-md bg-blue-50 px-2 text-xs font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        {line.quantity} pc{line.quantity === 1 ? "" : "s"}
+                      </span>
+                    ) : (
+                      <div className="flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-gray-300 dark:border-gray-700">
+                        <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity - 1)} className="flex h-full w-8 items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800" aria-label="Decrease quantity"><Minus size={14} /></button>
+                        <span className="w-7 text-center text-sm font-semibold tabular-nums">{line.quantity}</span>
+                        <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity + 1)} disabled={line.quantity >= stockOf(line.item)} className="flex h-full w-8 items-center justify-center hover:bg-gray-50 disabled:opacity-30 dark:hover:bg-gray-800" aria-label="Increase quantity"><Plus size={14} /></button>
+                      </div>
+                    )}
+                    <b className="w-24 shrink-0 text-right tabular-nums">{(line.unitPrice * line.quantity).toLocaleString()}</b>
+                    <button onClick={() => changeQuantity(line.item.id, 0)} className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40" aria-label={`Remove ${line.item.name}`}>
                       <Trash2 size={15} />
                     </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {line.foc ? (
+                      <span className="flex h-7 items-center rounded-md bg-pink-50 px-2 font-semibold text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">Free gift · 0 MMK</span>
+                    ) : (
+                      <label className="flex items-center gap-1.5 text-gray-500">
+                        Price
+                        <input
+                          aria-label={`Selling price for ${line.item.name}`}
+                          value={line.unitPrice.toString()}
+                          onChange={(event) => {
+                            const value = Math.max(0, readAmount(event.target.value));
+                            setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, unitPrice: value } : entry));
+                          }}
+                          inputMode="decimal"
+                          className="h-7 w-28 rounded-md border border-gray-300 bg-white px-2 text-right text-xs tabular-nums text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      </label>
+                    )}
+                    <label className={cn("flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2 font-medium", line.foc ? "border-pink-300 text-pink-700 dark:border-pink-800 dark:text-pink-300" : "border-gray-200 text-gray-500 dark:border-gray-700")} title="Free gift with the sale">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        checked={Boolean(line.foc)}
+                        onChange={(e) => setCart((current) => current.map((entry) => entry.item.id !== line.item.id ? entry
+                          : e.target.checked
+                            ? { ...entry, foc: true, listPrice: entry.unitPrice, unitPrice: 0 }
+                            : { ...entry, foc: false, unitPrice: entry.listPrice ?? Number(BigInt(entry.item.sellingPrice)) / 100 }))}
+                      />
+                      FOC
+                    </label>
                   </div>
                   {(() => {
                     const condition = phoneCondition(line.item);
                     const options = warrantyOptionsFor(warrantySettings, condition);
                     if (options.length === 0) return null;
                     return (
-                      <div className="space-y-1.5 rounded-lg bg-green-50 px-2 py-1.5 text-xs dark:bg-green-900/20">
+                      <div className="space-y-1 rounded-md bg-green-50 px-2 py-1 text-xs dark:bg-green-900/20">
                         <label className="flex items-center gap-2">
                           <ShieldCheck size={15} className="shrink-0 text-green-600" />
                           <span className="shrink-0 font-medium text-green-700 dark:text-green-300">
@@ -613,46 +658,6 @@ export default function PosPage() {
                       </div>
                     );
                   })()}
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="flex items-end gap-2">
-                      {line.foc ? (
-                        <div className="flex h-10 items-center rounded-lg bg-pink-50 px-3 text-sm font-bold text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">🎁 FOC · 0 MMK</div>
-                      ) : (
-                        <Input
-                          label="Selling price"
-                          value={line.unitPrice.toString()}
-                          onChange={(event) => {
-                            const value = Math.max(0, readAmount(event.target.value));
-                            setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, unitPrice: value } : entry));
-                          }}
-                          inputMode="decimal"
-                          className="max-w-32"
-                        />
-                      )}
-                      <label className="flex h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-200 px-2 text-xs font-medium dark:border-gray-700" title="Free gift with the sale">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(line.foc)}
-                          onChange={(e) => setCart((current) => current.map((entry) => entry.item.id !== line.item.id ? entry
-                            : e.target.checked
-                              ? { ...entry, foc: true, listPrice: entry.unitPrice, unitPrice: 0 }
-                              : { ...entry, foc: false, unitPrice: entry.listPrice ?? Number(BigInt(entry.item.sellingPrice)) / 100 }))}
-                        />
-                        FOC
-                      </label>
-                    </div>
-                    {line.item.trackSerial ? (
-                      <span className="flex h-10 shrink-0 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-                        {line.quantity} pc{line.quantity === 1 ? "" : "s"}
-                      </span>
-                    ) : (
-                    <div className="flex h-10 shrink-0 items-center overflow-hidden rounded-lg border border-gray-300 dark:border-gray-700">
-                      <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity - 1)} className="h-full w-10 p-2" aria-label="Decrease quantity"><Minus size={15} /></button>
-                      <span className="w-10 text-center font-semibold tabular-nums">{line.quantity}</span>
-                      <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity + 1)} disabled={line.quantity >= stockOf(line.item)} className="h-full w-10 p-2 disabled:opacity-30" aria-label="Increase quantity"><Plus size={15} /></button>
-                    </div>
-                    )}
-                  </div>
                   {line.item.trackSerial && (() => {
                     // The phones on the shelf for this model that are not already in the cart.
                     const taken = new Set(cart.flatMap((l) => l.imeis ?? []));
@@ -664,7 +669,7 @@ export default function PosPage() {
                       setImeiInput((m) => ({ ...m, [line.item.id]: "" }));
                     };
                     return (
-                      <div className="space-y-1.5 rounded-lg border border-blue-200 bg-blue-50/60 p-2 dark:border-blue-900 dark:bg-blue-950/30">
+                      <div className="space-y-1 rounded-md border border-blue-200 bg-blue-50/60 p-1.5 dark:border-blue-900 dark:bg-blue-950/30">
                         <div className="flex flex-wrap gap-1.5">
                           {(line.imeis ?? []).map((imei) => (
                             <span key={imei} className="flex items-center gap-1 rounded-md bg-white px-2 py-1 font-mono text-xs shadow-sm dark:bg-gray-800">
@@ -701,17 +706,7 @@ export default function PosPage() {
             </div>
           )}
 
-          <div className="space-y-2 border-t border-gray-200 pt-3 text-sm dark:border-gray-700">
-            <div className="flex justify-between"><span>Subtotal</span><b className="tabular-nums">{subtotal.toLocaleString()} MMK</b></div>
-            <div className="flex items-center justify-between gap-2">
-              <span>Discount</span>
-              <input value={discount} onChange={(event) => setDiscount(event.target.value)} className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm dark:border-gray-700 dark:bg-gray-800" inputMode="decimal" />
-            </div>
-            {disc > subtotal && <p className="text-xs text-red-600">Discount cannot exceed subtotal.</p>}
-            <div className="flex justify-between text-base"><span className="font-semibold">Total</span><b className="tabular-nums text-blue-600">{total.toLocaleString()} MMK</b></div>
-          </div>
-
-          <div className="space-y-2">
+          <div className="space-y-2 border-t border-gray-100 pt-2.5 dark:border-gray-800">
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
                 <Select label="Customer" value={customerId} onChange={(event) => setCustomerId(event.target.value)}>
@@ -790,15 +785,34 @@ export default function PosPage() {
             )}
           </div>
 
-          {missingImei && (
-            <p className="text-xs font-medium text-red-600">
-              <span>Pick the IMEI for</span> <span>{missingImei.item.name}</span>
-            </p>
-          )}
-          <Button className="w-full" disabled={busy || !canCheckout} onClick={() => setReviewOpen(true)}>
-            Review sale · {total.toLocaleString()} MMK
-          </Button>
-        </Card>
+          </div>
+
+          {/* Pinned foot: subtotal, discount, total and the button, always on screen. */}
+          <div className="shrink-0 space-y-2 border-t border-gray-200 bg-gray-50/80 px-3 py-2.5 dark:border-gray-800 dark:bg-gray-950/40">
+            <div className="flex items-center justify-between gap-2 text-xs text-gray-600 dark:text-gray-400">
+              <span>Subtotal <b className="tabular-nums text-gray-900 dark:text-gray-100">{subtotal.toLocaleString()}</b></span>
+              <label className="flex items-center gap-1.5">
+                Discount
+                <input value={discount} onChange={(event) => setDiscount(event.target.value)} className="h-7 w-24 rounded-md border border-gray-300 bg-white px-2 text-right text-xs tabular-nums text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100" inputMode="decimal" />
+              </label>
+            </div>
+            {disc > subtotal && <p className="text-xs text-red-600">Discount cannot exceed subtotal.</p>}
+            {missingImei && (
+              <p className="text-xs font-medium text-red-600">
+                <span>Pick the IMEI for</span> <span>{missingImei.item.name}</span>
+              </p>
+            )}
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Total</div>
+                <div className="truncate text-xl font-bold tabular-nums text-blue-600">{total.toLocaleString()} <span className="text-xs font-semibold text-gray-500">MMK</span></div>
+              </div>
+              <Button className="min-h-11 shrink-0 px-5" disabled={busy || !canCheckout} onClick={() => setReviewOpen(true)}>
+                Review sale
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {recent.length > 0 && (
           <Card className="space-y-2">
