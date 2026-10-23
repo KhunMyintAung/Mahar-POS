@@ -145,11 +145,6 @@ model RepairJob {
    * The state it arrived in — cracked screen, water mark — recorded before anyone opens it.
    */
   intakeCondition String?
-  /**
-   * Parts to order for this repair (screen, battery, from which supplier…): a plain note,
-   * one part per line, for the shop's own use. Never printed on the voucher.
-   */
-  orderItems      String?
   priority        String  @default("NORMAL") // LOW NORMAL HIGH URGENT
 
   status        String @default("RECEIVED") // RECEIVED CHECKING IN_PROGRESS WAITING_PARTS DONE CANNOT_REPAIR DELIVERED CANCELLED
@@ -895,4 +890,24 @@ model OnlineOrderLine {
   name      String
   quantity  Int
   unitPrice BigInt
+}
+
+/// The shop's order list (အမှာစာရင်း): a part a customer asked the shop to get — a screen,
+/// a battery — often with a deposit and without leaving the phone. It stays on the list until
+/// the part is in (GOT), then handed over (DONE); `note` keeps where it was tried. A plain
+/// list, apart from repair jobs; the deposit is written down here, not paid into a wallet.
+model PartOrder {
+  id            String   @id @default(uuid())
+  businessId    String
+  item          String
+  customerName  String?
+  customerPhone String?
+  deposit       BigInt   @default(0)
+  note          String?
+  status        String   @default("WAITING") // WAITING GOT DONE
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([businessId, status, createdAt])
 }

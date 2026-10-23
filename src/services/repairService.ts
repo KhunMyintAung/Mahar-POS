@@ -50,7 +50,6 @@ export async function createRepairJob(
     accessories?: string;
     problem: string;
     intakeCondition?: string;
-    orderItems?: string;
     priority?: RepairPriority;
     estimatedCost: bigint;
     depositAmount: bigint;
@@ -82,7 +81,6 @@ export async function createRepairJob(
       accessories: opts.accessories,
       problem: opts.problem,
       intakeCondition: opts.intakeCondition,
-      orderItems: opts.orderItems,
       priority: opts.priority ?? "NORMAL",
       estimatedCost: opts.estimatedCost,
       depositAmount: opts.depositAmount,
@@ -133,7 +131,6 @@ export interface RepairDetails {
   accessories?: string | null;
   problem?: string;
   intakeCondition?: string | null;
-  orderItems?: string | null;
   priority?: RepairPriority;
   estimatedCost?: bigint;
   promisedAt?: Date | null;
