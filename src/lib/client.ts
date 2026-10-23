@@ -18,6 +18,7 @@ export async function api<T = unknown>(
     body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load drops the signed-out state
     location.href = "/login";
     throw new ApiClientError("Not signed in", 401);
   }

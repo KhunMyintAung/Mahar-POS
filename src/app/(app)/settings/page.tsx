@@ -61,6 +61,7 @@ export default function SettingsPage() {
       await api("/api/v1/account/delete", { method: "POST", body: { confirmName: deleteConfirm.trim() } });
       // The account no longer exists, so there is nothing to return to — leave the app
       // entirely rather than routing to a page that would fail to load.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load: the account is gone
       window.location.href = "/login";
     } catch (e) {
       push(e instanceof Error ? e.message : "Delete failed", "error");
@@ -125,6 +126,7 @@ export default function SettingsPage() {
       await api("/api/v1/settings", { method: "PUT", body: { key: "modules", value: moduleSettingFromFeatures(next) } });
       setFeatures(next);
       await refreshAuth();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full load rebuilds the menus for the new modules
       window.location.href = "/users";
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
