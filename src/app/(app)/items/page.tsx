@@ -311,8 +311,8 @@ export default function ItemsPage() {
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(it.costPrice)}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{fmtMoney(it.sellingPrice)}</td>
-                <td className="px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
-                <td className="px-3 py-2.5 text-right">
+                <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right">
                   {hasPerm("item.manage") && (
                     <Button size="sm" variant="ghost" onClick={() => {
                       setForm({
@@ -329,7 +329,8 @@ export default function ItemsPage() {
                       setShowNew(true);
                     }}>Edit</Button>
                   )}
-                  {hasPerm("item.manage") && (
+                  {/* Variants are for phones (storage, colour), or a model already started. */}
+                  {hasPerm("item.manage") && (it.model || isPhoneCategory(it.category?.name)) && (
                     <Button size="sm" variant="ghost" title="Add a variant of this model (another storage, colour…)" onClick={() => {
                       // A copy of this item, ready for the one thing that differs.
                       setForm({

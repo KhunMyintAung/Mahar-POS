@@ -181,7 +181,7 @@ export function Table({ headers, children, rightAlign }: {
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400">
             {headers.map((h, i) => (
-              <th key={h + i} className={cn("px-3 py-2.5 font-medium", rightAlign?.includes(i) && "text-right")}>{h}</th>
+              <th key={h + i} className={cn("px-3 py-2 font-medium leading-tight", rightAlign?.includes(i) && "text-right")}>{h}</th>
             ))}
           </tr>
         </thead>

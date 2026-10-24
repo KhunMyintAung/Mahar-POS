@@ -158,3 +158,10 @@ body {
 @media (max-width: 1279.98px) {
   .rtable.has-actions tbody > tr > td:last-child :is(button, a) { font-size: 0.75rem; padding-inline: 0.5rem; min-height: 2rem; }
 }
+
+/* Lists on a computer: slimmer rows, so more of them fit on the screen. Only the space above
+   and below each cell; a page's own side padding (an indented variant) is kept. */
+@media (min-width: 1024px) {
+  .rtable tbody > tr > td { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+  .rtable.has-actions tbody > tr > td:last-child :is(button, a) { min-height: 1.875rem; padding-top: 0; padding-bottom: 0; }
+}

@@ -323,7 +323,7 @@ export default function StockPage() {
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-xs text-gray-500">{l.sku}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">{l.sku}</td>
                 <td className={cn("px-3 py-2.5 text-right font-bold tabular-nums", l.low && "text-red-600")}>
                   {l.totalQty} {l.unit ?? ""}
                 </td>
