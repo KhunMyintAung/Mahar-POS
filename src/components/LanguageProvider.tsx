@@ -1248,6 +1248,11 @@ const MM: Record<string, string> = {
   "Repaired, charged and parts count repairs finished (Done or Delivered) in the month. In work now is today's count. Put the technician on each repair when you take it in, or with Edit.": "ပြင်ပြီး၊ ကျသင့်ငွေ၊ အပိုပစ္စည်း တို့က ဒီလအတွင်း ပြင်ပြီး (Done သို့ Delivered) ဖြစ်သော Repair များကို တွက်သည်။ ပြင်ဆဲ က ယနေ့ အရေအတွက်။ Repair လက်ခံချိန် (သို့ Edit) တွင် ပြင်ဆရာ ထည့်ပါ။",
   "Service Tech": "ပြင်ဆရာ (Service Tech)",
   "Repairs and their parts, no money": "ပြင်ဆင်မှုနှင့် အပိုပစ္စည်းသာ၊ ငွေကိစ္စ မပါ",
+  "Walk-in (no voucher)": "Walk-in (ဘောက်ချာ မရှိ)",
+  "Walk-in (no repair voucher)": "Walk-in (Repair ဘောက်ချာ မရှိ)",
+  "All optional — kept on the stock record.": "မဖြည့်လည်းရ — Stock မှတ်တမ်းတွင် သိမ်းထားမည်။",
+  "Device, e.g. Vivo Y17s": "ဖုန်း၊ ဥပမာ Vivo Y17s",
+  "Only repairs still being worked on.": "ပြင်ဆဲ Repair များသာ ပြသည်။",
 };
 
 const originalText = new WeakMap<Node, string>();

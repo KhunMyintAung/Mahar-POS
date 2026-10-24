@@ -36,9 +36,34 @@ const STILL_REPAIRING = new Set(["RECEIVED", "CHECKING", "IN_PROGRESS", "WAITING
 const JOB_STATUS_LABEL: Record<string, string> = { RECEIVED: "Taken in", CHECKING: "Checking", IN_PROGRESS: "In progress", WAITING_PARTS: "Waiting part" };
 
 /** Pick the repair a part went into: search by voucher no, model, brand or customer; newest first. */
-function RepairJobPicker({ jobs, value, onChange }: { jobs: RepairJobOption[]; value: string; onChange: (id: string) => void }) {
+/** Who a part went to when there is no repair voucher: a walk-in, by name, phone and device. */
+interface WalkIn { name: string; phone: string; device: string }
+
+function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn }: {
+  jobs: RepairJobOption[]; value: string; onChange: (id: string) => void;
+  walkIn: WalkIn | null; onWalkIn: (w: WalkIn | null) => void;
+}) {
   const [q, setQ] = useState("");
   const picked = jobs.find((j) => j.id === value);
+  const field = "min-h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm";
+  if (walkIn) {
+    return (
+      <div>
+        <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Walk-in (no repair voucher)</span>
+        <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-2 dark:border-amber-800 dark:bg-amber-950/30">
+          <div className="grid grid-cols-2 gap-2">
+            <input value={walkIn.name} onChange={(e) => onWalkIn({ ...walkIn, name: e.target.value })} placeholder="Customer" className={field} />
+            <input value={walkIn.phone} onChange={(e) => onWalkIn({ ...walkIn, phone: e.target.value })} placeholder="Phone" inputMode="tel" className={field} />
+          </div>
+          <input value={walkIn.device} onChange={(e) => onWalkIn({ ...walkIn, device: e.target.value })} placeholder="Device, e.g. Vivo Y17s" className={field} />
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-500">All optional — kept on the stock record.</span>
+            <button type="button" className="text-blue-600" onClick={() => onWalkIn(null)}>Change</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const needle = q.trim().toLowerCase().replace(/\s+/g, "");
   const matches = jobs.filter((j) => !needle || `${j.jobNo}${j.deviceBrand}${j.deviceModel}${j.customerName ?? ""}`.toLowerCase().replace(/\s+/g, "").includes(needle)).slice(0, 8);
   return (
@@ -64,7 +89,12 @@ function RepairJobPicker({ jobs, value, onChange }: { jobs: RepairJobOption[]; v
             ))}
             {matches.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">{jobs.length ? "No repair matches" : "No repairs waiting"}</p>}
           </div>
-          <p className="mt-1 text-xs text-gray-500">Only repairs still being worked on. Leave empty to take the part out without a job.</p>
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+            <p className="text-xs text-gray-500">Only repairs still being worked on.</p>
+            <button type="button" onClick={() => { onChange(""); onWalkIn({ name: "", phone: "", device: "" }); }} className="shrink-0 rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300">
+              Walk-in (no voucher)
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -88,7 +118,7 @@ export default function StockPage() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [tab, setTab] = useState<"levels" | "movements">("levels");
   const [adjustTarget, setAdjustTarget] = useState<Level | null>(null);
-  const blankAdjust = { quantity: "", reason: "", reasonType: "REPAIR_USE" as StockReason, repairJobId: "" };
+  const blankAdjust = { quantity: "", reason: "", reasonType: "REPAIR_USE" as StockReason, repairJobId: "", walkIn: null as WalkIn | null };
   const [adjust, setAdjust] = useState(blankAdjust);
   // A tracked phone moves by IMEI: the units picked or typed, and for a +/− correction which way.
   const [adjustImeis, setAdjustImeis] = useState<string[]>([]);
@@ -161,8 +191,13 @@ export default function StockPage() {
           quantity: adjustTarget.trackSerial ? imeiQuantity() : parseInt(adjust.quantity),
           imeis: adjustTarget.trackSerial ? adjustImeis : undefined,
           reasonType: adjust.reasonType,
-          reason: adjust.reason.trim(),
-          repairJobId: adjust.reasonType === "REPAIR_USE" && adjust.repairJobId ? adjust.repairJobId : undefined,
+          reason: [
+            adjust.reasonType === "REPAIR_USE" && adjust.walkIn
+              ? ["Walk-in", adjust.walkIn.name.trim(), adjust.walkIn.phone.trim(), adjust.walkIn.device.trim()].filter(Boolean).join(" · ")
+              : "",
+            adjust.reason.trim(),
+          ].filter(Boolean).join(" — "),
+          repairJobId: adjust.reasonType === "REPAIR_USE" && adjust.repairJobId && !adjust.walkIn ? adjust.repairJobId : undefined,
         },
       });
       push("Stock adjusted");
@@ -499,8 +534,14 @@ export default function StockPage() {
                   placeholder={reason.direction === "either" ? "-5 or 10" : "1"}
                 />
                 )}
-                {reason.key === "REPAIR_USE" && canLinkRepairs && (
-                  <RepairJobPicker jobs={openJobs} value={adjust.repairJobId} onChange={(id) => setAdjust({ ...adjust, repairJobId: id })} />
+                {reason.key === "REPAIR_USE" && (
+                  <RepairJobPicker
+                    jobs={canLinkRepairs ? openJobs : []}
+                    value={adjust.repairJobId}
+                    onChange={(id) => setAdjust({ ...adjust, repairJobId: id, walkIn: null })}
+                    walkIn={adjust.walkIn}
+                    onWalkIn={(walkIn) => setAdjust({ ...adjust, walkIn, repairJobId: walkIn ? "" : adjust.repairJobId })}
+                  />
                 )}
                 <Input
                   label={needsWords ? "Reason (required)" : "Note (optional)"}
