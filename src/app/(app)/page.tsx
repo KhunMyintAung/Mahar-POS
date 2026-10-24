@@ -45,7 +45,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (canView) return;
-    const start = ([["repair.view", "/repairs"], ["sale.create", "/pos"], ["sale.view", "/sales"], ["item.view", "/items"], ["stock.view", "/stock"], ["wallet.view", "/wallets"]] as const)
+    const start = ([["repair.view", "/repairs"], ["sale.create", "/pos"], ["sale.view", "/sales"], ["item.view", "/items"], ["stock.view", "/items"], ["wallet.view", "/wallets"]] as const)
       .find(([perm]) => hasPerm(perm));
     router.replace(start ? start[1] : "/about");
   }, [canView, hasPerm, router]);
@@ -121,14 +121,14 @@ export default function DashboardPage() {
               label="Stock Value (cost)"
               value={fmtMoney(data.pos.stockCost, "MMK")}
               sub={`${data.pos.stockItems} item(s) in stock`}
-              onClick={() => router.push("/stock")}
+              onClick={() => router.push("/items")}
             />
             <StatCard
               label="Stock Value (retail)"
               value={fmtMoney(data.pos.stockRetail, "MMK")}
               sub={`${fmtMoney(String(BigInt(data.pos.stockRetail) - BigInt(data.pos.stockCost)), "MMK")} if it all sells`}
               tone="green"
-              onClick={() => router.push("/stock")}
+              onClick={() => router.push("/items")}
             />
           </>
         )}

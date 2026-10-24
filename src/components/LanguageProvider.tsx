@@ -1255,6 +1255,8 @@ const MM: Record<string, string> = {
   "Only repairs still being worked on.": "ပြင်ဆဲ Repair များသာ ပြသည်။",
   "View variants": "အမျိုးအစားခွဲ ကြည့်မည်",
   "Hide variants": "အမျိုးအစားခွဲ ပိတ်မည်",
+  "Suggested": "အကြံပြု",
+  "Search name, SKU, IMEI or barcode…": "နာမည်၊ SKU၊ IMEI သို့ Barcode ရှာရန်…",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1307,6 +1309,7 @@ function translate(value: string) {
     [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^Add (.+) for purchase (.+) to expense as Daily Sale Expense\?$/, (amount, txn) => `အဝယ် ${txn} ၏ ${amount} ကို Daily Sale Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^(\d+) repaired$/, (n) => `${n} ခု ပြင်ပြီး`],
+    [/^(\d+) low stock$/, (n) => `လက်ကျန်နည်း ${n} ခု`],
     [/^(\d+) variants$/, (n) => `အမျိုးအစားခွဲ ${n} မျိုး`],
     [/^(\d+) variants · stock (-?\d+)$/, (n, qty) => `အမျိုးအစားခွဲ ${n} မျိုး · လက်ကျန် ${qty}`],
     [/^New variant of (.+)$/, (model) => `${model} — အမျိုးအစားခွဲ အသစ်`],

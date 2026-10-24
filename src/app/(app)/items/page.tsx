@@ -15,6 +15,8 @@ import { ProductImport } from "@/components/ProductImport";
 import { repriced, validRule, type RepriceDirection, type RepriceMode, type RepriceRule } from "@/lib/reprice";
 import { PageHeader } from "@/components/PageHeader";
 import { groupByModel, variantLabel, variantName } from "@/lib/variants";
+import { StockAdjustModal, StockMovements, type StockLevel } from "@/components/StockTools";
+import { ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
@@ -43,7 +45,7 @@ export default function ItemsPage() {
     { mode: "percent", value: "", direction: "down", roundTo: "100" }
   );
   const { push } = useToast();
-  const { hasPerm } = useAuth();
+  const { hasPerm, featureEnabled, branches, defaultBranchId } = useAuth();
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -93,6 +95,14 @@ export default function ItemsPage() {
   const [openModels, setOpenModels] = useState<Set<string>>(new Set());
   const [form, setForm] = useState(empty);
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
+  // Stock, merged in from the old Stock page: the movements tab, each item's stock levels,
+  // a low-stock filter, and the Adjust and IMEI dialogs.
+  const [view, setView] = useState<"items" | "movements">("items");
+  const [levels, setLevels] = useState<Map<string, StockLevel>>(new Map());
+  const [lowOnly, setLowOnly] = useState(false);
+  const [adjustFor, setAdjustFor] = useState<StockLevel | null>(null);
+  const [imeiFor, setImeiFor] = useState<StockLevel | null>(null);
+  const canStock = featureEnabled("stock") && hasPerm("stock.view");
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "1000" });
@@ -106,8 +116,9 @@ export default function ItemsPage() {
       })
       .catch((e) => push(e.message, "error"));
     api<Meta>("/api/v1/item-meta").then(setMeta).catch(() => {});
+    if (canStock) api<StockLevel[]>("/api/v1/stock").then((ls) => setLevels(new Map(ls.map((l) => [l.itemId, l])))).catch(() => {});
     api<{ missing: string[] }>("/api/v1/item-meta/presets").then((d) => setMissingPresets(d.missing)).catch(() => {});
-  }, [q, push]);
+  }, [q, push, canStock]);
 
   /** Add the ready-made categories for this kind of shop (a phone shop's: Phone New,
    *  Phone Second, Glass, Spare Parts…) that it does not have yet. */
@@ -187,8 +198,11 @@ export default function ItemsPage() {
   const categories = [...new Set(items.map(categoryOf))].sort((a, b) =>
     a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b)
   );
-  const shownItems = category === "ALL" ? items : items.filter((it) => categoryOf(it) === category);
+  const isLow = (it: Item) => Boolean(levels.get(it.id)?.low);
+  const shownItems = items.filter((it) => (category === "ALL" || categoryOf(it) === category) && (!lowOnly || isLow(it)));
   const stockOf = (it: Item) => it.stockLevels.reduce((a, l) => a + l.quantity, 0);
+  const lowCount = items.filter(isLow).length;
+  const stockValue = shownItems.reduce((sum, it) => sum + BigInt(it.costPrice) * BigInt(Math.max(0, stockOf(it))), 0n);
   const chosen = items.filter((it) => selected.has(it.id));
   const chosenWithStock = chosen.filter((it) => stockOf(it) > 0);
 
@@ -196,9 +210,34 @@ export default function ItemsPage() {
     <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader
         title={<>Items</>}
-        lead={<input placeholder="Search name, SKU, or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm sm:max-w-sm" />}
+        lead={
+          <>
+            {canStock && (
+              <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+                {([["items", "Items"], ["movements", "Movements"]] as const).map(([k, label]) => (
+                  <button key={k} type="button" onClick={() => setView(k)} className={cn("rounded-md px-3 py-1 text-sm font-medium", view === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {view === "items" && (
+              <input placeholder="Search name, SKU, IMEI or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:max-w-sm sm:flex-1 sm:basis-auto sm:text-sm" />
+            )}
+            {view === "items" && canStock && (
+              <span className="whitespace-nowrap text-sm text-gray-500">
+                <span>Value:</span> <b className="tabular-nums text-gray-800 dark:text-gray-200">{fmtMoney(stockValue.toString())}</b>
+              </span>
+            )}
+            {view === "items" && lowCount > 0 && (
+              <button type="button" onClick={() => setLowOnly((v) => !v)} className={cn("whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", lowOnly ? "bg-red-600 text-white" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300")}>
+                {`${lowCount} low stock`}
+              </button>
+            )}
+          </>
+        }
       >
-        <div className="flex flex-wrap gap-1.5">
+        {view === "items" && <div className="flex flex-wrap gap-1.5">
           {/* Exports the category being viewed, in the import's own columns. */}
           <a
             href={`/api/v1/items/export${category === "ALL" ? "" : `?category=${encodeURIComponent(category)}`}`}
@@ -215,8 +254,11 @@ export default function ItemsPage() {
               </Button>
             </>
           )}
-        </div>
+        </div>}
       </PageHeader>
+
+      {view === "movements" ? <StockMovements /> : (<>
+      {q.trim() && [...levels.values()].some((l) => l.trackSerial) && <ImeiMatches query={q} />}
 
       {items.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -317,7 +359,7 @@ export default function ItemsPage() {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             const inGroup = g.items.length > 1;
             return (
-              <tr key={it.id} className={cn(!it.active && "opacity-50", inGroup && "bg-gray-50/70 dark:bg-gray-800/40", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
+              <tr key={it.id} className={cn(!it.active && "opacity-50", inGroup && "bg-gray-50/70 dark:bg-gray-800/40", isLow(it) && "bg-red-50 dark:bg-red-900/10", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
                 <td className="w-8 px-3 py-2.5">
                   {hasPerm("item.manage") && (
                     <input type="checkbox" className="h-4 w-4" aria-label={`Select ${it.name}`} checked={selected.has(it.id)} onChange={() => toggle(it.id)} />
@@ -337,6 +379,12 @@ export default function ItemsPage() {
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{fmtMoney(it.sellingPrice)}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                  {levels.get(it.id)?.trackSerial && (
+                    <Button size="sm" variant="ghost" onClick={() => setImeiFor(levels.get(it.id)!)}>{`IMEI ${levels.get(it.id)!.imeiInStock ?? 0}/${levels.get(it.id)!.totalQty}`}</Button>
+                  )}
+                  {canStock && hasPerm("stock.adjust") && levels.get(it.id) && (
+                    <Button size="sm" variant="ghost" onClick={() => setAdjustFor(levels.get(it.id)!)}>Adjust</Button>
+                  )}
                   {hasPerm("item.manage") && (
                     <Button size="sm" variant="ghost" onClick={() => {
                       setForm({
@@ -379,6 +427,19 @@ export default function ItemsPage() {
           })}
         </Table>
         )}</Paginated>
+      )}
+      </>)}
+
+      {adjustFor && <StockAdjustModal key={adjustFor.itemId} target={adjustFor} onClose={() => setAdjustFor(null)} onDone={load} />}
+      {imeiFor && (
+        <ImeiListModal
+          item={imeiFor}
+          branchId={defaultBranchId || branches[0]?.id || ""}
+          stockQty={imeiFor.byBranch.find((b) => b.branchId === (defaultBranchId || branches[0]?.id))?.quantity ?? 0}
+          canAdjust={hasPerm("stock.adjust")}
+          onClose={() => setImeiFor(null)}
+          onChanged={load}
+        />
       )}
 
       <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
