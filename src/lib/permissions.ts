@@ -49,6 +49,14 @@ const ACCOUNTANT_PERMS: Permission[] = [
   "audit.view",
 ];
 
+/** A technician at the repair bench: repairs, the parts in stock (and taking one out for a
+ *  repair), and the customer it is for. No money: no wallets, sales, reports or settings. */
+export const SERVICE_TECH_PERMS: Permission[] = [
+  "repair.view", "repair.create", "repair.update",
+  "item.view", "stock.view", "stock.adjust",
+  "customer.view",
+];
+
 const ADMIN_PERMS: Permission[] = ALL_PERMISSIONS.filter(
   (p) => p !== "settings.manage"
 ) as Permission[];
@@ -58,6 +66,7 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
   { name: "Admin", description: "Daily operations management", permissions: ADMIN_PERMS },
   { name: "Cashier", description: "Cash and wallet operations", permissions: CASHIER_PERMS },
   { name: "Accountant", description: "Accounting and reports", permissions: ACCOUNTANT_PERMS },
+  { name: "Service Tech", description: "Repairs and their parts, no money", permissions: SERVICE_TECH_PERMS },
   { name: "Viewer", description: "Read-only access", permissions: ["dashboard.view", "wallet.view", "credit.view", "payable.view", "income_expense.view", "customer.view", "report.view", "daily_close.view"] },
 ];
 

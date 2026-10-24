@@ -1246,6 +1246,8 @@ const MM: Record<string, string> = {
   "No technician": "ပြင်ဆရာ မသတ်မှတ်ရသေး",
   "No repairs in this month": "ဒီလ ပြင်ဆင်မှု မရှိပါ",
   "Repaired, charged and parts count repairs finished (Done or Delivered) in the month. In work now is today's count. Put the technician on each repair when you take it in, or with Edit.": "ပြင်ပြီး၊ ကျသင့်ငွေ၊ အပိုပစ္စည်း တို့က ဒီလအတွင်း ပြင်ပြီး (Done သို့ Delivered) ဖြစ်သော Repair များကို တွက်သည်။ ပြင်ဆဲ က ယနေ့ အရေအတွက်။ Repair လက်ခံချိန် (သို့ Edit) တွင် ပြင်ဆရာ ထည့်ပါ။",
+  "Service Tech": "ပြင်ဆရာ (Service Tech)",
+  "Repairs and their parts, no money": "ပြင်ဆင်မှုနှင့် အပိုပစ္စည်းသာ၊ ငွေကိစ္စ မပါ",
 };
 
 const originalText = new WeakMap<Node, string>();

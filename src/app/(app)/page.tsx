@@ -38,18 +38,27 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null);
   const [date, setDate] = useState("");
   const [branchId, setBranchId] = useState("");
-  const { branches, featureEnabled } = useAuth();
+  const { branches, featureEnabled, hasPerm } = useAuth();
   const { push } = useToast();
   const router = useRouter();
+  const canView = hasPerm("dashboard.view");
+
+  useEffect(() => {
+    if (canView) return;
+    const start = ([["repair.view", "/repairs"], ["sale.create", "/pos"], ["sale.view", "/sales"], ["item.view", "/items"], ["stock.view", "/stock"], ["wallet.view", "/wallets"]] as const)
+      .find(([perm]) => hasPerm(perm));
+    router.replace(start ? start[1] : "/about");
+  }, [canView, hasPerm, router]);
 
   const load = useCallback(() => {
+    if (!canView) return;
     const params = new URLSearchParams();
     if (date) params.set("date", date);
     if (branchId) params.set("branchId", branchId);
     api<DashData>(`/api/v1/dashboard/summary?${params}`)
       .then(setData)
       .catch((e) => push(e.message, "error"));
-  }, [date, branchId, push]);
+  }, [date, branchId, push, canView]);
 
   useEffect(load, [load]);
 
