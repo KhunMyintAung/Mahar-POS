@@ -89,6 +89,8 @@ export default function ItemsPage() {
   const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
+  // Models whose variants are shown in the list (closed by default).
+  const [openModels, setOpenModels] = useState<Set<string>>(new Set());
   const [form, setForm] = useState(empty);
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
 
@@ -278,22 +280,44 @@ export default function ItemsPage() {
       ) : (
         <Paginated rows={groupByModel(shownItems)} resetKey={[category, q]}>{(pageGroups) => (
         <Table headers={["", "Item", "Stock", "Category", "Unit", "Cost", "Price", "SKU", ""]} rightAlign={[2, 5, 6]}>
-          {pageGroups.flatMap((g) => [
-            ...(g.items.length > 1 ? [(
-              <tr key={g.key} className="bg-gray-50 dark:bg-gray-800/50">
-                <td className="w-8 px-3 py-2" />
-                <td className="px-3 py-2 font-semibold" colSpan={2}>
+          {pageGroups.flatMap((g) => {
+            // A model is one line, like any item; its variants open under it on View variants
+            // (and while searching, so a match is never hidden).
+            const many = g.items.length > 1;
+            const open = !many || openModels.has(g.key) || Boolean(q.trim());
+            const stockAll = g.items.reduce((n, it) => n + it.stockLevels.reduce((a, l) => a + l.quantity, 0), 0);
+            const range = (pick: (it: Item) => string) => {
+              const v = g.items.map((it) => BigInt(pick(it)));
+              const lo = v.reduce((a, b) => (b < a ? b : a));
+              const hi = v.reduce((a, b) => (b > a ? b : a));
+              return lo === hi ? fmtMoney(lo.toString()) : `${fmtMoney(lo.toString())} – ${fmtMoney(hi.toString())}`;
+            };
+            return [
+            ...(many ? [(
+              <tr key={g.key}>
+                <td className="w-8 px-3 py-2.5" />
+                <td className="px-3 py-2.5 font-semibold">
                   {g.model}
-                  <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants · stock ${g.items.reduce((n, it) => n + it.stockLevels.reduce((a, l) => a + l.quantity, 0), 0)}`}</span>
+                  <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants`}</span>
                 </td>
-                <td className="px-3 py-2" colSpan={6} />
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{stockAll}</td>
+                <td className="px-3 py-2.5 text-xs">{g.items[0].category?.name ?? "—"}</td>
+                <td className="px-3 py-2.5 text-xs">{g.items[0].unit?.name ?? "—"}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{range((it) => it.costPrice)}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">{range((it) => it.sellingPrice)}</td>
+                <td className="px-3 py-2.5" />
+                <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                  <Button size="sm" variant="secondary" onClick={() => setOpenModels((m) => { const n = new Set(m); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n; })}>
+                    {open ? "Hide variants" : "View variants"}
+                  </Button>
+                </td>
               </tr>
             )] : []),
-            ...g.items.map((it) => {
+            ...(open ? g.items : []).map((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             const inGroup = g.items.length > 1;
             return (
-              <tr key={it.id} className={cn(!it.active && "opacity-50", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
+              <tr key={it.id} className={cn(!it.active && "opacity-50", inGroup && "bg-gray-50/70 dark:bg-gray-800/40", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
                 <td className="w-8 px-3 py-2.5">
                   {hasPerm("item.manage") && (
                     <input type="checkbox" className="h-4 w-4" aria-label={`Select ${it.name}`} checked={selected.has(it.id)} onChange={() => toggle(it.id)} />
@@ -351,7 +375,8 @@ export default function ItemsPage() {
               </tr>
             );
           }),
-          ])}
+          ];
+          })}
         </Table>
         )}</Paginated>
       )}

@@ -1253,6 +1253,8 @@ const MM: Record<string, string> = {
   "All optional — kept on the stock record.": "မဖြည့်လည်းရ — Stock မှတ်တမ်းတွင် သိမ်းထားမည်။",
   "Device, e.g. Vivo Y17s": "ဖုန်း၊ ဥပမာ Vivo Y17s",
   "Only repairs still being worked on.": "ပြင်ဆဲ Repair များသာ ပြသည်။",
+  "View variants": "အမျိုးအစားခွဲ ကြည့်မည်",
+  "Hide variants": "အမျိုးအစားခွဲ ပိတ်မည်",
 };
 
 const originalText = new WeakMap<Node, string>();
