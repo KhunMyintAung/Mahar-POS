@@ -491,27 +491,27 @@ export default function RepairsPage() {
             const canQuick = hasPerm("repair.update") && options.length > 0;
             return (
               <tr key={job.id} className="align-top">
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-1.5">
                   <div className="font-mono font-medium">{job.jobNo}</div>
-                  <div className="text-xs text-gray-500">{fmtDateTime(job.receivedAt)}</div>
+                  <div className="whitespace-nowrap text-[11px] text-gray-500">{fmtDateTime(job.receivedAt)}</div>
                   {job.priority && job.priority !== "NORMAL" && (
                     <div className={cn("text-xs", PRIORITY_TONE[job.priority] ?? "text-gray-500")}>{job.priority}</div>
                   )}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-1.5">
                   <div className="font-medium">{job.deviceBrand} {job.deviceModel}</div>
                   {job.technicianName && <div className="text-xs text-blue-700 dark:text-blue-300">🔧 {job.technicianName}</div>}
                   {job.imei && (
                     <div className="font-mono text-xs text-gray-500">{job.imei}</div>
                   )}
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-2 py-1.5">
                   <div>{job.customerName || "-"}</div>
                   {job.customerPhone && <div className="text-xs text-gray-500">{job.customerPhone}</div>}
                 </td>
                 {/* One short line so the buttons on the right stay in view; a tap shows all of
                     it (the intake condition too), and Edit and the voucher have it in full. */}
-                <td className="w-44 max-w-[11rem] px-3 py-2.5 text-sm text-gray-600 dark:text-gray-300">
+                <td className="w-36 max-w-[9rem] px-2 py-1.5 text-sm text-gray-600 dark:text-gray-300">
                   <button
                     type="button"
                     title={job.intakeCondition ? `${job.problem}\nCondition: ${job.intakeCondition}` : job.problem}
@@ -522,7 +522,7 @@ export default function RepairsPage() {
                   </button>
                   {openProblem === job.id && job.intakeCondition && <div className="text-xs text-gray-400 [overflow-wrap:anywhere]">Condition: {job.intakeCondition}</div>}
                 </td>
-                <td className="whitespace-nowrap px-2 py-2.5">
+                <td className="whitespace-nowrap px-2 py-1.5">
                   {canQuick ? (
                     // Picking a status here saves it at once, so a mistake is one more pick away.
                     <StatusMenu
@@ -536,18 +536,19 @@ export default function RepairsPage() {
                   )}
                   {quickSaving === job.id && <div className="text-xs text-gray-400">Saving…</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">
+                <td className="px-2 py-1.5 text-right tabular-nums">
                   {fmtMoney(Number(job.finalCost) ? job.finalCost : job.estimatedCost)}
                   {!Number(job.finalCost) && <div className="text-xs text-gray-400">estimate</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums">
+                <td className="px-2 py-1.5 text-right tabular-nums">
                   {fmtMoney(job.paidAmount)}
                   {settled(job) && <div className="text-xs font-semibold text-green-600">Paid</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => openVoucher(job)}>
-                      <Printer size={14} className="mr-1 inline" />Voucher
+                <td className="px-2 py-1.5 text-right">
+                  <div className="flex justify-end gap-0.5">
+                    {/* Just the printer: the row's widest button, and the icon says it. */}
+                    <Button variant="ghost" size="sm" onClick={() => openVoucher(job)} title="Voucher" aria-label="Voucher">
+                      <Printer size={15} />
                     </Button>
                     {hasPerm("repair.update") && (
                       <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
