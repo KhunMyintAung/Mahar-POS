@@ -161,6 +161,11 @@ model RepairJob {
   paidAmount    BigInt @default(0)
 
   technicianId String?
+  /**
+   * Who repairs it, by name: a technician need not have a login. Technician performance
+   * (Repairs → Technicians) is counted by this name.
+   */
+  technicianName String?
   notes        String?
 
   receivedAt  DateTime  @default(now())

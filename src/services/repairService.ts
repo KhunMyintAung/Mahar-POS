@@ -55,6 +55,7 @@ export async function createRepairJob(
     depositAmount: bigint;
     depositWalletId?: string;
     technicianId?: string;
+    technicianName?: string;
     promisedAt?: Date;
     notes?: string;
   }
@@ -86,6 +87,7 @@ export async function createRepairJob(
       depositAmount: opts.depositAmount,
       paidAmount: opts.depositAmount,
       technicianId: opts.technicianId,
+      technicianName: opts.technicianName,
       promisedAt: opts.promisedAt,
       notes: opts.notes,
       createdById: opts.userId,
@@ -135,6 +137,7 @@ export interface RepairDetails {
   estimatedCost?: bigint;
   promisedAt?: Date | null;
   notes?: string | null;
+  technicianName?: string | null;
 }
 
 export async function updateRepairDetails(

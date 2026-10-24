@@ -98,6 +98,7 @@ const createSchema = z.object({
   depositAmount: z.string().regex(/^\d+(\.\d+)?$/).default("0"),
   depositWalletId: z.string().optional(),
   technicianId: z.string().optional(),
+  technicianName: z.string().trim().max(80).optional(),
   promisedAt: z.string().optional(),
   notes: z.string().trim().max(500).optional(),
 });
@@ -140,6 +141,7 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
       depositAmount: toMinor(body.depositAmount),
       depositWalletId: body.depositWalletId,
       technicianId: body.technicianId,
+      technicianName: body.technicianName || undefined,
       promisedAt: body.promisedAt ? new Date(body.promisedAt) : undefined,
       notes: body.notes,
     })

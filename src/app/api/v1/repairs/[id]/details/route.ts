@@ -24,6 +24,7 @@ const schema = z.object({
   estimatedCost: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   promisedAt: z.string().trim().optional(),
   notes: optional(500),
+  technicianName: optional(80),
 });
 
 export const PATCH = withAuth("repair.update", async ({ req, user, params }) => {

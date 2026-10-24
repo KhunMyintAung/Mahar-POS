@@ -26,6 +26,8 @@ interface Job {
   depositAmount: string; paidAmount: string;
   receivedAt: string; deliveredAt?: string; promisedAt?: string | null;
   trackToken?: string | null; receivedByName?: string;
+  /** Who repairs it, by name. */
+  technicianName?: string | null;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; month: string }
@@ -130,7 +132,7 @@ const blankForm = {
   deviceBrand: "", deviceModel: "", imei: "",
   accessories: "", problem: "", intakeCondition: "", priority: "NORMAL",
   estimatedCost: "", depositAmount: "", depositWalletId: "",
-  promisedAt: "", notes: "",
+  promisedAt: "", notes: "", technicianName: "",
 };
 
 /** Brand and model with typos mended once the field is left ("iphne 12promax" → iPhone, 12 Pro Max). */
@@ -150,6 +152,11 @@ export default function RepairsPage() {
   const [showNew, setShowNew] = useNewModal();
   const [showOptional, setShowOptional] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestions>({ brands: [], pairs: [] });
+  // Technician names to offer: those used before, and the shop's users.
+  const [technicians, setTechnicians] = useState<string[]>([]);
+  useEffect(() => {
+    api<{ suggestions: string[] }>("/api/v1/repairs/technicians").then((d) => setTechnicians(d.suggestions)).catch(() => {});
+  }, []);
   const [busy, setBusy] = useState(false);
   const [quickSaving, setQuickSaving] = useState<string | null>(null);
   // The row whose problem text is shown in full in the list.
@@ -244,6 +251,7 @@ export default function RepairsPage() {
           accessories: form.accessories || undefined,
           intakeCondition: form.intakeCondition || undefined,
           notes: form.notes || undefined,
+          technicianName: form.technicianName || undefined,
         },
       });
       push("Repair job created");
@@ -321,6 +329,7 @@ export default function RepairsPage() {
       estimatedCost: String(Number(job.estimatedCost) / 100),
       promisedAt: job.promisedAt ? job.promisedAt.slice(0, 10) : "",
       notes: job.notes ?? "",
+      technicianName: job.technicianName ?? "",
     });
   }
 
@@ -343,6 +352,7 @@ export default function RepairsPage() {
           estimatedCost: edit.estimatedCost || "0",
           promisedAt: edit.promisedAt,
           notes: edit.notes,
+          technicianName: edit.technicianName,
         },
       });
       setEditing(null);
@@ -490,6 +500,7 @@ export default function RepairsPage() {
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="font-medium">{job.deviceBrand} {job.deviceModel}</div>
+                  {job.technicianName && <div className="text-xs text-blue-700 dark:text-blue-300">🔧 {job.technicianName}</div>}
                   {job.imei && (
                     <div className="font-mono text-xs text-gray-500">{job.imei}</div>
                   )}
@@ -554,6 +565,9 @@ export default function RepairsPage() {
       )}
 
       {/* Shared by the intake and edit forms. */}
+      <datalist id="repair-technicians">
+        {technicians.map((t) => <option key={t} value={t} />)}
+      </datalist>
       <datalist id="repair-brand-suggestions">
         {suggestions.brands.map((b) => <option key={b} value={b} />)}
       </datalist>
@@ -572,6 +586,7 @@ export default function RepairsPage() {
             <Input label="Deposit taken" value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} placeholder="0" />
           </div>
           <Input label="Problem" value={form.problem} onChange={(e) => setForm({ ...form, problem: e.target.value })} placeholder="Screen cracked, no display" />
+          <Input label="Technician" list="repair-technicians" autoComplete="off" value={form.technicianName} onChange={(e) => setForm({ ...form, technicianName: e.target.value })} placeholder="Who repairs it" />
           {Number(form.depositAmount) > 0 && (
             <Select label="Deposit went into" value={form.depositWalletId} onChange={(e) => setForm({ ...form, depositWalletId: e.target.value })}>
               <option value="">Choose…</option>
@@ -667,6 +682,7 @@ export default function RepairsPage() {
               </Select>
             </div>
             <Input label="Problem" value={edit.problem} onChange={(e) => setEdit({ ...edit, problem: e.target.value })} />
+            <Input label="Technician" list="repair-technicians" autoComplete="off" value={edit.technicianName} onChange={(e) => setEdit({ ...edit, technicianName: e.target.value })} placeholder="Who repairs it" />
             <Input label="Intake condition" value={edit.intakeCondition} onChange={(e) => setEdit({ ...edit, intakeCondition: e.target.value })} />
             <Input label="Came in with" value={edit.accessories} onChange={(e) => setEdit({ ...edit, accessories: e.target.value })} />
             <div className="grid gap-3 sm:grid-cols-2">

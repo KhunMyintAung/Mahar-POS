@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { api } from "@/lib/client";
 import { cn } from "@/components/ui";
 
-/** Repair Jobs and the order list side by side, as the page's name in the top bar (passed to
+/** Repair Jobs, the order list and technician performance side by side, as the page's name in the top bar (passed to
  *  PageHeader as its title), with how many parts are still to get — so a part waiting is never
  *  out of sight, and neither page gives up a row to the switch. */
 export function RepairTabs({ openOrders }: { openOrders?: number }) {
@@ -20,6 +20,7 @@ export function RepairTabs({ openOrders }: { openOrders?: number }) {
   const tabs = [
     { href: "/repairs", label: "Repairs", on: pathname === "/repairs" },
     { href: "/repairs/orders", label: "Order list", on: pathname.startsWith("/repairs/orders") },
+    { href: "/repairs/technicians", label: "Technicians", on: pathname.startsWith("/repairs/technicians") },
   ];
   return (
     <span className="inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5 align-middle dark:bg-gray-800">
