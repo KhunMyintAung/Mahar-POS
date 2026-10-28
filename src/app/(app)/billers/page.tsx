@@ -18,7 +18,7 @@ interface Biller {
 const FLOAT_EXPENSE_KEY = "mahar.floatExpense";
 
 interface Txn {
-  id: string; txnNo: string; kind: string;
+  id: string; txnNo: string; kind: string; billerId: string;
   faceAmount: string; cashAmount: string; profit: string; balanceAfter: string;
   customerPhone?: string; note?: string; createdAt: string;
   voidedAt?: string | null; voidReason?: string | null;
@@ -308,6 +308,10 @@ export default function BillersPage() {
     }
   }
 
+  // Billers sold from on the day shown get a faint green, so one not sold yet (maybe out of
+  // float, or forgotten) stands apart without shouting.
+  const soldFrom = new Set(txns.filter((t) => t.kind === "SALE" && !t.voidedAt).map((t) => t.billerId));
+
   if (!billers) return <Spinner />;
 
 
@@ -372,7 +376,7 @@ export default function BillersPage() {
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {billers.map((b) => (
-            <Card key={b.id} className="space-y-1.5 !p-2.5">
+            <Card key={b.id} className={cn("space-y-1.5 !p-2.5", soldFrom.has(b.id) && "!border-emerald-200/80 !bg-emerald-50/50 dark:!border-emerald-900/50 dark:!bg-emerald-950/20")}>
               <div className="flex items-center gap-1">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
@@ -394,10 +398,10 @@ export default function BillersPage() {
                 {fmtMoney(b.currentBalance)}
               </div>
               {hasPerm("biller.trade") && b.active && (
-                <div className="grid grid-cols-3 gap-1 text-xs font-medium">
-                  <button type="button" onClick={() => startTrade(b, "SALE")} className="h-7 rounded-md bg-blue-600 text-white hover:bg-blue-700">Sell</button>
-                  <button type="button" onClick={() => startTrade(b, "TOPUP")} className="h-7 truncate rounded-md border border-gray-300 px-1 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Buy float</button>
-                  <button type="button" onClick={() => startTrade(b, "ADJUST")} className="h-7 truncate rounded-md border border-gray-300 px-1 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Adjust</button>
+                <div className="flex flex-wrap gap-1 text-xs font-medium">
+                  <button type="button" onClick={() => startTrade(b, "SALE")} className="h-7 flex-1 whitespace-nowrap rounded-md bg-blue-600 px-2 text-white hover:bg-blue-700">Sell</button>
+                  <button type="button" onClick={() => startTrade(b, "TOPUP")} className="h-7 flex-1 whitespace-nowrap rounded-md border border-gray-300 px-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Buy float</button>
+                  <button type="button" onClick={() => startTrade(b, "ADJUST")} className="h-7 flex-1 whitespace-nowrap rounded-md border border-gray-300 px-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Adjust</button>
                 </div>
               )}
             </Card>
