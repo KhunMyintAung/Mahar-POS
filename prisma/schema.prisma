@@ -929,3 +929,20 @@ model PartOrder {
 
   @@index([businessId, status, createdAt])
 }
+
+/// A note a shop sends from the About page. The admin portal reads them all and picks which
+/// ones show on the About page for everyone.
+model Feedback {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String
+  shopName   String
+  userName   String
+  /// 1 to 5 stars, or none.
+  rating     Int?
+  message    String
+  shown      Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([shown, createdAt])
+}

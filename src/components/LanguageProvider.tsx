@@ -1267,6 +1267,20 @@ const MM: Record<string, string> = {
   "No sale matches that search": "ရှာသည့်အရောင်း မတွေ့ပါ",
   "No sales on this day": "ဒီနေ့ အရောင်း မရှိပါ",
   "This is the shop's only Owner. Make another user Owner first.": "ဒီဆိုင်မှာ Owner တစ်ယောက်တည်း ရှိပါတယ်။ အရင်ဆုံး တခြားအသုံးပြုသူကို Owner ပေးပါ။",
+  "Top Donations": "အလှူရှင်များ",
+  "Thank you for supporting Mahar Mini POS.": "Mahar Mini POS ကို ကူညီပံ့ပိုးပေးသည့်အတွက် ကျေးဇူးတင်ပါသည်။",
+  "USER FEEDBACK": "အသုံးပြုသူ အကြံပြုချက်",
+  "What shops say": "ဆိုင်များ၏ အမြင်",
+  "Tell us what works, what is hard, or what you want next.": "ကောင်းတာ၊ ခက်တာ၊ နောက်ထပ် လိုချင်တာတွေ ပြောပြပေးပါ။",
+  "No feedback shown yet. Be the first!": "အကြံပြုချက် မရှိသေးပါ။ ပထမဆုံး ရေးပေးပါ!",
+  "Send your feedback": "အကြံပြုချက် ပေးပို့ရန်",
+  "Thank you! Your feedback reached us.": "ကျေးဇူးတင်ပါသည်! အကြံပြုချက် ရောက်ရှိပါပြီ။",
+  "Send another": "နောက်တစ်ခု ပို့မည်",
+  "Write your feedback…": "အကြံပြုချက် ရေးပါ…",
+  "Send feedback": "ပို့မည်",
+  "Rating": "အဆင့်သတ်မှတ်ချက်",
+  "Write a few words": "စာအနည်းငယ် ရေးပေးပါ",
+  "Thanks! You have sent a lot today, please try again tomorrow.": "ကျေးဇူးပါ! ဒီနေ့ အများကြီး ပို့ပြီးပါပြီ၊ မနက်ဖြန် ထပ်ပို့ပေးပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

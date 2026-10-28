@@ -8,7 +8,7 @@ import { prisma } from "./prisma";
  *  email. New sign-ups are reported to ADMIN_NOTIFY_EMAIL, or else to the emails listed in
  *  ADMIN_USERS. Every send is written to EmailLog for the admin portal. */
 
-export type MailKind = "WELCOME" | "RESET" | "SIGNUP_ALERT" | "BROADCAST" | "TEST";
+export type MailKind = "WELCOME" | "RESET" | "SIGNUP_ALERT" | "FEEDBACK_ALERT" | "BROADCAST" | "TEST";
 
 const RESEND_URL = "https://api.resend.com/emails";
 
@@ -104,6 +104,23 @@ export function notifyNewSignup(p: { businessName: string; email: string; userna
     subject: `New shop registered: ${p.businessName}`,
     html: layout("New shop registered", `<p><b>${esc(p.businessName)}</b></p><p>Email: ${esc(p.email)}<br>Username: ${esc(p.username)}<br>Signed up with: ${esc(p.method)}<br>Time: ${esc(when)} (Yangon)</p>${button(`${appUrl()}/admin`, "Open admin portal")}`),
     text: `New shop registered: ${p.businessName}\nEmail: ${p.email}\nUsername: ${p.username}\nMethod: ${p.method}\nTime: ${when}`,
+  });
+}
+
+/** A shop sent feedback from the About page: the admin hears, to read it and pick whether it shows. */
+export function notifyFeedback(p: { shopName: string; userName: string; rating: number | null; message: string }) {
+  const to = (process.env.ADMIN_NOTIFY_EMAIL?.split(",") ?? adminUsers()).map((x) => x.trim()).filter((x) => x.includes("@"));
+  if (!to.length) return;
+  const stars = p.rating ? `${"★".repeat(p.rating)}${"☆".repeat(5 - p.rating)}` : "No rating";
+  sendQuietly("feedback", {
+    kind: "FEEDBACK_ALERT",
+    to,
+    subject: `Feedback from ${p.shopName}`,
+    html: layout("New feedback", `<p><b>${esc(p.shopName)}</b> · ${esc(p.userName)}</p><p>${esc(stars)}</p><p style="white-space:pre-wrap">${esc(p.message)}</p>${button(`${appUrl()}/admin`, "Open admin portal")}`),
+    text: `Feedback from ${p.shopName} (${p.userName})
+${stars}
+
+${p.message}`,
   });
 }
 
