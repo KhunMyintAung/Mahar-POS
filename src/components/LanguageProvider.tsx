@@ -1266,6 +1266,7 @@ const MM: Record<string, string> = {
   "Searching every day": "နေ့အားလုံးမှ ရှာနေသည်",
   "No sale matches that search": "ရှာသည့်အရောင်း မတွေ့ပါ",
   "No sales on this day": "ဒီနေ့ အရောင်း မရှိပါ",
+  "This is the shop's only Owner. Make another user Owner first.": "ဒီဆိုင်မှာ Owner တစ်ယောက်တည်း ရှိပါတယ်။ အရင်ဆုံး တခြားအသုံးပြုသူကို Owner ပေးပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

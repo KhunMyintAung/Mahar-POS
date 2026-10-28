@@ -30,6 +30,17 @@ export const PATCH = withAuth("users.manage", async ({ req, user, params }) => {
       });
       if (!role) throw new ApiError(404, "Role not found");
     }
+    // A shop always keeps one active Owner: taking the role from the last one, or switching
+    // them off, would leave nobody able to manage users, roles or settings, with no way back.
+    const ownerRole = await tx.role.findFirst({ where: { businessId: user.businessId, name: "Owner" }, select: { id: true } });
+    const losesOwner = ownerRole && target.roleId === ownerRole.id && target.active &&
+      ((body.roleId !== undefined && body.roleId !== ownerRole.id) || body.active === false);
+    if (losesOwner) {
+      const otherOwners = await tx.user.count({
+        where: { businessId: user.businessId, roleId: ownerRole.id, active: true, deletedAt: null, id: { not: target.id } },
+      });
+      if (otherOwners === 0) throw new ApiError(422, "This is the shop's only Owner. Make another user Owner first.");
+    }
     if (body.branchIds) {
       const uniqueBranchIds = [...new Set(body.branchIds)];
       const branchCount = await tx.branch.count({
