@@ -8,11 +8,15 @@ import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, us
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { NewSupplierModal, type Supplier } from "@/components/SupplierList";
+import { SupplierPayments } from "@/components/SupplierPayments";
 
 interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
-  currency: string; date: string; description?: string; status: string;
+  currency: string; date: string; description?: string; status: string; supplierName?: string;
 }
+/** Expense categories that are often money paid to a supplier: the form offers to name them. */
+const SUPPLIER_KEYS = ["DAILY_SERVICE", "DAILY_SALE"];
 /** systemKey marks one of the eight standard daily categories: renamed, never deleted. */
 interface Category { id: string; type: string; name: string; systemKey?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
@@ -47,9 +51,13 @@ export default function IncomeExpensePage() {
   const [reverseId, setReverseId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const { push } = useToast();
-  const { hasPerm, defaultBranchId } = useAuth();
+  const { hasPerm, defaultBranchId, featureEnabled } = useAuth();
+  const canSuppliers = featureEnabled("suppliers") && hasPerm("customer.view");
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [newSupplier, setNewSupplier] = useState(false);
+  const [showBySupplier, setShowBySupplier] = useState(false);
 
-  const [form, setForm] = useState({ type: "EXPENSE", categoryName: "", amount: "", walletId: "", date: "", description: "", reference: "" });
+  const [form, setForm] = useState({ type: "EXPENSE", categoryName: "", amount: "", walletId: "", date: "", description: "", reference: "", supplierId: "" });
 
   const load = useCallback(() => {
     api<{ items: Item[]; totals: { income: string; expense: string; withdraw: string } }>(`/api/v1/income-expense?pageSize=100${allDates ? "" : `&date=${day}`}`)
@@ -57,7 +65,8 @@ export default function IncomeExpensePage() {
       .catch((e) => push(e.message, "error"));
     api<Category[]>("/api/v1/categories").then(setCategories).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, day, allDates]);
+    if (canSuppliers) api<{ contacts: Supplier[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200").then((d) => setSuppliers(d.contacts)).catch(() => {});
+  }, [push, day, allDates, canSuppliers]);
   useEffect(load, [load]);
 
   async function create() {
@@ -82,13 +91,14 @@ export default function IncomeExpensePage() {
           date: form.date || undefined,
           description: form.description || undefined,
           reference: form.reference || undefined,
+          supplierId: offerSupplier && form.supplierId ? form.supplierId : undefined,
         },
       });
       push(`${form.type === "INCOME" ? "Income" : "Expense"} recorded`);
       setShowNew(false);
       setNewCategory(false);
       setNewCategoryName("");
-      setForm({ ...form, amount: "", description: "", reference: "" });
+      setForm({ ...form, amount: "", description: "", reference: "", supplierId: "" });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -173,8 +183,12 @@ export default function IncomeExpensePage() {
     }
   }
 
-  if (!items) return <Spinner />;
   const catOptions = categories.filter((c) => c.type === form.type);
+  // A Daily Service or Daily Sale expense is often paid to a supplier: name them, so the month
+  // adds up per supplier.
+  const chosenKey = catOptions.find((c) => c.name === form.categoryName)?.systemKey;
+  const offerSupplier = canSuppliers && form.type === "EXPENSE" && !newCategory && SUPPLIER_KEYS.includes(chosenKey ?? "");
+  if (!items) return <Spinner />;
   const canSave =
     !!form.amount &&
     !!form.walletId &&
@@ -205,7 +219,8 @@ export default function IncomeExpensePage() {
         }
       >
         {hasPerm("income_expense.create") && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {canSuppliers && <Button variant="secondary" onClick={() => setShowBySupplier(true)}>By supplier</Button>}
             <Button variant="secondary" onClick={() => setShowCategories(true)}>Categories</Button>
             <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New entry</Button>
           </div>
@@ -244,7 +259,11 @@ export default function IncomeExpensePage() {
                 <span className={`text-xs font-bold ${it.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>{it.type}</span>
               </td>
               <td className="px-3 py-2">{it.categoryName ?? "—"}</td>
-              <td className="px-3 py-2 text-xs">{it.description ?? "—"}</td>
+              <td className="px-3 py-2 text-xs">
+                {it.supplierName && <span className="font-semibold text-gray-700 dark:text-gray-200">{it.supplierName}</span>}
+                {it.supplierName && it.description && " · "}
+                {it.description ?? (it.supplierName ? "" : "—")}
+              </td>
               <td className={`px-3 py-2 text-right font-medium tabular-nums ${it.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>
                 {it.type === "INCOME" ? "+" : "-"}{fmtMoney(it.amount)} {it.currency}
               </td>
@@ -405,6 +424,19 @@ export default function IncomeExpensePage() {
               {wallets.map((w) => <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)} {w.currency})</option>)}
             </Select>
           </div>
+          {offerSupplier && (
+            <div>
+              <Select label="Supplier" value={form.supplierId} onChange={(e) => setForm({ ...form, supplierId: e.target.value })}>
+                <option value="">No supplier</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </Select>
+              {hasPerm("customer.manage") && (
+                <button type="button" onClick={() => setNewSupplier(true)} className="mt-1 text-xs font-semibold text-blue-600 hover:underline">
+                  + New supplier
+                </button>
+              )}
+            </div>
+          )}
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
@@ -412,6 +444,18 @@ export default function IncomeExpensePage() {
           </div>
         </div>
       </Modal>
+
+      <SupplierPayments open={showBySupplier} onClose={() => setShowBySupplier(false)} />
+
+      <NewSupplierModal
+        open={newSupplier}
+        onClose={() => setNewSupplier(false)}
+        onCreated={(sup) => {
+          setNewSupplier(false);
+          setSuppliers((list) => [...list, sup].sort((a, b) => a.name.localeCompare(b.name)));
+          setForm((f) => ({ ...f, supplierId: sup.id }));
+        }}
+      />
 
       <Modal open={!!reverseId} onClose={() => setReverseId(null)} title="Void entry">
         <div className="space-y-3">

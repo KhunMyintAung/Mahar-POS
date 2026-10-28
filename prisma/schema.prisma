@@ -508,6 +508,8 @@ model IncomeExpense {
   /// Set on the expense record of a purchase: the purchase itself paid the supplier, so
   /// this entry moves no money of its own either.
   purchaseId   String?   @unique
+  /// The supplier an expense was paid to (a SUPPLIER contact), for the monthly total per supplier.
+  supplierId   String?
   createdById  String
   approvedById String?
   createdAt    DateTime  @default(now())
@@ -516,6 +518,7 @@ model IncomeExpense {
 
   @@unique([businessId, txnNo])
   @@index([businessId, type, date])
+  @@index([businessId, supplierId, date])
 }
 
 model DailyClose {

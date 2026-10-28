@@ -24,6 +24,8 @@ export async function createIncomeExpenseEntry(
     date: string;
     reference?: string;
     description?: string;
+    /** The supplier an expense was paid to. */
+    supplierId?: string;
   }
 ) {
   if (opts.amount <= 0n) throw new ApiError(422, "Amount must be greater than zero");
@@ -41,6 +43,14 @@ export async function createIncomeExpenseEntry(
     throw new ApiError(404, "Wallet not found");
   }
   if (!wallet.active) throw new ApiError(422, `Wallet ${wallet.name} is inactive`);
+  if (opts.supplierId) {
+    if (opts.type !== "EXPENSE") throw new ApiError(422, "Only an expense can be paid to a supplier");
+    const supplier = await tx.contact.findFirst({
+      where: { id: opts.supplierId, businessId: opts.businessId, type: "SUPPLIER", deletedAt: null },
+      select: { id: true },
+    });
+    if (!supplier) throw new ApiError(404, "Supplier not found");
+  }
 
   const categoryName = opts.categoryName?.trim() || "Withdrawal";
   const txnNo = await nextNumber(tx, opts.businessId, opts.type);
@@ -57,6 +67,7 @@ export async function createIncomeExpenseEntry(
       date: opts.date,
       reference: opts.reference,
       description: opts.description,
+      supplierId: opts.supplierId,
       createdById: opts.userId,
     },
   });

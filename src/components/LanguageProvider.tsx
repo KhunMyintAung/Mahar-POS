@@ -1299,6 +1299,14 @@ const MM: Record<string, string> = {
   "Purchases from this supplier": "ဒီကုန်သွင်းသူထံမှ အဝယ်များ",
   "No purchases from this supplier yet": "ဒီကုန်သွင်းသူထံမှ အဝယ် မရှိသေးပါ",
   "Show all suppliers": "ကုန်သွင်းသူ အားလုံး ပြမည်",
+  "By supplier": "ကုန်သွင်းသူအလိုက်",
+  "Paid to suppliers": "ကုန်သွင်းသူများကို ပေးခဲ့ငွေ",
+  "No expenses paid to a supplier this month": "ဒီလ ကုန်သွင်းသူကို ပေးထားတဲ့ ထွက်ငွေ မရှိသေးပါ",
+  "Previous month": "ယခင်လ",
+  "Next month": "နောက်လ",
+  "Only an expense can be paid to a supplier": "ထွက်ငွေကိုသာ ကုန်သွင်းသူထံ ပေးလို့ရပါတယ်",
+  "Supplier not found": "ကုန်သွင်းသူ မတွေ့ပါ",
+  "Choose a month": "လ ရွေးပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1353,6 +1361,7 @@ function translate(value: string) {
     [/^(\d+) repaired$/, (n) => `${n} ခု ပြင်ပြီး`],
     [/^(\d+) low stock$/, (n) => `လက်ကျန်နည်း ${n} ခု`],
     [/^(\d+) expiring$/, (n) => `သက်တမ်းကုန်ခါနီး ${n} ခု`],
+    [/^(\d+) payments$/, (n) => `${n} ကြိမ် ပေးခဲ့`],
     [/^Bought (.+)$/, (amount) => `ဝယ်ခဲ့ပြီး ${amount}`],
     [/^Unpaid (.+)$/, (amount) => `ပေးရန်ကျန် ${amount}`],
     [/^(\d+)d left$/, (n) => `${n} ရက် ကျန်`],

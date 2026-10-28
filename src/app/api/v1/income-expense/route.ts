@@ -37,8 +37,14 @@ export const GET = withAuth(null, async ({ req, user }) => {
       orderBy: { currency: "asc" },
     }),
   ]);
+  const supplierIds = [...new Set(items.map((it) => it.supplierId).filter(Boolean))] as string[];
+  const suppliers = supplierIds.length
+    ? await prisma.contact.findMany({ where: { id: { in: supplierIds }, businessId: user.businessId }, select: { id: true, name: true } })
+    : [];
+  const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
   return json({
-    items, total, page, pageSize,
+    items: items.map((it) => ({ ...it, supplierName: it.supplierId ? supplierName.get(it.supplierId) : undefined })),
+    total, page, pageSize,
     totals: {
       income: incomeAgg._sum.amount ?? 0n,
       expense: expenseAgg._sum.amount ?? 0n,
@@ -60,6 +66,7 @@ const schema = z.object({
   date: z.string().refine(isValidBusinessDate).default(todayBusinessDate),
   reference: z.string().optional(),
   description: z.string().optional(),
+  supplierId: z.string().optional(),
 });
 
 export const POST = withAuth(null, async ({ req, user }) => {
@@ -83,6 +90,7 @@ export const POST = withAuth(null, async ({ req, user }) => {
       date: body.date,
       reference: body.reference,
       description: body.description,
+      supplierId: body.supplierId || undefined,
     })
   );
   notifyAuditFeed(
