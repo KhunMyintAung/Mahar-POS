@@ -29,6 +29,9 @@ interface Item {
   model?: string | null; variant?: string | null;
 }
 
+/** FOC is offered only on accessories (Accessories / Accessory, any case). */
+const isAccessory = (item: Item) => /accessor/i.test(item.category?.name ?? "");
+
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
@@ -642,7 +645,7 @@ export default function PosPage() {
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     {line.foc ? (
-                      <span className="flex h-7 items-center rounded-md bg-pink-50 px-2 font-semibold text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">Free gift · 0 MMK</span>
+                      <span className="flex h-7 items-center font-medium text-pink-700 dark:text-pink-300">Free gift · 0 MMK</span>
                     ) : (
                       <label className="flex items-center gap-1.5 text-gray-500">
                         Price
@@ -658,10 +661,11 @@ export default function PosPage() {
                         />
                       </label>
                     )}
-                    <label className={cn("flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2 font-medium", line.foc ? "border-pink-300 text-pink-700 dark:border-pink-800 dark:text-pink-300" : "border-gray-200 text-gray-500 dark:border-gray-700")} title="Free gift with the sale">
+                    {/* Gifts are accessories (charger, case, glass); a line already marked keeps the box to undo it. */}
+                    {(line.foc || isAccessory(line.item)) && <label className={cn("ml-auto flex cursor-pointer items-center gap-1 text-[11px] font-medium", line.foc ? "text-pink-700 dark:text-pink-300" : "text-gray-400")} title="Free gift with the sale">
                       <input
                         type="checkbox"
-                        className="h-3.5 w-3.5"
+                        className="h-3 w-3"
                         checked={Boolean(line.foc)}
                         onChange={(e) => setCart((current) => current.map((entry) => entry.item.id !== line.item.id ? entry
                           : e.target.checked
@@ -669,7 +673,7 @@ export default function PosPage() {
                             : { ...entry, foc: false, unitPrice: entry.listPrice ?? Number(BigInt(entry.item.sellingPrice)) / 100 }))}
                       />
                       FOC
-                    </label>
+                    </label>}
                   </div>
                   {(() => {
                     const condition = phoneCondition(line.item);

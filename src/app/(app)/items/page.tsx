@@ -54,6 +54,8 @@ export default function ItemsPage() {
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [category, setCategory] = useState("ALL");
+  /** The item whose full name and details are open under its row (names stay one line). */
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [bulk, setBulk] = useState<"reprice" | "delete" | null>(null);
   const [rule, setRule] = useState<{ mode: RepriceMode; value: string; direction: RepriceDirection; roundTo: string }>(
     { mode: "percent", value: "", direction: "down", roundTo: "100" }
@@ -352,7 +354,7 @@ export default function ItemsPage() {
             ...(many ? [(
               <tr key={g.key}>
                 <td className="w-8 px-3 py-2.5" />
-                <td className="px-3 py-2.5 font-semibold">
+                <td className="max-w-[18rem] truncate px-3 py-2.5 font-semibold" title={g.model ?? undefined}>
                   {g.model}
                   <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants`}</span>
                 </td>
@@ -369,10 +371,10 @@ export default function ItemsPage() {
                 </td>
               </tr>
             )] : []),
-            ...(open ? g.items : []).map((it) => {
+            ...(open ? g.items : []).flatMap((it) => {
             const qty = it.stockLevels.reduce((a, l) => a + l.quantity, 0);
             const inGroup = g.items.length > 1;
-            return (
+            return [(
               <tr key={it.id} className={cn(!it.active && "opacity-50", inGroup && "bg-gray-50/70 dark:bg-gray-800/40", isLow(it) && "bg-red-50 dark:bg-red-900/10", selected.has(it.id) && "bg-blue-50 dark:bg-blue-900/20")}>
                 <td className="w-8 px-3 py-2.5">
                   {hasPerm("item.manage") && (
@@ -380,8 +382,16 @@ export default function ItemsPage() {
                   )}
                 </td>
                 <td className={cn("px-3 py-2.5 font-medium", inGroup && "pl-7")}>
-                  {inGroup ? <><span className="text-gray-400">└ </span>{variantLabel(it)}</> : it.name}
-                  {it.trackSerial && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
+                  <button
+                    type="button"
+                    aria-expanded={detailId === it.id}
+                    title={it.name}
+                    onClick={() => setDetailId((id) => (id === it.id ? null : it.id))}
+                    className="flex max-w-[18rem] items-center gap-1.5 text-left hover:text-blue-600"
+                  >
+                    <span className="min-w-0 truncate">{inGroup ? <><span className="text-gray-400">└ </span>{variantLabel(it)}</> : it.name}</span>
+                    {it.trackSerial && <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
+                  </button>
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
@@ -435,7 +445,24 @@ export default function ItemsPage() {
                   )}
                 </td>
               </tr>
-            );
+            ), ...(detailId === it.id ? [(
+              <tr key={`${it.id}-detail`} className="bg-blue-50/40 dark:bg-blue-950/20">
+                <td />
+                <td colSpan={8} className="px-3 pb-3 pt-1 text-sm">
+                  <div className="whitespace-normal break-words font-medium">{it.name}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                    <span>{`SKU ${it.sku}`}</span>
+                    {it.barcode && <span>{`Barcode ${it.barcode}`}</span>}
+                    <span>{`Category ${it.category?.name ?? "—"}`}</span>
+                    <span>{`Cost ${fmtMoney(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
+                    <span>{`Min stock ${it.minStock}`}</span>
+                    {it.stockLevels.length > 1 && it.stockLevels.map((l) => (
+                      <span key={l.branchId}>{`${branches.find((b) => b.id === l.branchId)?.name ?? "Branch"}: ${l.quantity}`}</span>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )] : [])];
           }),
           ];
           })}

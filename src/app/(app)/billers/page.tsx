@@ -341,69 +341,63 @@ export default function BillersPage() {
         )}
       </PageHeader>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Card className="col-span-2 space-y-1 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 lg:col-span-1">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+        <Card className="space-y-0.5 !p-2.5 border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
           <div className="text-xs font-medium text-blue-700 dark:text-blue-300">{date === today() ? "Today's sales total" : "Sales total"}</div>
-          <div className="text-2xl font-bold tabular-nums">{fmtMoney(summary?.soldFace ?? "0")}</div>
+          <div className="text-lg font-bold tabular-nums">{fmtMoney(summary?.soldFace ?? "0")}</div>
           <div className="text-xs text-gray-500"><span className="tabular-nums">{summary?.soldCount ?? 0}</span> sales</div>
         </Card>
-        <Card className="col-span-2 space-y-1 border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40 lg:col-span-1">
+        <Card className="space-y-0.5 !p-2.5 border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40">
           <div className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Stock value total</div>
-          <div className={`text-2xl font-bold tabular-nums ${Number(totalFloat) < 0 ? "text-red-600" : ""}`}>{fmtMoney(totalFloat)}</div>
+          <div className={`text-lg font-bold tabular-nums ${Number(totalFloat) < 0 ? "text-red-600" : ""}`}>{fmtMoney(totalFloat)}</div>
           <div className="text-xs text-gray-500">Held with all billers now</div>
         </Card>
-        <Card className="space-y-1">
+        <Card className="space-y-0.5 !p-2.5">
           <div className="text-xs text-gray-500">Cash received</div>
-          <div className="text-lg font-bold tabular-nums text-green-600">{fmtMoney(summary?.soldCash ?? "0")}</div>
+          <div className="text-base font-bold tabular-nums text-green-600">{fmtMoney(summary?.soldCash ?? "0")}</div>
         </Card>
-        <Card className="space-y-1">
+        <Card className="space-y-0.5 !p-2.5">
           <div className="text-xs text-gray-500">Refilled</div>
-          <div className="text-lg font-bold tabular-nums">{fmtMoney(summary?.refillFace ?? "0")}</div>
+          <div className="text-base font-bold tabular-nums">{fmtMoney(summary?.refillFace ?? "0")}</div>
           <div className="text-xs text-gray-500">Cash paid <span className="tabular-nums">{fmtMoney(summary?.refillCash ?? "0")}</span></div>
         </Card>
-        <Card className="col-span-2 space-y-1 lg:col-span-1">
+        <Card className="col-span-2 space-y-0.5 !p-2.5 lg:col-span-1">
           <div className="text-xs text-gray-500">Margin</div>
-          <div className={`text-lg font-bold tabular-nums ${Number(summary?.profit ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>{fmtMoney(summary?.profit ?? "0")}</div>
+          <div className={`text-base font-bold tabular-nums ${Number(summary?.profit ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>{fmtMoney(summary?.profit ?? "0")}</div>
         </Card>
       </div>
 
       {billers.length === 0 ? (
         <Card><Empty message="No billers yet. Add the operators this shop buys float from." /></Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {billers.map((b) => (
-            <Card key={b.id} className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-medium">{b.name}</div>
-                  <div className="text-xs text-gray-500">{TYPE_LABEL[b.type] ?? b.type}</div>
+            <Card key={b.id} className="space-y-1.5 !p-2.5">
+              <div className="flex items-center gap-1">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
+                  <div className="truncate text-[11px] text-gray-500">{[TYPE_LABEL[b.type] ?? b.type, ...dealLabel(b)].join(" · ")}{!b.active && " · off"}</div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {!b.active && <span className="text-xs text-gray-400">off</span>}
-                  {hasPerm("biller.manage") && (
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800"
-                      onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "", refillMode: b.refillMode === "BONUS" ? "BONUS" : "DISCOUNT" }); }}
-                    >
-                      <Pencil size={13} />Edit
-                    </button>
-                  )}
-                </div>
+                {hasPerm("biller.manage") && (
+                  <button
+                    type="button"
+                    aria-label={`Edit ${b.name}`}
+                    title="Edit"
+                    className="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800"
+                    onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "", refillMode: b.refillMode === "BONUS" ? "BONUS" : "DISCOUNT" }); }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
               </div>
-              {dealLabel(b).length > 0 && (
-                <div className="flex flex-wrap gap-x-3 text-xs text-gray-500">
-                  {dealLabel(b).map((t) => <span key={t}>{t}</span>)}
-                </div>
-              )}
-              <div className={`text-xl font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
+              <div className={`text-base font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
               {hasPerm("biller.trade") && b.active && (
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => startTrade(b, "SALE")}>Sell</Button>
-                  <Button size="sm" variant="secondary" onClick={() => startTrade(b, "TOPUP")}>Buy float</Button>
-                  <Button size="sm" variant="secondary" onClick={() => startTrade(b, "ADJUST")}>Adjust</Button>
+                <div className="grid grid-cols-3 gap-1 text-xs font-medium">
+                  <button type="button" onClick={() => startTrade(b, "SALE")} className="h-7 rounded-md bg-blue-600 text-white hover:bg-blue-700">Sell</button>
+                  <button type="button" onClick={() => startTrade(b, "TOPUP")} className="h-7 truncate rounded-md border border-gray-300 px-1 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Buy float</button>
+                  <button type="button" onClick={() => startTrade(b, "ADJUST")} className="h-7 truncate rounded-md border border-gray-300 px-1 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Adjust</button>
                 </div>
               )}
             </Card>
