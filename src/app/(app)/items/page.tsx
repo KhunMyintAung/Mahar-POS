@@ -18,6 +18,7 @@ import { groupByModel, variantLabel, variantName } from "@/lib/variants";
 import { StockAdjustModal, StockMovements, type StockLevel } from "@/components/StockTools";
 import { ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
 import { EXPIRY_WARN_DAYS, daysLeft } from "@/lib/expiry";
+import { useRefreshOnReturn } from "@/lib/useRefreshOnReturn";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
@@ -167,6 +168,7 @@ export default function ItemsPage() {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+  useRefreshOnReturn(load);
 
   async function save() {
     setBusy(true);
