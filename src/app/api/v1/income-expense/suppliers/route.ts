@@ -1,13 +1,19 @@
 import { withAuth, json, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
-import { isValidMonth } from "@/lib/dates";
+import { isValidBusinessDate, isValidMonth } from "@/lib/dates";
 
-// GET ?month=YYYY-MM: what was paid to each supplier that month through expense entries,
-// biggest first, each with its entries.
+// GET ?month=YYYY-MM, ?date=YYYY-MM-DD or ?all=1: what was paid to each supplier in that
+// period through expense entries, biggest first, each with its entries.
 export const GET = withAuth("income_expense.view", async ({ req, user }) => {
-  const month = req.nextUrl.searchParams.get("month") ?? "";
-  if (!isValidMonth(month)) throw new ApiError(422, "Choose a month");
+  const sp = req.nextUrl.searchParams;
+  const month = sp.get("month") ?? "";
+  const date = sp.get("date") ?? "";
+  const period = isValidMonth(month) ? { startsWith: month }
+    : isValidBusinessDate(date) ? date
+    : sp.get("all") === "1" ? undefined
+    : null;
+  if (period === null) throw new ApiError(422, "Choose a month");
   const entries = await prisma.incomeExpense.findMany({
     where: {
       businessId: user.businessId,
@@ -15,7 +21,7 @@ export const GET = withAuth("income_expense.view", async ({ req, user }) => {
       status: "COMPLETED",
       type: "EXPENSE",
       supplierId: { not: null },
-      date: { startsWith: month },
+      ...(period === undefined ? {} : { date: period }),
       ...branchScope(user),
     },
     select: { id: true, txnNo: true, date: true, categoryName: true, description: true, amount: true, currency: true, supplierId: true },
@@ -34,5 +40,5 @@ export const GET = withAuth("income_expense.view", async ({ req, user }) => {
     bySupplier.set(e.supplierId!, row);
   }
   const suppliers = [...bySupplier.values()].sort((a, b) => (b.total > a.total ? 1 : b.total < a.total ? -1 : a.name.localeCompare(b.name)));
-  return json({ month, total: suppliers.reduce((n, s) => n + s.total, 0n), suppliers });
+  return json({ month: month || date || "all", total: suppliers.reduce((n, s) => n + s.total, 0n), suppliers });
 });

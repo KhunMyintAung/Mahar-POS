@@ -7,8 +7,9 @@ import { fmtMoney } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Table, useToast } from "@/components/ui";
 
 export interface Supplier { id: string; name: string; phone?: string | null; address?: string | null; notes?: string | null }
-/** What the shop has bought from one supplier: purchases, their total, and what is still owed. */
-export interface SupplierTotals { count: number; total: bigint; unpaid: bigint }
+/** What the shop has bought from one supplier: purchases, their total, what is still owed, and
+ *  expense entries paid to them (Income & Expense). */
+export interface SupplierTotals { count: number; total: bigint; unpaid: bigint; expense: bigint }
 
 const emptyForm = { name: "", phone: "", telegram: "", address: "", notes: "" };
 
@@ -70,7 +71,11 @@ export function SupplierList({ suppliers, totals, onShowPurchases, onNewPurchase
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
-  const shown = suppliers.filter((s) => !needle || s.name.toLowerCase().includes(needle) || (s.phone ?? "").includes(needle));
+  const sum = (s: Supplier) => { const t = totals.get(s.id); return t ? t.total + t.expense : 0n; };
+  // The ones dealt with in the period shown come first, biggest first.
+  const shown = suppliers
+    .filter((s) => !needle || s.name.toLowerCase().includes(needle) || (s.phone ?? "").includes(needle))
+    .sort((a, b) => { const x = sum(a), y = sum(b); return x === y ? a.name.localeCompare(b.name) : y > x ? 1 : -1; });
 
   return (
     <div className="space-y-3">
@@ -83,11 +88,12 @@ export function SupplierList({ suppliers, totals, onShowPurchases, onNewPurchase
       {shown.length === 0 ? (
         <Card><Empty message="No suppliers found" /></Card>
       ) : (
-        <Table headers={["Name", "Phone", "Purchases", "Bought", "Unpaid", ""]} rightAlign={[2, 3, 4]}>
+        <Table headers={["Name", "Phone", "Purchases", "Bought", "Expense", "Total", "Unpaid", ""]} rightAlign={[2, 3, 4, 5, 6]}>
           {shown.map((s) => {
             const t = totals.get(s.id);
+            const all = sum(s);
             return (
-              <tr key={s.id}>
+              <tr key={s.id} className={all === 0n ? "text-gray-400" : ""}>
                 <td className="px-3 py-2.5">
                   <Link href={`/customers/${s.id}`} className="font-medium text-blue-600 hover:underline">{s.name}</Link>
                   {s.address && <div className="max-w-[16rem] truncate text-xs text-gray-500">{s.address}</div>}
@@ -95,6 +101,8 @@ export function SupplierList({ suppliers, totals, onShowPurchases, onNewPurchase
                 <td className="whitespace-nowrap px-3 py-2.5 text-sm">{s.phone || "-"}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{t?.count ?? 0}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{fmtMoney((t?.total ?? 0n).toString())}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{fmtMoney((t?.expense ?? 0n).toString())}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">{fmtMoney(all.toString())}</td>
                 <td className={`whitespace-nowrap px-3 py-2.5 text-right tabular-nums ${t && t.unpaid > 0n ? "font-semibold text-amber-600" : "text-gray-400"}`}>
                   {fmtMoney((t?.unpaid ?? 0n).toString())}
                 </td>

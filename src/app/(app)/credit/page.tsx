@@ -9,6 +9,7 @@ import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, u
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { DayPicker, todayDate } from "@/components/DayPicker";
 
 interface Item {
   id: string; txnNo: string; originalAmount: string; paidAmount: string; remainingAmount: string;
@@ -29,6 +30,10 @@ function CreditContent() {
   const [showNew, setShowNew] = useNewModal();
   const [payItem, setPayItem] = useState<Item | null>(null);
   const [busy, setBusy] = useState(false);
+  // Records of the day shown (today to start with), or of every day. Total outstanding is
+  // always everything still owed.
+  const [day, setDay] = useState(todayDate);
+  const [allDates, setAllDates] = useState(false);
   const { push } = useToast();
   const { hasPerm, defaultBranchId } = useAuth();
 
@@ -42,12 +47,12 @@ function CreditContent() {
 
   const load = useCallback(() => {
     setItems(null);
-    api<{ items: Item[]; totalOutstanding: string }>(`${base}?pageSize=100`)
+    api<{ items: Item[]; totalOutstanding: string }>(`${base}?pageSize=${allDates ? 100 : 1000}${allDates ? "" : `&date=${day}`}`)
       .then((d) => { setItems(d.items); setOutstanding(d.totalOutstanding); })
       .catch((e) => push(e.message, "error"));
     api<{ contacts: Contact[] }>("/api/v1/customers?pageSize=200").then((d) => setContacts(d.contacts)).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [base, push]);
+  }, [base, push, day, allDates]);
   useEffect(() => {
     const timer = window.setTimeout(load, 0);
     return () => window.clearTimeout(timer);
@@ -127,8 +132,12 @@ function CreditContent() {
         {canCreate && <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />{isRec ? "Record debt" : "New payable"}</Button>}
       </PageHeader>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <DayPicker day={day} allDates={allDates} onDay={setDay} onAllDates={setAllDates} />
+      </div>
+
       {!items ? <Spinner /> : items.length === 0 ? (
-        <Card><Empty message={`No ${tab} records`} /></Card>
+        <Card><Empty message={allDates ? `No ${tab} records` : "Nothing recorded on this day"} /></Card>
       ) : (
         <>
           <div className="space-y-2 md:hidden">

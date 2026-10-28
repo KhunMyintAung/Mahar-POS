@@ -20,14 +20,17 @@ export const GET = withAuth("payable.view", async ({ req, user }) => {
     ...(sp.get("status") ? { status: sp.get("status")! } : { status: { not: "CANCELLED" } }),
     ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")!, mode: "insensitive" as const } }, { reference: { contains: sp.get("q")!, mode: "insensitive" as const } }] } : {}),
   };
+  // ?date=YYYY-MM-DD lists only that day's records; the outstanding total is always every day's.
+  const date = sp.get("date");
+  const listWhere = { ...where, ...(date && isValidBusinessDate(date) ? { payableDate: date } : {}) };
   const [items, total, agg] = await Promise.all([
     prisma.payable.findMany({
-      where,
+      where: listWhere,
       orderBy: { createdAt: "desc" },
       include: { supplier: { select: { name: true, phone: true } }, payments: true },
       skip, take,
     }),
-    prisma.payable.count({ where }),
+    prisma.payable.count({ where: listWhere }),
     prisma.payable.aggregate({
       where: { ...where, status: { notIn: ["PAID", "CANCELLED", "WRITTEN_OFF"] } },
       _sum: { remainingAmount: true },

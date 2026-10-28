@@ -11,6 +11,7 @@ import { useNewModal } from "@/lib/useNewModal";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 import { PageHeader } from "@/components/PageHeader";
 import { NewSupplierModal, SupplierList, type Supplier, type SupplierTotals } from "@/components/SupplierList";
+import { DayPicker, todayDate } from "@/components/DayPicker";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -50,6 +51,13 @@ export default function PurchasesPage() {
   // supplier list has loaded).
   const [supplierFilterId, setSupplierFilterId] = useState("");
   const [newSupplier, setNewSupplier] = useState(false);
+  // The day shown (today to start with), or every day. Suppliers' totals follow it too.
+  const [day, setDay] = useState(todayDate);
+  const [allDates, setAllDates] = useState(false);
+  const inPeriod = (date: string) => allDates || date === day;
+  // Expense entries paid to a supplier (Income & Expense), added into that supplier's total.
+  const canExpenses = hasPerm("income_expense.view");
+  const [supplierExpense, setSupplierExpense] = useState<Map<string, bigint>>(new Map());
 
   const [lines, setLines] = useState<Line[]>([]);
   const [form, setForm] = useState(blankForm);
@@ -74,24 +82,37 @@ export default function PurchasesPage() {
       const sp = new URLSearchParams(window.location.search);
       if (sp.get("tab") === "suppliers") setTab("suppliers");
       if (sp.get("newSupplier") === "1") setNewSupplier(true);
+      // A supplier's purchases opened from elsewhere: all of them, not just today's.
+      if (sp.get("supplier")) setAllDates(true);
       setSupplierFilterId(sp.get("supplier") ?? "");
     }, 0);
     return () => window.clearTimeout(t);
   }, []);
   const supplierFilter = suppliers.find((x) => x.id === supplierFilterId) ?? null;
 
+  useEffect(() => {
+    if (!canExpenses) return;
+    let live = true;
+    api<{ suppliers: { supplierId: string; total: string }[] }>(`/api/v1/income-expense/suppliers?${allDates ? "all=1" : `date=${day}`}`)
+      .then((d) => { if (live) setSupplierExpense(new Map(d.suppliers.map((r) => [r.supplierId, BigInt(r.total)]))); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [canExpenses, day, allDates]);
+
   const supplierTotals = useMemo(() => {
     const m = new Map<string, SupplierTotals>();
+    const blank = { count: 0, total: 0n, unpaid: 0n, expense: 0n };
     for (const p of purchases ?? []) {
-      if (!p.supplierId || p.status === "CANCELLED") continue;
-      const t = m.get(p.supplierId) ?? { count: 0, total: 0n, unpaid: 0n };
+      if (!p.supplierId || p.status === "CANCELLED" || !(allDates || p.date === day)) continue;
+      const t = m.get(p.supplierId) ?? blank;
       const total = BigInt(p.total);
       const left = total - BigInt(p.paidAmount);
-      m.set(p.supplierId, { count: t.count + 1, total: t.total + total, unpaid: t.unpaid + (left > 0n ? left : 0n) });
+      m.set(p.supplierId, { ...t, count: t.count + 1, total: t.total + total, unpaid: t.unpaid + (left > 0n ? left : 0n) });
     }
+    for (const [id, expense] of supplierExpense) m.set(id, { ...(m.get(id) ?? blank), expense });
     return m;
-  }, [purchases]);
-  const shownPurchases = (purchases ?? []).filter((p) => !supplierFilterId || p.supplierId === supplierFilterId);
+  }, [purchases, supplierExpense, day, allDates]);
+  const shownPurchases = (purchases ?? []).filter((p) => inPeriod(p.date) && (!supplierFilterId || p.supplierId === supplierFilterId));
 
   const mmkWallets = wallets.filter((w) => w.currency === "MMK");
   // The first cash wallet is picked until the user chooses another, also when the form opens from ?new=1.
@@ -252,6 +273,10 @@ export default function PurchasesPage() {
         </div>
       </PageHeader>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <DayPicker day={day} allDates={allDates} onDay={setDay} onAllDates={setAllDates} />
+      </div>
+
       {tab === "suppliers" ? (
         <SupplierList
           suppliers={suppliers}
@@ -271,6 +296,7 @@ export default function PurchasesPage() {
             return t && (
               <span className="text-gray-500">
                 {`Bought ${fmtMoney(t.total.toString())}`}
+                {t.expense > 0n && ` · ${`Expense ${fmtMoney(t.expense.toString())}`}`}
                 {t.unpaid > 0n && <> · <b className="text-amber-600">{`Unpaid ${fmtMoney(t.unpaid.toString())}`}</b></>}
               </span>
             );
@@ -279,9 +305,9 @@ export default function PurchasesPage() {
       )}
 
       {shownPurchases.length === 0 ? (
-        <Card><Empty message={supplierFilter ? "No purchases from this supplier yet" : "No purchases yet"} /></Card>
+        <Card><Empty message={supplierFilter ? "No purchases from this supplier yet" : allDates ? "No purchases yet" : "No purchases on this day"} /></Card>
       ) : (
-        <Paginated rows={shownPurchases} resetKey={supplierFilterId}>{(pageRows) => (
+        <Paginated rows={shownPurchases} resetKey={`${supplierFilterId}|${allDates ? "" : day}`}>{(pageRows) => (
         <Table headers={["Txn", "Date", "Supplier", "Items", "Total", "Paid", "Status", ""]} rightAlign={[4, 5]}>
           {pageRows.map((p) => (
             <tr key={p.id} className={p.status === "CANCELLED" ? "opacity-50" : ""}>

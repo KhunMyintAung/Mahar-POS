@@ -19,14 +19,17 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
     ...(sp.get("customerId") ? { customerId: sp.get("customerId")! } : {}),
     ...(sp.get("q") ? { OR: [{ txnNo: { contains: sp.get("q")!, mode: "insensitive" as const } }, { reference: { contains: sp.get("q")!, mode: "insensitive" as const } }] } : {}),
   };
+  // ?date=YYYY-MM-DD lists only that day's records; the outstanding total is always every day's.
+  const date = sp.get("date");
+  const listWhere = { ...where, ...(date && isValidBusinessDate(date) ? { creditDate: date } : {}) };
   const [items, total, agg] = await Promise.all([
     prisma.receivable.findMany({
-      where,
+      where: listWhere,
       orderBy: { createdAt: "desc" },
       include: { customer: { select: { name: true, phone: true } }, payments: true },
       skip, take,
     }),
-    prisma.receivable.count({ where }),
+    prisma.receivable.count({ where: listWhere }),
     prisma.receivable.aggregate({
       where: { ...where, status: { notIn: ["PAID", "CANCELLED", "WRITTEN_OFF"] } },
       _sum: { remainingAmount: true },
