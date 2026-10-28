@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, use } from "react";
+import Link from "next/link";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Card, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
@@ -33,6 +34,10 @@ export default function CustomerDetail({ params }: { params: Promise<{ id: strin
         <p className="text-sm text-gray-500">
           {c.type} {c.phone && `· ${c.phone}`} {c.telegram && `· ${c.telegram}`}
         </p>
+        {/* A supplier's purchases are in Purchases, filtered to them. */}
+        {c.type === "SUPPLIER" && (
+          <Link href={`/purchases?supplier=${c.id}`} className="mt-1 inline-block text-sm font-medium text-blue-600 hover:underline">Purchases from this supplier</Link>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-3">

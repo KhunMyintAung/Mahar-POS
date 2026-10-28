@@ -1293,6 +1293,12 @@ const MM: Record<string, string> = {
   "Expiry date must be a date (YYYY-MM-DD)": "သက်တမ်းကုန်ရက်ကို ရက်စွဲ (YYYY-MM-DD) ဖြင့် ထည့်ပါ",
   "Columns: name, sku, barcode, category, unit, cost, price, stock, min stock, expiry. Only the name is required — a SKU is made from the name when the column is empty, and a category or unit (pcs, box…) that does not exist yet is created; a new item with no unit gets pcs. Stock is the count on hand: it sets the stock to that number, and an empty stock cell leaves it as it is. Expiry is a best-before date (2026-12-31 or 31/12/2026), empty for none.": "ကော်လံများ: name, sku, barcode, category, unit, cost, price, stock, min stock, expiry။ name တစ်ခုသာ မဖြစ်မနေ လိုသည် — sku မပါလျှင် နာမည်မှ လုပ်ပေးမည်၊ မရှိသေးသော category / unit ကို အသစ်လုပ်မည်၊ unit မပါသော ပစ္စည်းအသစ်ကို pcs ပေးမည်။ stock က လက်ရှိ အရေအတွက် — ထိုအရေအတွက်အတိုင်း ထားမည်၊ stock အကွက် ဗလာဆိုလျှင် မပြောင်းပါ။ expiry က သက်တမ်းကုန်ရက် (2026-12-31 သို့ 31/12/2026)၊ မရှိလျှင် ဗလာထားပါ။",
   "For the printer on this device. Every receipt is sized to it.": "ဤစက်ရှိ Printer အတွက်ဖြစ်သည်။ ပြေစာ အားလုံးကို ဤအရွယ်ဖြင့် ထုတ်ပါမည်။",
+  "Unpaid": "ပေးရန်ကျန်",
+  "Create supplier": "ကုန်သွင်းသူ ထည့်မည်",
+  "+ New supplier": "+ ကုန်သွင်းသူ အသစ်",
+  "Purchases from this supplier": "ဒီကုန်သွင်းသူထံမှ အဝယ်များ",
+  "No purchases from this supplier yet": "ဒီကုန်သွင်းသူထံမှ အဝယ် မရှိသေးပါ",
+  "Show all suppliers": "ကုန်သွင်းသူ အားလုံး ပြမည်",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1347,6 +1353,8 @@ function translate(value: string) {
     [/^(\d+) repaired$/, (n) => `${n} ခု ပြင်ပြီး`],
     [/^(\d+) low stock$/, (n) => `လက်ကျန်နည်း ${n} ခု`],
     [/^(\d+) expiring$/, (n) => `သက်တမ်းကုန်ခါနီး ${n} ခု`],
+    [/^Bought (.+)$/, (amount) => `ဝယ်ခဲ့ပြီး ${amount}`],
+    [/^Unpaid (.+)$/, (amount) => `ပေးရန်ကျန် ${amount}`],
     [/^(\d+)d left$/, (n) => `${n} ရက် ကျန်`],
     [/^\((\d+) left\)$/, (n) => `(${n} ခု ကျန်)`],
     [/^Expires (\d{4}-\d{2}-\d{2})$/, (d) => `သက်တမ်းကုန် ${d}`],

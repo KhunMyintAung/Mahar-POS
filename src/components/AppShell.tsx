@@ -8,7 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
-  Moon, Sun, Receipt, Plus, ShoppingCart, Package, Truck, Building2, MessageCircle,
+  Moon, Sun, Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
   Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
 } from "lucide-react";
 import { api } from "@/lib/client";
@@ -87,7 +87,6 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
   { section: "/credit", perm: "credit.create", feature: "credit", label: "New credit record" },
   { section: "/income-expense", perm: "income_expense.create", feature: "incomeExpense", label: "New income or expense" },
   { section: "/customers", perm: "customer.manage", feature: "customers", label: "New customer" },
-  { section: "/suppliers", perm: "customer.manage", feature: "suppliers", label: "New supplier" },
   { section: "/users", perm: "users.manage", feature: "users", label: "New user" },
 ];
 
@@ -127,7 +126,6 @@ const NAV: NavItem[] = [
   { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense" },
   { href: "/reports", label: "Reports", icon: FileBarChart, perm: "report.view", feature: "reports" },
   { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers" },
-  { href: "/suppliers", label: "Suppliers", icon: Building2, perm: "customer.view", feature: "suppliers" },
   { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users" },
   { href: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
   { href: "/audit", label: "Audit Logs", icon: ScrollText, perm: "audit.view", feature: "audit" },

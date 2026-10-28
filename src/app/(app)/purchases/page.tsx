@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Minus, Plus, Search, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, Trash2, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
@@ -11,18 +10,18 @@ import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 import { PageHeader } from "@/components/PageHeader";
+import { NewSupplierModal, SupplierList, type Supplier, type SupplierTotals } from "@/components/SupplierList";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
 
 interface Purchase {
   id: string; txnNo: string; date: string; total: string; paidAmount: string;
-  paymentStatus: string; status: string; supplierName?: string; createdAt: string;
+  paymentStatus: string; status: string; supplierId?: string | null; supplierName?: string; createdAt: string;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
 interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-interface Contact { id: string; name: string; type: string }
 /** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
 /** foc: given free by the supplier with the order — stock comes in at no cost. */
 /** expiresAt: the best-before printed on this delivery (a mini mart); it becomes the item's. */
@@ -36,13 +35,21 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[] | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [suppliers, setSuppliers] = useState<Contact[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [showNew, setShowNew] = useNewModal();
   const [cancelTarget, setCancelTarget] = useState<Purchase | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
-  const { hasPerm, defaultBranchId, phoneShop } = useAuth();
+  const { hasPerm, defaultBranchId, phoneShop, featureEnabled } = useAuth();
+  // Suppliers live here, beside what was bought from them: a tab of their own, a supplier's
+  // purchases one tap away, and a new supplier added from the purchase form itself.
+  const canSuppliers = featureEnabled("suppliers") && hasPerm("customer.view");
+  const [tab, setTab] = useState<"purchases" | "suppliers">("purchases");
+  // The supplier whose purchases are shown (by id, so a link with ?supplier= works before the
+  // supplier list has loaded).
+  const [supplierFilterId, setSupplierFilterId] = useState("");
+  const [newSupplier, setNewSupplier] = useState(false);
 
   const [lines, setLines] = useState<Line[]>([]);
   const [form, setForm] = useState(blankForm);
@@ -55,10 +62,36 @@ export default function PurchasesPage() {
       .catch((e) => push(e.message, "error"));
     api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1").then((d) => setItems(d.items)).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-    api<{ contacts: Contact[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200")
+    api<{ contacts: Supplier[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200")
       .then((d) => setSuppliers(d.contacts)).catch(() => {});
   }, [push]);
   useEffect(load, [load]);
+
+  // ?tab=suppliers (the old Suppliers page lands here), ?supplier=<id> (a supplier's purchases),
+  // and ?newSupplier=1. Read once from the URL, like useNewModal, so the page stays static.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("tab") === "suppliers") setTab("suppliers");
+      if (sp.get("newSupplier") === "1") setNewSupplier(true);
+      setSupplierFilterId(sp.get("supplier") ?? "");
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+  const supplierFilter = suppliers.find((x) => x.id === supplierFilterId) ?? null;
+
+  const supplierTotals = useMemo(() => {
+    const m = new Map<string, SupplierTotals>();
+    for (const p of purchases ?? []) {
+      if (!p.supplierId || p.status === "CANCELLED") continue;
+      const t = m.get(p.supplierId) ?? { count: 0, total: 0n, unpaid: 0n };
+      const total = BigInt(p.total);
+      const left = total - BigInt(p.paidAmount);
+      m.set(p.supplierId, { count: t.count + 1, total: t.total + total, unpaid: t.unpaid + (left > 0n ? left : 0n) });
+    }
+    return m;
+  }, [purchases]);
+  const shownPurchases = (purchases ?? []).filter((p) => !supplierFilterId || p.supplierId === supplierFilterId);
 
   const mmkWallets = wallets.filter((w) => w.currency === "MMK");
   // The first cash wallet is picked until the user chooses another, also when the form opens from ?new=1.
@@ -78,8 +111,8 @@ export default function PurchasesPage() {
   const paid = payMode === "full" ? total : payMode === "none" ? 0 : Math.min(num(form.partPaid), total);
   const unpaid = total - paid;
 
-  function openNew() {
-    setLines([]); setForm(blankForm); setPayMode("full"); setQuery("");
+  function openNew(supplier?: Supplier) {
+    setLines([]); setForm({ ...blankForm, supplierId: supplier?.id ?? "" }); setPayMode("full"); setQuery("");
     setShowNew(true);
   }
 
@@ -196,22 +229,69 @@ export default function PurchasesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
-      <PageHeader title={<>Purchases</>}>
-        {hasPerm("purchase.create") && (
-          <Button onClick={openNew}><Plus size={16} className="mr-1 inline" />New purchase</Button>
+      <PageHeader
+        title={<>Purchases</>}
+        lead={canSuppliers && (
+          <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+            {([["purchases", "Purchases"], ["suppliers", "Suppliers"]] as const).map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-md px-3 py-1 text-sm font-medium", tab === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                {label}
+                {k === "suppliers" && <span className="ml-1.5 text-xs tabular-nums text-gray-400">{suppliers.length}</span>}
+              </button>
+            ))}
+          </div>
         )}
+      >
+        <div className="flex flex-wrap gap-1.5">
+          {tab === "suppliers" && hasPerm("customer.manage") && (
+            <Button variant={hasPerm("purchase.create") ? "secondary" : "primary"} onClick={() => setNewSupplier(true)}><Plus size={16} className="mr-1 inline" />New supplier</Button>
+          )}
+          {hasPerm("purchase.create") && (
+            <Button onClick={() => openNew(tab === "purchases" ? supplierFilter ?? undefined : undefined)}><Plus size={16} className="mr-1 inline" />New purchase</Button>
+          )}
+        </div>
       </PageHeader>
 
-      {purchases.length === 0 ? (
-        <Card><Empty message="No purchases yet" /></Card>
+      {tab === "suppliers" ? (
+        <SupplierList
+          suppliers={suppliers}
+          totals={supplierTotals}
+          onShowPurchases={(sup) => { setSupplierFilterId(sup.id); setTab("purchases"); }}
+          onNewPurchase={hasPerm("purchase.create") ? (sup) => openNew(sup) : undefined}
+        />
+      ) : (<>
+      {supplierFilter && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-600 py-1 pl-3 pr-1 font-medium text-white">
+            {supplierFilter.name}
+            <button type="button" aria-label="Show all suppliers" onClick={() => setSupplierFilterId("")} className="rounded-full p-0.5 hover:bg-white/20"><X size={14} /></button>
+          </span>
+          {(() => {
+            const t = supplierTotals.get(supplierFilter.id);
+            return t && (
+              <span className="text-gray-500">
+                {`Bought ${fmtMoney(t.total.toString())}`}
+                {t.unpaid > 0n && <> · <b className="text-amber-600">{`Unpaid ${fmtMoney(t.unpaid.toString())}`}</b></>}
+              </span>
+            );
+          })()}
+        </div>
+      )}
+
+      {shownPurchases.length === 0 ? (
+        <Card><Empty message={supplierFilter ? "No purchases from this supplier yet" : "No purchases yet"} /></Card>
       ) : (
-        <Paginated rows={purchases} resetKey={""}>{(pageRows) => (
+        <Paginated rows={shownPurchases} resetKey={supplierFilterId}>{(pageRows) => (
         <Table headers={["Txn", "Date", "Supplier", "Items", "Total", "Paid", "Status", ""]} rightAlign={[4, 5]}>
           {pageRows.map((p) => (
             <tr key={p.id} className={p.status === "CANCELLED" ? "opacity-50" : ""}>
               <td className="px-3 py-2 text-xs">{p.txnNo}</td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
-              <td className="px-3 py-2">{p.supplierName ?? "—"}</td>
+              <td className="px-3 py-2">
+                {p.supplierId && p.supplierName ? (
+                  <button type="button" className="text-left text-blue-600 hover:underline" onClick={() => setSupplierFilterId(p.supplierId!)}>{p.supplierName}</button>
+                ) : (p.supplierName ?? "—")}
+              </td>
               <td className="max-w-md px-3 py-2 text-xs">
                 {(() => {
                   const names = p.lines.map((l) => `${l.item.name}×${l.quantity}${BigInt(l.unitCost) === 0n ? " (FOC)" : ""}`);
@@ -243,6 +323,7 @@ export default function PurchasesPage() {
         </Table>
         )}</Paginated>
       )}
+      </>)}
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New purchase" wide>
         <div className="space-y-4">
@@ -251,11 +332,10 @@ export default function PurchasesPage() {
               <option value="">No supplier</option>
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
-            {suppliers.length === 0 && (
-              <p className="mt-1 text-xs text-gray-500">
-                No suppliers yet.{" "}
-                <Link href="/suppliers?new=1" className="font-semibold text-blue-600 underline">Add one</Link>
-              </p>
+            {hasPerm("customer.manage") && (
+              <button type="button" onClick={() => setNewSupplier(true)} className="mt-1 text-xs font-semibold text-blue-600 hover:underline">
+                + New supplier
+              </button>
             )}
           </div>
 
@@ -470,6 +550,18 @@ export default function PurchasesPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Last, so it opens over the purchase form when added from there. */}
+      <NewSupplierModal
+        open={newSupplier}
+        onClose={() => setNewSupplier(false)}
+        onCreated={(sup) => {
+          setNewSupplier(false);
+          setSuppliers((list) => [...list, sup].sort((a, b) => a.name.localeCompare(b.name)));
+          // Added from the purchase form: that purchase is from them.
+          if (showNew) setForm((f) => ({ ...f, supplierId: sup.id }));
+        }}
+      />
     </div>
   );
 }
