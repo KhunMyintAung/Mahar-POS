@@ -169,6 +169,8 @@ const blankForm = {
   accessories: "", problem: "", intakeCondition: "", priority: "NORMAL",
   estimatedCost: "", depositAmount: "", depositWalletId: "",
   promisedAt: "", notes: "", technicianName: "",
+  /** Only used when editing: the status to move the job to on save. */
+  status: "",
 };
 
 /** Brand and model with typos mended once the field is left ("iphne 12promax" → iPhone, 12 Pro Max). */
@@ -370,6 +372,7 @@ export default function RepairsPage() {
       promisedAt: job.promisedAt ? job.promisedAt.slice(0, 10) : "",
       notes: job.notes ?? "",
       technicianName: job.technicianName ?? "",
+      status: job.status,
     });
   }
 
@@ -395,10 +398,13 @@ export default function RepairsPage() {
           technicianName: edit.technicianName,
         },
       });
-      if (edit.technicianName && STARTS_WORK.includes(editing.status)) {
-        await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: "IN_PROGRESS" } }).catch(() => {});
-      }
+      // A status picked here wins; otherwise giving the job to a technician starts the work.
+      const to = edit.status !== editing.status ? edit.status
+        : edit.technicianName && STARTS_WORK.includes(editing.status) ? "IN_PROGRESS" : "";
       setEditing(null);
+      // Handing the device back takes the balance, so that goes on to the full form.
+      if (to === "DELIVERED") startMove(editing, to);
+      else if (to) await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: to } }).catch((e) => push(e instanceof Error ? e.message : "Failed", "error"));
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -719,6 +725,9 @@ export default function RepairsPage() {
               <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
+              <Select label="Status" value={edit.status} disabled={nextStatuses(editing.status).length === 0} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                {[editing.status as RepairStatus, ...nextStatuses(editing.status)].map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s] ?? s}</option>)}
+              </Select>
               <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </Select>
