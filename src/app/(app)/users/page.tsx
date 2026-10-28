@@ -35,7 +35,14 @@ export default function UsersPage() {
   const load = useCallback(() => {
     api<User[]>("/api/v1/users").then(setUsers).catch((e) => push(e.message, "error"));
     api<{ roles: Role[]; allPermissions: string[] }>("/api/v1/roles")
-      .then((d) => { setRoles(d.roles); setAllPerms(d.allPermissions); })
+      .then((d) => {
+        setRoles(d.roles);
+        setAllPerms(d.allPermissions);
+        // "Add a Service Tech" in Repairs lands on ?new=1&role=Service Tech: that role comes picked.
+        const wanted = new URLSearchParams(window.location.search).get("role");
+        const role = wanted && d.roles.find((r) => r.name === wanted);
+        if (role) setUform((f) => (f.roleId ? f : { ...f, roleId: role.id }));
+      })
       .catch(() => {});
   }, [push]);
   useEffect(load, [load]);

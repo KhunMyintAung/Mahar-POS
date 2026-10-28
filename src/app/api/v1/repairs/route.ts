@@ -39,7 +39,8 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const month = monthParam && isValidMonth(monthParam) ? monthParam : todayBusinessDate().slice(0, 7);
   const where = {
     ...scope,
-    ...(status ? { status } : {}),
+    // "WORKING" is every status still on the bench, the Working count on the page.
+    ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } } : status ? { status } : {}),
     ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
     ...(q
       ? {

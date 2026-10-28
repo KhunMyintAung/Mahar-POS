@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Printer, Search, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Search, ShieldCheck } from "lucide-react";
+import { addDays, todayBusinessDate } from "@/lib/dates";
 import { WarrantyCardDialog } from "@/components/WarrantyCard";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
@@ -31,6 +32,8 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[] | null>(null);
   const [totals, setTotals] = useState({ amount: "0", profit: "0" });
   const [q, setQ] = useState("");
+  // One day at a time, today first. A search looks across every day, so an old voucher is found.
+  const [date, setDate] = useState(() => todayBusinessDate());
   const [cancelTarget, setCancelTarget] = useState<Sale | null>(null);
   const [reason, setReason] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -43,10 +46,11 @@ export default function SalesPage() {
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "1000" });
     if (q.trim()) params.set("q", q.trim());
+    else if (date) params.set("date", date);
     api<{ sales: Sale[]; totals: { amount: string; profit: string } }>(`/api/v1/sales?${params}`)
       .then((d) => { setSales(d.sales); setTotals(d.totals); })
       .catch((e) => push(e.message, "error"));
-  }, [push, q]);
+  }, [push, q, date]);
   useEffect(load, [load]);
 
   async function cancel() {
@@ -110,10 +114,18 @@ export default function SalesPage() {
         title={<>Sale History</>}
         lead={
           <>
-            <label className="relative min-w-0 flex-1 sm:max-w-sm">
+            <label className="relative min-w-0 basis-full sm:max-w-sm sm:flex-1 sm:basis-auto">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by transaction no" className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm pl-9" />
             </label>
+            <div className={`flex shrink-0 items-center gap-1 ${q.trim() ? "opacity-40" : ""}`} title={q.trim() ? "Searching every day" : undefined}>
+              <button type="button" aria-label="Day before" onClick={() => setDate((d) => addDays(d || todayBusinessDate(), -1))} className="flex h-9 w-8 items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700"><ChevronLeft size={16} /></button>
+              <input type="date" aria-label="Day" value={date} max={todayBusinessDate()} onChange={(e) => setDate(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800" />
+              <button type="button" aria-label="Next day" disabled={date >= todayBusinessDate()} onClick={() => setDate((d) => addDays(d, 1))} className="flex h-9 w-8 items-center justify-center rounded-lg border border-gray-300 disabled:opacity-40 dark:border-gray-700"><ChevronRight size={16} /></button>
+              {date !== todayBusinessDate() && (
+                <button type="button" onClick={() => setDate(todayBusinessDate())} className="whitespace-nowrap rounded-lg px-2 text-sm font-medium text-blue-600 hover:underline">Today</button>
+              )}
+            </div>
             <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
               <span className="whitespace-nowrap"><span>Total sales</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(totals.amount, "MMK")}</b></span>
               <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, "MMK")}</b></span>
@@ -123,9 +135,9 @@ export default function SalesPage() {
       />
 
       {sales.length === 0 ? (
-        <Card><Empty message="No sales yet — open the POS to make the first sale" /></Card>
+        <Card><Empty message={q.trim() ? "No sale matches that search" : "No sales on this day"} /></Card>
       ) : (
-        <Paginated rows={sales} resetKey={q}>{(pageRows) => (
+        <Paginated rows={sales} resetKey={[q, date]}>{(pageRows) => (
         <Table headers={["Txn", "Date", "Customer", "Items", "Total", "Paid", "Profit", "Status", ""]} rightAlign={[4, 5, 6]}>
           {pageRows.map((s) => (
             <tr key={s.id} className={s.status === "CANCELLED" ? "opacity-50" : ""}>

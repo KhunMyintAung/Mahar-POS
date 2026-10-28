@@ -16,6 +16,42 @@ import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 import { PageHeader } from "@/components/PageHeader";
 import { RepairTabs } from "@/components/RepairTabs";
+import Link from "next/link";
+
+/** Who repairs it: picked from the users with the Service Tech role. With none yet, a link to
+ *  add one (for whoever can manage users). A name kept from before that is no longer a Service
+ *  Tech stays as an option, so editing the job does not drop it. */
+function TechnicianPicker({ techs, value, onChange, canAddUser }: {
+  techs: { id: string; name: string }[] | null; value: string; onChange: (name: string) => void; canAddUser: boolean;
+}) {
+  if (techs && techs.length === 0 && !value) {
+    return (
+      <div>
+        <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Technician</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 dark:border-gray-700">
+          <span>No Service Tech user yet.</span>
+          {canAddUser ? (
+            <Link href="/users?new=1&role=Service%20Tech" className="font-medium text-blue-600 hover:underline">+ Add a Service Tech</Link>
+          ) : (
+            <span>Ask the owner to add one.</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+  const names = (techs ?? []).map((t) => t.name);
+  return (
+    <Select label="Technician" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Not given yet</option>
+      {value && !names.includes(value) && <option value={value}>{value}</option>}
+      {names.map((n) => <option key={n} value={n}>{n}</option>)}
+    </Select>
+  );
+}
+
+/** A job given to a technician is being worked on: one only taken in or being checked moves
+ *  to In Progress (through the normal status change, so it is logged and Telegram hears). */
+const STARTS_WORK = ["RECEIVED", "CHECKING"];
 
 interface Job {
   id: string; jobNo: string; status: string; priority: string;
@@ -152,10 +188,10 @@ export default function RepairsPage() {
   const [showNew, setShowNew] = useNewModal();
   const [showOptional, setShowOptional] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestions>({ brands: [], pairs: [] });
-  // Technician names to offer: those used before, and the shop's users.
-  const [technicians, setTechnicians] = useState<string[]>([]);
+  // The Service Tech users a job can be given to.
+  const [technicians, setTechnicians] = useState<{ id: string; name: string }[] | null>(null);
   useEffect(() => {
-    api<{ suggestions: string[] }>("/api/v1/repairs/technicians").then((d) => setTechnicians(d.suggestions)).catch(() => {});
+    api<{ serviceTechs: { id: string; name: string }[] }>("/api/v1/repairs/technicians").then((d) => setTechnicians(d.serviceTechs)).catch(() => {});
   }, []);
   const [busy, setBusy] = useState(false);
   const [quickSaving, setQuickSaving] = useState<string | null>(null);
@@ -254,6 +290,10 @@ export default function RepairsPage() {
           technicianName: form.technicianName || undefined,
         },
       });
+      if (form.technicianName && STARTS_WORK.includes(job.status)) {
+        await api(`/api/v1/repairs/${job.id}`, { method: "PATCH", body: { status: "IN_PROGRESS" } }).catch(() => {});
+        job.status = "IN_PROGRESS";
+      }
       push("Repair job created");
       setShowNew(false);
       setShowOptional(false);
@@ -355,6 +395,9 @@ export default function RepairsPage() {
           technicianName: edit.technicianName,
         },
       });
+      if (edit.technicianName && STARTS_WORK.includes(editing.status)) {
+        await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: "IN_PROGRESS" } }).catch(() => {});
+      }
       setEditing(null);
       load();
     } catch (e) {
@@ -431,19 +474,21 @@ export default function RepairsPage() {
         title={<RepairTabs />}
         lead={
           <>
-            <label className="relative min-w-0 flex-1">
+            <label className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Voucher no, customer, phone, brand, model or IMEI" className="min-h-9 w-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm pl-9" />
             </label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 w-40">
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 flex-1 sm:w-40 sm:flex-none">
               <option value="">All statuses</option>
+              <option value="WORKING">Working (all in work)</option>
               {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </select>
           </>
         }
       >
         {hasPerm("repair.create") && (
-          <Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button>
+          // A phone has the floating + for this, so the search gets the whole row there.
+          <span className="hidden sm:contents"><Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button></span>
         )}
       </PageHeader>
 
@@ -451,16 +496,15 @@ export default function RepairsPage() {
       <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">
         {[
           { label: "Total", value: summary.total, icon: Wrench, tone: "text-blue-600", status: "" },
-          { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: null },
+          { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: "WORKING" },
           { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "DONE" },
           { label: "Delivered", value: summary.delivered, icon: PackageCheck, tone: "text-purple-600", status: "DELIVERED" },
         ].map(({ label, value, icon: Icon, tone, status: to }) => (
           <button
             key={label}
             type="button"
-            disabled={to === null}
-            onClick={() => to !== null && setStatus(to)}
-            className="min-w-0 flex-1 border-r border-gray-200 px-1 py-1.5 hover:bg-gray-50 disabled:hover:bg-transparent dark:border-gray-800 dark:hover:bg-gray-800"
+            onClick={() => setStatus(to)}
+            className={cn("min-w-0 flex-1 border-r border-gray-200 px-1 py-1.5 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800", status === to && to !== "" && "bg-gray-100 dark:bg-gray-800")}
           >
             <div className={cn("flex items-center justify-center gap-1 text-base font-bold tabular-nums", tone)}>
               <Icon size={14} />{value}
@@ -566,9 +610,6 @@ export default function RepairsPage() {
       )}
 
       {/* Shared by the intake and edit forms. */}
-      <datalist id="repair-technicians">
-        {technicians.map((t) => <option key={t} value={t} />)}
-      </datalist>
       <datalist id="repair-brand-suggestions">
         {suggestions.brands.map((b) => <option key={b} value={b} />)}
       </datalist>
@@ -587,7 +628,7 @@ export default function RepairsPage() {
             <Input label="Deposit taken" value={form.depositAmount} onChange={(e) => setForm({ ...form, depositAmount: e.target.value })} placeholder="0" />
           </div>
           <Input label="Problem" value={form.problem} onChange={(e) => setForm({ ...form, problem: e.target.value })} placeholder="Screen cracked, no display" />
-          <Input label="Technician" list="repair-technicians" autoComplete="off" value={form.technicianName} onChange={(e) => setForm({ ...form, technicianName: e.target.value })} placeholder="Who repairs it" />
+          <TechnicianPicker techs={technicians} value={form.technicianName} onChange={(technicianName) => setForm({ ...form, technicianName })} canAddUser={hasPerm("users.manage")} />
           {Number(form.depositAmount) > 0 && (
             <Select label="Deposit went into" value={form.depositWalletId} onChange={(e) => setForm({ ...form, depositWalletId: e.target.value })}>
               <option value="">Choose…</option>
@@ -683,7 +724,7 @@ export default function RepairsPage() {
               </Select>
             </div>
             <Input label="Problem" value={edit.problem} onChange={(e) => setEdit({ ...edit, problem: e.target.value })} />
-            <Input label="Technician" list="repair-technicians" autoComplete="off" value={edit.technicianName} onChange={(e) => setEdit({ ...edit, technicianName: e.target.value })} placeholder="Who repairs it" />
+            <TechnicianPicker techs={technicians} value={edit.technicianName} onChange={(technicianName) => setEdit({ ...edit, technicianName })} canAddUser={hasPerm("users.manage")} />
             <Input label="Intake condition" value={edit.intakeCondition} onChange={(e) => setEdit({ ...edit, intakeCondition: e.target.value })} />
             <Input label="Came in with" value={edit.accessories} onChange={(e) => setEdit({ ...edit, accessories: e.target.value })} />
             <div className="grid gap-3 sm:grid-cols-2">

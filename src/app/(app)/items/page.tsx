@@ -27,6 +27,20 @@ interface Item {
   /** Variants: the model this item belongs to, and what sets it apart. */
   model?: string | null; variant?: string | null;
 }
+/** A soft tint for a stock count, so empty, running-low and healthy stock read at a glance:
+ *  none left is red, at or under the minimum (or 2 when none is set) is amber, a few is
+ *  plain, and plenty is green. */
+function qtyTone(qty: number, minStock: number) {
+  const low = Math.max(minStock, 2);
+  if (qty <= 0) return "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+  if (qty <= low) return "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  if (qty < low * 3) return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200";
+  return "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+}
+const QtyPill = ({ qty, minStock }: { qty: number; minStock: number }) => (
+  <span className={cn("inline-block min-w-8 rounded-md px-1.5 py-0.5 text-center", qtyTone(qty, minStock))}>{qty}</span>
+);
+
 interface Meta { categories: { id: string; name: string }[]; units: { id: string; name: string }[] }
 
 export default function ItemsPage() {
@@ -342,7 +356,7 @@ export default function ItemsPage() {
                   {g.model}
                   <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants`}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{stockAll}</td>
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums"><QtyPill qty={stockAll} minStock={Math.max(...g.items.map((it) => it.minStock))} /></td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].category?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].unit?.name ?? "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{range((it) => it.costPrice)}</td>
@@ -370,8 +384,8 @@ export default function ItemsPage() {
                   {it.trackSerial && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
-                <td className={cn("px-3 py-2.5 text-right font-semibold tabular-nums", it.minStock > 0 && qty < it.minStock && "text-red-600")}>
-                  {qty}
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
+                  <QtyPill qty={qty} minStock={it.minStock} />
                 </td>
                 <td className="px-3 py-2.5 text-xs">{it.category?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>

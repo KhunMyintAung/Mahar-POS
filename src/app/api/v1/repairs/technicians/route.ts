@@ -8,14 +8,14 @@ const REPAIRED = ["DONE", "DELIVERED"];
 /** How each technician did in a month (?month=YYYY-MM, this month by default): repairs taken
  *  in, repaired, could not repair, and still in work now; what the repaired ones charged, the
  *  parts they used and what is left; and the days a repair took on average. Counted by the
- *  name on the job, so a technician with no login counts too. Also the names to suggest. */
+ *  name on the job, so a technician with no login counts too. Also the Service Tech users a repair can be given to. */
 export const GET = withAuth("repair.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
   const month = isValidMonth(sp.get("month") ?? "") ? sp.get("month")! : todayBusinessDate().slice(0, 7);
   const range = monthRangeUtc(month);
   const businessId = user.businessId;
 
-  const [jobs, users, named] = await Promise.all([
+  const [jobs, techs] = await Promise.all([
     prisma.repairJob.findMany({
       where: {
         businessId, deletedAt: null,
@@ -23,8 +23,12 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       },
       select: { technicianName: true, status: true, receivedAt: true, completedAt: true, finalCost: true, partsCost: true },
     }),
-    prisma.user.findMany({ where: { businessId, deletedAt: null }, select: { name: true }, orderBy: { name: "asc" } }),
-    prisma.repairJob.groupBy({ by: ["technicianName"], where: { businessId, deletedAt: null, technicianName: { not: null } } }),
+    // Only users with the Service Tech role can be picked as a repair's technician.
+    prisma.user.findMany({
+      where: { businessId, deletedAt: null, active: true, role: { name: "Service Tech" } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const inMonth = (d: Date | null) => Boolean(d && d >= range.gte && d < range.lt);
@@ -61,6 +65,5 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
     // The busiest first; jobs with no technician last.
     .sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1) || b.repaired - a.repaired || b.takenIn - a.takenIn || a.name.localeCompare(b.name));
 
-  const suggestions = [...new Set([...named.map((n) => n.technicianName!.trim()), ...users.map((u) => u.name)])].filter(Boolean).sort();
-  return json({ month, technicians, suggestions });
+  return json({ month, technicians, serviceTechs: techs });
 });

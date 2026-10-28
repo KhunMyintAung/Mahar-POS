@@ -1257,6 +1257,15 @@ const MM: Record<string, string> = {
   "Hide variants": "အမျိုးအစားခွဲ ပိတ်မည်",
   "Suggested": "အကြံပြု",
   "Search name, SKU, IMEI or barcode…": "နာမည်၊ SKU၊ IMEI သို့ Barcode ရှာရန်…",
+  "No Service Tech user yet.": "Service Tech အသုံးပြုသူ မရှိသေးပါ။",
+  "+ Add a Service Tech": "+ ပြင်ဆရာ ထည့်မည်",
+  "Ask the owner to add one.": "ဆိုင်ပိုင်ရှင်ကို ထည့်ခိုင်းပါ။",
+  "Not given yet": "မသတ်မှတ်ရသေး",
+  "Working (all in work)": "ပြင်ဆဲ (အားလုံး)",
+  "Day before": "အရင်နေ့",
+  "Searching every day": "နေ့အားလုံးမှ ရှာနေသည်",
+  "No sale matches that search": "ရှာသည့်အရောင်း မတွေ့ပါ",
+  "No sales on this day": "ဒီနေ့ အရောင်း မရှိပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
