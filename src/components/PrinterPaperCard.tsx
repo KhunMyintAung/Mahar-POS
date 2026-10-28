@@ -11,7 +11,7 @@ import { getPaperWidth, setPaperWidth, type PaperWidth } from "@/lib/printSettin
  *  that shows whether the print reaches both edges. */
 export function PrinterPaperCard() {
   const [width, setWidth] = useState<PaperWidth>(58);
-  const { me } = useAuth();
+  const { me, phoneShop } = useAuth();
   const { push } = useToast();
 
   // Read after mount: the choice lives in this browser, which the server cannot see.
@@ -30,7 +30,7 @@ export function PrinterPaperCard() {
     <Card className="space-y-3">
       <div>
         <h3 className="text-sm font-semibold">Receipt printer paper</h3>
-        <p className="mt-1 text-xs text-gray-500">For the printer on this device. Every voucher, receipt and warranty card is sized to it.</p>
+        <p className="mt-1 text-xs text-gray-500">{phoneShop ? "For the printer on this device. Every voucher, receipt and warranty card is sized to it." : "For the printer on this device. Every receipt is sized to it."}</p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {([58, 80] as const).map((w) => (

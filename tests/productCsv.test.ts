@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProductCsv, readAmount, splitCsvLine } from "@/lib/productCsv";
+import { parseProductCsv, readAmount, readDate, splitCsvLine } from "@/lib/productCsv";
 import { skuCandidate, skuPrefix, generateSku } from "@/lib/sku";
 
 describe("splitCsvLine", () => {
@@ -140,5 +140,22 @@ describe("unit column in an import", () => {
 
   it("leaves the unit empty when the file has none", () => {
     expect(parseProductCsv("name,price\nCable,3000").products[0].unit).toBe("");
+  });
+});
+
+describe("expiry column in an import", () => {
+  it("reads the dates a shop writes, day first", () => {
+    expect(readDate("2026-12-31")).toBe("2026-12-31");
+    expect(readDate("31/12/2026")).toBe("2026-12-31");
+    expect(readDate("5.1.2027")).toBe("2027-01-05");
+    expect(readDate("")).toBe("");
+  });
+
+  it("rejects a date that is not a real day", () => {
+    expect(readDate("31/02/2026")).toBeNull();
+    expect(readDate("soon")).toBeNull();
+    const { products, rejected } = parseProductCsv("name,expiry\nMilk,next week\nBread,2026-11-05\nSoap,");
+    expect(rejected.map((r) => r.row)).toEqual([2]);
+    expect(products.map((p) => p.expiresAt)).toEqual(["2026-11-05", null]);
   });
 });

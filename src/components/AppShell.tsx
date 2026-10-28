@@ -16,7 +16,7 @@ import { ToastProvider, cn } from "./ui";
 import { PwaInstall } from "./PwaInstall";
 import { SoundToggle } from "./SoundToggle";
 import { LanguageSwitch } from "./LanguageProvider";
-import type { FeatureKey, FeatureVisibility, ModuleMode } from "@/lib/modules";
+import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
 
@@ -47,6 +47,8 @@ const AuthCtx = createContext<{
   walletsEnabled: boolean;
   moduleMode: ModuleMode;
   featureEnabled: (feature: FeatureKey) => boolean;
+  /** Phone names, brands, IMEIs and warranties apply (not in a mini mart). */
+  phoneShop: boolean;
   playEdition: boolean;
   refreshAuth: () => Promise<void>;
 }>({
@@ -58,6 +60,7 @@ const AuthCtx = createContext<{
   walletsEnabled: true,
   moduleMode: "WALLET_ONLY",
   featureEnabled: () => false,
+  phoneShop: false,
   playEdition: false,
   refreshAuth: async () => {},
 });
@@ -273,6 +276,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         walletsEnabled,
         moduleMode: me.modules.mode,
         featureEnabled,
+        phoneShop: isPhoneShop(me.modules),
         playEdition,
         refreshAuth,
       }}

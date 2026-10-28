@@ -3,17 +3,19 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { ensureStandardCategories } from "@/lib/incomeCategories";
+import { ensureStandardCategories, hiddenStandardKeys } from "@/lib/incomeCategories";
+import { loadModuleAccess } from "@/lib/moduleAccess";
 
 export const GET = withAuth("income_expense.view", async ({ req, user }) => {
   const type = req.nextUrl.searchParams.get("type") ?? undefined;
   // Every shop has the eight standard daily categories; one opened before they existed gets
   // them the first time the list is read.
   await prisma.$transaction((tx) => ensureStandardCategories(tx, user.businessId));
-  const categories = await prisma.category.findMany({
+  const hidden: (string | null)[] = hiddenStandardKeys((await loadModuleAccess(user.businessId)).features);
+  const categories = (await prisma.category.findMany({
     where: { businessId: user.businessId, active: true, ...(type ? { type } : {}) },
     orderBy: { name: "asc" },
-  });
+  })).filter((c) => !hidden.includes(c.systemKey));
   // The standard ones first, in their set order, then the shop's own A to Z.
   const order = ["DAILY_SERVICE", "DAILY_SALE", "DAILY_BILL", "DAILY_GENERAL"];
   categories.sort((a, b) => {

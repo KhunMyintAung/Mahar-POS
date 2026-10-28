@@ -6,6 +6,9 @@ import { generateSku } from "@/lib/sku";
 import { audit } from "@/lib/audit";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { isPhoneCategory } from "@/lib/itemCategoryPresets";
+import { loadModuleAccess } from "@/lib/moduleAccess";
+import { isPhoneShop } from "@/lib/modules";
+import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -43,8 +46,7 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
 });
 
 const schema = z.object({
-  // Brand and model words put right ("samsng a15" → "Samsung A15"); the rest kept as typed.
-  name: z.string().min(1).transform(autoCorrectName),
+  name: z.string().trim().min(1),
   // Optional: a counter that does not keep product codes should not have to invent
   // one to save an item. Left empty, one is generated from the name.
   sku: z.string().optional(),
@@ -56,14 +58,24 @@ const schema = z.object({
   minStock: z.number().int().min(0).default(0),
   description: z.string().optional(),
   /** Variants: the model it belongs to ("iPhone 13") and what sets it apart ("128GB · Blue"). */
-  model: z.string().trim().max(120).transform(autoCorrectName).optional(),
+  model: z.string().trim().max(120).optional(),
   variant: z.string().trim().max(80).optional(),
-  /** Keep an IMEI per unit. Left out, it is on for phones (Phone New / Phone Second). */
+  /** Keep an IMEI per unit. Left out, it is on for a phone shop's phones (Phone New / Phone Second). */
   trackSerial: z.boolean().optional(),
+  /** Best before (YYYY-MM-DD), for food and medicine; empty for none. */
+  expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).optional(),
 });
 
 export const POST = withAuth("item.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
+  // A phone shop's brand and model words are put right ("samsng a15" → "Samsung A15"); a
+  // mini mart's names are kept as typed, so "500g" or "Mini" is not made a phone word.
+  const phoneShop = isPhoneShop(await loadModuleAccess(user.businessId));
+  if (phoneShop) {
+    body.name = autoCorrectName(body.name);
+    if (body.model) body.model = autoCorrectName(body.model);
+  }
+  const expiresAt = expiryDate(body.expiresAt);
 
   const given = body.sku?.trim();
   const sku = given
@@ -117,7 +129,8 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         description: body.description,
         model: body.model || null,
         variant: body.model ? body.variant || null : null,
-        trackSerial: body.trackSerial ?? isPhoneCategory(categoryName),
+        trackSerial: body.trackSerial ?? (phoneShop && isPhoneCategory(categoryName)),
+        expiresAt,
       },
     });
     await audit(tx, {

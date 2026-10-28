@@ -206,3 +206,11 @@ export function moduleSettingForCategory(category: BusinessCategory) {
 export function moduleSettingFromFeatures(features: FeatureVisibility, category: BusinessCategory | "CUSTOM" = "CUSTOM") {
   return moduleSetting(modeForFeatures(features), features, category);
 }
+
+/** A shop that sells and repairs phones, so phone names, brands, IMEIs and warranties apply.
+ *  A mini mart gets none of it, even with Top-up Billers or Repair switched on; a shop from
+ *  before categories (CUSTOM) counts as one when it runs Repair. */
+export function isPhoneShop(access: { category: string; features: FeatureVisibility }): boolean {
+  if (access.category === "MOBILE_SHOP" || access.category === "ALL_IN_ONE") return true;
+  return access.category === "CUSTOM" && access.features.repair;
+}

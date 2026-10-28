@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { withAuth, json, parseBody, pagination } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
 import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
@@ -46,6 +47,8 @@ const lineSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.string().min(1),
   imeis: z.array(z.string().trim().max(40)).max(500).optional(),
+  /** Best before on this delivery (YYYY-MM-DD); it becomes the item's expiry date. */
+  expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).optional(),
 });
 
 const schema = z.object({
@@ -65,8 +68,8 @@ export const POST = withAuth("purchase.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   await assertBranchAccess(user, body.branchId);
 
-  const purchase = await prisma.$transaction(async (tx) =>
-    createPurchase(tx, {
+  const purchase = await prisma.$transaction(async (tx) => {
+    const created = await createPurchase(tx, {
       businessId: user.businessId,
       branchId: body.branchId,
       userId: user.id,
@@ -79,7 +82,13 @@ export const POST = withAuth("purchase.create", async ({ req, user }) => {
       dueDate: body.dueDate,
       reference: body.reference,
       notes: body.notes,
-    })
-  );
+    });
+    // A new delivery brings its own best-before date, which is the one now on the shelf.
+    for (const l of body.lines) {
+      const expiresAt = expiryDate(l.expiresAt);
+      if (expiresAt) await tx.item.updateMany({ where: { id: l.itemId, businessId: user.businessId }, data: { expiresAt } });
+    }
+    return created;
+  });
   return json(purchase, { status: 201 });
 });

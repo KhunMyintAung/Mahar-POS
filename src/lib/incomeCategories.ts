@@ -49,3 +49,10 @@ export async function ensureStandardCategories(tx: Tx, businessId: string) {
     }
   }
 }
+
+/** Standard categories a shop is not offered: Service is repair money and Bill is top-up
+ *  money, so a shop without Repair or Top-up Billers (a mini mart) does not see them. They
+ *  stay in its data, and come back with their entries if the part is turned on. */
+export function hiddenStandardKeys(features: { repair: boolean; biller: boolean }): StandardKey[] {
+  return [...(features.repair ? [] : ["DAILY_SERVICE" as const]), ...(features.biller ? [] : ["DAILY_BILL" as const])];
+}

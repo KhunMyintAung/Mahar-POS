@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { businessDateOf, dateRangeUtc } from "@/lib/dates";
 import { bucketForKey } from "@/lib/incomeCategories";
-import { parseModuleAccess } from "@/lib/modules";
+import { isPhoneShop, type FeatureVisibility } from "@/lib/modules";
+import { loadModuleAccess } from "@/lib/moduleAccess";
 
 /** The business report for any period: a day, a month, a year or a range.
  *
@@ -129,10 +130,7 @@ export interface Distribution {
  *  mart without Repair or Top-up Billers has no Service or Top-up columns. */
 export interface ReportSections { sales: boolean; service: boolean; topup: boolean }
 
-export async function loadReportSections(businessId: string): Promise<ReportSections> {
-  const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: "modules" } } });
-  let features;
-  try { features = parseModuleAccess(row ? JSON.parse(row.value) : undefined).features; } catch { features = parseModuleAccess(undefined).features; }
+function sectionsFor(features: FeatureVisibility): ReportSections {
   return { sales: features.pos, service: features.repair, topup: features.biller };
 }
 
@@ -154,6 +152,8 @@ export interface Report {
   from: string; to: string; groupBy: "day" | "month";
   settings: ReportSettings;
   shown: ReportSections;
+  /** A phone shop's Stock sheet is laid out by phone brand; any other shop's by category. */
+  phoneShop: boolean;
   rows: (PeriodRow & Finished)[];
   totals: PeriodRow & Finished & { saleCount: number };
   /** Current stock of the chosen categories. */
@@ -230,7 +230,9 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const keyOf = (date: string) => (groupBy === "day" ? date : date.slice(0, 7));
   const range = { gte: dateRangeUtc(from).gte, lt: dateRangeUtc(to).lt };
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [settings, shown] = await Promise.all([loadReportSettings(businessId), loadReportSections(businessId)]);
+  const [settings, access] = await Promise.all([loadReportSettings(businessId), loadModuleAccess(businessId)]);
+  const shown = sectionsFor(access.features);
+  const phoneShop = isPhoneShop(access);
   const salarySet = new Set(settings.salaryCategories.map((c) => c.toLowerCase()));
 
   const [sales, saleLines, ledger, billerSales, entries, keyedCats, jobsIn, jobsDone, jobsDelivered, jobsCancelled, wallets, purchases] = await Promise.all([
@@ -357,7 +359,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
 
   const totals = finish(sum);
   return {
-    from, to, groupBy, settings, shown,
+    from, to, groupBy, settings, shown, phoneShop,
     sections: sectionsOf(sum),
     distribution: distribute(totals.netProfit, settings, periodKeys(from, to, "month").length),
     rows: ordered,
@@ -374,7 +376,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       return { name: w.name, currency: w.currency, opening: closing - moneyIn + moneyOut, moneyIn, moneyOut, closing };
     }),
     purchases: { count: purchases._count, total: purchases._sum.total ?? 0n },
-    stock: await stockOf(businessId, settings.stockCategoryIds, branchIds),
+    stock: await stockOf(businessId, settings.stockCategoryIds, phoneShop, branchIds),
   };
 }
 
@@ -403,7 +405,7 @@ export function brandOf(name: string): string {
 }
 
 /** Items in the chosen categories (and their sub-categories) with the stock on hand now. */
-async function stockOf(businessId: string, categoryIds: string[], branchIds?: string[]) {
+async function stockOf(businessId: string, categoryIds: string[], phoneShop: boolean, branchIds?: string[]) {
   if (!categoryIds.length) return [];
   const children = await prisma.itemCategory.findMany({ where: { businessId, parentId: { in: categoryIds } }, select: { id: true } });
   const items = await prisma.item.findMany({
@@ -413,8 +415,9 @@ async function stockOf(businessId: string, categoryIds: string[], branchIds?: st
   });
   return items.map((i) => {
     const quantity = i.stockLevels.reduce((a, l) => a + l.quantity, 0);
-    // A sub-category (Spare Parts › Redmi) is the brand; otherwise the brand is read from the name.
-    const group = i.category?.parentId ? i.category.name : brandOf(i.name);
+    // In a phone shop a sub-category (Spare Parts › Redmi) is the brand, otherwise the brand is
+    // read from the name. Anywhere else (a mini mart) items are grouped by their category.
+    const group = !phoneShop ? i.category?.name ?? "Other" : i.category?.parentId ? i.category.name : brandOf(i.name);
     return { name: i.name, category: i.category?.name ?? "", group, quantity, cost: i.costPrice, value: i.costPrice * BigInt(quantity) };
   });
 }

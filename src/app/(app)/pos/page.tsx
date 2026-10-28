@@ -106,7 +106,9 @@ export default function PosPage() {
   const [scanning, setScanning] = useState(false);
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
-  const { defaultBranchId, me, hasPerm } = useAuth();
+  const { defaultBranchId, me, hasPerm, phoneShop } = useAuth();
+  // Phone warranties are a phone shop's: a mini mart offers none, whatever an item is called.
+  const offered = phoneShop ? warrantySettings : { ...warrantySettings, newPhone: [], secondHand: [] };
   const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
@@ -266,7 +268,7 @@ export default function PosPage() {
         quantity: 1,
         unitPrice: Number(BigInt(item.sellingPrice)) / 100,
         // A new or second-hand phone starts on the shop's first warranty choice for it.
-        warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
+        warranty: warrantyOptionsFor(offered, phoneCondition(item))[0] ?? null,
       }, ...current];
     });
     // Both tapping a product and scanning a barcode arrive here, so one beep covers both.
@@ -299,7 +301,7 @@ export default function PosPage() {
       : [{
           item, imeis, quantity: imeis.length,
           unitPrice: Number(BigInt(item.sellingPrice)) / 100,
-          warranty: warrantyOptionsFor(warrantySettings, phoneCondition(item))[0] ?? null,
+          warranty: warrantyOptionsFor(offered, phoneCondition(item))[0] ?? null,
         }, ...current]);
     playBeep();
     showAdded(item.id);
@@ -677,7 +679,7 @@ export default function PosPage() {
                   </div>
                   {(() => {
                     const condition = phoneCondition(line.item);
-                    const options = warrantyOptionsFor(warrantySettings, condition);
+                    const options = warrantyOptionsFor(offered, condition);
                     if (options.length === 0) return null;
                     return (
                       <div className="space-y-1 rounded-md bg-green-50 px-2 py-1 text-xs dark:bg-green-900/20">

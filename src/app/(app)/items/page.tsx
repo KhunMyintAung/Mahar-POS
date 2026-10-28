@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { groupByModel, variantLabel, variantName } from "@/lib/variants";
 import { StockAdjustModal, StockMovements, type StockLevel } from "@/components/StockTools";
 import { ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
+import { EXPIRY_WARN_DAYS, daysLeft } from "@/lib/expiry";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
@@ -26,6 +27,8 @@ interface Item {
   stockLevels: { branchId: string; quantity: number }[];
   /** Variants: the model this item belongs to, and what sets it apart. */
   model?: string | null; variant?: string | null;
+  /** Best before (a mini mart's food, drinks, medicine), as an ISO date. */
+  expiresAt?: string | null;
 }
 /** A soft tint for a stock count, so empty, running-low and healthy stock read at a glance:
  *  none left is red, at or under the minimum (or 2 when none is set) is amber, a few is
@@ -40,6 +43,18 @@ function qtyTone(qty: number, minStock: number) {
 const QtyPill = ({ qty, minStock }: { qty: number; minStock: number }) => (
   <span className={cn("inline-block min-w-8 rounded-md px-1.5 py-0.5 text-center", qtyTone(qty, minStock))}>{qty}</span>
 );
+
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+/** Expired (red) or within a month of it (amber); nothing while there is time. */
+const ExpiryPill = ({ expiresAt }: { expiresAt: string }) => {
+  const days = daysLeft(expiresAt, today());
+  if (days > EXPIRY_WARN_DAYS) return null;
+  return (
+    <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold", days < 0 ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300" : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300")}>
+      {days < 0 ? "Expired" : days === 0 ? "Expires today" : `${days}d left`}
+    </span>
+  );
+};
 
 interface Meta { categories: { id: string; name: string }[]; units: { id: string; name: string }[] }
 
@@ -61,7 +76,7 @@ export default function ItemsPage() {
     { mode: "percent", value: "", direction: "down", roundTo: "100" }
   );
   const { push } = useToast();
-  const { hasPerm, featureEnabled, branches, defaultBranchId } = useAuth();
+  const { hasPerm, featureEnabled, branches, defaultBranchId, phoneShop } = useAuth();
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -104,7 +119,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "", expiresAt: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -116,6 +131,7 @@ export default function ItemsPage() {
   const [view, setView] = useState<"items" | "movements">("items");
   const [levels, setLevels] = useState<Map<string, StockLevel>>(new Map());
   const [lowOnly, setLowOnly] = useState(false);
+  const [expiringOnly, setExpiringOnly] = useState(false);
   const [adjustFor, setAdjustFor] = useState<StockLevel | null>(null);
   const [imeiFor, setImeiFor] = useState<StockLevel | null>(null);
   const canStock = featureEnabled("stock") && hasPerm("stock.view");
@@ -136,8 +152,8 @@ export default function ItemsPage() {
     api<{ missing: string[] }>("/api/v1/item-meta/presets").then((d) => setMissingPresets(d.missing)).catch(() => {});
   }, [q, push, canStock]);
 
-  /** Add the ready-made categories for this kind of shop (a phone shop's: Phone New,
-   *  Phone Second, Glass, Spare Parts…) that it does not have yet. */
+  /** Add the ready-made categories for this kind of shop (a phone shop's Phone New, Glass,
+   *  Spare Parts…; a mini mart's Drinks, Snacks, Grocery…) that it does not have yet. */
   async function addPresets() {
     try {
       const r = await api<{ added: number }>("/api/v1/item-meta/presets", { method: "POST" });
@@ -164,6 +180,7 @@ export default function ItemsPage() {
             costPrice: form.costPrice, sellingPrice: form.sellingPrice, minStock: form.minStock,
             trackSerial: form.trackSerial,
             model: form.model, variant: form.model ? form.variant : "",
+            expiresAt: form.expiresAt,
           },
         });
         push("Item updated");
@@ -215,7 +232,9 @@ export default function ItemsPage() {
     a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b)
   );
   const isLow = (it: Item) => Boolean(levels.get(it.id)?.low);
-  const shownItems = items.filter((it) => (category === "ALL" || categoryOf(it) === category) && (!lowOnly || isLow(it)));
+  const isExpiring = (it: Item) => Boolean(it.expiresAt) && daysLeft(it.expiresAt!, today()) <= EXPIRY_WARN_DAYS;
+  const shownItems = items.filter((it) => (category === "ALL" || categoryOf(it) === category) && (!lowOnly || isLow(it)) && (!expiringOnly || isExpiring(it)));
+  const expiringCount = items.filter(isExpiring).length;
   const stockOf = (it: Item) => it.stockLevels.reduce((a, l) => a + l.quantity, 0);
   const lowCount = items.filter(isLow).length;
   const stockValue = shownItems.reduce((sum, it) => sum + BigInt(it.costPrice) * BigInt(Math.max(0, stockOf(it))), 0n);
@@ -238,7 +257,7 @@ export default function ItemsPage() {
               </div>
             )}
             {view === "items" && (
-              <input placeholder="Search name, SKU, IMEI or barcode…" value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:max-w-sm sm:flex-1 sm:basis-auto sm:text-sm" />
+              <input placeholder={phoneShop ? "Search name, SKU, IMEI or barcode…" : "Search name, SKU or barcode…"} value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:max-w-sm sm:flex-1 sm:basis-auto sm:text-sm" />
             )}
             {view === "items" && canStock && (
               <span className="whitespace-nowrap text-sm text-gray-500">
@@ -248,6 +267,11 @@ export default function ItemsPage() {
             {view === "items" && lowCount > 0 && (
               <button type="button" onClick={() => setLowOnly((v) => !v)} className={cn("whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", lowOnly ? "bg-red-600 text-white" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300")}>
                 {`${lowCount} low stock`}
+              </button>
+            )}
+            {view === "items" && expiringCount > 0 && (
+              <button type="button" onClick={() => setExpiringOnly((v) => !v)} className={cn("whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", expiringOnly ? "bg-amber-600 text-white" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300")}>
+                {`${expiringCount} expiring`}
               </button>
             )}
           </>
@@ -390,6 +414,7 @@ export default function ItemsPage() {
                     className="flex max-w-[18rem] items-center gap-1.5 text-left hover:text-blue-600"
                   >
                     <span className="min-w-0 truncate">{inGroup ? <><span className="text-gray-400">└ </span>{variantLabel(it)}</> : it.name}</span>
+                    {it.expiresAt && <ExpiryPill expiresAt={it.expiresAt} />}
                     {it.trackSerial && <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
                   </button>
                 </td>
@@ -420,13 +445,14 @@ export default function ItemsPage() {
                         minStock: it.minStock,
                         trackSerial: Boolean(it.trackSerial),
                         model: it.model ?? "", variant: it.variant ?? "",
+                        expiresAt: it.expiresAt?.slice(0, 10) ?? "",
                       });
                       setEditItem(it);
                       setShowNew(true);
                     }}>Edit</Button>
                   )}
                   {/* Variants are for phones (storage, colour), or a model already started. */}
-                  {hasPerm("item.manage") && (it.model || isPhoneCategory(it.category?.name)) && (
+                  {hasPerm("item.manage") && (it.model || (phoneShop && isPhoneCategory(it.category?.name))) && (
                     <Button size="sm" variant="ghost" title="Add a variant of this model (another storage, colour…)" onClick={() => {
                       // A copy of this item, ready for the one thing that differs.
                       setForm({
@@ -456,6 +482,7 @@ export default function ItemsPage() {
                     <span>{`Category ${it.category?.name ?? "—"}`}</span>
                     <span>{`Cost ${fmtMoney(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
                     <span>{`Min stock ${it.minStock}`}</span>
+                    {it.expiresAt && <span>{`Expires ${it.expiresAt.slice(0, 10)}`}</span>}
                     {it.stockLevels.length > 1 && it.stockLevels.map((l) => (
                       <span key={l.branchId}>{`${branches.find((b) => b.id === l.branchId)?.name ?? "Branch"}: ${l.quantity}`}</span>
                     ))}
@@ -489,7 +516,7 @@ export default function ItemsPage() {
             <Input
               label="Model (groups variants)"
               value={form.model}
-              placeholder="iPhone 13"
+              placeholder={phoneShop ? "iPhone 13" : "Coca Cola"}
               onChange={(e) => {
                 const model = e.target.value;
                 const auto = !form.name || form.name === variantName(form.model, form.variant);
@@ -499,7 +526,7 @@ export default function ItemsPage() {
             <Input
               label="Variant"
               value={form.variant}
-              placeholder="128GB · Blue"
+              placeholder={phoneShop ? "128GB · Blue" : "330ml"}
               autoFocus={Boolean(variantOf)}
               disabled={!form.model}
               onChange={(e) => {
@@ -509,7 +536,7 @@ export default function ItemsPage() {
               }}
             />
           </div>
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: autoCorrectName(f.name) }))} />
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => phoneShop && setForm((f) => ({ ...f, name: autoCorrectName(f.name) }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="SKU"
@@ -528,14 +555,14 @@ export default function ItemsPage() {
             <div>
               <Select label="Category" value={form.categoryId} onChange={(e) => {
                 const name = meta.categories.find((c) => c.id === e.target.value)?.name;
-                setForm({ ...form, categoryId: e.target.value, ...(editItem ? {} : { trackSerial: isPhoneCategory(name) }) });
+                setForm({ ...form, categoryId: e.target.value, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
               }}>
                 <option value="">—</option>
                 {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
               {missingPresets.length > 0 && hasPerm("item.manage") && (
                 <button type="button" onClick={addPresets} className="mt-1 text-xs font-medium text-blue-600 hover:underline">
-                  + Add phone shop categories ({missingPresets.length})
+                  {`+ Add ready-made categories (${missingPresets.length})`}
                 </button>
               )}
             </div>
@@ -549,13 +576,17 @@ export default function ItemsPage() {
             <Input label="Selling price" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
             <Input label="Min stock" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseInt(e.target.value) || 0 })} />
           </div>
-          <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+          {/* Best before: a mini mart's food, drinks and medicine. */}
+          {(!phoneShop || form.expiresAt) && (
+            <Input label="Expiry date (optional)" type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
+          )}
+          {(phoneShop || form.trackSerial) && <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.trackSerial} onChange={(e) => setForm({ ...form, trackSerial: e.target.checked })} />
             <span>
               <span className="font-medium">Track IMEI / serial</span>
               <span className="block text-xs text-gray-500">Each phone has its own IMEI: entered when bought, picked when sold, and searchable.</span>
             </span>
-          </label>
+          </label>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => { setShowNew(false); setEditItem(null); }}>Cancel</Button>
             <Button onClick={save} disabled={busy || !form.name}>{editItem ? "Save changes" : "Create item"}</Button>
@@ -688,9 +719,9 @@ export default function ItemsPage() {
           </div>
           {missingPresets.length > 0 && (
             <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-900/30">
-              <p className="text-gray-700 dark:text-gray-200">Phone shop categories you do not have yet:</p>
+              <p className="text-gray-700 dark:text-gray-200">Ready-made categories you do not have yet:</p>
               <p className="mt-1 text-xs text-gray-500">{missingPresets.join(" · ")}</p>
-              <Button size="sm" className="mt-2" onClick={addPresets}>Add phone shop categories</Button>
+              <Button size="sm" className="mt-2" onClick={addPresets}>Add these categories</Button>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4 text-sm">

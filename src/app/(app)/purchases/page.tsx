@@ -25,7 +25,8 @@ interface Wallet { id: string; name: string; currency: string; currentBalance: s
 interface Contact { id: string; name: string; type: string }
 /** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
 /** foc: given free by the supplier with the order — stock comes in at no cost. */
-interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string; foc?: boolean; paidPrice?: string }
+/** expiresAt: the best-before printed on this delivery (a mini mart); it becomes the item's. */
+interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string; foc?: boolean; paidPrice?: string; expiresAt?: string }
 type PayMode = "full" | "none" | "part";
 
 const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
@@ -41,7 +42,7 @@ export default function PurchasesPage() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
-  const { hasPerm, defaultBranchId } = useAuth();
+  const { hasPerm, defaultBranchId, phoneShop } = useAuth();
 
   const [lines, setLines] = useState<Line[]>([]);
   const [form, setForm] = useState(blankForm);
@@ -153,6 +154,7 @@ export default function PurchasesPage() {
           lines: lines.map((l) => ({
             itemId: l.itemId, quantity: l.quantity, unitPrice: l.foc ? "0" : l.unitPrice,
             ...(l.imeiText === undefined ? {} : { imeis: splitImeis(l.imeiText) }),
+            ...(l.expiresAt ? { expiresAt: l.expiresAt } : {}),
           })),
           discount: String(num(form.discount)),
           paidAmount: String(paid),
@@ -343,6 +345,16 @@ export default function PurchasesPage() {
                       />
                       FOC
                     </label>
+                    {!phoneShop && (
+                      <input
+                        type="date"
+                        value={l.expiresAt ?? ""}
+                        onChange={(e) => setLine(i, { expiresAt: e.target.value })}
+                        title="Expiry date (optional)"
+                        aria-label="Expiry date"
+                        className="w-36 rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+                      />
+                    )}
                     <button type="button" onClick={() => setLines(lines.filter((_, j) => j !== i))} className="p-2 text-gray-400 hover:text-red-500" aria-label="Remove">
                       <Trash2 size={15} />
                     </button>

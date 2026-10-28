@@ -23,6 +23,8 @@ interface DashData {
     salesTotal: string;
     salesProfit: string;
     lowStock: { id: string; name: string; minStock: number; qty: number }[];
+    /** On the shelf and expired, or expiring within a month (YYYY-MM-DD). */
+    expiring: { id: string; name: string; qty: number; expiresAt: string }[];
     /** What the shelf cost, and what it is priced at. */
     stockCost: string;
     stockRetail: string;
@@ -161,6 +163,19 @@ export default function DashboardPage() {
             {data.pos.lowStock.map((it) => (
               <li key={it.id}>
                 {it.name}: <b className="text-red-600">{it.qty}</b> {`(min ${it.minStock})`}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {featureEnabled("items") && data.pos && data.pos.expiring.length > 0 && (
+        <Card className="border-amber-300 dark:border-amber-700">
+          <h3 className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-400">Expiring soon</h3>
+          <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {data.pos.expiring.map((it) => (
+              <li key={it.id}>
+                {it.name}: <b className={it.expiresAt < todayDate ? "text-red-600" : "text-amber-700 dark:text-amber-400"}>{it.expiresAt}</b> {`(${it.qty} left)`}
               </li>
             ))}
           </ul>

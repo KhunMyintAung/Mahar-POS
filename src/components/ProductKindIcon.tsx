@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/components/ui";
 import { productKind, type ProductKind } from "@/lib/productKind";
+import { useAuth } from "@/components/AppShell";
 
 const LOOK: Record<ProductKind, { Icon: LucideIcon; label: string; tone: string }> = {
   phone: { Icon: Smartphone, label: "Phone", tone: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
@@ -25,13 +26,15 @@ const LOOK: Record<ProductKind, { Icon: LucideIcon; label: string; tone: string 
   product: { Icon: Package, label: "Product", tone: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400" },
 };
 
-/** A picture for a product, picked from its name and category. */
+/** A picture for a product, picked from its name and category. The pictures are a phone
+ *  shop's (phones, chargers, cases…); a mini mart's "Galaxy" chocolate is just a product. */
 export function ProductKindIcon({ item, size = 18, className }: {
   item: { name: string; category?: { name: string } | null };
   size?: number;
   className?: string;
 }) {
-  const { Icon, label, tone } = LOOK[productKind(item)];
+  const { phoneShop } = useAuth();
+  const { Icon, label, tone } = LOOK[phoneShop ? productKind(item) : "product"];
   return (
     <span title={label} aria-label={label} className={cn("inline-flex shrink-0 items-center justify-center rounded-lg", tone, className)}>
       <Icon size={size} strokeWidth={2.2} />

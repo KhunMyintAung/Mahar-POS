@@ -22,6 +22,8 @@ export interface ParsedProduct {
    *  a new one starts at 0. */
   quantity: number | null;
   minStock: number;
+  /** Best before as YYYY-MM-DD, or null when the cell is empty (an existing item keeps its own). */
+  expiresAt: string | null;
   /** Which of cost, price and min stock the row actually filled in. An existing item keeps
    *  the value of any it left empty, rather than having it zeroed. */
   given: { costPrice: boolean; sellingPrice: boolean; minStock: boolean };
@@ -89,6 +91,7 @@ const COLUMNS: Record<string, string[]> = {
   sellingPrice: ["price", "selling price", "selling_price", "sell price", "sale price", "retail", "ရောင်းဈေး", "ဈေးနှုန်း"],
   quantity: ["quantity", "qty", "stock", "stock quantity", "stock_quantity", "on hand", "stock on hand", "လက်ကျန်", "အရေအတွက်"],
   minStock: ["min stock", "min_stock", "minimum stock", "low stock", "low_stock_alert", "reorder"],
+  expiresAt: ["expiry", "expiry date", "expiry_date", "expire", "expires", "exp", "exp date", "best before", "bbd", "သက်တမ်းကုန်ရက်"],
 };
 
 function fieldFor(header: string): string | null {
@@ -112,6 +115,22 @@ function readCount(raw: string): number | null {
   if (!clean) return 0;
   if (!/^\d+$/.test(clean)) return null;
   return Number(clean);
+}
+
+/** A date as shops write it: 2026-12-31, 31/12/2026, 31.12.2026 or 31-12-2026 (day first).
+ *  Returns YYYY-MM-DD, "" for an empty cell, or null when it is not a real date. */
+export function readDate(raw: string): string | null {
+  const clean = raw.trim();
+  if (!clean) return "";
+  let y: number, m: number, d: number;
+  const iso = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(clean);
+  const dmy = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(clean);
+  if (iso) [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  else if (dmy) [d, m, y] = [Number(dmy[1]), Number(dmy[2]), Number(dmy[3])];
+  else return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
+  return date.toISOString().slice(0, 10);
 }
 
 export function parseProductCsv(text: string): ParsedCsv {
@@ -174,6 +193,12 @@ export function parseProductCsv(text: string): ParsedCsv {
       continue;
     }
 
+    const expiresAt = readDate(get("expiresAt"));
+    if (expiresAt === null) {
+      rejected.push({ row: rowNumber, raw: line, reason: `Expiry "${get("expiresAt")}" is not a date (use 2026-12-31 or 31/12/2026)` });
+      continue;
+    }
+
     const sku = get("sku");
     // A file that repeats a code would otherwise import the first and fail the rest at the
     // database, halfway through, with nothing said about which.
@@ -194,6 +219,7 @@ export function parseProductCsv(text: string): ParsedCsv {
       sellingPrice,
       quantity,
       minStock,
+      expiresAt: expiresAt || null,
       given: {
         costPrice: get("costPrice").trim() !== "",
         sellingPrice: get("sellingPrice").trim() !== "",
@@ -207,12 +233,13 @@ export function parseProductCsv(text: string): ParsedCsv {
 
 const CSV_HEADER = "name,sku,barcode,category,unit,cost,price,stock,min stock";
 
-/** The template a shop downloads to fill in, with example rows from a mini mart. */
+/** The template a shop downloads to fill in, with example rows from a mini mart, which
+ *  also keeps best-before dates (left empty for things that do not go off). */
 export const CSV_TEMPLATE = [
-  CSV_HEADER,
-  "Coca Cola 330ml,,8851959132012,Drinks,PCS,600,800,24,6",
-  "Coca Cola 330ml (Box of 24),COKE-BOX24,,Drinks,BOX,13500,18000,5,1",
-  "Rice 5kg,RICE5,,Grocery,PCS,12000,14000,10,2",
+  `${CSV_HEADER},expiry`,
+  "Coca Cola 330ml,,8851959132012,Drinks,PCS,600,800,24,6,2027-03-31",
+  "Coca Cola 330ml (Box of 24),COKE-BOX24,,Drinks,BOX,13500,18000,5,1,2027-03-31",
+  "Rice 5kg,RICE5,,Grocery,PCS,12000,14000,10,2,",
 ].join("\n");
 
 /** The same template with a phone shop's stock as the examples: handsets and the

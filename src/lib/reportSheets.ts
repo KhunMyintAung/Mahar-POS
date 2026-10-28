@@ -60,17 +60,19 @@ export function reportSheets(r: Report): Sheet[] {
   const sheets: Sheet[] = [
     { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [1, daily.length - 1] },
   ];
-  if (r.settings.stockCategoryIds.length) sheets.push(stockSheet(r.stock));
+  if (r.settings.stockCategoryIds.length) sheets.push(stockSheet(r.stock, r.phoneShop));
   return sheets;
 }
 
-/** Stock laid out the way the shop keeps it: each brand side by side as a Name / QTY pair,
- *  and on the right a summary per brand (items, units, and items at zero). */
-function stockSheet(stock: Report["stock"]): Sheet {
-  // Every brand always has its pair of columns, in the same order, even with no items yet:
-  // the sync rewrites values only, so columns that came and went would move the owner's
-  // formatting onto the wrong brand.
-  const names = [...STOCK_BRANDS.map((b) => b.name), "Other"];
+/** Stock laid out the way the shop keeps it: each brand (or category) side by side as a Name /
+ *  QTY pair, and on the right a summary of each (items, units, and items at zero). */
+function stockSheet(stock: Report["stock"], phoneShop: boolean): Sheet {
+  // A phone shop: every brand always has its pair of columns, in the same order, even with no
+  // items yet; the sync rewrites values only, so columns that came and went would move the
+  // owner's formatting onto the wrong brand. Any other shop: one pair per category, A to Z.
+  const names = phoneShop
+    ? [...STOCK_BRANDS.map((b) => b.name), "Other"]
+    : [...new Set(stock.map((i) => i.group))].sort((a, b) => (a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b)));
   const groups = new Map<string, Report["stock"]>(names.map((g) => [g, []]));
   for (const i of stock) groups.set(i.group, [...(groups.get(i.group) ?? []), i]);
   const label = (g: string) => (g === "Other" ? "အခြား ပစ္စည်းများ" : g);

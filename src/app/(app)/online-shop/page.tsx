@@ -271,6 +271,7 @@ function ProductEditor({ item, canEdit, onChange }: { item: Product; canEdit: bo
   const [description, setDescription] = useState(item.description);
   const fileRef = useRef<HTMLInputElement>(null);
   const { push } = useToast();
+  const { phoneShop } = useAuth();
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return;
@@ -360,7 +361,7 @@ function ProductEditor({ item, canEdit, onChange }: { item: Product; canEdit: bo
           onBlur={saveDescription}
           rows={3}
           maxLength={1000}
-          placeholder="e.g. 8GB / 256GB, 1 year warranty, box and charger included"
+          placeholder={phoneShop ? "e.g. 8GB / 256GB, 1 year warranty, box and charger included" : "e.g. 500g pack, best before printed on the box"}
           className={field}
         />
       </label>

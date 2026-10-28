@@ -1,22 +1,12 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { parseModuleAccess } from "@/lib/modules";
+import { loadModuleAccess } from "@/lib/moduleAccess";
 import { addItemCategoryPresets, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 
 /** The ready-made item categories for this kind of shop, and which of them it still lacks. */
 
 async function presetsFor(businessId: string) {
-  const setting = await prisma.systemSetting.findUnique({
-    where: { businessId_key: { businessId, key: "modules" } },
-    select: { value: true },
-  });
-  let category: string | undefined;
-  try {
-    category = setting ? parseModuleAccess(JSON.parse(setting.value)).category : undefined;
-  } catch {
-    category = undefined;
-  }
-  return itemCategoryPresets(category);
+  return itemCategoryPresets((await loadModuleAccess(businessId)).category);
 }
 
 export const GET = withAuth("item.view", async ({ user }) => {

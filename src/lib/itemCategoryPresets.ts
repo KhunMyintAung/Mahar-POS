@@ -20,9 +20,27 @@ export const PHONE_SHOP_ITEM_CATEGORIES = [
   "Accessories",
 ] as const;
 
+/** The item categories a mini mart starts with: the shelves of a corner shop, and nothing
+ *  to do with phones. */
+export const MINI_MART_ITEM_CATEGORIES = [
+  "Drinks",
+  "Snacks",
+  "Grocery",
+  "Instant Food",
+  "Cooking & Spices",
+  "Frozen & Fresh",
+  "Household",
+  "Personal Care",
+  "Baby Care",
+  "Medicine",
+  "Stationery",
+] as const;
+
 /** Item category presets per business category; none for the others yet. */
 export function itemCategoryPresets(businessCategory: string | undefined): readonly string[] {
-  return businessCategory === "MOBILE_SHOP" ? PHONE_SHOP_ITEM_CATEGORIES : [];
+  if (businessCategory === "MOBILE_SHOP") return PHONE_SHOP_ITEM_CATEGORIES;
+  if (businessCategory === "MINI_MART") return MINI_MART_ITEM_CATEGORIES;
+  return [];
 }
 
 /** Add the presets this business does not have yet. A preset the shop had removed is

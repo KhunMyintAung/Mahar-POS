@@ -17,7 +17,9 @@ import {
   sendMessage, answerCallbackQuery,
   keyboard, btn, TgUpdate,
 } from "./telegram";
-import { parseModuleAccess, type FeatureKey, type FeatureVisibility } from "./modules";
+import type { FeatureKey, FeatureVisibility } from "./modules";
+import { loadModuleAccess } from "./moduleAccess";
+import { hiddenStandardKeys } from "./incomeCategories";
 
 // ---------------------------------------------------------------------------
 // Session state: one row per (owner user, chat), tracking the guided-entry
@@ -113,16 +115,7 @@ function can(user: AuthUser, perm: string): boolean {
 // ---------------------------------------------------------------------------
 
 async function businessFeatures(businessId: string): Promise<FeatureVisibility> {
-  const setting = await prisma.systemSetting.findUnique({
-    where: { businessId_key: { businessId, key: "modules" } },
-    select: { value: true },
-  });
-  if (!setting) return parseModuleAccess({ miniMartEnabled: true }).features;
-  try {
-    return parseModuleAccess(JSON.parse(setting.value)).features;
-  } catch {
-    return parseModuleAccess({ miniMartEnabled: true }).features;
-  }
+  return (await loadModuleAccess(businessId)).features;
 }
 
 function mainMenu(user: AuthUser, features: FeatureVisibility) {
@@ -336,10 +329,11 @@ async function ieStepWallet(chatId: string, user: AuthUser, data: Record<string,
       replyMarkup: keyboard([CANCEL_ROW]),
     });
   }
-  const categories = await prisma.category.findMany({
+  const hidden: (string | null)[] = hiddenStandardKeys(await businessFeatures(user.businessId));
+  const categories = (await prisma.category.findMany({
     where: { businessId: user.businessId, active: true, type },
     orderBy: { name: "asc" },
-  });
+  })).filter((c) => !hidden.includes(c.systemKey));
   const rows = categories.map((c) => [btn(c.name, `cat:${c.name}`)]);
   rows.push([btn("+ New category", "cat:__new__")]);
   await setSession(user.id, chatId, "ie.category", { ...data, walletId, walletName: wallet.name, currency: wallet.currency });

@@ -645,6 +645,8 @@ model Item {
   /// is still an item of its own — its own price, stock, IMEIs and SKU.
   model        String?
   variant      String?
+  /// Best before, for food, drinks and medicine (a mini mart); the day only.
+  expiresAt    DateTime?     @db.Date
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?

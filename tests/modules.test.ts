@@ -4,12 +4,14 @@ import {
   FEATURE_DEFINITIONS,
   FEATURE_GROUPS,
   categoryPreset,
+  isPhoneShop,
   defaultFeaturesForMode,
   moduleSetting,
   moduleSettingForCategory,
   moduleSettingFromFeatures,
   parseModuleAccess,
 } from "../src/lib/modules";
+import { hiddenStandardKeys } from "../src/lib/incomeCategories";
 
 describe("module access", () => {
   it("supports all three workspace modes", () => {
@@ -101,6 +103,25 @@ describe("module access", () => {
     expect(parsed.features.wallets).toBe(true);
     expect(parsed.features.pos).toBe(false);
     expect(categoryPreset("ALL_IN_ONE").about).toBe(true);
+  });
+});
+
+describe("phone shop or not", () => {
+  it("treats a mini mart as no phone shop, even with Top-up Billers or Repair on", () => {
+    expect(isPhoneShop({ category: "MINI_MART", features: { ...categoryPreset("MINI_MART"), biller: true, repair: true } })).toBe(false);
+    expect(isPhoneShop({ category: "MOBILE_SHOP", features: categoryPreset("MOBILE_SHOP") })).toBe(true);
+    expect(isPhoneShop({ category: "ALL_IN_ONE", features: categoryPreset("ALL_IN_ONE") })).toBe(true);
+  });
+
+  it("counts a shop from before categories as one when it runs Repair", () => {
+    expect(isPhoneShop({ category: "CUSTOM", features: { ...categoryPreset("MINI_MART"), repair: true } })).toBe(true);
+    expect(isPhoneShop({ category: "CUSTOM", features: categoryPreset("MINI_MART") })).toBe(false);
+  });
+
+  it("offers Service and Bill income only to shops running Repair and Top-up Billers", () => {
+    expect(hiddenStandardKeys(categoryPreset("MINI_MART"))).toEqual(["DAILY_SERVICE", "DAILY_BILL"]);
+    expect(hiddenStandardKeys({ ...categoryPreset("MINI_MART"), biller: true })).toEqual(["DAILY_SERVICE"]);
+    expect(hiddenStandardKeys(categoryPreset("MOBILE_SHOP"))).toEqual([]);
   });
 });
 

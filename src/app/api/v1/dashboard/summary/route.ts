@@ -2,6 +2,7 @@ import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { computeDayIncome, computeDaySummary } from "@/services/summaryService";
 import { todayBusinessDate } from "@/lib/dates";
+import { EXPIRY_WARN_DAYS } from "@/lib/expiry";
 
 export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -48,7 +49,7 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
       prisma.item.findMany({
         where: { businessId: user.businessId, deletedAt: null, active: true },
         select: {
-          id: true, name: true, minStock: true, costPrice: true, sellingPrice: true,
+          id: true, name: true, minStock: true, costPrice: true, sellingPrice: true, expiresAt: true,
           stockLevels: {
             where: branchIds ? { branchId: { in: branchIds } } : undefined,
             select: { quantity: true },
@@ -65,6 +66,14 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
     const lowStock = withQty
       .filter((it) => it.minStock > 0 && it.qty < it.minStock)
       .map((it) => ({ id: it.id, name: it.name, minStock: it.minStock, qty: it.qty }));
+
+    // Still on the shelf and past, or within a month of, its best-before date; soonest first.
+    const soon = new Date(`${todayBusinessDate()}T00:00:00Z`);
+    soon.setUTCDate(soon.getUTCDate() + EXPIRY_WARN_DAYS);
+    const expiring = withQty
+      .filter((it) => it.expiresAt && it.qty > 0 && it.expiresAt <= soon)
+      .sort((a, b) => a.expiresAt!.getTime() - b.expiresAt!.getTime())
+      .map((it) => ({ id: it.id, name: it.name, qty: it.qty, expiresAt: it.expiresAt!.toISOString().slice(0, 10) }));
 
     // Two figures, because a shop asks two different questions of the same shelf: what it
     // paid for what is sitting there, and what that becomes if it all sells. Negative
@@ -83,6 +92,7 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
       salesTotal: salesAgg._sum.total ?? 0n,
       salesProfit: salesAgg._sum.profit ?? 0n,
       lowStock,
+      expiring,
       stockCost,
       stockRetail,
       stockItems: withQty.filter((it) => it.qty > 0).length,

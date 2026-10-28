@@ -5,6 +5,9 @@ import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { itemsWithStock } from "@/lib/itemStock";
+import { loadModuleAccess } from "@/lib/moduleAccess";
+import { isPhoneShop } from "@/lib/modules";
+import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
 
 export const GET = withAuth("item.view", async ({ user, params }) => {
   const item = await prisma.item.findUnique({
@@ -20,7 +23,7 @@ export const GET = withAuth("item.view", async ({ user, params }) => {
 });
 
 const schema = z.object({
-  name: z.string().min(1).transform(autoCorrectName).optional(),
+  name: z.string().trim().min(1).optional(),
   barcode: z.string().optional(),
   categoryId: z.string().nullable().optional(),
   unitId: z.string().nullable().optional(),
@@ -28,10 +31,12 @@ const schema = z.object({
   sellingPrice: z.string().optional(),
   minStock: z.number().int().min(0).optional(),
   description: z.string().optional(),
-  model: z.string().trim().max(120).transform((v) => (v === "" ? null : autoCorrectName(v))).nullable().optional(),
+  model: z.string().trim().max(120).transform((v) => (v === "" ? null : v)).nullable().optional(),
   variant: z.string().trim().max(80).transform((v) => (v === "" ? null : v)).nullable().optional(),
   active: z.boolean().optional(),
   trackSerial: z.boolean().optional(),
+  /** Best before (YYYY-MM-DD); empty clears it. */
+  expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).nullable().optional(),
 });
 
 export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
@@ -40,7 +45,12 @@ export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
   if (!item || item.businessId !== user.businessId || item.deletedAt)
     throw new ApiError(404, "Item not found");
 
-  const { costPrice, sellingPrice, ...rest } = body;
+  // Phone names put right in a phone shop only; a mini mart's are kept as typed.
+  if (isPhoneShop(await loadModuleAccess(user.businessId))) {
+    if (body.name) body.name = autoCorrectName(body.name);
+    if (body.model) body.model = autoCorrectName(body.model);
+  }
+  const { costPrice, sellingPrice, expiresAt, ...rest } = body;
   const updated = await prisma.$transaction(async (tx) => {
     if (body.categoryId) {
       const category = await tx.itemCategory.findFirst({
@@ -62,6 +72,7 @@ export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
         ...rest,
         ...(costPrice !== undefined ? { costPrice: toMinor(costPrice) } : {}),
         ...(sellingPrice !== undefined ? { sellingPrice: toMinor(sellingPrice) } : {}),
+        ...(expiresAt !== undefined ? { expiresAt: expiryDate(expiresAt) } : {}),
       },
     });
     await audit(tx, {

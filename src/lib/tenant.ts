@@ -123,7 +123,7 @@ export async function registerTenant(input: TenantRegistration) {
           { businessId: business.id, name: "box" },
         ],
       });
-      // A phone shop opens its item list with phone shop categories ready to pick.
+      // A phone shop or mini mart opens its item list with its own kind of categories ready.
       await addItemCategoryPresets(tx, business.id, itemCategoryPresets(input.businessCategory));
       // The eight standard daily income and expense categories; a shop adds its own after.
       await ensureStandardCategories(tx, business.id);

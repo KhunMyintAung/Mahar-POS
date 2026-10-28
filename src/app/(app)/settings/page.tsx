@@ -54,7 +54,7 @@ export default function SettingsPage() {
     window.history.replaceState(null, "", `#${key}`);
   }
   const { push } = useToast();
-  const { refreshAuth, me, featureEnabled } = useAuth();
+  const { refreshAuth, me, featureEnabled, phoneShop } = useAuth();
 
   async function deleteBusiness() {
     setDeleting(true);
@@ -250,7 +250,8 @@ export default function SettingsPage() {
 
       {featureEnabled("repair") && <RepairVoucherSettingsCard />}
 
-      {featureEnabled("pos") && <WarrantySettingsCard />}
+      {/* Phone warranties (new and second-hand); a mini mart sells none. */}
+      {featureEnabled("pos") && phoneShop && <WarrantySettingsCard />}
       </>}
 
       {current === "sheets" && <GsheetSyncCard />}

@@ -167,6 +167,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
           ...(product.given.costPrice ? { costPrice: toMinor(product.costPrice) } : {}),
           ...(product.given.sellingPrice ? { sellingPrice: toMinor(product.sellingPrice) } : {}),
           ...(product.given.minStock ? { minStock: product.minStock } : {}),
+          ...(product.expiresAt ? { expiresAt: new Date(`${product.expiresAt}T00:00:00Z`) } : {}),
           barcode: product.barcode || undefined,
           categoryId: categoryId ?? undefined,
           unitId: unitId ?? undefined,
@@ -217,6 +218,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         costPrice: toMinor(product.costPrice),
         sellingPrice: toMinor(product.sellingPrice),
         minStock: product.minStock,
+        expiresAt: product.expiresAt ? new Date(`${product.expiresAt}T00:00:00Z`) : undefined,
       },
     });
     if (product.quantity) {
