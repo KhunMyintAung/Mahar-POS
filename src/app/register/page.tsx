@@ -8,7 +8,7 @@ import { Button, Card, Input, Select } from "@/components/ui";
 import { PwaInstall } from "@/components/PwaInstall";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { SELECTABLE_BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
-import { LanguageSwitch } from "@/components/LanguageProvider";
+import { PageToggles } from "@/components/ThemeToggle";
 import { api } from "@/lib/client";
 
 /** A category named in the link, for sending people here from somewhere that already knows
@@ -92,7 +92,7 @@ export default function RegisterPage() {
 
   return (
     <main className="relative flex min-w-0 w-full flex-1 items-center justify-center overflow-x-hidden p-4 pb-8 pt-20">
-      <LanguageSwitch className="absolute right-4 top-4" />
+      <PageToggles className="absolute right-4 top-4" />
       <Card className="w-full max-w-xl">
         <div className="mb-6 flex flex-col items-center gap-2 pt-2">
           <div className="rounded-xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">

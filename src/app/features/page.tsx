@@ -4,7 +4,7 @@ import {
   Boxes, FileBarChart, HandCoins, MinusCircle,
   Package, Receipt, ScrollText, Send, ShoppingCart, Truck, UserCog, Users, Wallet,
 } from "lucide-react";
-import { LanguageSwitch } from "@/components/LanguageProvider";
+import { PageToggles } from "@/components/ThemeToggle";
 import { SITE_URL } from "../layout";
 
 /** This is the page search engines actually land on, so it carries the description a
@@ -103,7 +103,7 @@ export default function FeaturesPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_SCHEMA) }}
       />
-      <LanguageSwitch className="absolute right-4 top-4" />
+      <PageToggles className="absolute right-4 top-4" />
 
       <div className="flex flex-col items-center text-center">
         <div className="rounded-2xl bg-white p-1.5 ring-1 ring-gray-100 dark:ring-gray-800">

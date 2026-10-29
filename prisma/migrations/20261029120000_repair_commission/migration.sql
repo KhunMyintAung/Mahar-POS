@@ -1,0 +1,3 @@
+ALTER TABLE "User" ADD COLUMN "repairCommissionMode" TEXT NOT NULL DEFAULT 'NONE';
+ALTER TABLE "User" ADD COLUMN "repairCommissionPercent" TEXT NOT NULL DEFAULT '0';
+ALTER TABLE "User" ADD COLUMN "repairCommissionAmount" BIGINT NOT NULL DEFAULT 0;

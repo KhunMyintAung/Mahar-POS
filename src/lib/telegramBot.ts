@@ -8,10 +8,13 @@ import { createIncomeExpenseEntry } from "@/services/incomeExpenseService";
 import { createTransfer } from "@/services/walletService";
 import { collectReceivable, payPayable, createReceivable } from "@/services/creditService";
 import { recordBillerTxn } from "@/services/billerService";
+import { updateRepairDetails, updateRepairStatus } from "@/services/repairService";
+import { technicianPerformance } from "@/services/technicianService";
+import { nextStatuses, REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "./repairStatus";
 import { ApiError } from "./api";
 import {
   notifyAuditFeed, incomeExpenseNotice, transferNotice, creditPayableNotice, newCreditNotice,
-  billerNotice,
+  billerNotice, repairStatusNotice,
 } from "./telegramNotify";
 import {
   sendMessage, answerCallbackQuery,
@@ -131,7 +134,10 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
   if (features.credit && can(user, "payable.pay")) row3.push(btn("📤 Pay payable", "menu:payable"));
   const row4 = [];
   if (features.biller && can(user, "biller.trade")) row4.push(btn("📱 Top-up", "menu:topup"));
-  const rows = [row1, row2, row3, row4].filter((r) => r.length > 0);
+  const row5 = [];
+  if (features.repair && can(user, "repair.update")) row5.push(btn("🔧 Repair status", "menu:repair"));
+  if (features.repair && can(user, "repair.view")) row5.push(btn("📊 My repairs", "menu:myrepairs"));
+  const rows = [row1, row2, row3, row4, row5].filter((r) => r.length > 0);
   return keyboard(rows);
 }
 
@@ -755,6 +761,110 @@ async function ncConfirm(chatId: string, user: AuthUser, data: Record<string, un
 }
 
 // ---------------------------------------------------------------------------
+// Flow: Repair status — type a voucher number, then tap the status it is in now
+// ---------------------------------------------------------------------------
+
+/** Moves a technician makes from the bench. Handing a phone back takes the money and
+ *  cancelling closes the job, so both stay in the app. */
+const BOT_REPAIR_MOVES = (from: string): RepairStatus[] => nextStatuses(from).filter((s) => s !== "DELIVERED" && s !== "CANCELLED");
+
+const statusText = (s: string) => `${REPAIR_STATUS_LABELS[s as RepairStatus] ?? s} (${REPAIR_STATUS_MM[s] ?? s})`;
+
+/** A voucher number as it is typed: MS0012, ms 12, MS-0012. */
+const VOUCHER_LIKE = /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/;
+
+/** The repair a typed voucher number means, in the branches this user works in. "MS12" finds
+ *  MS0012: the same letters and number, without the leading zeros. */
+async function findRepairJob(user: AuthUser, typed: string) {
+  const raw = typed.replace(/[\s-]/g, "").toUpperCase();
+  const letters = raw.match(/^[A-Z]*/)![0];
+  const number = raw.slice(letters.length).replace(/^0+/, "") || "0";
+  const where = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
+  const exact = await prisma.repairJob.findFirst({ where: { ...where, jobNo: { equals: raw, mode: "insensitive" } } });
+  if (exact) return exact;
+  const candidates = await prisma.repairJob.findMany({
+    where: { ...where, AND: [{ jobNo: { startsWith: letters, mode: "insensitive" } }, { jobNo: { endsWith: number } }] },
+    take: 20,
+  });
+  return candidates.find((j) => {
+    const m = j.jobNo.toUpperCase().replace(/[\s-]/g, "").match(/^([A-Z]*)0*(\d+)$/);
+    return m && m[1] === letters && m[2] === number;
+  }) ?? null;
+}
+
+type BotRepairJob = NonNullable<Awaited<ReturnType<typeof findRepairJob>>>;
+
+async function startRepair(chatId: string, user: AuthUser) {
+  await setSession(user.id, chatId, "rp.voucher", {});
+  await sendMessage(chatId, "🔧 Type the voucher number (e.g. MS0012):", { replyMarkup: keyboard([CANCEL_ROW]) });
+}
+
+async function showRepairJob(chatId: string, user: AuthUser, job: BotRepairJob, heading?: string) {
+  const moves = BOT_REPAIR_MOVES(job.status);
+  const rows = [];
+  for (let i = 0; i < moves.length; i += 2) rows.push(moves.slice(i, i + 2).map((m) => btn(REPAIR_STATUS_LABELS[m], `rs:${job.id}:${m}`)));
+  rows.push([btn("✕ Close", "cancel")]);
+  const lines = [
+    heading,
+    `🔧 ${job.jobNo} · ${job.deviceBrand} ${job.deviceModel}`,
+    job.customerName || job.customerPhone ? `👤 ${[job.customerName, job.customerPhone].filter(Boolean).join(" · ")}` : null,
+    `Problem: ${job.problem}`,
+    `Status: ${statusText(job.status)}`,
+    job.technicianName ? `Technician: ${job.technicianName}` : null,
+    moves.length ? "\nTap the status it is in now, or type another voucher number:" : "\nThis job is closed; it can only change in the app.",
+  ].filter(Boolean);
+  // Stays ready for the next voucher number.
+  await setSession(user.id, chatId, "rp.voucher", {});
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard(rows) });
+}
+
+async function rpFind(chatId: string, user: AuthUser, text: string) {
+  const job = await findRepairJob(user, text);
+  if (!job) {
+    await setSession(user.id, chatId, "rp.voucher", {});
+    return sendMessage(chatId, `No repair with voucher ${text}. Check the number and type it again:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
+  return showRepairJob(chatId, user, job);
+}
+
+async function rpMove(chatId: string, user: AuthUser, jobId: string, to: string) {
+  const before = await prisma.repairJob.findFirst({ where: { id: jobId, businessId: user.businessId, deletedAt: null, ...branchScope(user) } });
+  if (!before) return sendMessage(chatId, "That repair is no longer there.");
+  if (!BOT_REPAIR_MOVES(before.status).includes(to as RepairStatus)) {
+    return showRepairJob(chatId, user, before, `It is ${statusText(before.status)} now, so it cannot become ${statusText(to)} here.\n`);
+  }
+  const job = await prisma.$transaction(async (tx) => {
+    // A technician who moves a job nobody was given takes it, so it counts as theirs.
+    if (!before.technicianName?.trim() && user.roleName === "Service Tech") {
+      await updateRepairDetails(tx, { businessId: user.businessId, userId: user.id, jobId, details: { technicianName: user.name } });
+    }
+    return updateRepairStatus(tx, { businessId: user.businessId, userId: user.id, jobId, status: to as RepairStatus });
+  });
+  notifyAuditFeed(user.businessId, repairStatusNotice({
+    ...job, from: before.status, to: job.status, paidNow: 0n, createdByName: user.name,
+  }), chatId);
+  return showRepairJob(chatId, user, job, `✅ ${job.jobNo} is now ${statusText(job.status)}.\n`);
+}
+
+/** This month so far for the technician whose bot this is, with what they have earned. */
+async function showMyRepairs(chatId: string, user: AuthUser) {
+  const month = todayBusinessDate().slice(0, 7);
+  const { technicians } = await technicianPerformance(user.businessId, month);
+  const mine = technicians.find((t) => t.userId === user.id) ?? technicians.find((t) => t.name && t.name === user.name.trim());
+  if (!mine) return showMenu(chatId, user, `📊 ${month}: no repairs under ${user.name} yet.`);
+  const lines = [
+    `📊 ${mine.name} · ${month}`,
+    `Taken in: ${mine.takenIn}`,
+    `Repaired: ${mine.repaired}`,
+    `Could not repair: ${mine.cannotRepair}`,
+    `In work now: ${mine.working}`,
+    `Avg days: ${mine.avgDays ?? "—"}`,
+    mine.userId ? `💰 Commission: ${fmtMoney(mine.commission.toString())}` : null,
+  ].filter(Boolean);
+  return showMenu(chatId, user, lines.join("\n"));
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -767,6 +877,8 @@ const FLOW_REQUIRED_PERM: Record<string, string> = {
   payable: "payable.pay",
   newcredit: "credit.create",
   topup: "biller.trade",
+  repair: "repair.update",
+  myrepairs: "repair.view",
 };
 
 const FLOW_FEATURE: Record<string, FeatureKey> = {
@@ -778,6 +890,8 @@ const FLOW_FEATURE: Record<string, FeatureKey> = {
   payable: "credit",
   newcredit: "credit",
   topup: "biller",
+  repair: "repair",
+  myrepairs: "repair",
 };
 
 /** ownerUserId identifies whose bot this webhook belongs to — resolved from
@@ -818,10 +932,21 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
   if (trimmed === "/start" || trimmed === "/menu" || trimmed === "/cancel") return showMenu(chatId, user);
 
   const session = await getSession(ownerUserId, chatId);
+  try {
+    // A voucher number typed straight into the chat opens that repair.
+    if ((!session || session.step === "rp.voucher") && VOUCHER_LIKE.test(trimmed)
+      && can(user, "repair.update") && (await businessFeatures(user.businessId)).repair) {
+      return await rpFind(chatId, user, trimmed);
+    }
+  } catch (e) {
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    return;
+  }
   if (!session) return sendMessage(chatId, "Tap /menu to start.");
 
   const [flow, step] = session.step.split(".");
   try {
+    if (flow === "rp" && step === "voucher") return await rpFind(chatId, user, trimmed);
     if (flow === "bl") {
       if (step === "face") return blStepFaceText(chatId, user, session.data, trimmed);
       if (step === "cash") return blStepCashText(chatId, user, session.data, trimmed);
@@ -884,7 +1009,20 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     if (key === "payable") return startCreditPayable(chatId, user, "payable");
     if (key === "newcredit") return startNewCredit(chatId, user);
     if (key === "topup") return startBiller(chatId, user);
+    if (key === "repair") return startRepair(chatId, user);
+    if (key === "myrepairs") return showMyRepairs(chatId, user);
     return;
+  }
+
+  if (data.startsWith("rs:")) {
+    const [, jobId, to] = data.split(":");
+    if (!can(user, "repair.update")) return sendMessage(chatId, "You don't have permission for that.");
+    if (!(await businessFeatures(user.businessId)).repair) return sendMessage(chatId, "This function is turned off in Mahar Mini POS Settings.");
+    try {
+      return await rpMove(chatId, user, jobId, to);
+    } catch (e) {
+      return sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    }
   }
 
   const session = await getSession(ownerUserId, chatId);

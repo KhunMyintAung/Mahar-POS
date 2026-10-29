@@ -1,69 +1,65 @@
-import { withAuth, json } from "@/lib/api";
+import { z } from "zod";
+import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
+import { audit } from "@/lib/audit";
+import { isValidMonth, todayBusinessDate } from "@/lib/dates";
+import { toMinor } from "@/lib/money";
+import { COMMISSION_MODES, technicianPerformance } from "@/services/technicianService";
 
-const WORKING = ["RECEIVED", "CHECKING", "IN_PROGRESS", "WAITING_PARTS"];
-const REPAIRED = ["DONE", "DELIVERED"];
-
-/** How each technician did in a month (?month=YYYY-MM, this month by default): repairs taken
- *  in, repaired, could not repair, and still in work now; what the repaired ones charged, the
- *  parts they used and what is left; and the days a repair took on average. Counted by the
- *  name on the job, so a technician with no login counts too. Also the Service Tech users a repair can be given to. */
+/** How each technician did in a month (?month=YYYY-MM, this month by default), with what
+ *  each earned, and the Service Tech users a repair can be given to (see
+ *  technicianPerformance). A technician sees only their own row; how others are paid is not
+ *  theirs to see. Only someone who manages users sees the commission rules. */
 export const GET = withAuth("repair.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
   const month = isValidMonth(sp.get("month") ?? "") ? sp.get("month")! : todayBusinessDate().slice(0, 7);
-  const range = monthRangeUtc(month);
-  const businessId = user.businessId;
+  const { technicians, serviceTechs } = await technicianPerformance(user.businessId, month);
 
-  const [jobs, techs] = await Promise.all([
-    prisma.repairJob.findMany({
-      where: {
-        businessId, deletedAt: null,
-        OR: [{ receivedAt: range }, { completedAt: range }, { status: { in: WORKING } }],
-      },
-      select: { technicianName: true, status: true, receivedAt: true, completedAt: true, finalCost: true, partsCost: true },
-    }),
-    // Only users with the Service Tech role can be picked as a repair's technician.
-    prisma.user.findMany({
-      where: { businessId, deletedAt: null, active: true, role: { name: "Service Tech" } },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const ownOnly = user.roleName === "Service Tech";
+  const manager = user.permissions.includes("users.manage");
+  const rows = (ownOnly ? technicians.filter((t) => t.userId === user.id) : technicians)
+    .map((t) => (manager ? t : { ...t, rule: null }));
 
-  const inMonth = (d: Date | null) => Boolean(d && d >= range.gte && d < range.lt);
-  const rows = new Map<string, {
-    name: string; takenIn: number; repaired: number; cannotRepair: number; working: number;
-    charged: bigint; parts: bigint; days: number;
-  }>();
-  const rowOf = (name: string | null) => {
-    const key = name?.trim() || "";
-    let r = rows.get(key);
-    if (!r) rows.set(key, (r = { name: key, takenIn: 0, repaired: 0, cannotRepair: 0, working: 0, charged: 0n, parts: 0n, days: 0 }));
-    return r;
+  return json({ month, technicians: rows, serviceTechs, ownOnly, canSetCommission: manager });
+});
+
+const commissionSchema = z.object({
+  userId: z.string().min(1),
+  mode: z.enum(COMMISSION_MODES),
+  percent: z.string().regex(/^\d+(\.\d+)?$/, "Enter a percent").refine((p) => Number(p) <= 100, "A percent cannot be over 100").optional(),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, "Enter an amount").optional(),
+});
+
+/** Set what a Service Tech earns per finished repair: a percent of what it made, or a fixed sum. */
+export const PATCH = withAuth("users.manage", async ({ req, user }) => {
+  const body = await parseBody(req, commissionSchema);
+  const tech = await prisma.user.findFirst({
+    where: { id: body.userId, businessId: user.businessId, deletedAt: null, role: { name: "Service Tech" } },
+    select: { id: true, repairCommissionMode: true, repairCommissionPercent: true, repairCommissionAmount: true },
+  });
+  if (!tech) throw new ApiError(404, "Technician not found");
+
+  const data = {
+    repairCommissionMode: body.mode,
+    repairCommissionPercent: body.mode === "PERCENT" ? body.percent ?? "0" : tech.repairCommissionPercent,
+    repairCommissionAmount: body.mode === "AMOUNT" ? toMinor(body.amount ?? "0") : tech.repairCommissionAmount,
   };
-  for (const j of jobs) {
-    const r = rowOf(j.technicianName);
-    if (inMonth(j.receivedAt)) r.takenIn++;
-    if (WORKING.includes(j.status)) r.working++;
-    if (inMonth(j.completedAt) && REPAIRED.includes(j.status)) {
-      r.repaired++;
-      r.charged += j.finalCost;
-      r.parts += j.partsCost;
-      r.days += (j.completedAt!.getTime() - j.receivedAt.getTime()) / 86_400_000;
-    }
-    if (inMonth(j.completedAt) && j.status === "CANNOT_REPAIR") r.cannotRepair++;
-  }
+  if (body.mode === "PERCENT" && Number(data.repairCommissionPercent) <= 0) throw new ApiError(422, "Enter a percent");
+  if (body.mode === "AMOUNT" && data.repairCommissionAmount <= 0n) throw new ApiError(422, "Enter an amount");
 
-  const technicians = [...rows.values()]
-    .map((r) => ({
-      name: r.name,
-      takenIn: r.takenIn, repaired: r.repaired, cannotRepair: r.cannotRepair, working: r.working,
-      charged: r.charged, parts: r.parts, profit: r.charged - r.parts,
-      avgDays: r.repaired ? Math.round((r.days / r.repaired) * 10) / 10 : null,
-    }))
-    // The busiest first; jobs with no technician last.
-    .sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1) || b.repaired - a.repaired || b.takenIn - a.takenIn || a.name.localeCompare(b.name));
-
-  return json({ month, technicians, serviceTechs: techs });
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({ where: { id: tech.id }, data, select: { id: true, repairCommissionMode: true, repairCommissionPercent: true, repairCommissionAmount: true } });
+    await audit(tx, {
+      businessId: user.businessId,
+      userId: user.id,
+      action: "UPDATE",
+      module: "repair",
+      resourceType: "User",
+      resourceId: tech.id,
+      before: { mode: tech.repairCommissionMode, percent: tech.repairCommissionPercent, amount: tech.repairCommissionAmount.toString() },
+      after: { mode: u.repairCommissionMode, percent: u.repairCommissionPercent, amount: u.repairCommissionAmount.toString() },
+    });
+    return u;
+  });
+  return json(updated);
 });

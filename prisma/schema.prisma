@@ -87,6 +87,13 @@ model User {
   active         Boolean   @default(true)
   // 3D commission rate as decimal string percent, e.g. "10" = 10%
   commissionRate String    @default("0")
+  /// A technician's pay for each repair they finish: PERCENT of what the repair made (the
+  /// charge less its parts), AMOUNT a fixed sum per repair, or NONE.
+  repairCommissionMode    String @default("NONE")
+  /// The percent, as a decimal string ("10" = 10%), when the mode is PERCENT.
+  repairCommissionPercent String @default("0")
+  /// The sum per repair, in minor units, when the mode is AMOUNT.
+  repairCommissionAmount  BigInt @default(0)
   failedLogins   Int       @default(0)
   lockedUntil    DateTime?
   createdAt      DateTime  @default(now())

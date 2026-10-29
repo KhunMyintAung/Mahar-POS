@@ -8,13 +8,14 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
-  Moon, Sun, Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
+  Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
   Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn } from "./ui";
 import { PwaInstall } from "./PwaInstall";
 import { SoundToggle } from "./SoundToggle";
+import { ThemeToggle } from "./ThemeToggle";
 import { LanguageSwitch } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
@@ -140,7 +141,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   // The desktop sidebar folds away on the till, where every column of product tiles counts,
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
-  const [dark, setDark] = useState(false);
   // Where a page's <PageHeader> puts its name (a callback ref, set once mounted).
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
   const pathname = usePathname();
@@ -158,20 +158,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setDark(document.documentElement.classList.contains("dark"));
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
-
-  function toggleTheme() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("wn-theme", next ? "dark" : "light");
-  }
 
   async function logout() {
     await api("/api/v1/auth/logout", { method: "POST" });
@@ -217,6 +203,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const groupTabs = visibleNav.find((n) => n.tabs && isActive(n))?.tabs;
   const mobileNav = visibleNav.slice(0, 4);
   // The menu name of the page, for the top bar until (or unless) the page names itself.
+  // The page a user starts on: the Dashboard, or for someone without it (a technician) the
+  // first page they may open. The language, sound and theme switches sit in its top bar.
+  const homeHref = hasPerm("dashboard.view") ? "/" : visibleNav[0]?.href ?? "/";
   const pageName = groupTabs?.find((t) => pathname.startsWith(t.href))?.label ?? visibleNav.find(isActive)?.label ?? "";
 
   // "+" creates for whatever section is open, so it is only shown where that means
@@ -260,6 +249,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <LogOut size={18} />Sign out
       </button>
+      {/* On every page, so they are within reach whatever a user's role lets them open. */}
+      <div className="mt-1 flex items-center gap-1 px-1">
+        <LanguageSwitch className="mr-1" />
+        <SoundToggle />
+        <ThemeToggle />
+      </div>
     </nav>
   );
 
@@ -332,16 +327,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className="menu-title truncate text-base font-bold text-gray-900 dark:text-gray-100">{pageName}</span>
                 </div>
               </div>
-              {/* Language, sound, theme and sign out live on the Dashboard only; other pages
-                  keep the bar for their name. Sign out is in the menu too. */}
-              {pathname === "/" && (
-              <div className="flex shrink-0 items-center gap-1">
+              {/* Language, sound, theme and sign out live on the first page only; other pages
+                  keep the bar for their name. All of them are in the menu too. A first page
+                  other than the Dashboard (Repairs, with its tabs) needs the bar on a phone,
+                  so there they show on a wide screen only. */}
+              {pathname === homeHref && (
+              <div className={cn("shrink-0 items-center gap-1", homeHref === "/" ? "flex" : "hidden lg:flex")}>
                 <LanguageSwitch className="mr-1" />
                 <PwaInstall compact />
                 <SoundToggle />
-                <button onClick={toggleTheme} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title="Toggle theme">
-                  {dark ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+                <ThemeToggle />
                 <button onClick={logout} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title={`Sign out (${me.user.name} · ${me.user.roleName})`}>
                   <LogOut size={18} />
                 </button>

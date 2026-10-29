@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button, Card, Input } from "@/components/ui";
-import { LanguageSwitch } from "@/components/LanguageProvider";
+import { PageToggles } from "@/components/ThemeToggle";
 import { api } from "@/lib/client";
 
 /** Asks for the account's email and sends a reset link to it. */
@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="relative flex min-w-0 w-full flex-1 items-center justify-center overflow-x-hidden p-4 pt-16">
-      <LanguageSwitch className="absolute right-4 top-4" />
+      <PageToggles className="absolute right-4 top-4" />
       <Card className="w-full max-w-sm">
         <h1 className="mb-1 text-xl font-bold">Forgot password</h1>
         {sent ? (
