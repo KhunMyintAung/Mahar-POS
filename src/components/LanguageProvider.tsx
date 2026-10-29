@@ -1328,6 +1328,7 @@ const MM: Record<string, string> = {
   "Choose a branch": "ဆိုင်ခွဲ ရွေးပါ",
   "They sign in with this username and password and see repairs only: no money, sales or reports.": "ဒီ username နဲ့ password ဖြင့် ဝင်ပြီး ပြင်ဆင်မှုများကိုသာ မြင်ရမည်။ ငွေ၊ အရောင်း၊ Report များ မမြင်ရပါ။",
   "Enter a name": "အမည် ထည့်ပါ",
+  "You don't have permission for that.": "ဒီအတွက် ခွင့်ပြုချက် မရှိပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

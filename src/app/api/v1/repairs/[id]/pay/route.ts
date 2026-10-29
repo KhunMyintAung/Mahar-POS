@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withAuth, json, parseBody } from "@/lib/api";
+import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { payRepairBalance } from "@/services/repairService";
@@ -13,6 +13,8 @@ const schema = z.object({
 });
 
 export const POST = withAuth("repair.update", async ({ req, user, params }) => {
+  // Taking money goes into a wallet; a technician, who cannot see wallets, cannot take it.
+  if (!user.permissions.includes("wallet.view")) throw new ApiError(403, "You don't have permission for that.");
   const body = await parseBody(req, schema);
   const before = await prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId }, select: { status: true, paidAmount: true } });
   const job = await prisma.$transaction((tx) =>

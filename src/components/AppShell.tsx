@@ -120,7 +120,8 @@ const NAV: NavItem[] = [
   { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair" },
   { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases" },
   { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items" },
-  { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.view", feature: "onlineShop" },
+  // Running the online shop (its orders, prices and photos), not just seeing the items in it.
+  { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.manage", feature: "onlineShop" },
   { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS },
   { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },

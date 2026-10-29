@@ -210,6 +210,10 @@ export default function RepairsPage() {
   const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
   const { push } = useToast();
   const { hasPerm, defaultBranchId, me } = useAuth();
+  // Handing a phone back and marking it paid take money into a wallet; someone who cannot
+  // see wallets (a technician) is not offered either.
+  const canTakeMoney = hasPerm("wallet.view");
+  const moves = (from: string) => nextStatuses(from).filter((s) => canTakeMoney || s !== "DELIVERED");
 
   function openVoucher(job: Job) {
     setVoucher({
@@ -251,8 +255,8 @@ export default function RepairsPage() {
     api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(e.message, "error"));
-    api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status, month]);
+    if (canTakeMoney) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
+  }, [push, q, status, month, canTakeMoney]);
 
   useEffect(load, [load]);
 
@@ -416,7 +420,7 @@ export default function RepairsPage() {
   function startMove(job: Job, to?: string) {
     setWorking(job);
     setMove({
-      status: to ?? nextStatuses(job.status)[0] ?? "",
+      status: to ?? moves(job.status)[0] ?? "",
       // Pre-filled with whatever is known: the final charge if set, otherwise the quote.
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
       partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
@@ -537,7 +541,7 @@ export default function RepairsPage() {
           rightAlign={[5, 6]}
         >
           {pageRows.map((job) => {
-            const options = nextStatuses(job.status);
+            const options = moves(job.status);
             const canQuick = hasPerm("repair.update") && options.length > 0;
             return (
               <tr key={job.id} className="align-top">
@@ -603,7 +607,7 @@ export default function RepairsPage() {
                     {hasPerm("repair.update") && (
                       <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
                     )}
-                    {hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && (
+                    {canTakeMoney && hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && (
                       <Button size="sm" onClick={() => startPay(job)}>Mark as paid</Button>
                     )}
                   </div>
@@ -725,8 +729,8 @@ export default function RepairsPage() {
               <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
-              <Select label="Status" value={edit.status} disabled={nextStatuses(editing.status).length === 0} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
-                {[editing.status as RepairStatus, ...nextStatuses(editing.status)].map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s] ?? s}</option>)}
+              <Select label="Status" value={edit.status} disabled={moves(editing.status).length === 0} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                {[editing.status as RepairStatus, ...moves(editing.status)].map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s] ?? s}</option>)}
               </Select>
               <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -760,7 +764,7 @@ export default function RepairsPage() {
         {working && (
           <div className="space-y-3">
             <Select label="Move to" value={move.status} onChange={(e) => setMove({ ...move, status: e.target.value })}>
-              {nextStatuses(working.status).map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
+              {moves(working.status).map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </Select>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Parts cost" value={move.partsCost} onChange={(e) => setMove({ ...move, partsCost: e.target.value })} />
