@@ -493,8 +493,10 @@ export default function PosPage() {
     <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
       <PageHeader title={<>Sales &amp; POS</>} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="min-w-0 space-y-3 lg:col-span-3">
-          <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
+        {/* On a wide screen the items stay in view beside the cart, as tall as it, and the
+            grid scrolls inside: down to the bottom of the screen, never stopping short. */}
+        <div className="min-w-0 space-y-3 lg:sticky lg:top-3 lg:col-span-3 lg:flex lg:max-h-[calc(100dvh-1.5rem)] lg:flex-col lg:self-start">
+          <div className="grid shrink-0 gap-2 sm:grid-cols-[1fr_12rem]">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-3 text-gray-400" />
               <input
@@ -522,7 +524,7 @@ export default function PosPage() {
               {categories.map((name) => <option key={name} value={name}>{name}</option>)}
             </Select>
           </div>
-          <div className="grid max-h-[42dvh] grid-cols-2 gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-[calc(100dvh-9.5rem)] xl:grid-cols-4">
+          <div className="grid max-h-[42dvh] grid-cols-2 content-start gap-2 overflow-y-auto sm:max-h-[55dvh] sm:grid-cols-3 lg:max-h-none lg:min-h-0 lg:flex-1 xl:grid-cols-4">
             {groupByModel(filtered).map((g) => {
               // A model with variants is one tile; the variant is picked from it.
               if (g.items.length > 1) {
