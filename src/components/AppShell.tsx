@@ -135,9 +135,9 @@ const NAV: NavItem[] = [
   { href: "/about", label: "About Us", icon: Info, perm: null, feature: "about" },
 ];
 
-/** Pages that want the whole width (the till, the repair list, the top-up billers): the
+/** Pages that want the whole width (the till, the repair list): the
  *  sidebar starts folded there and comes back with the menu button. */
-const FOLDED_SIDEBAR = ["/pos", "/repairs", "/billers"];
+const FOLDED_SIDEBAR = ["/pos", "/repairs"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
