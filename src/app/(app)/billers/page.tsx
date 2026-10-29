@@ -88,6 +88,9 @@ export default function BillersPage() {
   const [rememberFloat, setRememberFloat] = useState(false);
   const [showNew, setShowNew] = useNewModal();
   const [busy, setBusy] = useState(false);
+  // Editing a biller and correcting its balance are rare, so their buttons stay out of the
+  // way until Edit at the top is pressed.
+  const [editMode, setEditMode] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
   const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "" });
   const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
@@ -340,6 +343,11 @@ export default function BillersPage() {
           </>
         }
       >
+        {hasPerm("biller.manage") || hasPerm("biller.trade") ? (
+          <Button variant={editMode ? "primary" : "secondary"} onClick={() => setEditMode(!editMode)}>
+            <Pencil size={15} className="mr-1 inline" />{editMode ? "Done" : "Edit"}
+          </Button>
+        ) : null}
         {hasPerm("biller.manage") && (
           <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New biller</Button>
         )}
@@ -382,7 +390,7 @@ export default function BillersPage() {
                   <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
                   <div className="truncate text-[11px] text-gray-500">{[TYPE_LABEL[b.type] ?? b.type, ...dealLabel(b)].join(" · ")}{!b.active && " · off"}</div>
                 </div>
-                {hasPerm("biller.manage") && (
+                {editMode && hasPerm("biller.manage") && (
                   <button
                     type="button"
                     aria-label={`Edit ${b.name}`}
@@ -401,7 +409,7 @@ export default function BillersPage() {
                 <div className="flex flex-wrap gap-1 text-xs font-medium">
                   <button type="button" onClick={() => startTrade(b, "SALE")} className="h-7 flex-1 whitespace-nowrap rounded-md bg-blue-600 px-2 text-white hover:bg-blue-700">Sell</button>
                   <button type="button" onClick={() => startTrade(b, "TOPUP")} className="h-7 flex-1 whitespace-nowrap rounded-md border border-gray-300 px-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Buy float</button>
-                  <button type="button" onClick={() => startTrade(b, "ADJUST")} className="h-7 flex-1 whitespace-nowrap rounded-md border border-gray-300 px-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Adjust</button>
+                  {editMode && <button type="button" onClick={() => startTrade(b, "ADJUST")} className="h-7 flex-1 whitespace-nowrap rounded-md border border-gray-300 px-2 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Adjust</button>}
                 </div>
               )}
             </Card>

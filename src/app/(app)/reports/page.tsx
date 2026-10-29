@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileSpreadsheet, Printer, Settings2 } from "lucide-react";
+import { FileSpreadsheet, Settings2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, cn, useToast } from "@/components/ui";
@@ -10,7 +10,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 
 /** Reports: the daily (or monthly) summary of income and expense. The Grand Report (profit,
- *  salary, capital for next month, each partner's share) goes out in Excel, the Google Sheet
+ *  salary, capital for next month, each partner's share) goes out in CSV, the Google Sheet
  *  sync and the Telegram daily report, with a Stock sheet of the categories picked in Report
  *  settings; neither is shown on this page. */
 
@@ -132,11 +132,10 @@ export default function ReportsPage() {
       >
         <div className="flex flex-wrap gap-2">
           {hasPerm("report.export") && (
-            <a href={`/api/v1/reports/xlsx?${query}`} className="inline-flex min-h-10 items-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700">
-              <FileSpreadsheet size={16} className="mr-1.5" />Excel
+            <a href={`/api/v1/reports/csv?${query}`} className="inline-flex min-h-10 items-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white hover:bg-green-700">
+              <FileSpreadsheet size={16} className="mr-1.5" />CSV
             </a>
           )}
-          <Button variant="secondary" onClick={() => window.print()}><Printer size={16} className="mr-1 inline" />Print</Button>
           {owner && <Button variant="secondary" aria-label="Report settings" onClick={() => setSettingsOpen(true)}><Settings2 size={16} /></Button>}
         </div>
       </PageHeader>
@@ -253,7 +252,7 @@ function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean;
 
           <section>
             <div className="mb-1 text-sm font-semibold">2. Stock sheet</div>
-            <p className="mb-2 text-xs text-gray-500">Only in Excel and Google Sheet, not on this page. Only the item categories ticked here are listed (for example Spare Parts); sub-categories come with them.</p>
+            <p className="mb-2 text-xs text-gray-500">Only in CSV and Google Sheet, not on this page. Only the item categories ticked here are listed (for example Spare Parts); sub-categories come with them.</p>
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
               {topCats.length === 0 && <p className="text-xs text-gray-400">No item categories yet</p>}
               {topCats.map((c) => (

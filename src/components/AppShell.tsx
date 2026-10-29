@@ -135,17 +135,21 @@ const NAV: NavItem[] = [
   { href: "/about", label: "About Us", icon: Info, perm: null, feature: "about" },
 ];
 
+/** Pages that want the whole width (the till, the repair list, the top-up billers): the
+ *  sidebar starts folded there and comes back with the menu button. */
+const FOLDED_SIDEBAR = ["/pos", "/repairs", "/billers"];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
-  // The desktop sidebar folds away on the till, where every column of product tiles counts,
+  // The desktop sidebar folds away on the pages that want the width (FOLDED_SIDEBAR)
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
   // Where a page's <PageHeader> puts its name (a callback ref, set once mounted).
   const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
   const pathname = usePathname();
-  const sidebarHidden = sidebarPref?.path === pathname ? sidebarPref.hidden : pathname.startsWith("/pos");
+  const sidebarHidden = sidebarPref?.path === pathname ? sidebarPref.hidden : FOLDED_SIDEBAR.some((p) => pathname.startsWith(p));
   const router = useRouter();
 
   const refreshAuth = useCallback(async () => {
