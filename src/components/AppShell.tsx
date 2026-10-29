@@ -250,12 +250,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <LogOut size={18} />Sign out
       </button>
-      {/* On every page, so they are within reach whatever a user's role lets them open. */}
-      <div className="mt-1 flex items-center gap-1 px-1">
-        <LanguageSwitch className="mr-1" />
-        <SoundToggle />
-        <ThemeToggle />
-      </div>
     </nav>
   );
 
@@ -302,6 +296,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </div>
                   <button onClick={() => setDrawer(false)}><X size={20} /></button>
                 </div>
+                {/* Someone without the Dashboard (a technician) has no top bar with these on a
+                    phone, so they sit at the top of the menu instead. */}
+                {homeHref !== "/" && (
+                  <div className="flex items-center gap-1 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+                    <LanguageSwitch className="mr-1" />
+                    <SoundToggle />
+                    <ThemeToggle />
+                  </div>
+                )}
                 {sidebar}
               </aside>
             </div>

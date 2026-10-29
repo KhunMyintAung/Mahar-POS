@@ -1,6 +1,6 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { computeDayIncome, computeDaySummary } from "@/services/summaryService";
+import { computeDayExpense, computeDayIncome, computeDaySummary } from "@/services/summaryService";
 import { todayBusinessDate } from "@/lib/dates";
 import { EXPIRY_WARN_DAYS } from "@/lib/expiry";
 
@@ -99,10 +99,13 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
     };
   }
 
-  const raw = await computeDayIncome(prisma, user.businessId, date, branchIds, pos?.salesTotal);
-  const income = { sales: raw.sales, service: raw.service, topup: raw.topup, other: raw.other, total: raw.total };
+  const [raw, expense] = await Promise.all([
+    computeDayIncome(prisma, user.businessId, date, branchIds, pos?.salesTotal),
+    computeDayExpense(prisma, user.businessId, date, branchIds),
+  ]);
+  const income = { sales: raw.sales, service: raw.service, topup: raw.topup, other: raw.other, total: raw.total, lines: raw.lines };
 
   return json({
-    date, summary, pos, income,
+    date, summary, pos, income, expense,
   });
 });

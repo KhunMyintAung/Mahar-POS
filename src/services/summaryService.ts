@@ -105,7 +105,14 @@ export async function computeDaySummary(
   };
 }
 
-export interface DayIncome { sales: bigint; service: bigint; topup: bigint; other: bigint; total: bigint }
+/** One line of a day's money: where it came from (or went), and how much. */
+export interface DayLine { label: string; amount: bigint }
+
+export interface DayIncome {
+  sales: bigint; service: bigint; topup: bigint; other: bigint; total: bigint;
+  /** Each source on its own: till sales, repairs, top-up sales and every income category entered. */
+  lines: DayLine[];
+}
 
 /** Everything the shop took in on a day, in one figure: till sales, repair money taken
  *  (deposits and payments, less refunds), the cash from top-up sales, and other income.
@@ -159,5 +166,25 @@ export async function computeDayIncome(
     topup: topupSales + byBucket.topup,
     other: byBucket.other,
   };
-  return { ...out, total: out.sales + out.service + out.topup + out.other };
+  const lines: DayLine[] = [
+    { label: "POS sales", amount: sales },
+    { label: "Repairs", amount: repair },
+    { label: "Top-up & Bill sales", amount: topupSales },
+    ...incomeByCategory.map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
+  ].filter((l) => l.amount !== 0n);
+  return { ...out, total: out.sales + out.service + out.topup + out.other, lines };
+}
+
+/** What went out on a day, by expense category, biggest first. */
+export async function computeDayExpense(tx: Tx, businessId: string, date: string, branchIds?: string[]) {
+  const rows = await tx.incomeExpense.groupBy({
+    by: ["categoryName"],
+    where: { businessId, deletedAt: null, type: "EXPENSE", status: "COMPLETED", date, currency: "MMK", ...(branchIds ? { branchId: { in: branchIds } } : {}) },
+    _sum: { amount: true },
+  });
+  const lines: DayLine[] = rows
+    .map((row) => ({ label: row.categoryName ?? "Expense", amount: row._sum.amount ?? 0n }))
+    .filter((l) => l.amount !== 0n)
+    .sort((a, b) => (b.amount > a.amount ? 1 : b.amount < a.amount ? -1 : 0));
+  return { total: lines.reduce((t, l) => t + l.amount, 0n), lines };
 }

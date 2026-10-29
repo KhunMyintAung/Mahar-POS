@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { autoCorrectDevice } from "@/lib/autoCorrect";
-import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Plus, Printer, Search, Wrench } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -207,6 +207,8 @@ export default function RepairsPage() {
   const [editing, setEditing] = useState<Job | null>(null);
   const [edit, setEdit] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
+  // A repair just finished, on a phone, whose customer can be rung to come and collect it.
+  const [calling, setCalling] = useState<{ jobNo: string; name: string; phone: string } | null>(null);
   const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
   const { push } = useToast();
   const { hasPerm, defaultBranchId, me } = useAuth();
@@ -408,13 +410,25 @@ export default function RepairsPage() {
       setEditing(null);
       // Handing the device back takes the balance, so that goes on to the full form.
       if (to === "DELIVERED") startMove(editing, to);
-      else if (to) await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: to } }).catch((e) => push(e instanceof Error ? e.message : "Failed", "error"));
+      else if (to) {
+        await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: to } })
+          .then(() => offerCall({ jobNo: editing.jobNo, customerName: edit.customerName, customerPhone: edit.customerPhone }, to))
+          .catch((e) => push(e instanceof Error ? e.message : "Failed", "error"));
+      }
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
       setBusy(false);
     }
+  }
+
+  /** On a phone, a repair marked Completed whose customer left a number offers to ring them.
+   *  Without a number, or on a computer, nothing more happens. */
+  function offerCall(job: Pick<Job, "jobNo" | "customerName" | "customerPhone">, to: string) {
+    const phone = job.customerPhone?.replace(/[^\d+]/g, "");
+    if (to !== "DONE" || !phone || !window.matchMedia("(max-width: 1023px)").matches) return;
+    setCalling({ jobNo: job.jobNo, name: job.customerName ?? "", phone });
   }
 
   function startMove(job: Job, to?: string) {
@@ -441,6 +455,7 @@ export default function RepairsPage() {
     try {
       await api(`/api/v1/repairs/${job.id}`, { method: "PATCH", body: { status: to } });
       // No toast: the pill changing colour is confirmation enough.
+      offerCall(job, to);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -464,6 +479,7 @@ export default function RepairsPage() {
         },
       });
       setWorking(null);
+      offerCall(working, move.status);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -755,6 +771,28 @@ export default function RepairsPage() {
               <Button onClick={saveEdit} disabled={busy || !edit.deviceBrand.trim() || !edit.deviceModel.trim() || !edit.problem.trim()}>
                 {busy ? "Saving…" : "Save"}
               </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(calling)} onClose={() => setCalling(null)} title={calling ? `${calling.jobNo} — Completed` : ""}>
+        {calling && (
+          <div className="space-y-4">
+            <p className="text-sm">Call the customer to come and collect it?</p>
+            <div className="rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
+              {calling.name && <div className="font-medium">{calling.name}</div>}
+              <div className="tabular-nums text-gray-600 dark:text-gray-300">{calling.phone}</div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setCalling(null)}>Not now</Button>
+              <a
+                href={`tel:${calling.phone}`}
+                onClick={() => setCalling(null)}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                <Phone size={16} />Call
+              </a>
             </div>
           </div>
         )}

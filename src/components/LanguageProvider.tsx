@@ -1329,6 +1329,13 @@ const MM: Record<string, string> = {
   "They sign in with this username and password and see repairs only: no money, sales or reports.": "ဒီ username နဲ့ password ဖြင့် ဝင်ပြီး ပြင်ဆင်မှုများကိုသာ မြင်ရမည်။ ငွေ၊ အရောင်း၊ Report များ မမြင်ရပါ။",
   "Enter a name": "အမည် ထည့်ပါ",
   "You don't have permission for that.": "ဒီအတွက် ခွင့်ပြုချက် မရှိပါ။",
+  "POS sales": "POS အရောင်း",
+  "Top-up & Bill sales": "ဖုန်းဖြည့်နှင့် Bill အရောင်း",
+  "No income yet": "ဝင်ငွေ မရှိသေးပါ",
+  "No expense yet": "ထွက်ငွေ မရှိသေးပါ",
+  "Call the customer to come and collect it?": "ဖောက်သည်ကို လာယူရန် ဖုန်းခေါ်မလား?",
+  "Not now": "နောက်မှ",
+  "Call": "ဖုန်းခေါ်မည်",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1387,6 +1394,7 @@ function translate(value: string) {
     [/^Bought (.+)$/, (amount) => `ဝယ်ခဲ့ပြီး ${amount}`],
     [/^Expense (.+)$/, (amount) => `ထွက်ငွေ ${amount}`],
     [/^Commission — (.+)$/, (name) => `ကော်မရှင် — ${name}`],
+    [/^(.+) — Completed$/, (job) => `${job} — ပြင်ပြီး`],
     [/^(.+)% of profit$/, (pct) => `အမြတ်၏ ${pct}%`],
     [/^(.+) per repair$/, (amount) => `တစ်ခုလျှင် ${amount}`],
     [/^Unpaid (.+)$/, (amount) => `ပေးရန်ကျန် ${amount}`],

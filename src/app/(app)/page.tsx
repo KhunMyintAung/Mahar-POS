@@ -30,11 +30,38 @@ interface DashData {
     stockRetail: string;
     stockItems: number;
   };
-  income?: { sales: string; service: string; topup: string; other: string; total: string };
+  income?: { sales: string; service: string; topup: string; other: string; total: string; lines: { label: string; amount: string }[] };
+  expense?: { total: string; lines: { label: string; amount: string }[] };
 }
 
 /** Today in the shop's time zone, to label the income card. */
 const todayDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+
+/** A total and the lines that make it up, in small type. */
+function DayLines({ title, total, lines, tone, empty }: {
+  title: string; total: string; lines: { label: string; amount: string }[]; tone: "green" | "red"; empty: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className={tone === "green" ? "text-sm font-medium text-green-700 dark:text-green-300" : "text-sm font-medium text-red-600 dark:text-red-400"}>{title}</span>
+        <span className="text-lg font-bold tabular-nums">{fmtMoney(total, "MMK")}</span>
+      </div>
+      {lines.length === 0 ? (
+        <div className="text-xs text-gray-400">{empty}</div>
+      ) : (
+        <ul className="mt-1 space-y-0.5 text-xs">
+          {lines.map((l) => (
+            <li key={l.label} className="flex justify-between gap-2">
+              <span className="truncate text-gray-600 dark:text-gray-400">{l.label}</span>
+              <span className="shrink-0 tabular-nums">{fmtMoney(l.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null);
@@ -84,26 +111,25 @@ export default function DashboardPage() {
       </div>
 
       {data.income && (
-        <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <div className="text-sm font-medium text-green-800 dark:text-green-300">{data.date === todayDate ? "Today's Total Income" : "Total Income"}</div>
-              <div className="text-3xl font-bold tabular-nums">{fmtMoney(data.income.total, "MMK")}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-              {([
-                ["Sales", data.income.sales, featureEnabled("pos")],
-                ["Service", data.income.service, featureEnabled("repair")],
-                ["Top-up & Bill", data.income.topup, featureEnabled("biller")],
-                ["Other income", data.income.other, true],
-              ] as const).filter(([, v, on]) => on || BigInt(v) !== 0n).map(([label, v]) => (
-                <div key={label}>
-                  <div className="text-xs text-gray-500">{label}</div>
-                  <div className="font-semibold tabular-nums">{fmtMoney(v, "MMK")}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+        // Every source the day's money came from, and every kind of expense, each on a line:
+        // small enough to sit above the cards, whole enough that nothing entered is missing.
+        <Card className="grid gap-3 sm:grid-cols-2">
+          <DayLines
+            title={data.date === todayDate ? "Today's Total Income" : "Total Income"}
+            total={data.income.total}
+            lines={data.income.lines}
+            tone="green"
+            empty="No income yet"
+          />
+          {data.expense && (
+            <DayLines
+              title={data.date === todayDate ? "Today's Expense" : "Expense"}
+              total={data.expense.total}
+              lines={data.expense.lines}
+              tone="red"
+              empty="No expense yet"
+            />
+          )}
         </Card>
       )}
 
