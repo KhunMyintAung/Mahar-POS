@@ -1322,6 +1322,12 @@ const MM: Record<string, string> = {
   "Enter a percent": "ရာခိုင်နှုန်း ထည့်ပါ",
   "Enter an amount": "ငွေပမာဏ ထည့်ပါ",
   "A percent cannot be over 100": "ရာခိုင်နှုန်းသည် 100 ထက် မကျော်ရပါ",
+  "New technician": "ပြင်ဆရာ အသစ်",
+  "Add technician": "ပြင်ဆရာ ထည့်မည်",
+  "Technician added": "ပြင်ဆရာ ထည့်ပြီး",
+  "Choose a branch": "ဆိုင်ခွဲ ရွေးပါ",
+  "They sign in with this username and password and see repairs only: no money, sales or reports.": "ဒီ username နဲ့ password ဖြင့် ဝင်ပြီး ပြင်ဆင်မှုများကိုသာ မြင်ရမည်။ ငွေ၊ အရောင်း၊ Report များ မမြင်ရပါ။",
+  "Enter a name": "အမည် ထည့်ပါ",
 };
 
 const originalText = new WeakMap<Node, string>();

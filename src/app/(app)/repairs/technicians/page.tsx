@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { UserPlus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, useToast } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
 import { RepairTabs } from "@/components/RepairTabs";
+import { useAuth } from "@/components/AppShell";
 
 /** Technician performance: for a month, each technician's repairs taken in, repaired, could
  *  not repair and still in work, what the repaired ones charged, the parts they used, what is
@@ -20,6 +22,30 @@ interface Row {
 
 const thisMonth = () => new Date().toISOString().slice(0, 7);
 
+const blankTech = { name: "", username: "", phone: "", password: "", branchId: "", mode: "PERCENT", percent: "", amount: "" };
+
+/** How a technician is paid, as picked in a form: percent of profit, a fixed sum, or none. */
+function CommissionFields({ form, onChange }: {
+  form: { mode: string; percent: string; amount: string };
+  onChange: (next: { mode?: string; percent?: string; amount?: string }) => void;
+}) {
+  return (
+    <>
+      <Select label="Pay per finished repair" value={form.mode} onChange={(e) => onChange({ mode: e.target.value })}>
+        <option value="PERCENT">Percent of profit (charge less parts)</option>
+        <option value="AMOUNT">Fixed amount per repair</option>
+        <option value="NONE">No commission</option>
+      </Select>
+      {form.mode === "PERCENT" && (
+        <Input label="Percent (%)" inputMode="decimal" value={form.percent} onChange={(e) => onChange({ percent: e.target.value })} placeholder="10" />
+      )}
+      {form.mode === "AMOUNT" && (
+        <Input label="Amount per repair" inputMode="numeric" value={form.amount} onChange={(e) => onChange({ amount: e.target.value })} placeholder="5,000" />
+      )}
+    </>
+  );
+}
+
 function ruleLabel(rule: Rule | null): string {
   if (!rule || rule.mode === "NONE") return "Not set";
   return rule.mode === "PERCENT" ? `${rule.percent}% of profit` : `${fmtMoney(rule.amount)} per repair`;
@@ -33,7 +59,10 @@ export default function TechniciansPage() {
   const [setting, setSetting] = useState<Row | null>(null);
   const [form, setForm] = useState({ mode: "PERCENT", percent: "", amount: "" });
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [tech, setTech] = useState(blankTech);
   const { push } = useToast();
+  const { branches, defaultBranchId } = useAuth();
 
   const load = useCallback(() => {
     api<{ technicians: Row[]; canSetCommission: boolean; ownOnly: boolean }>(`/api/v1/repairs/technicians?month=${month}`)
@@ -69,6 +98,32 @@ export default function TechniciansPage() {
     }
   }
 
+  function startAdd() {
+    setTech({ ...blankTech, branchId: defaultBranchId });
+    setAdding(true);
+  }
+
+  async function saveAdd() {
+    setBusy(true);
+    try {
+      await api("/api/v1/repairs/technicians", {
+        method: "POST",
+        body: {
+          name: tech.name, username: tech.username, phone: tech.phone || undefined, password: tech.password,
+          branchIds: tech.branchId ? [tech.branchId] : [],
+          mode: tech.mode, percent: tech.percent || undefined, amount: tech.amount.replace(/,/g, "") || undefined,
+        },
+      });
+      push("Technician added");
+      setAdding(false);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const named = (rows ?? []).filter((r) => r.name);
   const best = named.reduce<Row | null>((b, r) => (!b || r.repaired > b.repaired ? r : b), null);
 
@@ -86,7 +141,9 @@ export default function TechniciansPage() {
             )}
           </>
         }
-      />
+      >
+        {canSet && <Button onClick={startAdd}><UserPlus size={16} className="mr-1 inline" />New technician</Button>}
+      </PageHeader>
 
       {!rows ? <Spinner /> : rows.length === 0 ? (
         <Card><Empty message="No repairs in this month" /></Card>
@@ -125,20 +182,34 @@ export default function TechniciansPage() {
 
       <Modal open={Boolean(setting)} onClose={() => setSetting(null)} title={setting ? `Commission — ${setting.name}` : ""}>
         <div className="space-y-3">
-          <Select label="Pay per finished repair" value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
-            <option value="PERCENT">Percent of profit (charge less parts)</option>
-            <option value="AMOUNT">Fixed amount per repair</option>
-            <option value="NONE">No commission</option>
-          </Select>
-          {form.mode === "PERCENT" && (
-            <Input label="Percent (%)" inputMode="decimal" value={form.percent} onChange={(e) => setForm({ ...form, percent: e.target.value })} placeholder="10" />
-          )}
-          {form.mode === "AMOUNT" && (
-            <Input label="Amount per repair" inputMode="numeric" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="5,000" />
-          )}
+          <CommissionFields form={form} onChange={(next) => setForm({ ...form, ...next })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setSetting(null)}>Cancel</Button>
             <Button disabled={busy} onClick={saveSet}>{busy ? "Saving…" : "Save"}</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={adding} onClose={() => setAdding(false)} title="New technician">
+        <div className="space-y-3">
+          <Input label="Name" value={tech.name} onChange={(e) => setTech({ ...tech, name: e.target.value })} autoFocus />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input label="Username" value={tech.username} onChange={(e) => setTech({ ...tech, username: e.target.value.trim() })} autoComplete="off" />
+            <Input label="Password" type="password" value={tech.password} onChange={(e) => setTech({ ...tech, password: e.target.value })} autoComplete="new-password" />
+          </div>
+          <Input label="Phone" inputMode="tel" value={tech.phone} onChange={(e) => setTech({ ...tech, phone: e.target.value })} />
+          {branches.length > 1 && (
+            <Select label="Branch" value={tech.branchId} onChange={(e) => setTech({ ...tech, branchId: e.target.value })}>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </Select>
+          )}
+          <CommissionFields form={tech} onChange={(next) => setTech({ ...tech, ...next })} />
+          <p className="text-xs text-gray-500">They sign in with this username and password and see repairs only: no money, sales or reports.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button disabled={busy || !tech.name.trim() || tech.username.length < 3 || tech.password.length < 8} onClick={saveAdd}>
+              {busy ? "Saving…" : "Add technician"}
+            </Button>
           </div>
         </div>
       </Modal>
