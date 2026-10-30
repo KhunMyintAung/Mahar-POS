@@ -161,7 +161,11 @@ export async function walletSummary(businessId: string) {
     ...rewards.map((r) => ({
       id: r.id, at: r.createdAt, kind: "REWARD" as const, amount: r.amount.toString(),
       title: r.kind === "WELCOME" ? "Welcome reward" : `Used Mahar POS · ${r.day}`,
-      status: r.status === "CREDITED" ? null : "Paid to chain", link: null as string | null,
+      // Rewards paid straight to the chain before the MSP wallet existed are in the shop's
+      // BNB Chain wallet already, not in this balance.
+      status: r.status === "CREDITED" ? null
+        : `Sent to your BNB Chain wallet${r.address ? ` ${r.address.slice(0, 6)}…${r.address.slice(-4)}` : ""}, not in this balance`,
+      link: r.txHash && explorer ? `${explorer}/tx/${r.txHash}` : null,
     })),
     ...transfers.map((t) => {
       const out = t.fromBusinessId === businessId;
