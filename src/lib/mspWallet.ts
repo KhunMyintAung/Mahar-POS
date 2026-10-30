@@ -46,3 +46,21 @@ export function parseShopWalletId(text: string): string | null {
   const m = /^(?:MSP-?)?([0-9a-f]{8})$/i.exec(text.trim());
   return m ? m[1].toLowerCase() : null;
 }
+
+export interface MspHolding { earned: bigint; received: bigint; sent: bigint; withdrawn: bigint; balance: bigint }
+
+/** Each shop's MSP wallet from per-shop sums: rewards credited, MSP received and sent, and
+ *  withdrawals (fee included, failed ones left out). */
+export function holdingsByShop(parts: Record<"earned" | "received" | "sent" | "withdrawn", { id: string; amount: bigint }[]>) {
+  const out = new Map<string, MspHolding>();
+  const of = (id: string) => {
+    let h = out.get(id);
+    if (!h) out.set(id, (h = { earned: 0n, received: 0n, sent: 0n, withdrawn: 0n, balance: 0n }));
+    return h;
+  };
+  for (const key of ["earned", "received", "sent", "withdrawn"] as const) {
+    for (const p of parts[key]) of(p.id)[key] += p.amount;
+  }
+  for (const h of out.values()) h.balance = h.earned + h.received - h.sent - h.withdrawn;
+  return out;
+}

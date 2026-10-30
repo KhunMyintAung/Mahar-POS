@@ -73,3 +73,18 @@ describe("Shop MSP wallet", () => {
     expect(parseWalletSettings({ feeCenti: -1, minCenti: "x" })).toEqual({ feeCenti: 10n, minCenti: 100n });
   });
 });
+
+describe("MSP holdings for the admin", () => {
+  it("adds up each shop's wallet", async () => {
+    const { holdingsByShop } = await import("../src/lib/mspWallet");
+    const h = holdingsByShop({
+      earned: [{ id: "a", amount: 101n }, { id: "b", amount: 100n }],
+      received: [{ id: "b", amount: 40n }],
+      sent: [{ id: "a", amount: 40n }],
+      withdrawn: [{ id: "b", amount: 100n }],
+    });
+    expect(h.get("a")).toEqual({ earned: 101n, received: 0n, sent: 40n, withdrawn: 0n, balance: 61n });
+    expect(h.get("b")?.balance).toBe(40n);
+    expect(h.has("c")).toBe(false);
+  });
+});

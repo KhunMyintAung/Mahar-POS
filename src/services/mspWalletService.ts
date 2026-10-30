@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api";
 import { prisma, Tx } from "@/lib/prisma";
 import { fmtMsp } from "@/lib/msp";
-import { DEFAULT_WALLET, MSP_WALLET_KEY, parseShopWalletId, parseWalletSettings, shopWalletId } from "@/lib/mspWallet";
+import { DEFAULT_WALLET, MSP_WALLET_KEY, holdingsByShop, parseShopWalletId, parseWalletSettings, shopWalletId } from "@/lib/mspWallet";
 import { errText, mspChain, mspChainConfig } from "./mspService";
 import { accrueRewards, loadRewardSettings, settleOldRewardSends } from "./mspRewardService";
 
@@ -190,5 +190,87 @@ export async function walletSummary(businessId: string) {
     minCenti: fees.minCenti.toString(),
     explorer,
     history,
+  };
+}
+
+/** For the admin portal: every shop's MSP wallet, the totals the platform owes, the
+ *  rewards wallet on chain, and the latest movements across all shops. */
+export async function adminMspOverview() {
+  const [earned, received, sent, withdrawn, paidOut, fees, businesses, rewards, transfers, withdrawals] = await Promise.all([
+    prisma.mspReward.groupBy({ by: ["businessId"], where: { status: "CREDITED" }, _sum: { amount: true } }),
+    prisma.mspTransfer.groupBy({ by: ["toBusinessId"], _sum: { amount: true } }),
+    prisma.mspTransfer.groupBy({ by: ["fromBusinessId"], _sum: { amount: true } }),
+    prisma.mspWithdrawal.groupBy({ by: ["businessId"], where: { status: { not: "FAILED" } }, _sum: { amount: true } }),
+    prisma.mspReward.aggregate({ where: { status: { in: ["SENT", "PAID"] } }, _sum: { amount: true } }),
+    prisma.mspWithdrawal.aggregate({ where: { status: "PAID" }, _sum: { amount: true, fee: true } }),
+    prisma.business.findMany({ select: { id: true, name: true } }),
+    prisma.mspReward.findMany({ orderBy: { createdAt: "desc" }, take: 300 }),
+    prisma.mspTransfer.findMany({ orderBy: { createdAt: "desc" }, take: 300 }),
+    prisma.mspWithdrawal.findMany({ orderBy: { createdAt: "desc" }, take: 300 }),
+  ]);
+  const sum = (a: { _sum: { amount: bigint | null } }) => a._sum.amount ?? 0n;
+  const holdings = holdingsByShop({
+    earned: earned.map((g) => ({ id: g.businessId, amount: sum(g) })),
+    received: received.map((g) => ({ id: g.toBusinessId, amount: sum(g) })),
+    sent: sent.map((g) => ({ id: g.fromBusinessId, amount: sum(g) })),
+    withdrawn: withdrawn.map((g) => ({ id: g.businessId, amount: sum(g) })),
+  });
+  const nameOf = new Map(businesses.map((b) => [b.id, b.name]));
+  const shopName = (id: string) => nameOf.get(id) ?? shopWalletId(id);
+  const pendingOut = withdrawals.filter((w) => w.status === "PENDING" || w.status === "SENT").reduce((s, w) => s + w.amount - w.fee, 0n);
+
+  // The rewards wallet on chain, in hundredths, so it reads beside what the shops hold.
+  let chain: { address: string; msp: string; bnb: string; explorer: string } | null = null;
+  let chainError: string | null = null;
+  const c = mspChain();
+  if (c) {
+    try {
+      const [msp, bnb] = await Promise.all([c.msp.balanceOf(c.signer.address) as Promise<bigint>, c.provider.getBalance(c.signer.address)]);
+      chain = { address: c.signer.address, msp: (msp / 10n ** 16n).toString(), bnb: (Number(bnb) / 1e18).toFixed(5), explorer: c.cfg.explorer };
+    } catch (e) {
+      chainError = errText(e);
+    }
+  }
+  const explorer = c?.cfg.explorer ?? null;
+
+  const shops = [...holdings.entries()]
+    .map(([id, h]) => ({
+      id, name: shopName(id), walletId: shopWalletId(id),
+      earned: h.earned.toString(), received: h.received.toString(), sent: h.sent.toString(),
+      withdrawn: h.withdrawn.toString(), balance: h.balance.toString(),
+    }))
+    .sort((a, b) => Number(BigInt(b.balance) - BigInt(a.balance)));
+
+  const history = [
+    ...rewards.map((r) => ({
+      id: r.id, at: r.createdAt, kind: "REWARD", shop: shopName(r.businessId), other: null as string | null,
+      amount: r.amount.toString(), detail: r.kind === "WELCOME" ? "Welcome" : `Used Mahar POS ${r.day}`,
+      status: r.status === "CREDITED" ? "In wallet" : r.status === "PAID" ? "Paid to chain" : r.status,
+      link: r.txHash && explorer ? `${explorer}/tx/${r.txHash}` : null,
+    })),
+    ...transfers.map((t) => ({
+      id: t.id, at: t.createdAt, kind: "TRANSFER", shop: shopName(t.fromBusinessId), other: shopName(t.toBusinessId),
+      amount: t.amount.toString(), detail: t.note ?? "", status: "Done", link: null as string | null,
+    })),
+    ...withdrawals.map((w) => ({
+      id: w.id, at: w.createdAt, kind: "WITHDRAW", shop: shopName(w.businessId), other: w.address,
+      amount: w.amount.toString(), detail: `Fee ${fmtMsp(w.fee)} · sent ${fmtMsp(w.amount - w.fee)}`,
+      status: w.status === "PAID" ? "Done" : w.status === "FAILED" ? "Failed, returned" : w.lastError ? `Waiting: ${w.lastError}` : w.status === "SENT" ? "On the way" : "Queued",
+      link: w.txHash && explorer ? `${explorer}/tx/${w.txHash}` : null,
+    })),
+  ].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 500);
+
+  return {
+    totals: {
+      held: shops.reduce((s, x) => s + BigInt(x.balance), 0n).toString(),
+      earned: shops.reduce((s, x) => s + BigInt(x.earned), 0n).toString(),
+      moved: shops.reduce((s, x) => s + BigInt(x.sent), 0n).toString(),
+      withdrawn: ((fees._sum.amount ?? 0n) - (fees._sum.fee ?? 0n)).toString(),
+      fees: (fees._sum.fee ?? 0n).toString(),
+      pendingOut: pendingOut.toString(),
+      paidBeforeWallet: sum(paidOut).toString(),
+      shops: shops.length,
+    },
+    chain, chainError, shops, history,
   };
 }
