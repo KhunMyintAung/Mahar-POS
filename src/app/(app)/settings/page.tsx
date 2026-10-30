@@ -13,6 +13,7 @@ import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
 import { MspSettingsCard } from "@/components/MspSettingsCard";
+import { MspRewardsCard, type MspRewardSummary } from "@/components/MspRewardsCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -29,6 +30,7 @@ interface SettingsData {
 
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
+  const [rewards, setRewards] = useState<MspRewardSummary | null>(null);
   const [biz, setBiz] = useState({
     name: "", phone: "", address: "", telegram: "", website: "", websiteLabel: "", city: "",
     latitude: null as number | null, longitude: null as number | null,
@@ -84,6 +86,9 @@ export default function SettingsPage() {
     }).catch((e) => push(e.message, "error"));
   }, [push]);
   useEffect(load, [load]);
+  useEffect(() => {
+    api<MspRewardSummary>("/api/v1/msp/rewards").then(setRewards).catch(() => setRewards(null));
+  }, []);
 
   /** Pins the shop where this device is now and fills in the city (and the address, when it
    *  is still empty) from the map. */
@@ -160,7 +165,7 @@ export default function SettingsPage() {
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
     ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
-    ...(featureEnabled("pos") ? [{ key: "points", label: "Points", icon: Coins }] : []),
+    ...(featureEnabled("pos") || rewards?.inPromo ? [{ key: "points", label: "Points", icon: Coins }] : []),
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -258,7 +263,8 @@ export default function SettingsPage() {
 
       {current === "sheets" && <GsheetSyncCard />}
 
-      {current === "points" && <MspSettingsCard initial={data.settings.msp} currency={data.business.currency} />}
+      {current === "points" && rewards?.inPromo && <MspRewardsCard initial={rewards} onChange={setRewards} />}
+      {current === "points" && featureEnabled("pos") && <MspSettingsCard initial={data.settings.msp} currency={data.business.currency} />}
 
       {current === "menu" && (
       <Card>

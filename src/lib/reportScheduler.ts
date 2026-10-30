@@ -1,6 +1,7 @@
 import { runDueDailyReports } from "./telegramReports";
 import { runDueGsheetBackups } from "./gsheetBackup";
 import { runMspMinting } from "@/services/mspService";
+import { runMspRewards } from "@/services/mspRewardService";
 
 const TICK_MS = 60_000;
 const KEY = Symbol.for("mahar.reportScheduler");
@@ -27,6 +28,11 @@ export function startReportScheduler() {
       await runMspMinting();
     } catch (e) {
       console.error("[msp minting]", e);
+    }
+    try {
+      await runMspRewards();
+    } catch (e) {
+      console.error("[msp rewards]", e);
     } finally {
       running = false;
     }

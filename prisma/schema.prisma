@@ -994,3 +994,29 @@ model MspBatch {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
+
+/// Mahar Shwe Point the platform gives a shop for using Mahar POS: 1 MSP once when the shop
+/// first switches the reward on, then 0.01 MSP for each day it records work. Only shops the
+/// admin has put in the promotion can switch it on. Points are sent from the platform's
+/// rewards wallet (env MSP_MINTER_KEY) with an ERC-20 transfer; the rows sent together share
+/// one nonce, so a transfer resent after a timeout replaces itself and can never pay twice.
+model MspReward {
+  id         String    @id @default(uuid())
+  businessId String
+  kind       String // WELCOME DAILY
+  /// The shop's day (YYYY-MM-DD in its timezone) for DAILY; "" for WELCOME.
+  day        String
+  /// In hundredths of a point (100 = 1 MSP).
+  amount     BigInt
+  status     String    @default("PENDING") // PENDING SENT PAID
+  address    String?
+  nonce      Int?
+  txHash     String?
+  sentAt     DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([businessId, kind, day])
+  @@index([status])
+}

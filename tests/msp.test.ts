@@ -55,3 +55,32 @@ describe("Mahar Shwe Point", () => {
     expect(capped.ids).toHaveLength(MAX_BATCH_RECIPIENTS);
   });
 });
+
+describe("MSP for using Mahar POS", () => {
+  it("reads the shop's reward switch defensively", async () => {
+    const { parseRewardSettings } = await import("../src/lib/mspRewards");
+    expect(parseRewardSettings(undefined)).toEqual({ on: false, wallet: null, since: null });
+    expect(parseRewardSettings({ on: true, wallet: "0x2569b4df18c44a67cd98d1a307aa1efe45d0621d", since: "2026-10-30" }))
+      .toEqual({ on: true, wallet: "0x2569b4dF18c44a67CD98d1a307aA1efE45d0621D", since: "2026-10-30" });
+    expect(parseRewardSettings({ on: 1, wallet: "nope", since: "yesterday" })).toEqual({ on: true, wallet: null, since: null });
+  });
+
+  it("keeps only shop ids in the promotion list", async () => {
+    const { parsePromoShops } = await import("../src/lib/mspRewards");
+    expect(parsePromoShops(["a", "b", "a", 3, ""])).toEqual(["a", "b"]);
+    expect(parsePromoShops({})).toEqual([]);
+  });
+
+  it("counts only today and yesterday, never before the shop switched on", async () => {
+    const { rewardDays } = await import("../src/lib/mspRewards");
+    expect(rewardDays("2026-10-30", "2026-10-29", "2026-10-01")).toEqual(["2026-10-29", "2026-10-30"]);
+    expect(rewardDays("2026-10-30", "2026-10-29", "2026-10-30")).toEqual(["2026-10-30"]);
+    expect(rewardDays("2026-10-30", "2026-10-29", null)).toEqual([]);
+  });
+
+  it("gives 1 MSP to start and 0.01 MSP a day", async () => {
+    const { WELCOME_CENTI, DAILY_CENTI } = await import("../src/lib/mspRewards");
+    expect(fmtMsp(WELCOME_CENTI)).toBe("1");
+    expect(fmtMsp(DAILY_CENTI)).toBe("0.01");
+  });
+});

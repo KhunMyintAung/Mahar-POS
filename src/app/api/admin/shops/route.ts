@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/adminAccess";
+import { MSP_REWARD_KEY, parseRewardSettings } from "@/lib/mspRewards";
+import { loadPromoShops } from "@/services/mspRewardService";
 
 export const dynamic = "force-dynamic";
 
@@ -8,13 +10,16 @@ export const dynamic = "force-dynamic";
  *  are other businesses' names and contacts. */
 export async function GET() {
   if (!(await isAdminRequest())) return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
-  const [businesses, users, sales, repairs, lastLogins] = await Promise.all([
+  const [businesses, users, sales, repairs, lastLogins, promo, rewardRows] = await Promise.all([
     prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, phone: true, city: true, createdAt: true } }),
     prisma.user.findMany({ where: { deletedAt: null }, select: { businessId: true, name: true, email: true, username: true, active: true, role: { select: { name: true } }, createdAt: true } }),
     prisma.sale.groupBy({ by: ["businessId"], where: { deletedAt: null, status: "COMPLETED" }, _count: true }),
     prisma.repairJob.groupBy({ by: ["businessId"], where: { deletedAt: null }, _count: true }),
     prisma.authSession.findMany({ orderBy: { createdAt: "desc" }, take: 5000, select: { createdAt: true, user: { select: { businessId: true } } } }),
+    loadPromoShops(),
+    prisma.systemSetting.findMany({ where: { key: MSP_REWARD_KEY }, select: { businessId: true, value: true } }),
   ]);
+  const rewardOf = new Map(rewardRows.map((r) => [r.businessId, parseRewardSettings(JSON.parse(r.value))]));
   const last = new Map<string, Date>();
   for (const s of lastLogins) if (!last.has(s.user.businessId)) last.set(s.user.businessId, s.createdAt);
   const saleCount = new Map(sales.map((s) => [s.businessId, s._count]));
@@ -30,6 +35,8 @@ export async function GET() {
       lastLoginAt: last.get(b.id) ?? null,
       sales: saleCount.get(b.id) ?? 0,
       repairs: repairCount.get(b.id) ?? 0,
+      mspPromo: promo.includes(b.id),
+      mspOn: Boolean(rewardOf.get(b.id)?.on && rewardOf.get(b.id)?.wallet),
     };
   });
   return NextResponse.json({ ok: true, data: { shops } });
