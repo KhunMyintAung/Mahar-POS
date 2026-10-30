@@ -1,6 +1,5 @@
 import { runDueDailyReports } from "./telegramReports";
 import { runDueGsheetBackups } from "./gsheetBackup";
-import { runMspMinting } from "@/services/mspService";
 import { runMspRewards } from "@/services/mspRewardService";
 
 const TICK_MS = 60_000;
@@ -24,11 +23,6 @@ export function startReportScheduler() {
       console.error("[report scheduler]", e);
     }
     // Separate, so a chain outage never holds up the reports (or the other way round).
-    try {
-      await runMspMinting();
-    } catch (e) {
-      console.error("[msp minting]", e);
-    }
     try {
       await runMspRewards();
     } catch (e) {

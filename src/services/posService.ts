@@ -6,7 +6,6 @@ import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
 import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, trackedItemIds } from "./serialService";
-import { awardSalePoints, cancelSalePoints } from "./mspService";
 
 // Purchases and sales tie inventory to the money system:
 // - purchase: stock in; paid part leaves a wallet, unpaid part becomes a Payable
@@ -340,17 +339,13 @@ export async function createSale(
     await tx.sale.update({ where: { id: sale.id }, data: { receivableId } });
   }
 
-  const mspAward = await awardSalePoints(tx, {
-    businessId: opts.businessId, saleId: sale.id, customerId: opts.customerId, paidAmount: opts.paidAmount,
-  });
-
   await audit(tx, {
     businessId: opts.businessId, userId: opts.userId, branchId: opts.branchId,
     action: "CREATE", module: "sale", resourceType: "Sale", resourceId: sale.id,
     after: { txnNo, total, paidAmount: opts.paidAmount, profit, lines: opts.lines.length },
   });
 
-  return { ...sale, totalCost, profit, receivableId, soldItems, mspPoints: mspAward?.amount ?? 0n };
+  return { ...sale, totalCost, profit, receivableId, soldItems };
 }
 
 /** Cancel a sale or purchase: reverse stock and wallet movements. Linked
@@ -431,7 +426,6 @@ export async function cancelSaleOrPurchase(
       if (rec) await tx.receivable.update({ where: { id: rec.id }, data: { status: "CANCELLED", remainingAmount: 0n } });
     }
     await tx.sale.update({ where: { id: record.id }, data: { status: "CANCELLED" } });
-    await cancelSalePoints(tx, record.id);
   } else {
     const p = record as typeof record & { payableId?: string | null };
     if (p.payableId) {

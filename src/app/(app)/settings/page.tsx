@@ -12,7 +12,6 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
-import { MspSettingsCard } from "@/components/MspSettingsCard";
 import { MspRewardsCard, type MspRewardSummary } from "@/components/MspRewardsCard";
 import {
   defaultFeaturesForMode,
@@ -264,7 +263,6 @@ export default function SettingsPage() {
       {current === "sheets" && <GsheetSyncCard />}
 
       {current === "points" && rewards && <MspRewardsCard initial={rewards} onChange={setRewards} />}
-      {current === "points" && featureEnabled("pos") && <MspSettingsCard initial={data.settings.msp} currency={data.business.currency} />}
 
       {current === "menu" && (
       <Card>
