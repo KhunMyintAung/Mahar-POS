@@ -13,6 +13,9 @@ export interface MspRewardSummary {
   recent: { kind: string; day: string; amount: string; status: string; txHash: string | null; createdAt: string }[];
 }
 
+/** MSP's own page: what it is, its contract, and where to buy or sell it. */
+export const MSP_INFO_URL = "https://token.maharpos.shop/#msp";
+
 const STATUS: Record<string, string> = { PENDING: "Waiting", SENT: "On the way", PAID: "In wallet" };
 
 /** Settings → Points for a shop in the MSP promotion: switch the reward on, give the
@@ -50,7 +53,18 @@ export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummar
         <b> 0.01 MSP for every day</b> you record work in Mahar POS (sales, repairs, stock, top-ups…). A day with no work earns nothing.
         The points go to your shop&apos;s own BNB Chain wallet.
       </p>
-      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+      <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+        <b>What is MSP?</b> Mahar Shwe Point (MSP) is MaharGroup&apos;s point token on BNB Chain (BEP-20). It sits in your own
+        wallet (Trust Wallet, MetaMask, Binance Web3…), you can send it to anyone, and it can be traded on PancakeSwap, so its
+        price goes up and down.
+        <br />
+        <b>MSP ဆိုတာ</b> MaharGroup ကုမ္ပဏီရဲ့ BNB Chain ပေါ်က Point Token ပါ။ ကိုယ့် Wallet ထဲမှာ ရှိပြီး အခြားသူကို ပို့လို့ရ၊
+        PancakeSwap မှာ ဝယ်/ရောင်းလို့ရပါတယ်။ စျေး တက်/ကျ နိုင်ပါတယ်။
+        <a href={MSP_INFO_URL} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 font-medium text-blue-700 hover:underline dark:text-blue-300">
+          token.maharpos.shop — details, contract and logo <ExternalLink size={11} />
+        </a>
+      </div>
+      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
         Mahar POS ကို သုံးတဲ့နေ့တိုင်း 0.01 MSP ရပါမယ်။ ပထမဆုံး ဖွင့်တာနဲ့ 1 MSP ရပါမယ်။ မသုံးတဲ့နေ့ point မဝင်ပါ။
       </p>
 

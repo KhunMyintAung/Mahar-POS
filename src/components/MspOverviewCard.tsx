@@ -6,7 +6,7 @@ import { Coins, TrendingDown, TrendingUp } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMsp } from "@/lib/msp";
 import { cn } from "@/components/ui";
-import type { MspRewardSummary } from "@/components/MspRewardsCard";
+import { MSP_INFO_URL, type MspRewardSummary } from "@/components/MspRewardsCard";
 
 interface Price { priceUsd: number; change24h: number; liquidityUsd: number; url: string }
 
@@ -46,6 +46,7 @@ export function MspOverviewCard() {
           </span>
         </a>
       )}
+      <a href={MSP_INFO_URL} target="_blank" rel="noopener noreferrer" className="ml-auto text-xs text-blue-600 hover:underline">What is MSP?</a>
     </div>
   );
 }
