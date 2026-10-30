@@ -65,12 +65,6 @@ describe("MSP for using Mahar POS", () => {
     expect(parseRewardSettings({ on: 1, wallet: "nope", since: "yesterday" })).toEqual({ on: true, wallet: null, since: null });
   });
 
-  it("keeps only shop ids in the promotion list", async () => {
-    const { parsePromoShops } = await import("../src/lib/mspRewards");
-    expect(parsePromoShops(["a", "b", "a", 3, ""])).toEqual(["a", "b"]);
-    expect(parsePromoShops({})).toEqual([]);
-  });
-
   it("counts only today and yesterday, never before the shop switched on", async () => {
     const { rewardDays } = await import("../src/lib/mspRewards");
     expect(rewardDays("2026-10-30", "2026-10-29", "2026-10-01")).toEqual(["2026-10-29", "2026-10-30"]);

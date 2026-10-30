@@ -7,7 +7,7 @@ import { fmtMsp } from "@/lib/msp";
 import { Button, Card, Input, cn, useToast } from "@/components/ui";
 
 export interface MspRewardSummary {
-  inPromo: boolean; on: boolean; wallet: string | null;
+  on: boolean; wallet: string | null;
   earned: string; paid: string; waiting: string; daysWorked: number;
   problem: string | null; explorer: string | null; contract: string | null;
   recent: { kind: string; day: string; amount: string; status: string; txHash: string | null; createdAt: string }[];
@@ -18,7 +18,7 @@ export const MSP_INFO_URL = "https://token.maharpos.shop/#msp";
 
 const STATUS: Record<string, string> = { PENDING: "Waiting", SENT: "On the way", PAID: "In wallet" };
 
-/** Settings → Points for a shop in the MSP promotion: switch the reward on, give the
+/** Settings → Points, for every shop: switch the MSP reward on, give the
  *  shop's BNB Chain wallet, and see what it has earned (1 MSP to start, 0.01 MSP for
  *  every day the shop records work). */
 export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummary; onChange?: (s: MspRewardSummary) => void }) {
@@ -49,7 +49,7 @@ export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummar
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-semibold"><Gift size={16} />MSP for using Mahar POS</h3>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-        Your shop is in the Mahar Shwe Point promotion. Switch it on and you get <b>1 MSP</b> to start, then
+        Every Mahar POS shop can join the Mahar Shwe Point promotion. Switch it on and you get <b>1 MSP</b> to start, then
         <b> 0.01 MSP for every day</b> you record work in Mahar POS (sales, repairs, stock, top-ups…). A day with no work earns nothing.
         The points go to your shop&apos;s own BNB Chain wallet.
       </p>

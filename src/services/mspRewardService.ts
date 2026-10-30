@@ -3,12 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { centiToWei } from "@/lib/msp";
 import { addDays, dateRangeUtc, todayBusinessDate } from "@/lib/dates";
 import {
-  DAILY_CENTI, MSP_PROMO_KEY, MSP_REWARD_KEY, NOT_WORK_ACTIONS, NOT_WORK_MODULES, WELCOME_CENTI,
-  parsePromoShops, parseRewardSettings, rewardDays, type MspRewardSettings,
+  DAILY_CENTI, MSP_REWARD_KEY, NOT_WORK_ACTIONS, NOT_WORK_MODULES, WELCOME_CENTI,
+  parseRewardSettings, rewardDays, type MspRewardSettings,
 } from "@/lib/mspRewards";
 import { mspChainConfig } from "./mspService";
 
-// MSP for using Mahar POS. accrueRewards() records what each shop in the promotion has
+// MSP for using Mahar POS. accrueRewards() records what each shop that switched it on has
 // earned; sendRewards() pays it from the platform's rewards wallet with plain ERC-20
 // transfers (the MSP cap is fully minted, so nothing new can be minted). One transfer is
 // in flight at a time. Its nonce is saved on the rows before it is sent, and a resend
@@ -21,7 +21,7 @@ const ABI = [
 
 /** How long a sent transfer may stay unmined before it is sent again with more gas. */
 const RESEND_AFTER_MS = 5 * 60_000;
-/** Accrual reads every promoted shop's audit log, so it runs every few minutes, not every tick. */
+/** Accrual reads every joined shop's audit log, so it runs every few minutes, not every tick. */
 const ACCRUE_EVERY_MS = 10 * 60_000;
 const TRANSFER_GAS = 80_000n;
 
@@ -29,18 +29,6 @@ const errText = (e: unknown) => {
   const x = e as { shortMessage?: string; reason?: string; message?: string };
   return String(x?.reason || x?.shortMessage || x?.message || e).slice(0, 300);
 };
-
-export async function loadPromoShops(): Promise<string[]> {
-  const row = await prisma.platformSetting.findUnique({ where: { key: MSP_PROMO_KEY } });
-  return parsePromoShops(row ? JSON.parse(row.value) : []);
-}
-
-export async function setPromo(businessId: string, inPromo: boolean) {
-  const shops = new Set(await loadPromoShops());
-  if (inPromo) shops.add(businessId); else shops.delete(businessId);
-  const value = JSON.stringify([...shops]);
-  await prisma.platformSetting.upsert({ where: { key: MSP_PROMO_KEY }, create: { key: MSP_PROMO_KEY, value }, update: { value } });
-}
 
 export async function loadRewardSettings(businessId: string): Promise<MspRewardSettings> {
   const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: MSP_REWARD_KEY } } });
@@ -69,14 +57,13 @@ async function workedOn(businessId: string, day: string) {
   return n > 0;
 }
 
-/** Records the welcome point and the days worked for every promoted shop that has the
- *  reward on with a wallet. Safe to run any number of times: each reward is unique. */
+/** Records the welcome point and the days worked for every shop that has the reward on with
+ *  a wallet. Safe to run any number of times: each reward is unique. */
 export async function accrueRewards(today = todayBusinessDate()) {
-  const shops = await loadPromoShops();
-  if (shops.length === 0) return;
+  const joined = await prisma.systemSetting.findMany({ where: { key: MSP_REWARD_KEY }, select: { businessId: true, value: true } });
   const yesterday = addDays(today, -1);
-  for (const businessId of shops) {
-    const s = await loadRewardSettings(businessId);
+  for (const { businessId, value } of joined) {
+    const s = parseRewardSettings(JSON.parse(value));
     if (!s.on || !s.wallet) continue;
     const rows: { businessId: string; kind: string; day: string; amount: bigint }[] = [
       { businessId, kind: "WELCOME", day: "", amount: WELCOME_CENTI },
@@ -186,15 +173,13 @@ export async function runMspRewards(now = Date.now()) {
 
 /** What the shop's Settings and Overview show. */
 export async function rewardSummary(businessId: string) {
-  const [shops, settings, rows] = await Promise.all([
-    loadPromoShops(),
+  const [settings, rows] = await Promise.all([
     loadRewardSettings(businessId),
     prisma.mspReward.findMany({ where: { businessId }, orderBy: [{ day: "desc" }, { createdAt: "desc" }] }),
   ]);
   const sum = (st: string[]) => rows.filter((r) => st.includes(r.status)).reduce((s, r) => s + r.amount, 0n);
   const cfg = mspChainConfig();
   return {
-    inPromo: shops.includes(businessId),
     on: settings.on,
     wallet: settings.wallet,
     earned: sum(["PENDING", "SENT", "PAID"]).toString(),

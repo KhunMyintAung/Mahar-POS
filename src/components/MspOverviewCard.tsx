@@ -13,8 +13,7 @@ interface Price { priceUsd: number; change24h: number; liquidityUsd: number; url
 const usd = (n: number) => (n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
 /** A small line on the Overview for a shop earning MSP: what it has earned and MSP's price
- *  with its 24-hour rise or fall. Shown only when the shop is in the promotion and has the
- *  reward switched on. */
+ *  with its 24-hour rise or fall. Shown only when the shop has switched the reward on. */
 export function MspOverviewCard() {
   const [rewards, setRewards] = useState<MspRewardSummary | null>(null);
   const [price, setPrice] = useState<Price | null>(null);
@@ -22,11 +21,11 @@ export function MspOverviewCard() {
   useEffect(() => {
     api<MspRewardSummary>("/api/v1/msp/rewards").then((r) => {
       setRewards(r);
-      if (r.inPromo && r.on) api<{ price: Price | null }>("/api/v1/msp/price").then((p) => setPrice(p.price)).catch(() => {});
+      if (r.on) api<{ price: Price | null }>("/api/v1/msp/price").then((p) => setPrice(p.price)).catch(() => {});
     }).catch(() => {});
   }, []);
 
-  if (!rewards?.inPromo || !rewards.on) return null;
+  if (!rewards?.on) return null;
   const up = (price?.change24h ?? 0) >= 0;
   const Trend = up ? TrendingUp : TrendingDown;
 

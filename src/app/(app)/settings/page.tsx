@@ -165,7 +165,7 @@ export default function SettingsPage() {
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
     ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
-    ...(featureEnabled("pos") || rewards?.inPromo ? [{ key: "points", label: "Points", icon: Coins }] : []),
+    { key: "points", label: "Points", icon: Coins },
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -263,7 +263,7 @@ export default function SettingsPage() {
 
       {current === "sheets" && <GsheetSyncCard />}
 
-      {current === "points" && rewards?.inPromo && <MspRewardsCard initial={rewards} onChange={setRewards} />}
+      {current === "points" && rewards && <MspRewardsCard initial={rewards} onChange={setRewards} />}
       {current === "points" && featureEnabled("pos") && <MspSettingsCard initial={data.settings.msp} currency={data.business.currency} />}
 
       {current === "menu" && (
