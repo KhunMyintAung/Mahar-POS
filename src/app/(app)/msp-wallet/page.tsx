@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { MSP_INFO_URL } from "@/components/MspRewardsCard";
 
 interface Summary {
-  walletId: string; balance: string; rewardsOn: boolean; address: string | null;
+  walletId: string; balance: string; earned: string; onChain: string; rewardsOn: boolean; address: string | null;
   feeCenti: string; minCenti: string; explorer: string | null;
   history: { id: string; at: string; kind: "REWARD" | "SENT" | "RECEIVED" | "WITHDRAW"; amount: string; title: string; status: string | null; link: string | null }[];
 }
@@ -54,6 +54,7 @@ export default function MspWalletPage() {
           <div>
             <div className="flex items-center gap-1.5 text-xs text-gray-500"><Coins size={14} className="text-amber-600" />Balance</div>
             <div className="text-3xl font-bold tabular-nums">{fmtMsp(balance)} <span className="text-base font-semibold text-gray-500">MSP</span></div>
+            {s.onChain !== "0" && <div className="text-xs text-gray-500 tabular-nums">+ {fmtMsp(s.onChain)} MSP already in your BNB Chain wallet · {fmtMsp(s.earned)} MSP earned in all</div>}
             {usd !== null && <div className="text-xs text-gray-500 tabular-nums">≈ ${usd < 1 ? usd.toPrecision(2) : usd.toFixed(2)} · 1 MSP ${price!.priceUsd.toPrecision(3)}</div>}
           </div>
           <WalletIdChip id={s.walletId} />

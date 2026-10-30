@@ -144,13 +144,16 @@ export async function runMspWallets(now = Date.now()) {
 
 /** What the shop's MSP wallet page and the Overview show. */
 export async function walletSummary(businessId: string) {
-  const [balance, settings, fees, rewards, transfers, withdrawals] = await Promise.all([
+  const [balance, settings, fees, rewards, transfers, withdrawals, earned, rewardsOnChain, withdrawnOnChain] = await Promise.all([
     walletBalance(prisma, businessId),
     loadRewardSettings(businessId),
     loadWalletSettings(),
     prisma.mspReward.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.mspTransfer.findMany({ where: { OR: [{ fromBusinessId: businessId }, { toBusinessId: businessId }] }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.mspWithdrawal.findMany({ where: { businessId }, orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.mspReward.aggregate({ where: { businessId }, _sum: { amount: true } }),
+    prisma.mspReward.aggregate({ where: { businessId, status: { in: ["SENT", "PAID"] } }, _sum: { amount: true } }),
+    prisma.mspWithdrawal.aggregate({ where: { businessId, status: "PAID" }, _sum: { amount: true, fee: true } }),
   ]);
   const otherIds = [...new Set(transfers.map((t) => (t.fromBusinessId === businessId ? t.toBusinessId : t.fromBusinessId)))];
   const others = await prisma.business.findMany({ where: { id: { in: otherIds } }, select: { id: true, name: true } });
@@ -188,6 +191,11 @@ export async function walletSummary(businessId: string) {
   return {
     walletId: shopWalletId(businessId),
     balance: balance.toString(),
+    /** Every reward the shop has earned, wherever it is now. */
+    earned: (earned._sum.amount ?? 0n).toString(),
+    /** What has already reached the shop's BNB Chain wallet: rewards paid there before the
+     *  MSP wallet existed, and withdrawals after their fee. */
+    onChain: ((rewardsOnChain._sum.amount ?? 0n) + (withdrawnOnChain._sum.amount ?? 0n) - (withdrawnOnChain._sum.fee ?? 0n)).toString(),
     rewardsOn: settings.on,
     address: settings.wallet,
     feeCenti: fees.feeCenti.toString(),

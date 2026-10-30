@@ -262,7 +262,7 @@ export default function SettingsPage() {
 
       {current === "sheets" && <GsheetSyncCard />}
 
-      {current === "points" && rewards && <MspRewardsCard initial={rewards} onChange={setRewards} />}
+      {current === "points" && rewards && <MspRewardsCard initial={rewards} onChange={(r) => { setRewards(r); refreshAuth(); }} />}
 
       {current === "menu" && (
       <Card>

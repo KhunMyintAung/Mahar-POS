@@ -37,6 +37,8 @@ interface Me {
     category: string;
   };
   edition: "FULL" | "PLAY";
+  /** MSP is switched on for the shop, or its MSP wallet still holds some: shows the MSP Wallet. */
+  msp: boolean;
 }
 
 const AuthCtx = createContext<{
@@ -179,7 +181,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       item.feature &&
       pathname.startsWith(item.href) &&
       !featureEnabled(item.feature)
-  );
+  ) || (pathname.startsWith("/msp-wallet") && me?.msp === false);
 
   useEffect(() => {
     if (me && blockedModulePath) router.replace("/");
@@ -194,7 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const hasPerm = (p: string) => me.user.permissions.includes(p);
-  const tabAllowed = (t: NavTab) => hasPerm(t.perm) && featureEnabled(t.feature);
+  const tabAllowed = (t: NavTab) => hasPerm(t.perm) && featureEnabled(t.feature) && (t.href !== "/msp-wallet" || me.msp);
   const visibleNav = NAV.flatMap((n): NavItem[] => {
     if (n.tabs) {
       // A group lands on its first page this user may open, and is hidden if there is none.

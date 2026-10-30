@@ -2,11 +2,13 @@ import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { parseModuleAccess } from "@/lib/modules";
 import { appEdition } from "@/lib/edition";
+import { loadRewardSettings } from "@/services/mspRewardService";
+import { walletBalance } from "@/services/mspWalletService";
 
 export const GET = withAuth(null, async ({ user }) => {
   // The shop's own details, so a printed slip can carry them. Anyone signed in already
   // belongs to this business, so there is nothing here they may not see.
-  const [business, branches, moduleSetting] = await Promise.all([
+  const [business, branches, moduleSetting, mspRewards, mspBalance] = await Promise.all([
     prisma.business.findUnique({
       where: { id: user.businessId },
       select: { name: true, phone: true, address: true, currency: true, logoUrl: true },
@@ -23,6 +25,8 @@ export const GET = withAuth(null, async ({ user }) => {
       where: { businessId_key: { businessId: user.businessId, key: "modules" } },
       select: { value: true },
     }),
+    loadRewardSettings(user.businessId),
+    walletBalance(prisma, user.businessId),
   ]);
 
   let modules = parseModuleAccess({ miniMartEnabled: true });
@@ -34,5 +38,7 @@ export const GET = withAuth(null, async ({ user }) => {
     }
   }
 
-  return json({ user, business, branches, modules, edition: appEdition() });
+  // The MSP Wallet shows while the shop has MSP switched on, or still holds MSP in it.
+  const msp = mspRewards.on || mspBalance > 0n;
+  return json({ user, business, branches, modules, msp, edition: appEdition() });
 });
