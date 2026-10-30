@@ -41,7 +41,10 @@ cd "$DIR"
 # Lowest CPU and disk priority from here on, so a build never crowds out the live shops.
 renice -n 19 $$ >/dev/null; ionice -c3 -p $$ 2>/dev/null || true
 old_lock=$(sha1sum src/package-lock.json 2>/dev/null | cut -d' ' -f1 || true)
-mkdir -p src && tar -xzf release.tar.gz -C src
+# Clear the last release's source (keeping installed packages and the build cache), so a
+# file deleted from the repo is not left behind to break the build.
+mkdir -p src && find src -mindepth 1 -maxdepth 1 ! -name node_modules ! -name .next -exec rm -rf {} +
+tar -xzf release.tar.gz -C src
 echo "commit $COMMIT" > src/RELEASE
 cp "$ENV_FILE" src/.env && chmod 600 src/.env
 cd src
