@@ -35,7 +35,9 @@ echo "Copying $COMMIT to $BUILD…"
 ssh -o BatchMode=yes "$BUILD" mkdir -p "$BUILD_DIR"
 scp -q -o BatchMode=yes "$ARCHIVE" "$BUILD:$BUILD_DIR/release.tar.gz"
 
-ssh -o BatchMode=yes -o ServerAliveInterval=30 "$BUILD" COMMIT="$COMMIT" DIR="$BUILD_DIR" ENV_FILE="$ENV_FILE" bash -s <<'REMOTE'
+# The build runs detached on the server, so a dropped connection cannot stop it; this side
+# checks on it with short connections until it writes its exit code to build.status.
+ssh -o BatchMode=yes "$BUILD" "cat > '$BUILD_DIR/build.sh'" <<'REMOTE'
 set -euo pipefail
 cd "$DIR"
 # Lowest CPU and disk priority from here on, so a build never crowds out the live shops.
@@ -68,6 +70,22 @@ tar -czf bundle.tar.gz -C bundle app prisma && rm -rf bundle
 # The build cache only speeds the next build; the disk here is nearly full, so it goes.
 rm -rf src/.next/cache
 REMOTE
+ssh -o BatchMode=yes "$BUILD" "cd '$BUILD_DIR' && rm -f build.status build.out && COMMIT='$COMMIT' DIR='$BUILD_DIR' ENV_FILE='$ENV_FILE' \
+  nohup setsid bash -c 'bash build.sh > build.out 2>&1; echo \$? > build.status' >/dev/null 2>&1 < /dev/null &"
+shown=0
+while :; do
+  sleep 15
+  status=$(ssh -o BatchMode=yes -o ConnectTimeout=20 "$BUILD" "cat '$BUILD_DIR/build.status' 2>/dev/null || echo running") \
+    || { echo "(connection dropped; the build carries on, checking again)"; continue; }
+  if lines=$(ssh -o BatchMode=yes -o ConnectTimeout=20 "$BUILD" "sed -n '$((shown + 1)),\$p' '$BUILD_DIR/build.out'") && [ -n "$lines" ]; then
+    echo "$lines"
+    shown=$((shown + $(printf '%s\n' "$lines" | wc -l)))
+  fi
+  [ "$status" = running ] && continue
+  [ "$status" = 0 ] && break
+  echo "Build failed (exit $status)." >&2
+  exit 1
+done
 
 if [ "$BUILD" = "$LIVE" ]; then
   ssh -o BatchMode=yes "$LIVE" mv "$BUILD_DIR/bundle.tar.gz" "$LIVE_DIR/bundle.tar.gz"
