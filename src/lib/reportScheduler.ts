@@ -1,5 +1,6 @@
 import { runDueDailyReports } from "./telegramReports";
 import { runDueGsheetBackups } from "./gsheetBackup";
+import { runMspMinting } from "@/services/mspService";
 
 const TICK_MS = 60_000;
 const KEY = Symbol.for("mahar.reportScheduler");
@@ -20,6 +21,12 @@ export function startReportScheduler() {
       await runDueGsheetBackups();
     } catch (e) {
       console.error("[report scheduler]", e);
+    }
+    // Separate, so a chain outage never holds up the reports (or the other way round).
+    try {
+      await runMspMinting();
+    } catch (e) {
+      console.error("[msp minting]", e);
     } finally {
       running = false;
     }

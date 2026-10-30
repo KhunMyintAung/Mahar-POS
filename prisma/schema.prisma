@@ -313,6 +313,8 @@ model Contact {
   currency    String    @default("MMK")
   creditLimit BigInt    @default(0)
   notes       String?
+  /// The customer's BNB Chain wallet, where their Mahar Shwe Point (MSP) is minted.
+  mspAddress  String?
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -957,4 +959,38 @@ model Feedback {
   createdAt  DateTime @default(now())
 
   @@index([shown, createdAt])
+}
+
+/// Mahar Shwe Point earned on one sale. Points wait as PENDING until the customer has a
+/// wallet address, then go into an MspBatch (SENT) and become MINTED once the batch is on
+/// chain. Cancelling the sale before that cancels the award; a minted award stays minted.
+model MspAward {
+  id         String   @id @default(uuid())
+  businessId String
+  saleId     String   @unique
+  customerId String
+  /// In hundredths of a point (100 = 1 MSP).
+  amount     BigInt
+  status     String   @default("PENDING") // PENDING SENT MINTED CANCELLED
+  batchId    Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status])
+  @@index([customerId])
+}
+
+/// One mintBatch call. The id is the batch id on chain, which the contract accepts once,
+/// so a batch is resent unchanged until it lands and can never pay its customers twice.
+model MspBatch {
+  id         Int       @id @default(autoincrement())
+  /// JSON [{ "address": "0x…", "amount": "<hundredths of a point>" }]
+  recipients String
+  total      BigInt
+  status     String    @default("OPEN") // OPEN MINTED
+  txHash     String?
+  sentAt     DateTime?
+  lastError  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }

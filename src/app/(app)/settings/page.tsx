@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
+import { Coins, FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
 import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
@@ -12,6 +12,7 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
+import { MspSettingsCard } from "@/components/MspSettingsCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -159,6 +160,7 @@ export default function SettingsPage() {
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
     ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
+    ...(featureEnabled("pos") ? [{ key: "points", label: "Points", icon: Coins }] : []),
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -255,6 +257,8 @@ export default function SettingsPage() {
       </>}
 
       {current === "sheets" && <GsheetSyncCard />}
+
+      {current === "points" && <MspSettingsCard initial={data.settings.msp} currency={data.business.currency} />}
 
       {current === "menu" && (
       <Card>
