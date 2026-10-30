@@ -56,9 +56,12 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
 
 const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
 
-/** Prints once the slip (and its logo and QR) has loaded. */
-function autoPrint(): string {
-  return "<script>window.onload=()=>window.print();</script>";
+/** Prints once the slip (and its logo and QR) has loaded. With closeAfter, the window
+ *  closes itself once the print dialog is done, on a computer. A phone returns from print()
+ *  before the slip has gone to the printer, so there it is left open for the user to close. */
+function autoPrint(closeAfter = false): string {
+  if (!closeAfter) return "<script>window.onload=()=>window.print();</script>";
+  return "<script>window.onload=()=>{if(!matchMedia('(pointer: coarse)').matches)window.onafterprint=()=>setTimeout(()=>window.close(),300);window.print();};</script>";
 }
 
 function baseStyles(): string {
@@ -153,6 +156,6 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
     ${qr ? `<img class="qr" src="${qr}" alt="QR"/>${qrCaption ? `<p class="qr-link">${escapeHtml(qrCaption)}</p>` : ""}` : ""}
     <div class="footer">${terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
     <div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>
-    ${autoPrint()}</body></html>`;
+    ${autoPrint(true)}</body></html>`;
   return printWindow(popup, html);
 }

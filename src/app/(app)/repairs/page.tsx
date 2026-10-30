@@ -850,7 +850,8 @@ export default function RepairsPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => { void printRepairVoucher(voucher).then((ok) => { if (!ok) push("The browser blocked the print window. Allow pop-ups for this site and try again.", "error"); }); }}>
+              {/* The voucher closes once it is sent to print; the print window closes itself after. */}
+              <Button variant="secondary" onClick={() => { void printRepairVoucher(voucher).then((ok) => { if (ok) setVoucher(null); else push("The browser blocked the print window. Allow pop-ups for this site and try again.", "error"); }); }}>
                 <Printer size={16} className="mr-1 inline" />Print voucher
               </Button>
               <Button onClick={() => setVoucher(null)}>Close</Button>
