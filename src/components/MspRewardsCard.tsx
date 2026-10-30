@@ -1,41 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Gift } from "lucide-react";
+import Link from "next/link";
+import { ExternalLink, Gift, Wallet } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMsp } from "@/lib/msp";
-import { Button, Card, Input, cn, useToast } from "@/components/ui";
+import { Card, cn, useToast } from "@/components/ui";
 
 export interface MspRewardSummary {
-  on: boolean; wallet: string | null;
-  earned: string; paid: string; waiting: string; daysWorked: number;
-  problem: string | null; explorer: string | null; contract: string | null;
-  recent: { kind: string; day: string; amount: string; status: string; txHash: string | null; createdAt: string }[];
+  on: boolean;
+  earned: string; daysWorked: number;
+  recent: { kind: string; day: string; amount: string; createdAt: string }[];
 }
 
 /** MSP's own page: what it is, its contract, and where to buy or sell it. */
 export const MSP_INFO_URL = "https://token.maharpos.shop/#msp";
 
-const STATUS: Record<string, string> = { PENDING: "Waiting", SENT: "On the way", PAID: "In wallet" };
-
-/** Settings → Points, for every shop: switch the MSP reward on, give the
- *  shop's BNB Chain wallet, and see what it has earned (1 MSP to start, 0.01 MSP for
- *  every day the shop records work). */
+/** Settings → Points, for every shop: switch the MSP reward on and see what it has earned
+ *  (1 MSP to start, 0.01 MSP for every day the shop records work). The points land in the
+ *  shop's MSP wallet. */
 export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummary; onChange?: (s: MspRewardSummary) => void }) {
   const { push } = useToast();
   const [summary, setSummary] = useState(initial);
-  const [on, setOn] = useState(initial.on);
-  const [wallet, setWallet] = useState(initial.wallet ?? "");
   const [busy, setBusy] = useState(false);
 
-  async function save() {
+  async function toggle() {
     setBusy(true);
     try {
-      const next = await api<MspRewardSummary>("/api/v1/msp/rewards", { method: "PUT", body: { on, wallet: wallet.trim() } });
+      const next = await api<MspRewardSummary>("/api/v1/msp/rewards", { method: "PUT", body: { on: !summary.on } });
       setSummary(next);
-      setWallet(next.wallet ?? "");
       onChange?.(next);
-      push("Saved");
+      push(next.on ? "MSP reward on" : "MSP reward off");
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
@@ -43,23 +38,21 @@ export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummar
     }
   }
 
-  const txLink = (hash: string) => (summary.explorer ? `${summary.explorer}/tx/${hash}` : null);
-
   return (
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-semibold"><Gift size={16} />MSP for using Mahar POS</h3>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
         Every Mahar POS shop can join the Mahar Shwe Point promotion. Switch it on and you get <b>1 MSP</b> to start, then
         <b> 0.01 MSP for every day</b> you record work in Mahar POS (sales, repairs, stock, top-ups…). A day with no work earns nothing.
-        The points go to your shop&apos;s own BNB Chain wallet.
+        The points go to your shop&apos;s MSP wallet, under Wallets.
       </p>
       <div className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-        <b>What is MSP?</b> Mahar Shwe Point (MSP) is MaharGroup&apos;s point token on BNB Chain (BEP-20). It sits in your own
-        wallet (Trust Wallet, MetaMask, Binance Web3…), you can send it to anyone, and it can be traded on PancakeSwap, so its
-        price goes up and down.
+        <b>What is MSP?</b> Mahar Shwe Point (MSP) is MaharGroup&apos;s point token on BNB Chain (BEP-20). Send it to other Mahar POS
+        shops free, or take it out to your own wallet (Trust Wallet, MetaMask, Binance Web3…), where it can be traded on
+        PancakeSwap, so its price goes up and down.
         <br />
-        <b>MSP ဆိုတာ</b> MaharGroup ကုမ္ပဏီရဲ့ BNB Chain ပေါ်က Point Token ပါ။ ကိုယ့် Wallet ထဲမှာ ရှိပြီး အခြားသူကို ပို့လို့ရ၊
-        PancakeSwap မှာ ဝယ်/ရောင်းလို့ရပါတယ်။ စျေး တက်/ကျ နိုင်ပါတယ်။
+        <b>MSP ဆိုတာ</b> MaharGroup ကုမ္ပဏီရဲ့ BNB Chain ပေါ်က Point Token ပါ။ Mahar POS ဆိုင်အချင်းချင်း အခမဲ့ လွှဲလို့ရပြီး
+        ကိုယ့် Wallet ထဲ ထုတ်ယူရင် PancakeSwap မှာ ဝယ်/ရောင်းလို့ရပါတယ်။ စျေး တက်/ကျ နိုင်ပါတယ်။
         <a href={MSP_INFO_URL} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 font-medium text-blue-700 hover:underline dark:text-blue-300">
           token.maharpos.shop — details, contract and logo <ExternalLink size={11} />
         </a>
@@ -68,38 +61,28 @@ export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummar
         Mahar POS ကို သုံးတဲ့နေ့တိုင်း 0.01 MSP ရပါမယ်။ ပထမဆုံး ဖွင့်တာနဲ့ 1 MSP ရပါမယ်။ မသုံးတဲ့နေ့ point မဝင်ပါ။
       </p>
 
-      <div className="mt-3 space-y-3">
-        <label className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-          <span className="text-sm font-medium">Earn MSP for using Mahar POS</span>
-          <button type="button" role="switch" aria-checked={on} onClick={() => setOn(!on)}
-            className={cn("relative h-6 w-11 shrink-0 rounded-full transition", on ? "bg-green-600" : "bg-gray-300 dark:bg-gray-700")}>
-            <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", on ? "left-5" : "left-0.5")} />
-          </button>
-        </label>
-        <Input label="Shop's BNB Chain wallet (0x…)" value={wallet} onChange={(e) => setWallet(e.target.value)} spellCheck={false} autoComplete="off" />
-        <Button disabled={busy} onClick={save}>Save</Button>
-      </div>
+      <label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+        <span className="text-sm font-medium">Earn MSP for using Mahar POS</span>
+        <button type="button" role="switch" aria-checked={summary.on} disabled={busy} onClick={toggle}
+          className={cn("relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-60", summary.on ? "bg-green-600" : "bg-gray-300 dark:bg-gray-700")}>
+          <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", summary.on ? "left-5" : "left-0.5")} />
+        </button>
+      </label>
 
       <div className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-sm dark:border-gray-800">
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="grid grid-cols-3 items-center gap-2 text-center">
           <div><div className="text-xs text-gray-500">Earned</div><div className="font-semibold tabular-nums">{fmtMsp(summary.earned)}</div></div>
-          <div><div className="text-xs text-gray-500">In wallet</div><div className="font-semibold tabular-nums">{fmtMsp(summary.paid)}</div></div>
           <div><div className="text-xs text-gray-500">Days used</div><div className="font-semibold tabular-nums">{summary.daysWorked}</div></div>
+          <Link href="/msp-wallet" className="inline-flex items-center justify-center gap-1 text-sm font-medium text-blue-600 hover:underline">
+            <Wallet size={14} />MSP Wallet
+          </Link>
         </div>
-        {summary.problem && (
-          <p className="rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-            {summary.problem}. Your points are kept and will be sent.
-          </p>
-        )}
         {summary.recent.length > 0 && (
           <ul className="divide-y divide-gray-100 text-xs dark:divide-gray-800">
             {summary.recent.map((r, i) => (
               <li key={i} className="flex items-center justify-between gap-2 py-1.5">
                 <span>{r.kind === "WELCOME" ? "Welcome" : r.day}</span>
                 <span className="tabular-nums">+{fmtMsp(r.amount)} MSP</span>
-                {r.txHash && txLink(r.txHash)
-                  ? <a href={txLink(r.txHash)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">{STATUS[r.status] ?? r.status}<ExternalLink size={11} /></a>
-                  : <span className="text-gray-500">{STATUS[r.status] ?? r.status}</span>}
               </li>
             ))}
           </ul>

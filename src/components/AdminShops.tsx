@@ -9,7 +9,7 @@ interface Shop {
   id: string; name: string; phone: string | null; city: string | null; createdAt: string;
   owner: { name: string; email: string | null; username: string } | null;
   users: number; locked: boolean; lastLoginAt: string | null; sales: number; repairs: number;
-  /** The owner has switched on "MSP for using Mahar POS" with a wallet. */
+  /** The owner has switched on "MSP for using Mahar POS". */
   mspOn: boolean;
 }
 

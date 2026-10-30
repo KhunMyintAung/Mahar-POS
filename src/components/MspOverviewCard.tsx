@@ -6,35 +6,36 @@ import { Coins, TrendingDown, TrendingUp } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMsp } from "@/lib/msp";
 import { cn } from "@/components/ui";
-import { MSP_INFO_URL, type MspRewardSummary } from "@/components/MspRewardsCard";
+import { MSP_INFO_URL } from "@/components/MspRewardsCard";
 
 interface Price { priceUsd: number; change24h: number; liquidityUsd: number; url: string }
+interface Wallet { balance: string; rewardsOn: boolean }
 
 const usd = (n: number) => (n >= 1 ? n.toFixed(2) : n.toPrecision(3));
 
-/** A small line on the Overview for a shop earning MSP: what it has earned and MSP's price
- *  with its 24-hour rise or fall. Shown only when the shop has switched the reward on. */
+/** A small line on the Overview for a shop earning MSP: its MSP wallet balance and MSP's
+ *  price with its 24-hour rise or fall. Shown only when the shop has switched the reward on. */
 export function MspOverviewCard() {
-  const [rewards, setRewards] = useState<MspRewardSummary | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
   const [price, setPrice] = useState<Price | null>(null);
 
   useEffect(() => {
-    api<MspRewardSummary>("/api/v1/msp/rewards").then((r) => {
-      setRewards(r);
-      if (r.on) api<{ price: Price | null }>("/api/v1/msp/price").then((p) => setPrice(p.price)).catch(() => {});
+    api<Wallet>("/api/v1/msp/wallet").then((w) => {
+      setWallet(w);
+      if (w.rewardsOn) api<{ price: Price | null }>("/api/v1/msp/price").then((p) => setPrice(p.price)).catch(() => {});
     }).catch(() => {});
   }, []);
 
-  if (!rewards?.on) return null;
+  if (!wallet?.rewardsOn) return null;
   const up = (price?.change24h ?? 0) >= 0;
   const Trend = up ? TrendingUp : TrendingDown;
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-900/60 dark:bg-amber-950/20">
-      <Link href="/settings#points" className="flex items-center gap-1.5 font-medium">
+      <Link href="/msp-wallet" className="flex items-center gap-1.5 font-medium">
         <Coins size={15} className="text-amber-600" />
-        <span className="tabular-nums">{fmtMsp(rewards.earned)} MSP</span>
-        <span className="text-xs font-normal text-gray-500">earned</span>
+        <span className="tabular-nums">{fmtMsp(wallet.balance)} MSP</span>
+        <span className="text-xs font-normal text-gray-500">in MSP wallet</span>
       </Link>
       {price && (
         <a href={price.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 tabular-nums">

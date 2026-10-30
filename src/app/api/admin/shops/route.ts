@@ -33,7 +33,7 @@ export async function GET() {
       lastLoginAt: last.get(b.id) ?? null,
       sales: saleCount.get(b.id) ?? 0,
       repairs: repairCount.get(b.id) ?? 0,
-      mspOn: Boolean(rewardOf.get(b.id)?.on && rewardOf.get(b.id)?.wallet),
+      mspOn: Boolean(rewardOf.get(b.id)?.on),
     };
   });
   return NextResponse.json({ ok: true, data: { shops } });

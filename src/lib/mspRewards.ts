@@ -1,10 +1,11 @@
 import { normalizeMspAddress } from "./msp";
 
-/** Mahar Shwe Point for using Mahar POS: any shop's owner can switch it on in Settings and
- *  give a BNB Chain wallet, and the shop then gets WELCOME_CENTI once and DAILY_CENTI for
- *  each day it records work. Amounts are in hundredths of a point, like the sale points. */
+/** Mahar Shwe Point for using Mahar POS: any shop's owner can switch it on in Settings, and
+ *  the shop's MSP wallet then gets WELCOME_CENTI once and DAILY_CENTI for
+ *  each day it records work. Amounts are in hundredths of a point (100 = 1 MSP). */
 
-/** The shop's own switch and wallet (SystemSetting, written only by /api/v1/msp/rewards). */
+/** The shop's reward switch and withdrawal wallet (SystemSetting, written by /api/v1/msp/rewards
+ *  and /api/v1/msp/wallet/address). */
 export const MSP_REWARD_KEY = "msp_rewards";
 
 export const WELCOME_CENTI = 100n; // 1 MSP

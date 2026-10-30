@@ -43,3 +43,33 @@ describe("MSP for using Mahar POS", () => {
     expect(fmtMsp(DAILY_CENTI)).toBe("0.01");
   });
 });
+
+describe("Shop MSP wallet", () => {
+  it("reads typed MSP amounts in hundredths", async () => {
+    const { parseMspAmount } = await import("../src/lib/mspWallet");
+    expect(parseMspAmount("1")).toBe(100n);
+    expect(parseMspAmount(" 1.5 ")).toBe(150n);
+    expect(parseMspAmount("0.01")).toBe(1n);
+    expect(parseMspAmount("0")).toBeNull();
+    expect(parseMspAmount("0.001")).toBeNull();
+    expect(parseMspAmount("-1")).toBeNull();
+    expect(parseMspAmount("1e3")).toBeNull();
+  });
+
+  it("gives each shop a wallet ID that reads back to its id prefix", async () => {
+    const { shopWalletId, parseShopWalletId } = await import("../src/lib/mspWallet");
+    const id = "1a2b3c4d-0000-4000-8000-000000000000";
+    expect(shopWalletId(id)).toBe("MSP-1A2B3C4D");
+    expect(parseShopWalletId("MSP-1A2B3C4D")).toBe("1a2b3c4d");
+    expect(parseShopWalletId(" msp1a2b3c4d ")).toBe("1a2b3c4d");
+    expect(parseShopWalletId("1A2B3C4D")).toBe("1a2b3c4d");
+    expect(parseShopWalletId("MSP-1A2B")).toBeNull();
+  });
+
+  it("keeps the withdrawal minimum above the fee", async () => {
+    const { parseWalletSettings } = await import("../src/lib/mspWallet");
+    expect(parseWalletSettings(undefined)).toEqual({ feeCenti: 10n, minCenti: 100n });
+    expect(parseWalletSettings({ feeCenti: 50, minCenti: 20 })).toEqual({ feeCenti: 50n, minCenti: 51n });
+    expect(parseWalletSettings({ feeCenti: -1, minCenti: "x" })).toEqual({ feeCenti: 10n, minCenti: 100n });
+  });
+});

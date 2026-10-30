@@ -1008,7 +1008,9 @@ model MspReward {
   day        String
   /// In hundredths of a point (100 = 1 MSP).
   amount     BigInt
-  status     String    @default("PENDING") // PENDING SENT PAID
+  /// CREDITED: in the shop's MSP wallet balance. SENT/PAID: rows paid straight to the chain
+  /// before the wallet existed.
+  status     String    @default("CREDITED") // CREDITED SENT PAID
   address    String?
   nonce      Int?
   txHash     String?
@@ -1018,5 +1020,41 @@ model MspReward {
   updatedAt  DateTime  @updatedAt
 
   @@unique([businessId, kind, day])
+  @@index([status])
+}
+
+/// MSP sent from one shop's MSP wallet to another's. Only the balances move; nothing goes on chain.
+model MspTransfer {
+  id             String   @id @default(uuid())
+  fromBusinessId String
+  toBusinessId   String
+  /// In hundredths of a point (100 = 1 MSP).
+  amount         BigInt
+  note           String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  @@index([fromBusinessId])
+  @@index([toBusinessId])
+}
+
+/// MSP a shop takes out of its MSP wallet to its own BNB Chain wallet: the one step that is a
+/// chain transaction. amount leaves the balance; amount - fee is sent.
+model MspWithdrawal {
+  id          String    @id @default(uuid())
+  businessId  String
+  amount      BigInt
+  fee         BigInt
+  address     String
+  status      String    @default("PENDING") // PENDING SENT PAID FAILED
+  nonce       Int?
+  txHash      String?
+  sentAt      DateTime?
+  lastError   String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([businessId])
   @@index([status])
 }

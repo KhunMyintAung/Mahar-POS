@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Wallet, HandCoins, FileBarChart,
+  LayoutDashboard, Wallet, HandCoins, FileBarChart, Coins,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
   Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
@@ -93,12 +93,13 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
 
 interface NavTab { href: string; label: string; icon: typeof LayoutDashboard; perm: string; feature: FeatureKey }
 
-/** Wallets, Transfer and Withdraw share one sidebar entry; the pages switch between them
+/** Wallets, Transfer, Withdraw and the MSP Wallet share one sidebar entry; the pages switch between them
  *  with tabs. Each tab keeps its own permission and module switch. */
 const WALLET_TABS: NavTab[] = [
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
   { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
   { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
+  { href: "/msp-wallet", label: "MSP Wallet", icon: Coins, perm: "wallet.view", feature: "wallets" },
 ];
 
 interface NavItem {
