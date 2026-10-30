@@ -1,22 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import Image from "next/image";
-import { Activity, BarChart3, Building2, Coins, HeartHandshake, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { Activity, BarChart3, Building2, HeartHandshake, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { Button, Card, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { AdminShops } from "@/components/AdminShops";
 import { AdminMsp } from "@/components/AdminMsp";
+import { MspLogo } from "@/components/MspLogo";
 import { AdminEmail } from "@/components/AdminEmail";
 import { AdminOverview } from "@/components/AdminOverview";
 import { AdminAnnouncement } from "@/components/AdminAnnouncement";
 import { AdminCommunity } from "@/components/AdminCommunity";
 
 type Tab = "overview" | "shops" | "msp" | "users" | "activity" | "email" | "announcement" | "community";
-const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
+const TABS: { key: Tab; label: string; icon: ComponentType<{ size?: number; className?: string }> }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "shops", label: "Shops", icon: Building2 },
-  { key: "msp", label: "MSP", icon: Coins },
+  { key: "msp", label: "MSP", icon: MspLogo },
   { key: "users", label: "Users", icon: Users },
   { key: "activity", label: "Activity", icon: Activity },
   { key: "email", label: "Email", icon: Mail },

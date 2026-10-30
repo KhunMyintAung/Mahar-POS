@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Coins, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMsp } from "@/lib/msp";
 import { cn } from "@/components/ui";
 import { MSP_INFO_URL } from "@/components/MspRewardsCard";
+import { MspLogo } from "@/components/MspLogo";
 
 interface Price { priceUsd: number; change24h: number; liquidityUsd: number; url: string }
 interface Wallet { balance: string; earned: string; onChain: string; rewardsOn: boolean }
@@ -34,7 +35,7 @@ export function MspOverviewCard() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm dark:border-amber-900/60 dark:bg-amber-950/20">
       <Link href="/msp-wallet" className="flex items-center gap-1.5 font-medium">
-        <Coins size={15} className="text-amber-600" />
+        <MspLogo size={18} />
         <span className="tabular-nums">{fmtMsp(wallet.earned)} MSP</span>
         <span className="text-xs font-normal text-gray-500">earned</span>
       </Link>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowDownToLine, Coins, Copy, ExternalLink, Lock, Send } from "lucide-react";
+import { ArrowDownToLine, Copy, ExternalLink, Lock, Send } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtDateTime } from "@/lib/format";
 import { fmtMsp } from "@/lib/msp";
@@ -11,6 +11,7 @@ import { Button, Card, Input, Modal, Spinner, Empty, cn, useToast } from "@/comp
 import { useAuth } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { MSP_INFO_URL } from "@/components/MspRewardsCard";
+import { MspLogo } from "@/components/MspLogo";
 
 interface Summary {
   walletId: string; balance: string; earned: string; onChain: string; rewardsOn: boolean; address: string | null;
@@ -52,7 +53,7 @@ export default function MspWalletPage() {
       <Card>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500"><Coins size={14} className="text-amber-600" />Balance</div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-500"><MspLogo size={16} />Balance</div>
             <div className="text-3xl font-bold tabular-nums">{fmtMsp(balance)} <span className="text-base font-semibold text-gray-500">MSP</span></div>
             {s.onChain !== "0" && <div className="text-xs text-gray-500 tabular-nums">+ {fmtMsp(s.onChain)} MSP already in your BNB Chain wallet · {fmtMsp(s.earned)} MSP earned in all</div>}
             {usd !== null && <div className="text-xs text-gray-500 tabular-nums">≈ ${usd < 1 ? usd.toPrecision(2) : usd.toFixed(2)} · 1 MSP ${price!.priceUsd.toPrecision(3)}</div>}

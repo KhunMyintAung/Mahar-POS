@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { Coins, FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
+import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
 import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
@@ -12,6 +12,7 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
+import { MspLogo } from "@/components/MspLogo";
 import { MspRewardsCard, type MspRewardSummary } from "@/components/MspRewardsCard";
 import {
   defaultFeaturesForMode,
@@ -160,11 +161,11 @@ export default function SettingsPage() {
   // One section at a time instead of one long page. Printing appears only for shops that
   // print vouchers or warranty cards.
   const hasPrinting = featureEnabled("pos") || featureEnabled("repair");
-  const tabs = [
+  const tabs: { key: string; label: string; icon: ComponentType<{ size?: number; className?: string }> }[] = [
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
     ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
-    { key: "points", label: "Points", icon: Coins },
+    { key: "points", label: "Points", icon: MspLogo },
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;

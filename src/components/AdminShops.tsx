@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Coins, Lock, LockOpen, Search } from "lucide-react";
+import { Lock, LockOpen, Search } from "lucide-react";
+import { MspLogo } from "@/components/MspLogo";
 import { Button, ConfirmDialog, cn } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
@@ -89,7 +90,7 @@ export function AdminShops() {
                 <td className="px-3 py-2 text-xs">{s.lastLoginAt ? fmtDateTime(s.lastLoginAt) : "—"}</td>
                 <td className="px-3 py-2">
                   {s.mspOn
-                    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><Coins size={13} />Earning</span>
+                    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><MspLogo size={14} />Earning</span>
                     : <span className="text-xs text-gray-400">—</span>}
                 </td>
                 <td className="px-3 py-2 text-right">

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Gift, Wallet } from "lucide-react";
+import { ExternalLink, Wallet } from "lucide-react";
+import { MspLogo } from "@/components/MspLogo";
 import { api } from "@/lib/client";
 import { fmtMsp } from "@/lib/msp";
 import { Card, cn, useToast } from "@/components/ui";
@@ -40,7 +41,7 @@ export function MspRewardsCard({ initial, onChange }: { initial: MspRewardSummar
 
   return (
     <Card>
-      <h3 className="flex items-center gap-2 text-sm font-semibold"><Gift size={16} />MSP for using Mahar POS</h3>
+      <h3 className="flex items-center gap-2 text-sm font-semibold"><MspLogo size={18} />MSP for using Mahar POS</h3>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
         Every Mahar POS shop can join the Mahar Shwe Point promotion. Switch it on and you get <b>1 MSP</b> to start, then
         <b> 0.01 MSP for every day</b> you record work in Mahar POS (sales, repairs, stock, top-ups…). A day with no work earns nothing.
