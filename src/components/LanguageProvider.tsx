@@ -42,7 +42,6 @@ const MM: Record<string, string> = {
   "Wallets": "ငွေစာရင်းများ",
   "Transfer": "ငွေလွှဲ",
   "Withdraw": "ငွေထုတ်",
-  "MSP Wallet": "MSP Wallet",
   "Credit & Payable": "အကြွေးရရန်/ပေးရန်",
   "Income & Expense": "ဝင်ငွေ/ထွက်ငွေ",
   "Reports": "အစီရင်ခံစာ",

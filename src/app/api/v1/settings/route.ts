@@ -5,10 +5,9 @@ import { audit } from "@/lib/audit";
 import { moduleSettingFromFeatures, parseModuleAccess } from "@/lib/modules";
 import { TELEGRAM_REPORTS_KEY } from "@/lib/telegramReports";
 import { GSHEET_KEY } from "@/lib/gsheetBackup";
-import { MSP_REWARD_KEY } from "@/lib/mspRewards";
 
-// Keys with secrets in them, or with rules of their own, read and written only by their own routes.
-const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY, MSP_REWARD_KEY];
+// Keys with secrets in them, read and written only by their own owner-only routes.
+const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY];
 
 // Settings are namespaced JSON documents per business: about, business_profile, modules…
 

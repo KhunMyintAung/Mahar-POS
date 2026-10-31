@@ -7,7 +7,6 @@ import { fmtMoney } from "@/lib/format";
 import { StatCard, Card, Select, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
-import { MspOverviewCard } from "@/components/MspOverviewCard";
 
 interface Summary {
   wallets: { totalMmk: string; totalThb: string; thbWallets: number; lowBalance: { id: string; name: string; currentBalance: string; minBalance: string }[] };
@@ -110,8 +109,6 @@ export default function DashboardPage() {
           </Select>
         </div>
       </div>
-
-      <MspOverviewCard />
 
       {data.income && (
         // Every source the day's money came from, and every kind of expense, each on a line:

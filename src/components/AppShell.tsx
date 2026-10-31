@@ -1,8 +1,7 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode, type ComponentType } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
-import { MspLogo } from "@/components/MspLogo";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -38,8 +37,6 @@ interface Me {
     category: string;
   };
   edition: "FULL" | "PLAY";
-  /** MSP is switched on for the shop, or its MSP wallet still holds some: shows the MSP Wallet. */
-  msp: boolean;
 }
 
 const AuthCtx = createContext<{
@@ -94,18 +91,14 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
   { section: "/users", perm: "users.manage", feature: "users", label: "New user" },
 ];
 
-/** A lucide icon, or anything drawn the same way (MspLogo). */
-type NavIcon = ComponentType<{ size?: number; className?: string }>;
+interface NavTab { href: string; label: string; icon: typeof LayoutDashboard; perm: string; feature: FeatureKey }
 
-interface NavTab { href: string; label: string; icon: NavIcon; perm: string; feature: FeatureKey }
-
-/** Wallets, Transfer, Withdraw and the MSP Wallet share one sidebar entry; the pages switch between them
+/** Wallets, Transfer and Withdraw share one sidebar entry; the pages switch between them
  *  with tabs. Each tab keeps its own permission and module switch. */
 const WALLET_TABS: NavTab[] = [
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
   { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
   { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
-  { href: "/msp-wallet", label: "MSP Wallet", icon: MspLogo, perm: "wallet.view", feature: "wallets" },
 ];
 
 interface NavItem {
@@ -113,7 +106,7 @@ interface NavItem {
   label: string;
   /** Bottom-bar label, when the first word of the full label would be ambiguous. */
   short?: string;
-  icon: NavIcon;
+  icon: typeof LayoutDashboard;
   perm: string | null;
   feature?: FeatureKey;
   /** Pages grouped under this entry; it shows when any of them is allowed. */
@@ -185,7 +178,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       item.feature &&
       pathname.startsWith(item.href) &&
       !featureEnabled(item.feature)
-  ) || (pathname.startsWith("/msp-wallet") && me?.msp === false);
+  );
 
   useEffect(() => {
     if (me && blockedModulePath) router.replace("/");
@@ -200,7 +193,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const hasPerm = (p: string) => me.user.permissions.includes(p);
-  const tabAllowed = (t: NavTab) => hasPerm(t.perm) && featureEnabled(t.feature) && (t.href !== "/msp-wallet" || me.msp);
+  const tabAllowed = (t: NavTab) => hasPerm(t.perm) && featureEnabled(t.feature);
   const visibleNav = NAV.flatMap((n): NavItem[] => {
     if (n.tabs) {
       // A group lands on its first page this user may open, and is hidden if there is none.

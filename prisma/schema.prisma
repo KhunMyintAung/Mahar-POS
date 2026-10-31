@@ -313,8 +313,6 @@ model Contact {
   currency    String    @default("MMK")
   creditLimit BigInt    @default(0)
   notes       String?
-  /// The customer's BNB Chain wallet, where their Mahar Shwe Point (MSP) is minted.
-  mspAddress  String?
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -959,102 +957,4 @@ model Feedback {
   createdAt  DateTime @default(now())
 
   @@index([shown, createdAt])
-}
-
-/// Mahar Shwe Point earned on one sale. Points wait as PENDING until the customer has a
-/// wallet address, then go into an MspBatch (SENT) and become MINTED once the batch is on
-/// chain. Cancelling the sale before that cancels the award; a minted award stays minted.
-model MspAward {
-  id         String   @id @default(uuid())
-  businessId String
-  saleId     String   @unique
-  customerId String
-  /// In hundredths of a point (100 = 1 MSP).
-  amount     BigInt
-  status     String   @default("PENDING") // PENDING SENT MINTED CANCELLED
-  batchId    Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([status])
-  @@index([customerId])
-}
-
-/// One mintBatch call. The id is the batch id on chain, which the contract accepts once,
-/// so a batch is resent unchanged until it lands and can never pay its customers twice.
-model MspBatch {
-  id         Int       @id @default(autoincrement())
-  /// JSON [{ "address": "0x…", "amount": "<hundredths of a point>" }]
-  recipients String
-  total      BigInt
-  status     String    @default("OPEN") // OPEN MINTED
-  txHash     String?
-  sentAt     DateTime?
-  lastError  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-}
-
-/// Mahar Shwe Point the platform gives a shop for using Mahar POS: 1 MSP once when the shop
-/// first switches the reward on, then 0.01 MSP for each day it records work. Only shops the
-/// admin has put in the promotion can switch it on. Points are sent from the platform's
-/// rewards wallet (env MSP_MINTER_KEY) with an ERC-20 transfer; the rows sent together share
-/// one nonce, so a transfer resent after a timeout replaces itself and can never pay twice.
-model MspReward {
-  id         String    @id @default(uuid())
-  businessId String
-  kind       String // WELCOME DAILY
-  /// The shop's day (YYYY-MM-DD in its timezone) for DAILY; "" for WELCOME.
-  day        String
-  /// In hundredths of a point (100 = 1 MSP).
-  amount     BigInt
-  /// CREDITED: in the shop's MSP wallet balance. SENT/PAID: rows paid straight to the chain
-  /// before the wallet existed.
-  status     String    @default("CREDITED") // CREDITED SENT PAID
-  address    String?
-  nonce      Int?
-  txHash     String?
-  sentAt     DateTime?
-  lastError  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  @@unique([businessId, kind, day])
-  @@index([status])
-}
-
-/// MSP sent from one shop's MSP wallet to another's. Only the balances move; nothing goes on chain.
-model MspTransfer {
-  id             String   @id @default(uuid())
-  fromBusinessId String
-  toBusinessId   String
-  /// In hundredths of a point (100 = 1 MSP).
-  amount         BigInt
-  note           String?
-  createdById    String?
-  createdAt      DateTime @default(now())
-
-  @@index([fromBusinessId])
-  @@index([toBusinessId])
-}
-
-/// MSP a shop takes out of its MSP wallet to its own BNB Chain wallet: the one step that is a
-/// chain transaction. amount leaves the balance; amount - fee is sent.
-model MspWithdrawal {
-  id          String    @id @default(uuid())
-  businessId  String
-  amount      BigInt
-  fee         BigInt
-  address     String
-  status      String    @default("PENDING") // PENDING SENT PAID FAILED
-  nonce       Int?
-  txHash      String?
-  sentAt      DateTime?
-  lastError   String?
-  createdById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([businessId])
-  @@index([status])
 }

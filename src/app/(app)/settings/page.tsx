@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
 import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
@@ -12,8 +12,6 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
-import { MspLogo } from "@/components/MspLogo";
-import { MspRewardsCard, type MspRewardSummary } from "@/components/MspRewardsCard";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -30,7 +28,6 @@ interface SettingsData {
 
 export default function SettingsPage() {
   const [data, setData] = useState<SettingsData | null>(null);
-  const [rewards, setRewards] = useState<MspRewardSummary | null>(null);
   const [biz, setBiz] = useState({
     name: "", phone: "", address: "", telegram: "", website: "", websiteLabel: "", city: "",
     latitude: null as number | null, longitude: null as number | null,
@@ -86,9 +83,6 @@ export default function SettingsPage() {
     }).catch((e) => push(e.message, "error"));
   }, [push]);
   useEffect(load, [load]);
-  useEffect(() => {
-    api<MspRewardSummary>("/api/v1/msp/rewards").then(setRewards).catch(() => setRewards(null));
-  }, []);
 
   /** Pins the shop where this device is now and fills in the city (and the address, when it
    *  is still empty) from the map. */
@@ -161,11 +155,10 @@ export default function SettingsPage() {
   // One section at a time instead of one long page. Printing appears only for shops that
   // print vouchers or warranty cards.
   const hasPrinting = featureEnabled("pos") || featureEnabled("repair");
-  const tabs: { key: string; label: string; icon: ComponentType<{ size?: number; className?: string }> }[] = [
+  const tabs = [
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
     ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
-    { key: "points", label: "Points", icon: MspLogo },
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -262,8 +255,6 @@ export default function SettingsPage() {
       </>}
 
       {current === "sheets" && <GsheetSyncCard />}
-
-      {current === "points" && rewards && <MspRewardsCard initial={rewards} onChange={(r) => { setRewards(r); refreshAuth(); }} />}
 
       {current === "menu" && (
       <Card>

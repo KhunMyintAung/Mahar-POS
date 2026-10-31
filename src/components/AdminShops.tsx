@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Lock, LockOpen, Search } from "lucide-react";
-import { MspLogo } from "@/components/MspLogo";
 import { Button, ConfirmDialog, cn } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
@@ -10,8 +9,6 @@ interface Shop {
   id: string; name: string; phone: string | null; city: string | null; createdAt: string;
   owner: { name: string; email: string | null; username: string } | null;
   users: number; locked: boolean; lastLoginAt: string | null; sales: number; repairs: number;
-  /** The owner has switched on "MSP for using Mahar POS". */
-  mspOn: boolean;
 }
 
 /** Every shop on the service, for the admin: who owns it, how much it is used, and a
@@ -70,7 +67,7 @@ export function AdminShops() {
       <div className="max-w-full overflow-x-auto">
         <table className="w-full min-w-max text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60">
-            <tr>{["Shop", "Owner", "Users", "Sales", "Repairs", "Registered", "Last login", "MSP", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+            <tr>{["Shop", "Owner", "Users", "Sales", "Repairs", "Registered", "Last login", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {shown.map((s) => (
@@ -88,11 +85,6 @@ export function AdminShops() {
                 <td className="px-3 py-2 tabular-nums">{s.repairs}</td>
                 <td className="px-3 py-2 text-xs">{fmtDateTime(s.createdAt)}</td>
                 <td className="px-3 py-2 text-xs">{s.lastLoginAt ? fmtDateTime(s.lastLoginAt) : "—"}</td>
-                <td className="px-3 py-2">
-                  {s.mspOn
-                    ? <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600"><MspLogo size={14} />Earning</span>
-                    : <span className="text-xs text-gray-400">—</span>}
-                </td>
                 <td className="px-3 py-2 text-right">
                   <Button size="sm" variant={s.locked ? "secondary" : "danger"} disabled={busy} onClick={() => setConfirm(s)}>
                     {s.locked ? <><LockOpen size={14} className="mr-1 inline" />Unlock</> : <><Lock size={14} className="mr-1 inline" />Lock</>}
@@ -100,7 +92,7 @@ export function AdminShops() {
                 </td>
               </tr>
             ))}
-            {shops && shown.length === 0 && <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-400">No shops</td></tr>}
+            {shops && shown.length === 0 && <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-400">No shops</td></tr>}
           </tbody>
         </table>
       </div>

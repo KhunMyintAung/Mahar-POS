@@ -51,10 +51,7 @@ export const PATCH = withAuth("customer.manage", async ({ req, user, params }) =
   const updated = await prisma.$transaction(async (tx) => {
     const c = await tx.contact.update({
       where: { id: contact.id },
-      data: {
-        ...rest,
-        ...(creditLimit !== undefined ? { creditLimit: toMinor(creditLimit) } : {}),
-      },
+      data: { ...rest, ...(creditLimit !== undefined ? { creditLimit: toMinor(creditLimit) } : {}) },
     });
     await audit(tx, {
       businessId: user.businessId, userId: user.id,
