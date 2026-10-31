@@ -73,11 +73,14 @@ function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName }: 
   const needle = q.trim().toLowerCase().replace(/\s+/g, "");
   const codes = partModelCodes(partName ?? "");
   const fits = (j: RepairJobOption) => repairFitsPart(j, codes);
+  // Only repairs that matter: the ones the search finds, or before any search the ones of
+  // a phone the part names. Never the whole list, and five at most.
   const matches = jobs
-    .filter((j) => !needle || `${j.jobNo}${j.deviceBrand}${j.deviceModel}${j.customerName ?? ""}`.toLowerCase().replace(/\s+/g, "").includes(needle))
-    // Repairs of a phone the part names first; otherwise newest first, as given.
+    .filter((j) => needle
+      ? `${j.jobNo}${j.deviceBrand}${j.deviceModel}${j.customerName ?? ""}`.toLowerCase().replace(/\s+/g, "").includes(needle)
+      : fits(j))
     .sort((a, b) => Number(fits(b)) - Number(fits(a)))
-    .slice(0, 8);
+    .slice(0, 5);
   return (
     <div>
       <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Repair job (adds the part cost to it)</span>
@@ -90,20 +93,19 @@ function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName }: 
         <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Voucher no or model, e.g. MS1215 or A17K"
             className="min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
-          <div className="mt-1 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+          {(matches.length > 0 || needle) && <div className="mt-1 divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
             {matches.map((j) => (
               <button key={j.id} type="button" onClick={() => { onChange(j.id); setQ(""); }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
-                <b className="shrink-0">{j.jobNo}</b>
-                <span className="min-w-0 flex-1 truncate">{j.deviceBrand} {j.deviceModel}{j.customerName ? ` · ${j.customerName}` : ""}</span>
+                <span className="min-w-0 flex-1 truncate"><b>{j.deviceBrand} {j.deviceModel}</b>{j.customerName ? ` · ${j.customerName}` : ""} <span className="text-xs text-gray-400">{j.jobNo}</span></span>
                 {fits(j) && <span className="shrink-0 rounded bg-green-100 px-1.5 text-[11px] font-medium text-green-700 dark:bg-green-900/40 dark:text-green-300">Suggested</span>}
                 <span className="shrink-0 text-xs text-gray-500">{JOB_STATUS_LABEL[j.status] ?? j.status}</span>
               </button>
             ))}
             {matches.length === 0 && <p className="px-3 py-2 text-xs text-gray-400">{jobs.length ? "No repair matches" : "No repairs waiting"}</p>}
-          </div>
+          </div>}
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <p className="text-xs text-gray-500">Only repairs still being worked on.</p>
+            <p className="text-xs text-gray-500">Type the voucher no or model to find the repair.</p>
             <button type="button" onClick={() => { onChange(""); onWalkIn({ name: "", phone: "", device: "" }); }} className="shrink-0 rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300">
               Walk-in (no voucher)
             </button>
@@ -131,9 +133,13 @@ interface Movement {
 export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { target: StockLevel | null; onClose: () => void; onDone: () => void }) {
   const blankAdjust = { quantity: "", reason: "", reasonType: "REPAIR_USE" as StockReason, repairJobId: "", walkIn: null as WalkIn | null };
   const { hasPerm, branches, defaultBranchId, featureEnabled } = useAuth();
+  // Without item.manage (a Service Tech) a part only leaves for a repair; the server holds
+  // the same line.
+  const repairOnly = !hasPerm("item.manage");
+  const reasons = repairOnly ? STOCK_REASONS.filter((r) => r.key === "REPAIR_USE") : STOCK_REASONS;
   const startOf = (l: StockLevel | null) => ({
     // Spare parts mostly leave for repairs; anything else starts on a correction.
-    ...blankAdjust, reasonType: (/spare|part|lcd|battery|အပို/i.test(l?.category ?? "") ? "REPAIR_USE" : "CORRECTION") as StockReason,
+    ...blankAdjust, reasonType: (repairOnly || /spare|part|lcd|battery|အပို/i.test(l?.category ?? "") ? "REPAIR_USE" : "CORRECTION") as StockReason,
   });
   const [adjust, setAdjust] = useState(() => startOf(adjustTarget));
   // A tracked phone moves by IMEI: the units picked or typed, and for a +/− correction which way.
@@ -206,7 +212,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
         <div>
           <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">What happened</span>
           <div className="flex flex-wrap gap-1.5">
-            {STOCK_REASONS.map((r) => (
+            {reasons.map((r) => (
               <button
                 key={r.key}
                 type="button"
@@ -275,7 +281,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
                 value={adjust.reason}
                 onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })}
               />
-              <div className="flex justify-end gap-2">
+              <div className="sticky -bottom-4 -mx-4 flex justify-end gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:-bottom-5 sm:-mx-5 sm:px-5">
                 <Button variant="secondary" onClick={onClose}>Cancel</Button>
                 <Button
                   variant={reason.direction === "in" ? "primary" : "danger"}

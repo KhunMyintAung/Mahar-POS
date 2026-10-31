@@ -1336,6 +1336,8 @@ const MM: Record<string, string> = {
   "Call the customer to come and collect it?": "ဖောက်သည်ကို လာယူရန် ဖုန်းခေါ်မလား?",
   "Not now": "နောက်မှ",
   "Call": "ဖုန်းခေါ်မည်",
+  "Type the voucher no or model to find the repair.": "ဘောက်ချာနံပါတ် သို့မဟုတ် Model ရိုက်၍ Repair ကို ရှာပါ။",
+  "You can only take parts out for a repair.": "အပိုပစ္စည်းကို Repair အတွက်သာ ထုတ်ယူနိုင်ပါသည်။",
 };
 
 const originalText = new WeakMap<Node, string>();

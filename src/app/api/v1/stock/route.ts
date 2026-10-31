@@ -87,6 +87,11 @@ const adjustSchema = z.object({
 export const POST = withAuth("stock.adjust", async ({ req, user }) => {
   const body = await parseBody(req, adjustSchema);
   await assertBranchAccess(user, body.branchId);
+  // Without item.manage (a Service Tech) stock only leaves for a repair: no adding stock,
+  // no corrections.
+  if (body.reasonType !== "REPAIR_USE" && !user.permissions.includes("item.manage")) {
+    throw new ApiError(403, "You can only take parts out for a repair.");
+  }
   // The named reasons say what happened; a bare correction or "other" still needs words.
   if (!body.reason && (body.reasonType === "ADJUSTMENT" || body.reasonType === "CORRECTION")) {
     throw new ApiError(422, "A reason is required for stock adjustments");
@@ -147,6 +152,6 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
   notifyAuditFeed(user.businessId, stockMoveNotice({
     itemName: result.item.name, label, quantity, qtyAfter: result.qtyAfter, createdByName: user.name,
     detail: result.notes.startsWith(label) ? result.notes.slice(label.length).replace(/^ — /, "") : result.notes,
-  }));
+  }), undefined, user.id);
   return json({ qtyAfter: result.qtyAfter }, { status: 201 });
 });

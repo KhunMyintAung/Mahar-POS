@@ -17,7 +17,7 @@ import {
   billerNotice, repairStatusNotice,
 } from "./telegramNotify";
 import {
-  sendMessage, answerCallbackQuery,
+  sendMessage, sendChatAction, answerCallbackQuery,
   keyboard, btn, TgUpdate,
 } from "./telegram";
 import type { FeatureKey, FeatureVisibility } from "./modules";
@@ -917,8 +917,23 @@ export async function handleUpdate(update: TgUpdate, ownerUserId: string) {
     );
   }
 
-  if (update.message) return handleMessage(ownerUserId, chatId, update.message.text ?? "");
-  if (update.callback_query) return handleCallback(ownerUserId, update.callback_query);
+  // "typing…" while the reply is worked out, so a slow answer does not look like silence.
+  void sendChatAction(chatId);
+  try {
+    if (update.message) return await handleMessage(ownerUserId, chatId, update.message.text ?? "");
+    if (update.callback_query) return await handleCallback(ownerUserId, update.callback_query);
+  } catch (e) {
+    // Whatever broke, the person gets an answer instead of a bot that went quiet.
+    console.error("[telegram bot] update failed:", e);
+    await sendMessage(chatId, `⚠️ ${e instanceof ApiError ? e.message : "Something went wrong on our side."}\n\nPlease try again in a moment, or tap /menu.`);
+  }
+}
+
+/** Said when a message is not what the bot is waiting for. */
+function helpText(user: AuthUser, repairOn: boolean): string {
+  const lines = ["🤔 I didn't catch that.", "", "Choose from the menu below."];
+  if (repairOn && can(user, "repair.update")) lines.push("Or type a repair voucher number, e.g. MS0012.");
+  return lines.join("\n");
 }
 
 async function handleMessage(ownerUserId: string, chatId: string, text: string) {
@@ -942,9 +957,14 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
     await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
     return;
   }
-  if (!session) return sendMessage(chatId, "Tap /menu to start.");
+  if (!trimmed) {
+    // A photo, sticker or voice note: the bot only reads text and buttons.
+    return sendMessage(chatId, "📝 I can only read text and buttons. Type it, or tap /menu.");
+  }
+  if (!session) return showMenu(chatId, user, helpText(user, (await businessFeatures(user.businessId)).repair));
 
   const [flow, step] = session.step.split(".");
+  if (step === "saving") return sendMessage(chatId, "⏳ Still saving the last one, please wait…");
   try {
     if (flow === "rp" && step === "voucher") return await rpFind(chatId, user, trimmed);
     if (flow === "bl") {
@@ -973,14 +993,30 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
     await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
     return;
   }
-  return sendMessage(chatId, "Please use the buttons above, or /cancel to start over.");
+  // A flow is open and waiting on a button, not on typing.
+  return sendMessage(chatId, "👆 Please tap one of the buttons above, or Cancel to start over.", { replyMarkup: keyboard([CANCEL_ROW]) });
+}
+
+/** Every flow's Confirm step, as "<flow>.confirm". */
+const CONFIRM_STEP = /^(bl|ie|tr|cp|nc)\.confirm$/;
+
+/** Takes the Confirm tap for this chat, once. A double tap, or Telegram sending the same
+ *  tap twice, finds the step already taken and saves nothing a second time. */
+async function claimConfirm(ownerUserId: string, chatId: string, step: string): Promise<boolean> {
+  const flow = step.split(".")[0];
+  const { count } = await prisma.telegramSession.updateMany({
+    where: { ownerUserId, chatId, step },
+    data: { step: `${flow}.saving` },
+  });
+  return count === 1;
 }
 
 async function handleCallback(ownerUserId: string, cq: { id: string; message?: { chat: { id: number } }; data?: string }) {
   const chatId = cq.message?.chat.id.toString();
   const data = cq.data ?? "";
   if (!chatId) return answerCallbackQuery(cq.id);
-  await answerCallbackQuery(cq.id);
+  // The small toast on the button is the first sign the tap arrived.
+  await answerCallbackQuery(cq.id, data === "confirm:yes" ? "⏳ Saving…" : undefined);
 
   const resolved = await resolveOwner(ownerUserId, chatId);
   if (resolved.kind === "not_found") return sendMessage(chatId, "This bot isn't set up correctly. Contact the Mahar Mini POS admin.");
@@ -1026,46 +1062,60 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
   }
 
   const session = await getSession(ownerUserId, chatId);
-  if (!session) return sendMessage(chatId, "Tap /menu to start.");
+  // A button from a flow that is finished or was cancelled.
+  if (!session) return showMenu(chatId, user, "⌛ That button has expired. Start again from the menu:");
   const [flow, step] = session.step.split(".");
+  if (step === "saving") return sendMessage(chatId, "⏳ Still saving, please wait…");
+
+  if (data === "confirm:yes" && CONFIRM_STEP.test(session.step)) {
+    if (!(await claimConfirm(ownerUserId, chatId, session.step))) return sendMessage(chatId, "⏳ Already saving, please wait…");
+    await sendMessage(chatId, "⏳ Saving, please wait…");
+    try {
+      if (flow === "bl") return await blConfirm(chatId, user, session.data);
+      if (flow === "ie") return await ieConfirm(chatId, user, session.data);
+      if (flow === "tr") return await trConfirm(chatId, user, session.data);
+      if (flow === "cp") return await cpConfirm(chatId, user, session.data);
+      if (flow === "nc") return await ncConfirm(chatId, user, session.data);
+    } finally {
+      // Saved: the flow has cleared its session. Failed: put Confirm back so it can be tapped again.
+      await prisma.telegramSession.updateMany({ where: { ownerUserId, chatId, step: `${flow}.saving` }, data: { step: session.step } });
+    }
+  }
 
   try {
     if (flow === "bl") {
       if (step === "biller" && data.startsWith("b:")) return blStepBiller(chatId, user, session.data, data.slice(2));
       if (step === "kind" && data.startsWith("k:")) return blStepKind(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return blStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:yes") return blConfirm(chatId, user, session.data);
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
     }
     if (flow === "ie") {
       if (step === "wallet" && data.startsWith("w:")) return ieStepWallet(chatId, user, session.data, data.slice(2));
       if (step === "category" && data.startsWith("cat:")) return ieStepCategoryPick(chatId, user, session.data, data.slice(4));
       if (step === "description" && data === "skip") return ieStepDescriptionSkip(chatId, user, session.data);
-      if (step === "confirm" && data === "confirm:yes") return ieConfirm(chatId, user, session.data);
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
     }
     if (flow === "tr") {
       if (step === "source" && data.startsWith("w:")) return trStepSource(chatId, user, session.data, data.slice(2));
       if (step === "dest" && data.startsWith("w:")) return trStepDest(chatId, user, session.data, data.slice(2));
       if (step === "fee" && data === "skip") return trStepFeeSkip(chatId, user, session.data);
-      if (step === "confirm" && data === "confirm:yes") return trConfirm(chatId, user, session.data);
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
     }
     if (flow === "cp") {
       if (step === "pick" && data.startsWith("r:")) return cpStepPick(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return cpStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:yes") return cpConfirm(chatId, user, session.data);
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
     }
     if (flow === "nc") {
       if (step === "customer" && data.startsWith("c:")) return ncStepCustomerPick(chatId, user, session.data, data.slice(2));
       if (step === "note" && data === "skip") return ncStepNoteSkip(chatId, user, session.data);
       if (step === "wallet" && data.startsWith("w:")) return ncStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:yes") return ncConfirm(chatId, user, session.data);
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
     }
   } catch (e) {
     await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
     return;
   }
+  // A button from an earlier step of this flow.
+  return sendMessage(chatId, "⌛ That button is from an earlier step. Use the latest message, or Cancel.", { replyMarkup: keyboard([CANCEL_ROW]) });
 }

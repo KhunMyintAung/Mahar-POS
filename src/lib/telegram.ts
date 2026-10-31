@@ -152,6 +152,12 @@ export async function editMessageText(
   });
 }
 
+/** "typing…" at the top of the chat while the bot works on a reply. It clears itself on
+ *  the next message or after about five seconds. */
+export async function sendChatAction(chatId: string, action: "typing" = "typing") {
+  return callBestEffort("sendChatAction", { chat_id: chatId, action });
+}
+
 export async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
   return callBestEffort("answerCallbackQuery", { callback_query_id: callbackQueryId, text, show_alert: showAlert });
 }

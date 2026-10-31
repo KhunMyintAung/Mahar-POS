@@ -4,26 +4,28 @@ import { notifyReportTargets } from "./telegramReports";
 
 // Live audit feed over Telegram: after a Sale / 3D / Transfer / Withdraw /
 // Income & Expense / Exchange transaction is committed, push a short summary
-// to every linked user who can view the audit log.
+// to every linked user who can view the audit log, and to the person who did it, so a
+// Service Tech without the audit log still gets a log of their own work on their own bot.
 //
 // Fire-and-forget by design: callers should NOT await this — the HTTP
 // response (or the bot's own confirmation message) must not wait on Telegram
 // delivery. Recipients are messaged in parallel, and every failure is caught
 // internally so a bad send can never surface as an unhandled rejection or
 // affect the transaction that already committed.
-export function notifyAuditFeed(businessId: string, text: string, excludeChatId?: string): void {
-  run(businessId, text, excludeChatId).catch((e) => console.error("[telegram notify] failed:", e));
+export function notifyAuditFeed(businessId: string, text: string, excludeChatId?: string, actorUserId?: string): void {
+  run(businessId, text, excludeChatId, actorUserId).catch((e) => console.error("[telegram notify] failed:", e));
   // The shop's send-only reports bot gets the same feed, in the chats set up for it.
   notifyReportTargets(businessId, text);
 }
 
-async function run(businessId: string, text: string, excludeChatId?: string) {
+async function run(businessId: string, text: string, excludeChatId?: string, actorUserId?: string) {
   const users = await prisma.user.findMany({
     where: { businessId, active: true, deletedAt: null, telegramChatId: { not: null }, telegramBotToken: { not: null } },
     include: { role: true },
   });
   const recipients = users.filter((u) => {
     if (u.telegramChatId === excludeChatId) return false; // already got a direct confirmation
+    if (u.id === actorUserId) return true;
     try {
       const perms: string[] = JSON.parse(u.role.permissions);
       return perms.includes("audit.view");

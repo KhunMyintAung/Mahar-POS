@@ -103,7 +103,7 @@ export const POST = withAuth(null, async ({ req, user }) => {
       currency: item.currency,
       createdByName: user.name,
       description: item.description,
-    })
+    }), undefined, user.id
   );
   return json(item, { status: 201 });
 });

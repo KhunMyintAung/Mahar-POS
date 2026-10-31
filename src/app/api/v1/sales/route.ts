@@ -130,7 +130,7 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
       createdByName: user.name,
       items: sale.soldItems,
       notes: sale.notes,
-    })
+    }), undefined, user.id
   );
   return json(sale, { status: 201 });
 });

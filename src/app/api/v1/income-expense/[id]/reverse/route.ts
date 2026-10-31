@@ -16,7 +16,7 @@ export const POST = withAuth("wallet.reverse", async ({ req, user, params }) => 
   const icon = it?.type === "INCOME" ? "💰" : it?.type === "WITHDRAW" ? "➖" : "💸";
   notifyAuditFeed(
     user.businessId,
-    reversalNotice({ icon, label, txnNo: it?.txnNo ?? params.id, reason: body.reason, createdByName: user.name })
+    reversalNotice({ icon, label, txnNo: it?.txnNo ?? params.id, reason: body.reason, createdByName: user.name }), undefined, user.id
   );
   return json({ reversed: true });
 });
