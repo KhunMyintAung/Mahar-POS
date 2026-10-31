@@ -17,6 +17,7 @@ import {
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { PageHeader } from "@/components/PageHeader";
+import { RepairHandBack, type HandBackJob } from "@/components/RepairHandBack";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
 
 interface Item {
@@ -104,6 +105,8 @@ export default function PosPage() {
   const [draftReady, setDraftReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
+  // A repair voucher scanned into the till, to hand the phone back.
+  const [handBack, setHandBack] = useState<HandBackJob | null>(null);
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
   const { defaultBranchId, me, hasPerm, phoneShop } = useAuth();
@@ -349,6 +352,21 @@ export default function PosPage() {
     return true;
   }
 
+  /** A code that is not an item may be a repair voucher: its QR or its number. Found, it
+   *  opens the hand-back window; not found, the scan is reported as an unknown code. */
+  async function openRepairByCode(code: string): Promise<boolean> {
+    const text = code.trim();
+    if (!hasPerm("repair.view") || !(/\/track\//.test(text) || /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/.test(text))) return false;
+    try {
+      const job = await api<HandBackJob>(`/api/v1/repairs/lookup?code=${encodeURIComponent(text)}`);
+      playBeep();
+      setHandBack(job);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function closeSaleComplete() {
     setLastSale(null);
     setReceipt(null);
@@ -359,7 +377,10 @@ export default function PosPage() {
     if (addByCode(q)) {
       event.preventDefault();
       setQ("");
+      return;
     }
+    const code = q;
+    void openRepairByCode(code).then((found) => { if (found) setQ(""); });
   }
 
   const subtotal = cart.reduce((total, line) => total + line.quantity * line.unitPrice, 0);
@@ -976,11 +997,15 @@ export default function PosPage() {
         title="Scan items into the sale"
         onScan={(code) => {
           if (!addByCode(code)) {
-            push(`No item with code ${code}`, "error");
+            void openRepairByCode(code).then((found) => {
+              if (found) setScanning(false);
+              else push(`No item with code ${code}`, "error");
+            });
           }
           return true;
         }}
       />
+      {handBack && <RepairHandBack job={handBack} wallets={wallets} onClose={() => setHandBack(null)} />}
       {receipt && <SaleReceipt data={receipt} />}
       {/* Phones: the cart is below the products, so a bar above the bottom menu says what is
           in it and takes the cashier there. It bounces each time something is added. */}

@@ -25,6 +25,8 @@ export interface RepairVoucherData {
   accessories?: string;
   problem: string;
   status: string;
+  /** When the phone was handed back. A delivered job prints as the customer's receipt. */
+  deliveredAt?: string;
   /** Whole kyat. */
   estimatedCost: number;
   finalCost: number;
@@ -74,7 +76,10 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
   }, [data.trackUrl]);
 
   const balance = Math.max(0, data.finalCost - data.paidAmount);
-  const terms = data.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
+  // Once the phone is back with its owner the slip is their receipt: what was done and
+  // paid, without the drop-off warnings, the tracking QR or the signature lines.
+  const receipt = data.status === "DELIVERED";
+  const terms = receipt ? [] : data.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
   const qrCaption = data.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
 
   const row = "flex justify-between gap-2 py-[1px]";
@@ -100,16 +105,25 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
             <img src={data.shopLogo} alt="" className="slip-logo mx-auto mb-1 max-h-[14mm] max-w-[46mm] object-contain" />
           )}
           <div className="text-[14px] font-bold leading-tight">{data.shopName}</div>
-          <div className="mt-0.5">Repair Voucher</div>
+          <div className="mt-0.5">{receipt ? "Repair Receipt · ပြေစာ" : "Repair Voucher"}</div>
           {data.tagline && <div className={label}>{data.tagline}</div>}
           {(data.shopPhone || data.shopAddress) && (
             <div className={label}>{[data.shopPhone, data.shopAddress].filter(Boolean).join(" · ")}</div>
           )}
         </div>
 
+        {receipt && (
+          // Boxed and big, so anyone reading it sees at once the phone has gone home.
+          <div className="mx-auto mt-1.5 w-fit rounded border-2 border-black px-3 py-1 text-center">
+            <div className="text-[15px] font-bold">✔ ဖုန်းရွေးယူပြီး</div>
+            <div className="text-[9px] font-bold uppercase">Collected{data.deliveredAt ? ` · ${fmtDateTime(data.deliveredAt)}` : ""}</div>
+          </div>
+        )}
+
         <div className="my-1.5 border-y border-dashed border-gray-500 py-1">
           <div className={row}><span className={label}>ဘောက်ချာနံပါတ်</span><b className="text-[12px]">{data.jobNo}</b></div>
           <div className={row}><span className={label}>လက်ခံရက်</span><b>{fmtDateTime(data.at)}</b></div>
+          {receipt && data.deliveredAt && <div className={row}><span className={label}>ပြန်ပေးရက်</span><b>{fmtDateTime(data.deliveredAt)}</b></div>}
           {data.customerName && <div className={row}><span className={label}>နာမည်</span><b>{data.customerName}</b></div>}
           {data.customerPhone && <div className={row}><span className={label}>ဖုန်းနံပါတ်</span><b>{data.customerPhone}</b></div>}
         </div>
@@ -169,7 +183,9 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
           </div>
         )}
 
-        {qr && data.trackUrl && (
+        {receipt && <div className="mt-2 text-center font-bold">ကျေးဇူးတင်ပါသည် 🙏</div>}
+
+        {!receipt && qr && data.trackUrl && (
           <div className="mt-2 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise */}
             <img src={qr} alt="" className="mx-auto h-[30mm] w-[30mm]" />
@@ -177,13 +193,13 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
           </div>
         )}
 
-        <div className="mt-6 flex items-end justify-between">
+        {!receipt && <div className="mt-6 flex items-end justify-between">
           <div className="text-center">
             {data.receivedByName && <div className="font-bold uppercase">{data.receivedByName}</div>}
             <div className="border-t border-black px-1">လက်ခံသူ</div>
           </div>
           <div className="border-t border-black px-1">ရွေးယူသူ</div>
-        </div>
+        </div>}
       </div>
   );
 }

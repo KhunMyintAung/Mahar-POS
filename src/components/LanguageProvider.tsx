@@ -1338,6 +1338,19 @@ const MM: Record<string, string> = {
   "Call": "ဖုန်းခေါ်မည်",
   "Type the voucher no or model to find the repair.": "ဘောက်ချာနံပါတ် သို့မဟုတ် Model ရိုက်၍ Repair ကို ရှာပါ။",
   "You can only take parts out for a repair.": "အပိုပစ္စည်းကို Repair အတွက်သာ ထုတ်ယူနိုင်ပါသည်။",
+  "Repair receipt": "ပြင်ဆင်ခ ပြေစာ",
+  "Deleting…": "ဖျက်နေသည်…",
+  "The repair disappears from the list and reports. The audit log keeps a record.": "ဤ Repair သည် စာရင်းနှင့် အစီရင်ခံစာမှ ပျောက်သွားမည်။ Audit Log တွင် မှတ်တမ်း ကျန်ရှိမည်။",
+  "Money taken on it comes back out of the wallet:": "ယူထားသော ငွေကို Wallet မှ ပြန်နုတ်မည်:",
+  "Only the shop owner can delete a repair.": "ဆိုင်ပိုင်ရှင်သာ Repair ကို ဖျက်နိုင်ပါသည်။",
+  "No repair with that voucher": "ထိုဘောက်ချာဖြင့် Repair မရှိပါ",
+  "Collected · ဖုန်းရွေးယူပြီး": "ဖုန်းရွေးယူပြီး",
+  "Print receipt": "ပြေစာ ထုတ်မည်",
+  "Charge (MMK)": "ကျသင့်ငွေ (MMK)",
+  "Already paid": "ပေးပြီး",
+  "Hand back": "ဖုန်းပြန်ပေးမည်",
+  "This repair was cancelled. Hand it back from the Repairs page if needed.": "ဤ Repair ကို ပယ်ဖျက်ထားသည်။ လိုအပ်ပါက Repair စာမျက်နှာမှ ပြန်ပေးပါ။",
+  "Handing a phone back takes money, which your account cannot do.": "ဖုန်းပြန်ပေးရာတွင် ငွေယူရသဖြင့် သင့်အကောင့်ဖြင့် မလုပ်နိုင်ပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -347,3 +347,46 @@ export async function updateRepairStatus(
   });
   return updated;
 }
+
+/** Deletes a repair (the owner's call, for a mistake or a duplicate). The job is hidden, not
+ *  erased, so the audit log keeps it. Money taken on it goes back out of the wallets it went
+ *  into, under the same repair entry types, so the day's repair income nets it out too.
+ *  Parts already taken out for it stay out: they left the shelf either way. */
+export async function deleteRepairJob(tx: Tx, opts: { businessId: string; userId: string; jobId: string; reason?: string }) {
+  const job = await tx.repairJob.findFirst({ where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null } });
+  if (!job) throw new ApiError(404, "Repair job not found");
+
+  const entries = await tx.walletLedgerEntry.findMany({
+    where: { businessId: opts.businessId, refId: job.id, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] } },
+  });
+  for (const e of entries) {
+    await postLedger(tx, {
+      businessId: opts.businessId,
+      walletId: e.walletId,
+      direction: e.direction === "DEBIT" ? "CREDIT" : "DEBIT",
+      amount: e.amount,
+      refType: e.refType,
+      refId: job.id,
+      description: `Repair deleted ${job.jobNo} - ${job.deviceBrand} ${job.deviceModel}`,
+      createdById: opts.userId,
+      allowNegative: true,
+    });
+  }
+
+  await tx.repairJob.update({ where: { id: job.id }, data: { deletedAt: new Date() } });
+  await audit(tx, {
+    businessId: opts.businessId,
+    userId: opts.userId,
+    branchId: job.branchId,
+    action: "DELETE",
+    module: "repair",
+    resourceType: "RepairJob",
+    resourceId: job.id,
+    reason: opts.reason,
+    before: {
+      jobNo: job.jobNo, device: `${job.deviceBrand} ${job.deviceModel}`, customer: job.customerName, status: job.status,
+      finalCost: job.finalCost.toString(), paidAmount: job.paidAmount.toString(),
+    },
+  });
+  return { job, reversed: entries.length };
+}

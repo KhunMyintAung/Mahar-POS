@@ -10,6 +10,7 @@ import { collectReceivable, payPayable, createReceivable } from "@/services/cred
 import { recordBillerTxn } from "@/services/billerService";
 import { updateRepairDetails, updateRepairStatus } from "@/services/repairService";
 import { technicianPerformance } from "@/services/technicianService";
+import { findRepairJob, VOUCHER_LIKE } from "./repairLookup";
 import { nextStatuses, REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "./repairStatus";
 import { ApiError } from "./api";
 import {
@@ -769,28 +770,6 @@ async function ncConfirm(chatId: string, user: AuthUser, data: Record<string, un
 const BOT_REPAIR_MOVES = (from: string): RepairStatus[] => nextStatuses(from).filter((s) => s !== "DELIVERED" && s !== "CANCELLED");
 
 const statusText = (s: string) => `${REPAIR_STATUS_LABELS[s as RepairStatus] ?? s} (${REPAIR_STATUS_MM[s] ?? s})`;
-
-/** A voucher number as it is typed: MS0012, ms 12, MS-0012. */
-const VOUCHER_LIKE = /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/;
-
-/** The repair a typed voucher number means, in the branches this user works in. "MS12" finds
- *  MS0012: the same letters and number, without the leading zeros. */
-async function findRepairJob(user: AuthUser, typed: string) {
-  const raw = typed.replace(/[\s-]/g, "").toUpperCase();
-  const letters = raw.match(/^[A-Z]*/)![0];
-  const number = raw.slice(letters.length).replace(/^0+/, "") || "0";
-  const where = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
-  const exact = await prisma.repairJob.findFirst({ where: { ...where, jobNo: { equals: raw, mode: "insensitive" } } });
-  if (exact) return exact;
-  const candidates = await prisma.repairJob.findMany({
-    where: { ...where, AND: [{ jobNo: { startsWith: letters, mode: "insensitive" } }, { jobNo: { endsWith: number } }] },
-    take: 20,
-  });
-  return candidates.find((j) => {
-    const m = j.jobNo.toUpperCase().replace(/[\s-]/g, "").match(/^([A-Z]*)0*(\d+)$/);
-    return m && m[1] === letters && m[2] === number;
-  }) ?? null;
-}
 
 type BotRepairJob = NonNullable<Awaited<ReturnType<typeof findRepairJob>>>;
 

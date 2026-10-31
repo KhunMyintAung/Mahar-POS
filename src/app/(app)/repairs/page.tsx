@@ -205,6 +205,9 @@ export default function RepairsPage() {
   const [paying, setPaying] = useState<Job | null>(null);
   const [pay, setPay] = useState({ finalCost: "", walletId: "" });
   const [editing, setEditing] = useState<Job | null>(null);
+  // The repair the owner is about to delete, and why.
+  const [deleting, setDeleting] = useState<Job | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
   const [edit, setEdit] = useState(blankForm);
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
   // A repair just finished, on a phone, whose customer can be rung to come and collect it.
@@ -233,6 +236,7 @@ export default function RepairsPage() {
       accessories: job.accessories ?? undefined,
       problem: job.problem,
       status: job.status,
+      deliveredAt: job.deliveredAt,
       estimatedCost: Number(job.estimatedCost) / 100,
       finalCost: Number(job.finalCost) / 100,
       paidAmount: Number(job.paidAmount) / 100,
@@ -380,6 +384,22 @@ export default function RepairsPage() {
       technicianName: job.technicianName ?? "",
       status: job.status,
     });
+  }
+
+  async function doDelete() {
+    if (!deleting) return;
+    setBusy(true);
+    try {
+      await api(`/api/v1/repairs/${deleting.id}`, { method: "DELETE", body: { reason: deleteReason.trim() || undefined } });
+      push(`${deleting.jobNo} deleted`);
+      setDeleting(null);
+      setEditing(null);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveEdit() {
@@ -767,6 +787,9 @@ export default function RepairsPage() {
             </div>
             <Input label="Notes" value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
             <div className="flex justify-end gap-2 pt-1">
+              {me?.user.roleName === "Owner" && (
+                <Button variant="danger" className="mr-auto" onClick={() => { setDeleteReason(""); setDeleting(editing); }}>Delete</Button>
+              )}
               <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
               <Button onClick={saveEdit} disabled={busy || !edit.deviceBrand.trim() || !edit.deviceModel.trim() || !edit.problem.trim()}>
                 {busy ? "Saving…" : "Save"}
@@ -839,8 +862,27 @@ export default function RepairsPage() {
         )}
       </Modal>
 
+      <Modal open={Boolean(deleting)} onClose={() => setDeleting(null)} title={deleting ? `Delete ${deleting.jobNo}?` : ""}>
+        {deleting && (
+          <div className="space-y-3">
+            <p className="text-sm">{deleting.deviceBrand} {deleting.deviceModel}{deleting.customerName ? ` · ${deleting.customerName}` : ""}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">The repair disappears from the list and reports. The audit log keeps a record.</p>
+            {Number(deleting.paidAmount) > 0 && (
+              <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                Money taken on it comes back out of the wallet: {fmtMoney(deleting.paidAmount)}
+              </p>
+            )}
+            <Input label="Reason (optional)" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeleting(null)}>Cancel</Button>
+              <Button variant="danger" onClick={doDelete} disabled={busy}>{busy ? "Deleting…" : "Delete"}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Closing clears the voucher, so a later print of another page does not pick it up. */}
-      <Modal open={Boolean(voucher)} onClose={() => setVoucher(null)} title="Repair voucher">
+      <Modal open={Boolean(voucher)} onClose={() => setVoucher(null)} title={voucher?.status === "DELIVERED" ? "Repair receipt" : "Repair voucher"}>
         {voucher && (
           <div className="space-y-3">
             {/* What will print, on a paper-white strip the width of the roll. */}

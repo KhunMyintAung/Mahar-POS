@@ -140,6 +140,9 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
       qr = "";
     }
   }
+  // A delivered job prints as the customer's receipt: no drop-off warnings, QR or signatures.
+  const receipt = repair.status === "DELIVERED";
+  if (receipt) qr = "";
   const terms = repair.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
   const qrCaption = repair.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
   const device = [repair.deviceBrand, repair.deviceModel].filter(Boolean).join(" ") || "-";
@@ -148,14 +151,15 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
   const settled = repair.finalCost > 0 && balance === 0;
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(repair.jobNo)}</title><style>${baseStyles()}</style></head><body>
-    ${brandBlock({ name: repair.shopName, logo: repair.shopLogo, phone: repair.shopPhone, address: repair.shopAddress, subtitle: repair.tagline }, "Repair Voucher")}
+    ${brandBlock({ name: repair.shopName, logo: repair.shopLogo, phone: repair.shopPhone, address: repair.shopAddress, subtitle: repair.tagline }, receipt ? "Repair Receipt · ပြေစာ" : "Repair Voucher")}
+    ${receipt ? `<div style="margin:6px auto 4px;width:fit-content;border:2px solid #000;border-radius:4px;padding:3px 10px;text-align:center"><div style="font-size:17px;font-weight:700">✔ ဖုန်းရွေးယူပြီး</div><div style="font-size:10px;font-weight:700">COLLECTED${repair.deliveredAt ? ` · ${escapeHtml(when(repair.deliveredAt))}` : ""}</div></div>` : ""}
     <div class="voucher-no"><span>ဘောက်ချာနံပါတ်</span><b>${escapeHtml(repair.jobNo)}</b></div>
-    <div class="meta" style="margin-top:2px"><div><span>လက်ခံရက်</span><b>${escapeHtml(when(repair.at))}</b></div><div><span>နာမည်</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>ဖုန်း</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
+    <div class="meta" style="margin-top:2px"><div><span>လက်ခံရက်</span><b>${escapeHtml(when(repair.at))}</b></div>${receipt && repair.deliveredAt ? `<div><span>ပြန်ပေးရက်</span><b>${escapeHtml(when(repair.deliveredAt))}</b></div>` : ""}<div><span>နာမည်</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>ဖုန်း</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
     <table><tbody><tr><th>Device</th><td>${escapeHtml(device)}</td></tr>${repair.imei ? `<tr><th>IMEI / Serial</th><td>${escapeHtml(repair.imei)}</td></tr>` : ""}<tr><th>Problem</th><td>${escapeHtml(repair.problem || "-")}</td></tr>${repair.accessories ? `<tr><th>Accessories</th><td>${escapeHtml(repair.accessories)}</td></tr>` : ""}<tr><th>Status</th><td>${escapeHtml(REPAIR_STATUS_MM[repair.status] ?? repair.status)}</td></tr></tbody></table>
     <div class="summary"><div><span>${repair.finalCost > 0 ? "Charge" : "Estimated"}</span><b>${charged > 0 ? `${money(charged)} MMK` : "စစ်ဆေးပြီးမှ အတည်ပြုပါမည်"}</b></div><div><span>${repair.finalCost > 0 ? "Paid" : "Deposit"}</span><b>${money(repair.paidAmount)} MMK</b></div>${charged > 0 ? `<div class="grand"><span>Balance</span><b>${money(balance)} MMK${settled ? '<span class="paid">✔ ရှင်းပြီး</span>' : ""}</b></div>` : ""}</div>
     ${qr ? `<img class="qr" src="${qr}" alt="QR"/>${qrCaption ? `<p class="qr-link">${escapeHtml(qrCaption)}</p>` : ""}` : ""}
-    <div class="footer">${terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
-    <div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>
+    <div class="footer">${receipt ? "ကျေးဇူးတင်ပါသည် 🙏" : terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
+    ${receipt ? "" : `<div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>`}
     ${autoPrint(true)}</body></html>`;
   return printWindow(popup, html);
 }

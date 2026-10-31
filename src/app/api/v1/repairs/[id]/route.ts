@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
-import { REPAIR_STATUSES, updateRepairStatus } from "@/services/repairService";
+import { REPAIR_STATUSES, deleteRepairJob, updateRepairStatus } from "@/services/repairService";
 import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 
 export const GET = withAuth("repair.view", async ({ user, params }) => {
@@ -49,4 +49,21 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
     }), undefined, user.id);
   }
   return json(job);
+});
+
+const deleteSchema = z.object({ reason: z.string().trim().max(300).optional() });
+
+/** Owner only: staff with repair rights can cancel a job, but only the owner removes one. */
+export const DELETE = withAuth("repair.update", async ({ req, user, params }) => {
+  if (user.roleName !== "Owner") throw new ApiError(403, "Only the shop owner can delete a repair.");
+  const body = await parseBody(req, deleteSchema);
+  const { job } = await prisma.$transaction((tx) =>
+    deleteRepairJob(tx, { businessId: user.businessId, userId: user.id, jobId: params.id, reason: body.reason })
+  );
+  notifyAuditFeed(
+    user.businessId,
+    `🗑 Repair deleted — ${job.jobNo}\n${job.deviceBrand} ${job.deviceModel}${job.customerName ? ` · ${job.customerName}` : ""}${body.reason ? `\nReason: ${body.reason}` : ""}\nBy: ${user.name}`,
+    undefined, user.id,
+  );
+  return json({ ok: true });
 });
