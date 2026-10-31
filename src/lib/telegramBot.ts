@@ -21,8 +21,9 @@ import {
   sendMessage, sendChatAction, answerCallbackQuery, deleteMessage,
   keyboard, btn, TgUpdate,
 } from "./telegram";
-import { detectProvider, loadAiKey, removeAiKey, saveAiKey, PROVIDER_NAME } from "./aiKey";
+import { providerCandidates, loadAiKey, removeAiKey, saveAiKey, PROVIDER_NAME, type AiProvider } from "./aiKey";
 import { AiError, askShopAgent, checkAiKey } from "./aiAgent";
+import { questionsNoticeGiven, recordAiQuestion } from "./aiQuestions";
 import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
@@ -852,7 +853,9 @@ async function showMyRepairs(chatId: string, user: AuthUser) {
 // Set up with /ai or the menu; after that, anything typed outside a flow is a question.
 // ---------------------------------------------------------------------------
 
-const AI_EXAMPLES = "ဥပမာ:\n• ဒီလ အမြတ် ဘယ်လောက်လဲ?\n• ဘယ်ပစ္စည်း အရောင်းရဆုံးလဲ?\n• အကြွေး ဘယ်သူတွေ ကျန်လဲ?\n• Stock နည်းနေတာ ဘာတွေလဲ?\n• အရောင်း တိုးဖို့ အကြံပေးပါ";
+const AI_QUESTIONS_KEPT = "သင်မေးတဲ့ မေးခွန်းတွေကို ဝန်ဆောင်မှု ပိုကောင်းအောင် Mahar Mini POS က မှတ်ထားပါမယ်။ (AI ရဲ့ အဖြေနဲ့ ဆိုင်ရဲ့ ကိန်းဂဏန်းတွေကိုတော့ မသိမ်းပါ)";
+
+const AI_EXAMPLES ="ဥပမာ:\n• ဒီလ အမြတ် ဘယ်လောက်လဲ?\n• ဘယ်ပစ္စည်း အရောင်းရဆုံးလဲ?\n• အကြွေး ဘယ်သူတွေ ကျန်လဲ?\n• Stock နည်းနေတာ ဘာတွေလဲ?\n• အရောင်း တိုးဖို့ အကြံပေးပါ";
 
 async function startAi(chatId: string, user: AuthUser) {
   await clearSession(user.id, chatId);
@@ -860,7 +863,7 @@ async function startAi(chatId: string, user: AuthUser) {
   if (saved) {
     return sendMessage(
       chatId,
-      `🤖 AI ချိတ်ထားပြီးပါပြီ (${PROVIDER_NAME[saved.provider]} · …${saved.hint})\n\nမေးချင်တာ စာရိုက်ပြီး မေးလိုက်ပါ။\n\n${AI_EXAMPLES}`,
+      `🤖 AI ချိတ်ထားပြီးပါပြီ (${PROVIDER_NAME[saved.provider]} · …${saved.hint})\n\nမေးချင်တာ စာရိုက်ပြီး မေးလိုက်ပါ။\n\n${AI_EXAMPLES}\n\nℹ️ ${AI_QUESTIONS_KEPT}`,
       { replyMarkup: keyboard([[btn("🔑 Key ပြောင်းရန်", "ai:key"), btn("🗑 Key ဖျက်ရန်", "ai:remove")], [btn("✕ ပိတ်မည်", "cancel")]]) },
     );
   }
@@ -869,13 +872,14 @@ async function startAi(chatId: string, user: AuthUser) {
     [
       "🤖 AI ကို မေးရန်",
       "",
-      "ကိုယ်ပိုင် OpenAI သို့မဟုတ် Gemini API key ထည့်ပြီး ဆိုင်ရဲ့ အရောင်း၊ အမြတ်၊ Stock၊ အကြွေး၊ ပြင်ဆင်မှု အကြောင်း မေးလို့ရပါတယ်။ အကြံဉာဏ်လည်း တောင်းလို့ရပါတယ်။",
+      "ကိုယ်ပိုင် OpenAI၊ Gemini သို့မဟုတ် DeepSeek API key ထည့်ပြီး ဆိုင်ရဲ့ အရောင်း၊ အမြတ်၊ Stock၊ အကြွေး၊ ပြင်ဆင်မှု အကြောင်း မေးလို့ရပါတယ်။ အကြံဉာဏ်လည်း တောင်းလို့ရပါတယ်။",
       "",
       "သိထားရန်:",
-      "• မေးတဲ့အခါ ဆိုင်ရဲ့ စာရင်း data တချို့ကို OpenAI (သို့) Google ဆီ ပို့ပါမယ်။",
+      "• မေးတဲ့အခါ ဆိုင်ရဲ့ စာရင်း data တချို့ကို သင့် key ရဲ့ company (OpenAI၊ Google သို့မဟုတ် DeepSeek) ဆီ ပို့ပါမယ်။ DeepSeek ရဲ့ server တွေက တရုတ်နိုင်ငံမှာ ရှိပါတယ်။",
       "• ကုန်ကျစရိတ်က သင့် key ရဲ့ account ကနေ ကျပါမယ်။ Gemini မှာ အခမဲ့ ပမာဏ ရှိပါတယ်။",
       "• AI က စာရင်းကို ဖတ်ပဲ ဖတ်နိုင်ပြီး ဘာမှ ပြင်လို့ မရပါ။ သင့်အကောင့် ကြည့်ခွင့်ရှိတာကိုပဲ မြင်ပါမယ်။",
       "• Key ကို encrypt လုပ်ပြီး သိမ်းပါမယ်။ Key ပါတဲ့ message ကို chat ထဲက ဖျက်ပေးပါမယ်။",
+      `• ${AI_QUESTIONS_KEPT}`,
     ].join("\n"),
     { replyMarkup: keyboard([[btn("✅ သဘောတူပါတယ် — Key ထည့်မယ်", "ai:key")], CANCEL_ROW]) },
   );
@@ -885,7 +889,7 @@ async function aiAskKey(chatId: string, user: AuthUser) {
   await setSession(user.id, chatId, "ai.key", {});
   return sendMessage(
     chatId,
-    "🔑 API key ကို ဒီ chat ထဲ ပို့ပါ:\n\n• OpenAI — sk- နဲ့ စတယ် (platform.openai.com/api-keys)\n• Gemini — AIza နဲ့ စတယ် (aistudio.google.com/apikey)",
+    "🔑 API key ကို ဒီ chat ထဲ ပို့ပါ:\n\n• OpenAI — sk- နဲ့ စတယ် (platform.openai.com/api-keys)\n• Gemini — AIza နဲ့ စတယ် (aistudio.google.com/apikey)\n• DeepSeek — sk- နဲ့ စတယ် (platform.deepseek.com/api_keys)",
     { replyMarkup: keyboard([CANCEL_ROW]) },
   );
 }
@@ -893,16 +897,27 @@ async function aiAskKey(chatId: string, user: AuthUser) {
 async function aiKeyText(chatId: string, user: AuthUser, text: string, messageId?: number) {
   // The key is out of the chat history before anything else happens.
   if (messageId) await deleteMessage(chatId, messageId);
-  const provider = detectProvider(text);
+  const candidates = providerCandidates(text);
+  if (!candidates.length) {
+    return sendMessage(chatId, "❌ OpenAI / DeepSeek (sk-…) သို့မဟုတ် Gemini (AIza…) key ပုံစံ မဟုတ်ပါ။ ပြန်ပို့ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
+  // An sk- key may be OpenAI's or DeepSeek's: the provider that accepts it is the one.
+  let provider: AiProvider | null = null;
+  let unreachable = false;
+  for (const p of candidates) {
+    const check = await checkAiKey(p, text.trim());
+    if (check === "ok") {
+      provider = p;
+      break;
+    }
+    if (check === "failed") unreachable = true;
+  }
+  const names = candidates.map((p) => PROVIDER_NAME[p]).join(" / ");
+  if (!provider && unreachable) {
+    return sendMessage(chatId, `⚠️ ${names} ကို ခု ဆက်သွယ်လို့ မရပါ။ ခဏနေ key ကို ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
   if (!provider) {
-    return sendMessage(chatId, "❌ OpenAI (sk-…) သို့မဟုတ် Gemini (AIza…) key ပုံစံ မဟုတ်ပါ။ ပြန်ပို့ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
-  }
-  const check = await checkAiKey(provider, text.trim());
-  if (check === "bad_key") {
-    return sendMessage(chatId, `❌ ဒီ ${PROVIDER_NAME[provider]} key ကို လက်မခံပါ။ Key မှန်မမှန် စစ်ပြီး ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
-  }
-  if (check === "failed") {
-    return sendMessage(chatId, `⚠️ ${PROVIDER_NAME[provider]} ကို ခု ဆက်သွယ်လို့ မရပါ။ ခဏနေ key ကို ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+    return sendMessage(chatId, `❌ ဒီ key ကို ${names} က လက်မခံပါ။ Key မှန်မမှန် စစ်ပြီး ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
   }
   await saveAiKey(user.id, provider, text);
   await clearSession(user.id, chatId);
@@ -931,17 +946,27 @@ function aiAllowed(userId: string): boolean {
 
 /** Answers in the background: a model with lookups can take longer than Telegram waits
  *  for the webhook, and a late reply would make Telegram send the question again. */
-function aiAnswer(chatId: string, user: AuthUser, question: string, key: NonNullable<Awaited<ReturnType<typeof loadAiKey>>>) {
+async function aiAnswer(chatId: string, user: AuthUser, question: string, key: NonNullable<Awaited<ReturnType<typeof loadAiKey>>>) {
   if (!aiAllowed(user.id)) {
     return sendMessage(chatId, "⏳ မေးခွန်း များလွန်းနေပါတယ်။ ၁၀ မိနစ်လောက် နားပြီးမှ ပြန်မေးပါ။");
   }
+  // A key saved before questions were kept: say so once, and keep from the next question on.
+  const keep = await questionsNoticeGiven(user.id);
+  if (!keep) await sendMessage(chatId, `ℹ️ ${AI_QUESTIONS_KEPT}`);
+  const record = (answered: boolean) =>
+    keep
+      ? recordAiQuestion({ userId: user.id, businessId: user.businessId, question, provider: key.provider, answered })
+          .catch((e) => console.error("[telegram ai] could not record question:", e))
+      : undefined;
   void (async () => {
     const typing = setInterval(() => void sendChatAction(chatId), 4500);
     try {
       const business = await prisma.business.findUnique({ where: { id: user.businessId }, select: { name: true } });
       const answer = await askShopAgent(user, business?.name ?? "", question, key);
       await sendMessage(chatId, answer);
+      await record(true);
     } catch (e) {
+      await record(false);
       const kind = e instanceof AiError ? e.kind : "failed";
       if (kind !== "bad_key" && kind !== "quota") console.error("[telegram ai] failed:", e);
       const text = kind === "bad_key"

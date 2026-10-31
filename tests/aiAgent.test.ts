@@ -8,7 +8,8 @@ vi.mock("@/lib/aiTools", async (orig) => ({
   runAiTool: mocks.runAiTool,
 }));
 
-import { decryptKey, detectProvider, encryptKey } from "@/lib/aiKey";
+import { decryptKey, providerCandidates, encryptKey } from "@/lib/aiKey";
+import { profileOf, questionTopic } from "@/lib/aiQuestions";
 import { AiError, askShopAgent, checkAiKey } from "@/lib/aiAgent";
 import type { AuthUser } from "@/lib/auth";
 
@@ -23,11 +24,12 @@ const reply = (status: number, body: unknown) =>
 describe("AI keys", () => {
   beforeEach(() => { process.env.AUTH_SECRET = "test-secret"; });
 
-  it("tells OpenAI and Gemini keys apart and refuses anything else", () => {
-    expect(detectProvider("sk-proj-abcdefghijklmnopqrstuvwxyz123456")).toBe("OPENAI");
-    expect(detectProvider(" AIzaSyA1234567890abcdefghijklmnopqrstu ")).toBe("GEMINI");
-    expect(detectProvider("hello")).toBeNull();
-    expect(detectProvider("sk-short")).toBeNull();
+  it("tells which providers a key could belong to and refuses anything else", () => {
+    expect(providerCandidates("sk-proj-abcdefghijklmnopqrstuvwxyz123456")).toEqual(["OPENAI", "DEEPSEEK"]);
+    expect(providerCandidates("sk-0123456789abcdef0123456789abcdef")).toEqual(["DEEPSEEK", "OPENAI"]);
+    expect(providerCandidates(" AIzaSyA1234567890abcdefghijklmnopqrstu ")).toEqual(["GEMINI"]);
+    expect(providerCandidates("hello")).toEqual([]);
+    expect(providerCandidates("sk-short")).toEqual([]);
   });
 
   it("stores a key encrypted and reads it back", () => {
@@ -71,6 +73,17 @@ describe("askShopAgent", () => {
     expect(fetchMock.mock.calls[0][1].headers.authorization).toBe("Bearer sk-x");
   });
 
+  it("sends a DeepSeek key to DeepSeek's own address and model", async () => {
+    fetchMock.mockResolvedValueOnce(reply(200, { choices: [{ message: { content: "ဟုတ်ကဲ့" } }] }));
+
+    expect(await askShopAgent(user, "Mahar", "q", { provider: "DEEPSEEK", key: "sk-d" })).toBe("ဟုတ်ကဲ့");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.deepseek.com/chat/completions");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).model).toBe("deepseek-chat");
+
+    fetchMock.mockResolvedValueOnce(reply(402, { error: { message: "Insufficient Balance" } }));
+    await expect(askShopAgent(user, "M", "q", { provider: "DEEPSEEK", key: "sk-d" })).rejects.toMatchObject({ kind: "quota" });
+  });
+
   it("runs a Gemini function call and sends the model's turn back unchanged", async () => {
     const modelTurn = { role: "model", parts: [{ functionCall: { name: "shop_report", args: { from: "2026-10-01", to: "2026-10-31" } }, thoughtSignature: "sig" }] };
     fetchMock
@@ -101,5 +114,28 @@ describe("askShopAgent", () => {
     expect(await checkAiKey("OPENAI", "sk-x")).toBe("ok");
     fetchMock.mockResolvedValueOnce(reply(400, { error: { message: "API key not valid. Please pass a valid API key." } }));
     expect(await checkAiKey("GEMINI", "AIza-x")).toBe("bad_key");
+  });
+});
+
+describe("AI question profiles", () => {
+  it("sorts a question by what it is about, advice first", () => {
+    expect(questionTopic("ဒီလ အမြတ် ဘယ်လောက်လဲ")).toBe("profit");
+    expect(questionTopic("အမြတ် တိုးအောင် ဘယ်လို လုပ်ရမလဲ")).toBe("advice");
+    expect(questionTopic("ဘယ်သူတွေ အကြွေး ကျန်သေးလဲ")).toBe("debt");
+    expect(questionTopic("Stock နည်းနေတာ ဘာတွေလဲ")).toBe("stock");
+    expect(questionTopic("မင်္ဂလာပါ")).toBe("other");
+  });
+
+  it("sums a user's topics and names them by the busiest real one", () => {
+    const at = (d: number) => new Date(Date.UTC(2026, 9, d));
+    const p = profileOf("u1", [
+      { topic: "other", createdAt: at(3) }, { topic: "other", createdAt: at(4) }, { topic: "other", createdAt: at(5) },
+      { topic: "stock", createdAt: at(1) }, { topic: "stock", createdAt: at(2) }, { topic: "profit", createdAt: at(6) },
+    ]);
+    expect(p.count).toBe(6);
+    expect(p.topics.map((t) => [t.topic, t.count, t.percent])).toEqual([["other", 3, 50], ["stock", 2, 33], ["profit", 1, 17]]);
+    expect(p.persona).toContain("Stock");
+    expect(p.firstAt).toEqual(at(1));
+    expect(p.lastAt).toEqual(at(6));
   });
 });

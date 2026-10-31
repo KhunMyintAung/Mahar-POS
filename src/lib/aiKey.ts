@@ -1,23 +1,28 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { prisma } from "./prisma";
 
-/** A shop's own OpenAI or Gemini key for its Telegram AI helper.
+/** A shop's own OpenAI, Gemini or DeepSeek key for its Telegram AI helper.
  *
  *  Stored with AES-256-GCM under a key derived from AUTH_SECRET, so a copy of the database
  *  alone does not give the keys away. Each shop pays its own provider; we only hold the key
  *  to make the calls it asks for. */
 
-export type AiProvider = "OPENAI" | "GEMINI";
+export type AiProvider = "OPENAI" | "GEMINI" | "DEEPSEEK";
 
-/** OpenAI keys start "sk-", Google AI Studio keys "AIza". */
-export function detectProvider(key: string): AiProvider | null {
+/** Which providers a key could belong to, likeliest first; empty when it is no key at all.
+ *
+ *  Google AI Studio keys start "AIza". OpenAI and DeepSeek keys both start "sk-", so those
+ *  get both, to be told apart by which provider accepts the key: DeepSeek's are "sk-" and
+ *  32 hex digits, OpenAI's longer and mixed. */
+export function providerCandidates(key: string): AiProvider[] {
   const k = key.trim();
-  if (/^sk-[A-Za-z0-9_-]{20,}$/.test(k)) return "OPENAI";
-  if (/^AIza[A-Za-z0-9_-]{30,}$/.test(k)) return "GEMINI";
-  return null;
+  if (/^AIza[A-Za-z0-9_-]{30,}$/.test(k)) return ["GEMINI"];
+  if (/^sk-[0-9a-f]{32}$/.test(k)) return ["DEEPSEEK", "OPENAI"];
+  if (/^sk-[A-Za-z0-9_-]{20,}$/.test(k)) return ["OPENAI", "DEEPSEEK"];
+  return [];
 }
 
-export const PROVIDER_NAME: Record<AiProvider, string> = { OPENAI: "OpenAI", GEMINI: "Gemini" };
+export const PROVIDER_NAME: Record<AiProvider, string> = { OPENAI: "OpenAI", GEMINI: "Gemini", DEEPSEEK: "DeepSeek" };
 
 function cipherKey(): Buffer {
   const secret = process.env.AUTH_SECRET;
@@ -41,7 +46,8 @@ export function decryptKey(stored: string): string {
 }
 
 export async function saveAiKey(userId: string, provider: AiProvider, key: string) {
-  const data = { provider, encryptedKey: encryptKey(key.trim()), keyHint: key.trim().slice(-4) };
+  // Saving a key follows the consent text, which says questions are kept.
+  const data = { provider, encryptedKey: encryptKey(key.trim()), keyHint: key.trim().slice(-4), questionsNoticeAt: new Date() };
   await prisma.telegramAiKey.upsert({ where: { userId }, create: { userId, ...data }, update: data });
 }
 

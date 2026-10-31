@@ -27,6 +27,15 @@ export default function PrivacyPage() {
             store the wallet records, contacts, sales, purchases, inventory, credit records,
             settings, and audit history that you enter into your private workspace.
           </p>
+          <p className="mt-2">
+            If you turn on the Telegram AI helper with your own OpenAI, Gemini or DeepSeek API key, the
+            key is stored encrypted, and the questions you ask it are kept with their topic so
+            we can see what shops need and improve the service. The AI&apos;s answers are not
+            kept. To answer, the parts of your records a question needs are sent to the
+            provider of your key (OpenAI, Google or DeepSeek, whose servers are in China) under
+            that provider&apos;s terms. Removing
+            the key in the bot (/ai) stops both.
+          </p>
         </section>
 
         <section>

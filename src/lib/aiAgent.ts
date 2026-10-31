@@ -4,15 +4,20 @@ import { AI_TOOLS, runAiTool } from "./aiTools";
 import { todayBusinessDate } from "./dates";
 
 /** The Telegram AI helper: a shop's question, answered from its own records with the
- *  shop's own OpenAI or Gemini key.
+ *  shop's own OpenAI, Gemini or DeepSeek key.
  *
  *  The model gets the read-only tools in aiTools.ts and decides what to look up; this loop
  *  runs the lookups and hands the results back until the model answers. Plain fetch, no
  *  SDK, the same way the Telegram client is written. */
 
 // Overridable without a deploy of code, in case a provider retires a model.
-const OPENAI_MODEL = process.env.AI_OPENAI_MODEL || "gpt-5-mini";
 const GEMINI_MODEL = process.env.AI_GEMINI_MODEL || "gemini-flash-latest";
+
+/** OpenAI and DeepSeek take the same chat-completions request; only where and which model differ. */
+const CHAT_API = {
+  OPENAI: { url: "https://api.openai.com/v1", model: process.env.AI_OPENAI_MODEL || "gpt-5-mini" },
+  DEEPSEEK: { url: "https://api.deepseek.com", model: process.env.AI_DEEPSEEK_MODEL || "deepseek-chat" },
+} as const;
 
 /** Lookups one question may make before the answer has to come. */
 const MAX_ROUNDS = 6;
@@ -44,7 +49,8 @@ function failure(status: number, body: string): AiError {
   if (status === 401 || status === 403 || /API key not valid|invalid_api_key|Incorrect API key/i.test(body)) {
     return new AiError("bad_key", `key rejected (${status})`);
   }
-  if (status === 429 || /quota|rate limit|insufficient_quota|RESOURCE_EXHAUSTED/i.test(body)) {
+  // DeepSeek answers 402 "Insufficient Balance" when the account has run out.
+  if (status === 429 || status === 402 || /quota|rate limit|insufficient_quota|RESOURCE_EXHAUSTED|Insufficient Balance/i.test(body)) {
     return new AiError("quota", `quota (${status})`);
   }
   return new AiError("failed", `${status}: ${body.slice(0, 300)}`);
@@ -82,15 +88,17 @@ const json = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint"
 type OpenAiMessage = Record<string, unknown>;
 type OpenAiReply = { choices?: { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[] };
 
-async function askOpenAi(user: AuthUser, apiKey: string, system: string, question: string): Promise<string> {
+async function askChat(
+  api: (typeof CHAT_API)[keyof typeof CHAT_API], user: AuthUser, apiKey: string, system: string, question: string,
+): Promise<string> {
   const messages: OpenAiMessage[] = [{ role: "system", content: system }, { role: "user", content: question }];
   const tools = AI_TOOLS.map((t) => ({ type: "function", function: t }));
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const data = (await post("https://api.openai.com/v1/chat/completions", { authorization: `Bearer ${apiKey}` }, {
-      model: OPENAI_MODEL, messages, tools,
+    const data = (await post(`${api.url}/chat/completions`, { authorization: `Bearer ${apiKey}` }, {
+      model: api.model, messages, tools,
     })) as OpenAiReply;
     const msg = data.choices?.[0]?.message;
-    if (!msg) throw new AiError("failed", "empty OpenAI reply");
+    if (!msg) throw new AiError("failed", "empty chat reply");
     if (!msg.tool_calls?.length) return msg.content ?? "";
     messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
     for (const call of msg.tool_calls) {
@@ -142,18 +150,18 @@ export async function askShopAgent(
   key: { provider: AiProvider; key: string },
 ): Promise<string> {
   const system = systemPrompt(user, businessName);
-  const answer = key.provider === "OPENAI"
-    ? await askOpenAi(user, key.key, system, question)
-    : await askGemini(user, key.key, system, question);
+  const answer = key.provider === "GEMINI"
+    ? await askGemini(user, key.key, system, question)
+    : await askChat(CHAT_API[key.provider], user, key.key, system, question);
   const text = answer.trim() || "…";
   return text.length > MAX_REPLY ? `${text.slice(0, MAX_REPLY)}…` : text;
 }
 
 /** A cheap call that tells a working key from a wrong one before it is saved. */
 export async function checkAiKey(provider: AiProvider, apiKey: string): Promise<"ok" | "bad_key" | "failed"> {
-  const req: { url: string; headers: Record<string, string> } = provider === "OPENAI"
-    ? { url: "https://api.openai.com/v1/models", headers: { authorization: `Bearer ${apiKey}` } }
-    : { url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", headers: { "x-goog-api-key": apiKey } };
+  const req: { url: string; headers: Record<string, string> } = provider === "GEMINI"
+    ? { url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", headers: { "x-goog-api-key": apiKey } }
+    : { url: `${CHAT_API[provider].url}/models`, headers: { authorization: `Bearer ${apiKey}` } };
   try {
     const res = await fetch(req.url, { headers: req.headers, signal: AbortSignal.timeout(15_000) });
     if (res.ok) return "ok";

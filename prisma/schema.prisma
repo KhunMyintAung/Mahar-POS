@@ -111,17 +111,37 @@ model User {
   notifications Notification[]
 }
 
-/// A user's own OpenAI or Gemini key, for asking their bot about the shop. Encrypted with
+/// A user's own OpenAI, Gemini or DeepSeek key, for asking their bot about the shop. Encrypted with
 /// AUTH_SECRET (lib/aiKey.ts); the plain key is never stored or shown again.
 model TelegramAiKey {
   userId       String   @id
-  /// OPENAI or GEMINI
+  /// OPENAI, GEMINI or DEEPSEEK
   provider     String
   encryptedKey String
   /// The key's last four characters, so the bot can say which key is in use.
   keyHint      String
+  /// When the user was told their questions are kept. Questions are saved only after it:
+  /// keys saved before the notice existed get it once, on their next question.
+  questionsNoticeAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+/// A question asked of the Telegram AI helper, kept so the admin can see what shops want
+/// to know. The answer is not kept: it holds the shop's own figures.
+model AiQuestion {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  question   String
+  /// profit, sales, stock, debt, repair, expense, advice or other (lib/aiQuestions.ts)
+  topic      String
+  provider   String
+  answered   Boolean
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model TelegramSession {
