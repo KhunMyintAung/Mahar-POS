@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { inflateRawSync } from "zlib";
-import { DEFAULT_REPORT_SETTINGS, distribute, incomeExpenseOf, type PeriodRow } from "../src/services/reportService";
+import { addBillerTxn, DEFAULT_REPORT_SETTINGS, distribute, incomeExpenseOf, sectionsOf, type PeriodRow } from "../src/services/reportService";
 import { buildXlsx } from "../src/lib/xlsx";
 
 const row = (over: Partial<PeriodRow>): PeriodRow => ({
@@ -35,6 +35,18 @@ describe("report maths", () => {
     expect(incomeExpenseOf(r).exp.sales).toBe(805_000_00n);
     expect(incomeExpenseOf(r, false, true).exp.sales).toBe(1_505_000_00n);
     expect(incomeExpenseOf(r, false, true).net).toBe(-505_000_00n);
+  });
+
+  it("counts the discount on float bought as bill margin when credit sells at face value", () => {
+    const r = row({});
+    addBillerTxn(r, { kind: "TOPUP", cashAmount: 194_000_00n, profit: 6_000_00n });
+    addBillerTxn(r, { kind: "SALE", cashAmount: 100_000_00n, profit: 0n });
+    addBillerTxn(r, { kind: "SALE", cashAmount: 50_000_00n, profit: 1_000_00n });
+    // Only sales bring top-up cash in; the refill's discount is margin all the same.
+    expect(r.topup).toBe(150_000_00n);
+    expect(r.topupMargin).toBe(7_000_00n);
+    expect(sectionsOf(r).find((s) => s.section === "topup")!.profit).toBe(7_000_00n);
+    expect(incomeExpenseOf(r).net).toBe(7_000_00n);
   });
 
   it("keeps a percent for next month and splits the rest equally", () => {

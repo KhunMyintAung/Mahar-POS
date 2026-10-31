@@ -175,6 +175,14 @@ const zeroRow = (period: string): PeriodRow => ({
 });
 
 /** Section profits for one row (or the totals). */
+/** A biller trade into its period. Only a sale brings top-up cash in, but the margin is
+ *  earned on both sides: a sale above face value, and float bought below it (200,000 of
+ *  credit for 194,000). A shop that sells at face value makes all of it on the refill. */
+export function addBillerTxn(r: PeriodRow, b: { kind: string; cashAmount: bigint; profit: bigint }) {
+  if (b.kind === "SALE") r.topup += b.cashAmount;
+  r.topupMargin += b.profit;
+}
+
 export function sectionsOf(r: PeriodRow): SectionResult[] {
   return [
     { section: "sales", income: [{ label: "Sales", amount: r.sales }], expense: [{ label: "Cost of goods sold", amount: r.salesCost }, { label: "Sale expenses", amount: r.expSales }], profit: r.sales - r.salesCost - r.expSales },
@@ -245,7 +253,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       where: { businessId, createdAt: range, ...branch },
       select: { walletId: true, direction: true, amount: true, refType: true, createdAt: true },
     }),
-    prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: "SALE", createdAt: range, ...branch }, select: { cashAmount: true, profit: true, createdAt: true } }),
+    prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { kind: true, cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
       where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
       select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true, purchaseId: true },
@@ -274,7 +282,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       if (l.direction === "DEBIT") r.cashIn += l.amount; else r.cashOut += l.amount;
     }
   }
-  for (const b of billerSales) { const r = at(businessDateOf(b.createdAt)); r.topup += b.cashAmount; r.topupMargin += b.profit; }
+  for (const b of billerSales) addBillerTxn(at(businessDateOf(b.createdAt)), b);
   const keyByName = new Map(keyedCats.filter((c) => c.type === "INCOME").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseKey = new Map(keyedCats.filter((c) => c.type === "EXPENSE").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseSection = (name: string): Section => {
