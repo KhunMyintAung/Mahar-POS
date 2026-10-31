@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE, adminPasscode, issueUnlockToken, passcodeMatches } from "@/lib/adminAccess";
+import { clientIp } from "@/lib/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -35,13 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   const now = Date.now();
-  // Cloudflare sits in front, so the first hop is the edge; the real client is in the
-  // forwarded header. Falling back to the socket address keeps the limit working if the
-  // proxy is ever removed.
-  const ip =
-    req.headers.get("cf-connecting-ip") ??
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown";
+  const ip = clientIp(req.headers);
 
   if (tooManyAttempts(ip, now)) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
+import { clientIp } from "@/lib/client-ip";
 import { nextNumber } from "@/lib/sequence";
 import { allowOrder, publicShop } from "@/lib/onlineShop";
 import { notifyAuditFeed, onlineOrderNotice } from "@/lib/telegramNotify";
@@ -23,7 +24,7 @@ const reply = (body: unknown, status = 200) => NextResponse.json(body, { status,
  *  from the browser, so the order is always at the shop's own prices. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
+  const ip = clientIp(req.headers);
   if (!allowOrder(`${slug}:${ip}`)) return reply({ ok: false, error: "Too many orders. Please wait a few minutes, or call the shop." }, 429);
   let body: z.infer<typeof schema>;
   try {
