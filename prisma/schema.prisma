@@ -111,6 +111,19 @@ model User {
   notifications Notification[]
 }
 
+/// A user's own OpenAI or Gemini key, for asking their bot about the shop. Encrypted with
+/// AUTH_SECRET (lib/aiKey.ts); the plain key is never stored or shown again.
+model TelegramAiKey {
+  userId       String   @id
+  /// OPENAI or GEMINI
+  provider     String
+  encryptedKey String
+  /// The key's last four characters, so the bot can say which key is in use.
+  keyHint      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model TelegramSession {
   ownerUserId String
   chatId      String

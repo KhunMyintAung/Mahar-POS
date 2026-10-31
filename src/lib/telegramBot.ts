@@ -18,9 +18,11 @@ import {
   billerNotice, repairStatusNotice,
 } from "./telegramNotify";
 import {
-  sendMessage, sendChatAction, answerCallbackQuery,
+  sendMessage, sendChatAction, answerCallbackQuery, deleteMessage,
   keyboard, btn, TgUpdate,
 } from "./telegram";
+import { detectProvider, loadAiKey, removeAiKey, saveAiKey, PROVIDER_NAME } from "./aiKey";
+import { AiError, askShopAgent, checkAiKey } from "./aiAgent";
 import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
@@ -138,7 +140,9 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
   const row5 = [];
   if (features.repair && can(user, "repair.update")) row5.push(btn("🔧 ပြင်ဆင်မှု အခြေအနေ", "menu:repair"));
   if (features.repair && can(user, "repair.view")) row5.push(btn("📊 ကျွန်ုပ်၏ ပြင်ဆင်မှုများ", "menu:myrepairs"));
-  const rows = [row1, row2, row3, row4, row5].filter((r) => r.length > 0);
+  // Everyone can ask; what the answer may draw on is held to their own permissions.
+  const row6 = [btn("🤖 AI ကို မေးရန်", "menu:ai")];
+  const rows = [row1, row2, row3, row4, row5, row6].filter((r) => r.length > 0);
   return keyboard(rows);
 }
 
@@ -844,6 +848,115 @@ async function showMyRepairs(chatId: string, user: AuthUser) {
 }
 
 // ---------------------------------------------------------------------------
+// AI helper — the user's own OpenAI or Gemini key answers questions about the shop.
+// Set up with /ai or the menu; after that, anything typed outside a flow is a question.
+// ---------------------------------------------------------------------------
+
+const AI_EXAMPLES = "ဥပမာ:\n• ဒီလ အမြတ် ဘယ်လောက်လဲ?\n• ဘယ်ပစ္စည်း အရောင်းရဆုံးလဲ?\n• အကြွေး ဘယ်သူတွေ ကျန်လဲ?\n• Stock နည်းနေတာ ဘာတွေလဲ?\n• အရောင်း တိုးဖို့ အကြံပေးပါ";
+
+async function startAi(chatId: string, user: AuthUser) {
+  await clearSession(user.id, chatId);
+  const saved = await loadAiKey(user.id);
+  if (saved) {
+    return sendMessage(
+      chatId,
+      `🤖 AI ချိတ်ထားပြီးပါပြီ (${PROVIDER_NAME[saved.provider]} · …${saved.hint})\n\nမေးချင်တာ စာရိုက်ပြီး မေးလိုက်ပါ။\n\n${AI_EXAMPLES}`,
+      { replyMarkup: keyboard([[btn("🔑 Key ပြောင်းရန်", "ai:key"), btn("🗑 Key ဖျက်ရန်", "ai:remove")], [btn("✕ ပိတ်မည်", "cancel")]]) },
+    );
+  }
+  return sendMessage(
+    chatId,
+    [
+      "🤖 AI ကို မေးရန်",
+      "",
+      "ကိုယ်ပိုင် OpenAI သို့မဟုတ် Gemini API key ထည့်ပြီး ဆိုင်ရဲ့ အရောင်း၊ အမြတ်၊ Stock၊ အကြွေး၊ ပြင်ဆင်မှု အကြောင်း မေးလို့ရပါတယ်။ အကြံဉာဏ်လည်း တောင်းလို့ရပါတယ်။",
+      "",
+      "သိထားရန်:",
+      "• မေးတဲ့အခါ ဆိုင်ရဲ့ စာရင်း data တချို့ကို OpenAI (သို့) Google ဆီ ပို့ပါမယ်။",
+      "• ကုန်ကျစရိတ်က သင့် key ရဲ့ account ကနေ ကျပါမယ်။ Gemini မှာ အခမဲ့ ပမာဏ ရှိပါတယ်။",
+      "• AI က စာရင်းကို ဖတ်ပဲ ဖတ်နိုင်ပြီး ဘာမှ ပြင်လို့ မရပါ။ သင့်အကောင့် ကြည့်ခွင့်ရှိတာကိုပဲ မြင်ပါမယ်။",
+      "• Key ကို encrypt လုပ်ပြီး သိမ်းပါမယ်။ Key ပါတဲ့ message ကို chat ထဲက ဖျက်ပေးပါမယ်။",
+    ].join("\n"),
+    { replyMarkup: keyboard([[btn("✅ သဘောတူပါတယ် — Key ထည့်မယ်", "ai:key")], CANCEL_ROW]) },
+  );
+}
+
+async function aiAskKey(chatId: string, user: AuthUser) {
+  await setSession(user.id, chatId, "ai.key", {});
+  return sendMessage(
+    chatId,
+    "🔑 API key ကို ဒီ chat ထဲ ပို့ပါ:\n\n• OpenAI — sk- နဲ့ စတယ် (platform.openai.com/api-keys)\n• Gemini — AIza နဲ့ စတယ် (aistudio.google.com/apikey)",
+    { replyMarkup: keyboard([CANCEL_ROW]) },
+  );
+}
+
+async function aiKeyText(chatId: string, user: AuthUser, text: string, messageId?: number) {
+  // The key is out of the chat history before anything else happens.
+  if (messageId) await deleteMessage(chatId, messageId);
+  const provider = detectProvider(text);
+  if (!provider) {
+    return sendMessage(chatId, "❌ OpenAI (sk-…) သို့မဟုတ် Gemini (AIza…) key ပုံစံ မဟုတ်ပါ။ ပြန်ပို့ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
+  const check = await checkAiKey(provider, text.trim());
+  if (check === "bad_key") {
+    return sendMessage(chatId, `❌ ဒီ ${PROVIDER_NAME[provider]} key ကို လက်မခံပါ။ Key မှန်မမှန် စစ်ပြီး ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
+  if (check === "failed") {
+    return sendMessage(chatId, `⚠️ ${PROVIDER_NAME[provider]} ကို ခု ဆက်သွယ်လို့ မရပါ။ ခဏနေ key ကို ပြန်ပို့ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
+  await saveAiKey(user.id, provider, text);
+  await clearSession(user.id, chatId);
+  return sendMessage(chatId, `✅ ${PROVIDER_NAME[provider]} key ချိတ်ပြီးပါပြီ။\n\nအခု မေးချင်တာ စာရိုက်ပြီး မေးလိုက်ပါ။\n\n${AI_EXAMPLES}`);
+}
+
+async function aiRemove(chatId: string, user: AuthUser) {
+  await removeAiKey(user.id);
+  return showMenu(chatId, user, "🗑 AI key ကို ဖျက်ပြီးပါပြီ။");
+}
+
+/** Questions one user may ask in AI_WINDOW_MS — a guard against a loop or a stuck key
+ *  running up the shop's bill, not a quota. In memory: one server runs the bot. */
+const AI_LIMIT = 20;
+const AI_WINDOW_MS = 10 * 60 * 1000;
+const aiAsked = new Map<string, number[]>();
+
+function aiAllowed(userId: string): boolean {
+  const now = Date.now();
+  const recent = (aiAsked.get(userId) ?? []).filter((t) => now - t < AI_WINDOW_MS);
+  if (recent.length >= AI_LIMIT) return false;
+  recent.push(now);
+  aiAsked.set(userId, recent);
+  return true;
+}
+
+/** Answers in the background: a model with lookups can take longer than Telegram waits
+ *  for the webhook, and a late reply would make Telegram send the question again. */
+function aiAnswer(chatId: string, user: AuthUser, question: string, key: NonNullable<Awaited<ReturnType<typeof loadAiKey>>>) {
+  if (!aiAllowed(user.id)) {
+    return sendMessage(chatId, "⏳ မေးခွန်း များလွန်းနေပါတယ်။ ၁၀ မိနစ်လောက် နားပြီးမှ ပြန်မေးပါ။");
+  }
+  void (async () => {
+    const typing = setInterval(() => void sendChatAction(chatId), 4500);
+    try {
+      const business = await prisma.business.findUnique({ where: { id: user.businessId }, select: { name: true } });
+      const answer = await askShopAgent(user, business?.name ?? "", question, key);
+      await sendMessage(chatId, answer);
+    } catch (e) {
+      const kind = e instanceof AiError ? e.kind : "failed";
+      if (kind !== "bad_key" && kind !== "quota") console.error("[telegram ai] failed:", e);
+      const text = kind === "bad_key"
+        ? `❌ ${PROVIDER_NAME[key.provider]} key အလုပ်မလုပ်တော့ပါ။ /ai နှိပ်ပြီး key အသစ် ထည့်ပါ။`
+        : kind === "quota"
+          ? `⚠️ ${PROVIDER_NAME[key.provider]} key ရဲ့ quota (သို့) ငွေ ကုန်နေပါတယ်။ Account မှာ စစ်ပြီးမှ ပြန်မေးပါ။`
+          : "⚠️ AI က ခု အဖြေမပေးနိုင်ပါ။ ခဏနေ ပြန်မေးပါ။";
+      await sendMessage(chatId, text);
+    } finally {
+      clearInterval(typing);
+    }
+  })();
+}
+
+// ---------------------------------------------------------------------------
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
@@ -899,7 +1012,7 @@ export async function handleUpdate(update: TgUpdate, ownerUserId: string) {
   // "typing…" while the reply is worked out, so a slow answer does not look like silence.
   void sendChatAction(chatId);
   try {
-    if (update.message) return await handleMessage(ownerUserId, chatId, update.message.text ?? "");
+    if (update.message) return await handleMessage(ownerUserId, chatId, update.message.text ?? "", update.message.message_id);
     if (update.callback_query) return await handleCallback(ownerUserId, update.callback_query);
   } catch (e) {
     // Whatever broke, the person gets an answer instead of a bot that went quiet.
@@ -912,10 +1025,11 @@ export async function handleUpdate(update: TgUpdate, ownerUserId: string) {
 function helpText(user: AuthUser, repairOn: boolean): string {
   const lines = ["🤔 နားမလည်ပါ။", "", "အောက်က menu ကနေ ရွေးပါ။"];
   if (repairOn && can(user, "repair.update")) lines.push("(သို့) ပြင်ဆင်မှု voucher နံပါတ် ရိုက်ပါ၊ ဥပမာ MS0012။");
+  lines.push("", "🤖 ဆိုင်အကြောင်း AI ကို မေးချင်ရင် /ai ကို နှိပ်ပါ။");
   return lines.join("\n");
 }
 
-async function handleMessage(ownerUserId: string, chatId: string, text: string) {
+async function handleMessage(ownerUserId: string, chatId: string, text: string, messageId?: number) {
   const resolved = await resolveOwner(ownerUserId, chatId);
   if (resolved.kind === "not_found") return sendMessage(chatId, "ဒီ bot ကို မှန်မှန် မချိတ်ထားပါ။ Mahar Mini POS admin ကို ဆက်သွယ်ပါ။");
   if (resolved.kind === "chat_mismatch") return sendMessage(chatId, "ဒီ bot ကို တခြား Telegram အကောင့်နဲ့ ချိတ်ထားပြီးပါပြီ။ သင်ဖြစ်ရင် Mahar Mini POS မှာ အရင် ဖြုတ်ပါ။");
@@ -924,8 +1038,10 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
 
   const trimmed = text.trim();
   if (trimmed === "/start" || trimmed === "/menu" || trimmed === "/cancel") return showMenu(chatId, user);
+  if (trimmed === "/ai") return startAi(chatId, user);
 
   const session = await getSession(ownerUserId, chatId);
+  if (session?.step === "ai.key" && trimmed) return aiKeyText(chatId, user, trimmed, messageId);
   try {
     // A voucher number typed straight into the chat opens that repair.
     if ((!session || session.step === "rp.voucher") && VOUCHER_LIKE.test(trimmed)
@@ -940,7 +1056,12 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
     // A photo, sticker or voice note: the bot only reads text and buttons.
     return sendMessage(chatId, "📝 စာနဲ့ ခလုတ်ကိုပဲ ဖတ်နိုင်ပါတယ်။ စာရိုက်ပါ (သို့) /menu ကို နှိပ်ပါ။");
   }
-  if (!session) return showMenu(chatId, user, helpText(user, (await businessFeatures(user.businessId)).repair));
+  if (!session) {
+    // Outside any flow, typing is a question for the AI helper once a key is set.
+    const aiKey = await loadAiKey(user.id);
+    if (aiKey) return aiAnswer(chatId, user, trimmed, aiKey);
+    return showMenu(chatId, user, helpText(user, (await businessFeatures(user.businessId)).repair));
+  }
 
   const [flow, step] = session.step.split(".");
   if (step === "saving") return sendMessage(chatId, "⏳ ခုနက စာရင်းကို သိမ်းနေဆဲပါ၊ ခဏစောင့်ပါ…");
@@ -1026,6 +1147,7 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     if (key === "topup") return startBiller(chatId, user);
     if (key === "repair") return startRepair(chatId, user);
     if (key === "myrepairs") return showMyRepairs(chatId, user);
+    if (key === "ai") return startAi(chatId, user);
     return;
   }
 
@@ -1039,6 +1161,9 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
       return sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
     }
   }
+
+  if (data === "ai:key") return aiAskKey(chatId, user);
+  if (data === "ai:remove") return aiRemove(chatId, user);
 
   const session = await getSession(ownerUserId, chatId);
   // A button from a flow that is finished or was cancelled.

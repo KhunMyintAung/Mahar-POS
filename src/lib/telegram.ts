@@ -158,6 +158,11 @@ export async function sendChatAction(chatId: string, action: "typing" = "typing"
   return callBestEffort("sendChatAction", { chat_id: chatId, action });
 }
 
+/** Takes a message out of the chat — used for one that holds a secret, such as an API key. */
+export async function deleteMessage(chatId: string, messageId: number) {
+  return callBestEffort("deleteMessage", { chat_id: chatId, message_id: messageId });
+}
+
 export async function answerCallbackQuery(callbackQueryId: string, text?: string, showAlert = false) {
   return callBestEffort("answerCallbackQuery", { callback_query_id: callbackQueryId, text, show_alert: showAlert });
 }
