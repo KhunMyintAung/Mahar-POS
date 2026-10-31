@@ -12,6 +12,10 @@ const REVALIDATE_SECONDS = 60;
 export type RepairShop = { name: string; slug: string; gid: string };
 
 export type RepairSheetRow = {
+  /** As typed in the sheet: blank on a customer's second and later phones. */
+  sheetDate: string;
+  sheetOwner: string;
+  /** Carried down from the line above when the sheet leaves them blank, for searching. */
   date: string;
   owner: string;
   model: string;
@@ -79,6 +83,8 @@ export function toRepairSheet(cells: string[][]): RepairSheet | null {
     if (d) { date = d; owner = o; }
     else if (o) owner = o;
     rows.push({
+      sheetDate: d,
+      sheetOwner: o,
       date,
       owner,
       model,
