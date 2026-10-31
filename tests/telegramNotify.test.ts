@@ -15,7 +15,7 @@ describe("saleNotice", () => {
     });
     expect(text).toContain("• F11 iGlass × 2");
     expect(text).toContain("• 2031R Charger IOS × 1");
-    expect(text).toContain("Total: 12,000 MMK");
+    expect(text).toContain("စုစုပေါင်း: 12,000 MMK");
   });
 
   it("still reads sensibly for a sale with no lines to name", () => {
@@ -25,7 +25,7 @@ describe("saleNotice", () => {
       profit: 0n,
       createdByName: "Cashier",
     });
-    expect(text).toBe("🧾 Sale SAL-000007\nBy: Cashier · Total: 1,000 MMK · Profit: 0 MMK");
+    expect(text).toBe("🧾 အရောင်း SAL-000007\nလုပ်သူ: Cashier · စုစုပေါင်း: 1,000 MMK · အမြတ်: 0 MMK");
   });
 });
 
@@ -35,6 +35,6 @@ describe("itemLines", () => {
     const text = itemLines(items);
     expect(text).toContain("• Item 8 × 1");
     expect(text).not.toContain("• Item 9 × 1");
-    expect(text).toContain("…and 3 more");
+    expect(text).toContain("…နောက်ထပ် 3 မျိုး");
   });
 });

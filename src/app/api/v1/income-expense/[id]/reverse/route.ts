@@ -12,7 +12,7 @@ export const POST = withAuth("wallet.reverse", async ({ req, user, params }) => 
   await prisma.$transaction((tx) =>
     reverseIncomeExpense(tx, { id: params.id, reason: body.reason, userId: user.id, businessId: user.businessId })
   );
-  const label = it?.type === "INCOME" ? "Income" : it?.type === "WITHDRAW" ? "Withdrawal" : "Expense";
+  const label = it?.type === "INCOME" ? "ဝင်ငွေ" : it?.type === "WITHDRAW" ? "ငွေထုတ်" : "ထွက်ငွေ";
   const icon = it?.type === "INCOME" ? "💰" : it?.type === "WITHDRAW" ? "➖" : "💸";
   notifyAuditFeed(
     user.businessId,

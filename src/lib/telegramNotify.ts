@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { sendMessage, withBotToken } from "./telegram";
 import { notifyReportTargets } from "./telegramReports";
+import { REPAIR_STATUS_MM } from "./repairStatus";
 
 // Live audit feed over Telegram: after a Sale / 3D / Transfer / Withdraw /
 // Income & Expense / Exchange transaction is committed, push a short summary
@@ -53,7 +54,7 @@ function money(minor: bigint | string, currency = "MMK") {
 }
 
 function noteLine(note?: string | null) {
-  return note?.trim() ? `\nNote: ${note.trim()}` : "";
+  return note?.trim() ? `\nမှတ်ချက်: ${note.trim()}` : "";
 }
 
 /** How many lines are named before the rest are summed up.
@@ -70,7 +71,7 @@ export function itemLines(items: { name: string; quantity: number }[]): string {
   if (items.length === 0) return "";
   const shown = items.slice(0, ITEMS_SHOWN).map((i) => `• ${i.name} × ${i.quantity}`);
   const rest = items.length - ITEMS_SHOWN;
-  if (rest > 0) shown.push(`• …and ${rest} more`);
+  if (rest > 0) shown.push(`• …နောက်ထပ် ${rest} မျိုး`);
   return `\n${shown.join("\n")}`;
 }
 
@@ -83,9 +84,9 @@ export function saleNotice(opts: {
   notes?: string | null;
 }) {
   return (
-    `🧾 Sale ${opts.txnNo}` +
+    `🧾 အရောင်း ${opts.txnNo}` +
     itemLines(opts.items ?? []) +
-    `\nBy: ${opts.createdByName} · Total: ${money(opts.total)} · Profit: ${money(opts.profit)}` +
+    `\nလုပ်သူ: ${opts.createdByName} · စုစုပေါင်း: ${money(opts.total)} · အမြတ်: ${money(opts.profit)}` +
     noteLine(opts.notes)
   );
 }
@@ -100,11 +101,11 @@ export function billerNotice(opts: {
   balanceAfter: bigint;
   createdByName: string;
 }) {
-  const what = opts.kind === "TOPUP" ? "float bought" : opts.kind === "SALE" ? "top-up sold" : "float adjusted";
+  const what = opts.kind === "TOPUP" ? "ဘေလက်ကျန် ဝယ်" : opts.kind === "SALE" ? "ဖုန်းဘေ ရောင်း" : "ဘေလက်ကျန် ပြင်";
   return (
     `📱 ${opts.billerName} — ${what} ${opts.txnNo}\n` +
-    `Credit: ${money(opts.faceAmount)} · Cash: ${money(opts.cashAmount)} · Margin: ${money(opts.profit)}\n` +
-    `Float now: ${money(opts.balanceAfter)} · By: ${opts.createdByName}`
+    `ဘေ: ${money(opts.faceAmount)} · ငွေသား: ${money(opts.cashAmount)} · အမြတ်: ${money(opts.profit)}\n` +
+    `လက်ရှိ ဘေလက်ကျန်: ${money(opts.balanceAfter)} · လုပ်သူ: ${opts.createdByName}`
   );
 }
 
@@ -112,35 +113,44 @@ export function transferNotice(opts: { txnNo: string; sourceName: string; destNa
   const amount = opts.sourceCurrency === opts.destCurrency
     ? money(opts.sourceAmount, opts.sourceCurrency)
     : `${money(opts.sourceAmount, opts.sourceCurrency)} → ${money(opts.destAmount, opts.destCurrency)}`;
-  return `🔁 Transfer ${opts.txnNo}\n${opts.sourceName} → ${opts.destName} · ${amount}\nBy: ${opts.createdByName}${noteLine(opts.notes)}`;
+  return `🔁 ငွေလွှဲ ${opts.txnNo}\n${opts.sourceName} → ${opts.destName} · ${amount}\nလုပ်သူ: ${opts.createdByName}${noteLine(opts.notes)}`;
 }
 
 export function incomeExpenseNotice(opts: { txnNo: string; type: string; categoryName: string; amount: bigint; currency: string; createdByName: string; description?: string | null }) {
   const icon = opts.type === "INCOME" ? "💰" : opts.type === "WITHDRAW" ? "➖" : "💸";
-  const label = opts.type === "INCOME" ? "Income" : opts.type === "WITHDRAW" ? "Withdraw" : "Expense";
-  return `${icon} ${label} ${opts.txnNo}\n${opts.categoryName} · ${money(opts.amount, opts.currency)}\nBy: ${opts.createdByName}${noteLine(opts.description)}`;
+  const label = opts.type === "INCOME" ? "ဝင်ငွေ" : opts.type === "WITHDRAW" ? "ငွေထုတ်" : "ထွက်ငွေ";
+  return `${icon} ${label} ${opts.txnNo}\n${opts.categoryName} · ${money(opts.amount, opts.currency)}\nလုပ်သူ: ${opts.createdByName}${noteLine(opts.description)}`;
 }
 
 export function creditPayableNotice(opts: { kind: "credit" | "payable"; txnNo: string; partyName: string; amount: bigint; currency: string; createdByName: string }) {
   const icon = opts.kind === "credit" ? "🤝" : "📤";
-  const label = opts.kind === "credit" ? "Credit collected" : "Payable paid";
-  return `${icon} ${label} — ${opts.txnNo}\n${opts.partyName} · ${money(opts.amount, opts.currency)}\nBy: ${opts.createdByName}`;
+  const label = opts.kind === "credit" ? "အကြွေး ကောက်ပြီး" : "ပေးရန်ငွေ ချေပြီး";
+  return `${icon} ${label} — ${opts.txnNo}\n${opts.partyName} · ${money(opts.amount, opts.currency)}\nလုပ်သူ: ${opts.createdByName}`;
 }
 
 export function newCreditNotice(opts: { txnNo: string; customerName: string; amount: bigint; currency: string; createdByName: string; notes?: string | null }) {
-  return `🆕 New credit — ${opts.txnNo}\n${opts.customerName} · ${money(opts.amount, opts.currency)}\nBy: ${opts.createdByName}${noteLine(opts.notes)}`;
+  return `🆕 အကြွေးသစ် — ${opts.txnNo}\n${opts.customerName} · ${money(opts.amount, opts.currency)}\nလုပ်သူ: ${opts.createdByName}${noteLine(opts.notes)}`;
 }
 
 /** Sent after a REVERSE action — different verb, includes the required reason. */
 export function reversalNotice(opts: { icon: string; label: string; txnNo: string; reason: string; createdByName: string }) {
-  return `${opts.icon} ${opts.label} REVERSED — ${opts.txnNo}\nReason: ${opts.reason}\nBy: ${opts.createdByName}`;
+  return `${opts.icon} ${opts.label} ပြန်ဖျက်ပြီး — ${opts.txnNo}\nအကြောင်းရင်း: ${opts.reason}\nလုပ်သူ: ${opts.createdByName}`;
 }
 
-const REPAIR_STATUS_LABEL: Record<string, string> = {
-  RECEIVED: "Taken in", CHECKING: "Checking", IN_PROGRESS: "In progress", WAITING_PARTS: "Waiting part",
-  DONE: "Completed", CANNOT_REPAIR: "Cannot repair", DELIVERED: "Delivered", CANCELLED: "Cancelled",
+// Telegram speaks Myanmar: statuses as printed on the voucher.
+const statusLabel = (s: string) => REPAIR_STATUS_MM[s] ?? s;
+
+/** Stock movement reasons (stockReasons.ts, plus the plain in/adjust labels) in Myanmar. */
+const STOCK_LABEL_MM: Record<string, string> = {
+  "Used for repair": "ပြင်ဆင်မှုတွင် သုံး",
+  "Damaged": "ပျက်စီး",
+  "Error / count correction": "အရေအတွက် ပြင်ဆင်",
+  "Returned to supplier": "ပေးသွင်းသူထံ ပြန်ပေး",
+  "Returned back to stock": "Stock ထဲ ပြန်ထည့်",
+  "Other": "အခြား",
+  "Stock in": "Stock အဝင်",
+  "Adjustment": "Stock ပြင်ဆင်",
 };
-const statusLabel = (s: string) => REPAIR_STATUS_LABEL[s] ?? s;
 
 /** The repair fields every repair alert shows. */
 export interface RepairForNotice {
@@ -165,12 +175,12 @@ function repairLines(job: RepairForNotice, amountLine: string) {
 
 /** A phone taken in for repair. */
 export function repairNewNotice(job: RepairForNotice & { createdByName: string }) {
-  const amount = `💰 ${ks(job.estimatedCost)}` + (job.depositAmount && job.depositAmount > 0n ? ` · Deposit ${ks(job.depositAmount)}` : "");
+  const amount = `💰 ${ks(job.estimatedCost)}` + (job.depositAmount && job.depositAmount > 0n ? ` · စရံ ${ks(job.depositAmount)}` : "");
   return [
-    `🆕 Repair ${job.jobNo} · New`,
+    `🆕 ပြင်ဆင်မှု ${job.jobNo} · အသစ်`,
     repairLines(job, amount),
-    "Status: Taken in",
-    `By: ${job.createdByName}`,
+    "အခြေအနေ: လက်ခံပြီး",
+    `လုပ်သူ: ${job.createdByName}`,
   ].join("\n");
 }
 
@@ -183,14 +193,14 @@ export function repairStatusNotice(job: RepairForNotice & {
   const paid = job.paidAmount ?? 0n;
   const due = charge - paid;
   const amount = `💰 ${ks(charge)}` +
-    (paid > 0n ? ` · Paid ${ks(paid)}` : "") +
-    (due > 0n && paid > 0n ? ` · Due ${ks(due)}` : "") +
-    (job.paidNow && job.paidNow > 0n ? `\n💵 Paid now: ${ks(job.paidNow)}` : "");
+    (paid > 0n ? ` · ပေးပြီး ${ks(paid)}` : "") +
+    (due > 0n && paid > 0n ? ` · ကျန် ${ks(due)}` : "") +
+    (job.paidNow && job.paidNow > 0n ? `\n💵 ယခုပေး: ${ks(job.paidNow)}` : "");
   return [
-    `${icon} Repair ${job.jobNo} · ${statusLabel(job.to)}`,
+    `${icon} ပြင်ဆင်မှု ${job.jobNo} · ${statusLabel(job.to)}`,
     repairLines(job, amount),
-    job.from === job.to ? `Status: ${statusLabel(job.to)}` : `Status: ${statusLabel(job.from)} → ${statusLabel(job.to)}`,
-    `By: ${job.createdByName}` + (job.notes?.trim() ? `\nNote: ${job.notes.trim()}` : ""),
+    job.from === job.to ? `အခြေအနေ: ${statusLabel(job.to)}` : `အခြေအနေ: ${statusLabel(job.from)} → ${statusLabel(job.to)}`,
+    `လုပ်သူ: ${job.createdByName}` + (job.notes?.trim() ? `\nမှတ်ချက်: ${job.notes.trim()}` : ""),
   ].join("\n");
 }
 
@@ -200,8 +210,8 @@ export function stockMoveNotice(opts: {
 }) {
   const sign = opts.quantity > 0 ? `+${opts.quantity}` : String(opts.quantity);
   return (
-    `📦 Stock ${opts.label}: ${opts.itemName} ${sign}\n` +
-    `Now in stock: ${opts.qtyAfter} · By: ${opts.createdByName}` +
+    `📦 ${STOCK_LABEL_MM[opts.label] ?? opts.label}: ${opts.itemName} ${sign}\n` +
+    `လက်ကျန်: ${opts.qtyAfter} · လုပ်သူ: ${opts.createdByName}` +
     noteLine(opts.detail)
   );
 }
@@ -212,10 +222,10 @@ export function onlineOrderNotice(opts: {
   lines: { name: string; quantity: number; unitPrice: bigint }[]; total: bigint;
 }) {
   return [
-    `🛍️ Online order ${opts.orderNo} · New`,
+    `🛍️ Online အော်ဒါ ${opts.orderNo} · အသစ်`,
     `👤 ${opts.customerName} · ${opts.customerPhone}`,
     ...(opts.address?.trim() ? [`📍 ${opts.address.trim()}`] : []),
     ...opts.lines.map((l) => `• ${l.name} × ${l.quantity} = ${money(l.unitPrice * BigInt(l.quantity))}`),
-    `💰 Total: ${money(opts.total)}`,
+    `💰 စုစုပေါင်း: ${money(opts.total)}`,
   ].join("\n") + noteLine(opts.note);
 }

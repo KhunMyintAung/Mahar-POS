@@ -124,20 +124,20 @@ async function businessFeatures(businessId: string): Promise<FeatureVisibility> 
 
 function mainMenu(user: AuthUser, features: FeatureVisibility) {
   const row1 = [];
-  if (features.incomeExpense && can(user, "income_expense.create")) row1.push(btn("💰 Income", "menu:income"));
-  if (features.incomeExpense && can(user, "income_expense.create")) row1.push(btn("💸 Expense", "menu:expense"));
+  if (features.incomeExpense && can(user, "income_expense.create")) row1.push(btn("💰 ဝင်ငွေ", "menu:income"));
+  if (features.incomeExpense && can(user, "income_expense.create")) row1.push(btn("💸 ထွက်ငွေ", "menu:expense"));
   const row2 = [];
-  if (features.transfers && can(user, "wallet.transfer")) row2.push(btn("🔁 Transfer", "menu:transfer"));
-  if (features.withdraw && can(user, "wallet.withdraw")) row2.push(btn("➖ Withdraw", "menu:withdraw"));
+  if (features.transfers && can(user, "wallet.transfer")) row2.push(btn("🔁 ငွေလွှဲ", "menu:transfer"));
+  if (features.withdraw && can(user, "wallet.withdraw")) row2.push(btn("➖ ငွေထုတ်", "menu:withdraw"));
   const row3 = [];
-  if (features.credit && can(user, "credit.create")) row3.push(btn("🆕 New credit", "menu:newcredit"));
-  if (features.credit && can(user, "credit.collect")) row3.push(btn("🤝 Collect credit", "menu:credit"));
-  if (features.credit && can(user, "payable.pay")) row3.push(btn("📤 Pay payable", "menu:payable"));
+  if (features.credit && can(user, "credit.create")) row3.push(btn("🆕 အကြွေးသစ်", "menu:newcredit"));
+  if (features.credit && can(user, "credit.collect")) row3.push(btn("🤝 အကြွေးကောက်", "menu:credit"));
+  if (features.credit && can(user, "payable.pay")) row3.push(btn("📤 ပေးရန်ငွေ ချေ", "menu:payable"));
   const row4 = [];
-  if (features.biller && can(user, "biller.trade")) row4.push(btn("📱 Top-up", "menu:topup"));
+  if (features.biller && can(user, "biller.trade")) row4.push(btn("📱 ဖုန်းဘေဖြည့်", "menu:topup"));
   const row5 = [];
-  if (features.repair && can(user, "repair.update")) row5.push(btn("🔧 Repair status", "menu:repair"));
-  if (features.repair && can(user, "repair.view")) row5.push(btn("📊 My repairs", "menu:myrepairs"));
+  if (features.repair && can(user, "repair.update")) row5.push(btn("🔧 ပြင်ဆင်မှု အခြေအနေ", "menu:repair"));
+  if (features.repair && can(user, "repair.view")) row5.push(btn("📊 ကျွန်ုပ်၏ ပြင်ဆင်မှုများ", "menu:myrepairs"));
   const rows = [row1, row2, row3, row4, row5].filter((r) => r.length > 0);
   return keyboard(rows);
 }
@@ -145,12 +145,12 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
 async function showMenu(chatId: string, user: AuthUser, greeting?: string) {
   await clearSession(user.id, chatId);
   const features = await businessFeatures(user.businessId);
-  const text = greeting ?? `Quick start — ${user.name} (${user.roleName})\nPick what you want to record:`;
+  const text = greeting ?? `${user.name} (${user.roleName})\nဘာကို မှတ်တမ်းတင်မလဲ ရွေးပါ:`;
   await sendMessage(chatId, text, { replyMarkup: mainMenu(user, features) });
 }
 
-const CANCEL_ROW = [btn("✕ Cancel", "cancel")];
-const SKIP_ROW = [btn("Skip →", "skip")];
+const CANCEL_ROW = [btn("✕ မလုပ်တော့ပါ", "cancel")];
+const SKIP_ROW = [btn("ကျော်မည် →", "skip")];
 
 function money(n: string): string {
   return fmtMoney(toMinor(n).toString());
@@ -183,29 +183,29 @@ async function walletButtons(businessId: string, branchId: string, currency?: st
 
 async function startBiller(chatId: string, user: AuthUser) {
   const branchId = await defaultBranchId(user);
-  if (!branchId) return sendMessage(chatId, "No branch is available for your account.");
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
   const billers = await prisma.biller.findMany({
     where: { businessId: user.businessId, active: true, deletedAt: null },
     orderBy: { name: "asc" },
   });
   if (billers.length === 0) {
-    return sendMessage(chatId, "No billers set up yet. Add them in Mahar Mini POS under Top-up Billers.");
+    return sendMessage(chatId, "ဖုန်းဘေ Biller မထည့်ရသေးပါ။ Mahar Mini POS ရဲ့ Top-up Billers မှာ ထည့်ပါ။");
   }
   const rows = billers.map((b) => [btn(`${b.name} (${fmtMoney(b.currentBalance)})`, `b:${b.id}`)]);
   await setSession(user.id, chatId, "bl.biller", { branchId });
-  await sendMessage(chatId, "📱 Top-up\n\nWhich operator?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  await sendMessage(chatId, "📱 ဖုန်းဘေဖြည့်\n\nဘယ် Operator လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function blStepBiller(chatId: string, user: AuthUser, data: Record<string, unknown>, billerId: string) {
   const biller = await prisma.biller.findFirst({
     where: { id: billerId, businessId: user.businessId, deletedAt: null },
   });
-  if (!biller) return sendMessage(chatId, "Biller not found. /menu to start over.");
+  if (!biller) return sendMessage(chatId, "Biller ကို မတွေ့ပါ။ /menu နှိပ်ပြီး ပြန်စပါ။");
 
-  const rows = [[btn("📤 Sell to customer", "k:SALE")]];
+  const rows = [[btn("📤 ဖောက်သည်ကို ရောင်း", "k:SALE")]];
   // Buying float moves money out of the shop, so it is offered only to whoever is
   // trusted with that on the web side too.
-  if (can(user, "biller.manage")) rows.push([btn("📥 Buy float", "k:TOPUP")]);
+  if (can(user, "biller.manage")) rows.push([btn("📥 ဘေလက်ကျန် ဝယ်", "k:TOPUP")]);
 
   await setSession(user.id, chatId, "bl.kind", {
     ...data,
@@ -215,7 +215,7 @@ async function blStepBiller(chatId: string, user: AuthUser, data: Record<string,
   });
   await sendMessage(
     chatId,
-    `${biller.name}\nFloat now: ${fmtMoney(biller.currentBalance)}\n\nWhat are you recording?`,
+    `${biller.name}\nလက်ရှိ ဘေလက်ကျန်: ${fmtMoney(biller.currentBalance)}\n\nဘာကို မှတ်မလဲ?`,
     { replyMarkup: keyboard([...rows, CANCEL_ROW]) }
   );
 }
@@ -223,36 +223,36 @@ async function blStepBiller(chatId: string, user: AuthUser, data: Record<string,
 async function blStepKind(chatId: string, user: AuthUser, data: Record<string, unknown>, kind: string) {
   await setSession(user.id, chatId, "bl.face", { ...data, kind });
   const prompt = kind === "TOPUP"
-    ? "How much credit did the operator give you? (face value)"
-    : "How much credit did the customer get? (face value)";
+    ? "Operator က ဘေ ဘယ်လောက် ပေးလဲ? (မျက်နှာစာ တန်ဖိုး)"
+    : "ဖောက်သည် ဘေ ဘယ်လောက် ရလဲ? (မျက်နှာစာ တန်ဖိုး)";
   await sendMessage(chatId, `${data.billerName}\n\n${prompt}`, { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 async function blStepFaceText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
-  if (!isValidDecimalString(text)) return sendMessage(chatId, "Enter a number, e.g. 10000");
+  if (!isValidDecimalString(text)) return sendMessage(chatId, "ဂဏန်း ရိုက်ထည့်ပါ၊ ဥပမာ 10000");
   const face = toMinor(text);
-  if (face <= 0n) return sendMessage(chatId, "The amount must be more than zero.");
+  if (face <= 0n) return sendMessage(chatId, "ပမာဏက သုညထက် များရပါမယ်။");
   await setSession(user.id, chatId, "bl.cash", { ...data, face: face.toString() });
-  const prompt = data.kind === "TOPUP" ? "How much cash did you pay for it?" : "How much cash did the customer pay?";
-  await sendMessage(chatId, `${prompt}\n\nSend the same figure if there is no discount.`, {
+  const prompt = data.kind === "TOPUP" ? "ငွေသား ဘယ်လောက် ပေးခဲ့လဲ?" : "ဖောက်သည် ငွေသား ဘယ်လောက် ပေးလဲ?";
+  await sendMessage(chatId, `${prompt}\n\nလျှော့ဈေး မရှိရင် ပမာဏ အတူတူ ပို့ပါ။`, {
     replyMarkup: keyboard([CANCEL_ROW]),
   });
 }
 
 async function blStepCashText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
-  if (!isValidDecimalString(text)) return sendMessage(chatId, "Enter a number, e.g. 10000");
+  if (!isValidDecimalString(text)) return sendMessage(chatId, "ဂဏန်း ရိုက်ထည့်ပါ၊ ဥပမာ 10000");
   const cash = toMinor(text);
-  if (cash < 0n) return sendMessage(chatId, "Cash cannot be negative.");
+  if (cash < 0n) return sendMessage(chatId, "ငွေသားက အနုတ် မဖြစ်ရပါ။");
   const { rows } = await walletButtons(user.businessId, String(data.branchId ?? ""), "MMK");
-  if (rows.length === 0) return sendMessage(chatId, "No MMK wallet found. Create one in Mahar Mini POS first.");
+  if (rows.length === 0) return sendMessage(chatId, "MMK wallet မရှိပါ။ Mahar Mini POS မှာ အရင် ဖွင့်ပါ။");
   await setSession(user.id, chatId, "bl.wallet", { ...data, cash: cash.toString() });
-  const prompt = data.kind === "TOPUP" ? "Which wallet did the cash come out of?" : "Which wallet did the cash go into?";
+  const prompt = data.kind === "TOPUP" ? "ငွေသား ဘယ် wallet ကနေ ထွက်လဲ?" : "ငွေသား ဘယ် wallet ထဲ ဝင်လဲ?";
   await sendMessage(chatId, prompt, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function blStepWallet(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet) return sendMessage(chatId, "Wallet not found. /menu to start over.");
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။ /menu နှိပ်ပြီး ပြန်စပါ။");
 
   const kind = String(data.kind);
   const face = BigInt(String(data.face));
@@ -263,15 +263,15 @@ async function blStepWallet(chatId: string, user: AuthUser, data: Record<string,
 
   await setSession(user.id, chatId, "bl.confirm", { ...data, walletId, walletName: wallet.name });
   const lines = [
-    kind === "TOPUP" ? "📥 Buy float" : "📤 Sell to customer",
+    kind === "TOPUP" ? "📥 ဘေလက်ကျန် ဝယ်" : "📤 ဖောက်သည်ကို ရောင်း",
     `${data.billerName}`,
-    `Credit: ${fmtMoney(face)}`,
-    `Cash: ${fmtMoney(cash)} ${kind === "TOPUP" ? "out of" : "into"} ${wallet.name}`,
-    `Margin: ${fmtMoney(margin)}`,
-    `Float after: ${fmtMoney(after)}`,
+    `ဘေ: ${fmtMoney(face)}`,
+    `ငွေသား: ${fmtMoney(cash)} (${wallet.name} ${kind === "TOPUP" ? "မှ ထွက်" : "ထဲ ဝင်"})`,
+    `အမြတ်: ${fmtMoney(margin)}`,
+    `ပြီးရင် ဘေလက်ကျန်: ${fmtMoney(after)}`,
   ];
   await sendMessage(chatId, lines.join("\n"), {
-    replyMarkup: keyboard([[btn("✅ Confirm", "confirm:yes"), btn("✕ Cancel", "confirm:no")]]),
+    replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]),
   });
 }
 
@@ -290,7 +290,7 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
       })
     );
     await clearSession(user.id, chatId);
-    await sendMessage(chatId, `✅ Saved — ${txn.txnNo}`);
+    await sendMessage(chatId, `✅ သိမ်းပြီး — ${txn.txnNo}`);
     notifyAuditFeed(
       user.businessId,
       billerNotice({
@@ -307,7 +307,7 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
     );
     await showMenu(chatId, user);
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
 
@@ -318,21 +318,21 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
 
 async function startIncomeExpense(chatId: string, user: AuthUser, type: "INCOME" | "EXPENSE" | "WITHDRAW") {
   const branchId = await defaultBranchId(user);
-  if (!branchId) return sendMessage(chatId, "No branch is available for your account. Contact your admin.");
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။ Admin ကို ဆက်သွယ်ပါ။");
   const { rows } = await walletButtons(user.businessId, branchId, undefined, type === "WITHDRAW" ? "CASH" : undefined);
-  if (rows.length === 0) return sendMessage(chatId, "No wallets found. Create one in Mahar Mini POS first.");
+  if (rows.length === 0) return sendMessage(chatId, "Wallet မရှိပါ။ Mahar Mini POS မှာ အရင် ဖွင့်ပါ။");
   await setSession(user.id, chatId, `ie.wallet`, { type, branchId });
-  const label = type === "INCOME" ? "💰 Income" : type === "EXPENSE" ? "💸 Expense" : "➖ Withdraw";
-  await sendMessage(chatId, `${label}\n\nWhich wallet?`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  const label = type === "INCOME" ? "💰 ဝင်ငွေ" : type === "EXPENSE" ? "💸 ထွက်ငွေ" : "➖ ငွေထုတ်";
+  await sendMessage(chatId, `${label}\n\nဘယ် wallet လဲ?`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function ieStepWallet(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet) return sendMessage(chatId, "Wallet not found. /menu to start over.");
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။ /menu နှိပ်ပြီး ပြန်စပါ။");
   const type = data.type as string;
   if (type === "WITHDRAW") {
     await setSession(user.id, chatId, "ie.amount", { ...data, walletId, walletName: wallet.name, currency: wallet.currency });
-    return sendMessage(chatId, `Wallet: ${wallet.name}\n\nEnter the amount to withdraw (${wallet.currency}):`, {
+    return sendMessage(chatId, `Wallet: ${wallet.name}\n\nထုတ်မယ့် ပမာဏ ရိုက်ထည့်ပါ (${wallet.currency}):`, {
       replyMarkup: keyboard([CANCEL_ROW]),
     });
   }
@@ -342,57 +342,57 @@ async function ieStepWallet(chatId: string, user: AuthUser, data: Record<string,
     orderBy: { name: "asc" },
   })).filter((c) => !hidden.includes(c.systemKey));
   const rows = categories.map((c) => [btn(c.name, `cat:${c.name}`)]);
-  rows.push([btn("+ New category", "cat:__new__")]);
+  rows.push([btn("+ အမျိုးအစားသစ်", "cat:__new__")]);
   await setSession(user.id, chatId, "ie.category", { ...data, walletId, walletName: wallet.name, currency: wallet.currency });
-  await sendMessage(chatId, `Wallet: ${wallet.name}\n\nChoose a category:`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  await sendMessage(chatId, `Wallet: ${wallet.name}\n\nအမျိုးအစား ရွေးပါ:`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function ieStepCategoryPick(chatId: string, user: AuthUser, data: Record<string, unknown>, catData: string) {
   if (catData === "__new__") {
     await setSession(user.id, chatId, "ie.category_new", data);
-    return sendMessage(chatId, "Type the new category name:", { replyMarkup: keyboard([CANCEL_ROW]) });
+    return sendMessage(chatId, "အမျိုးအစားသစ် နာမည် ရိုက်ထည့်ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
   }
   await setSession(user.id, chatId, "ie.amount", { ...data, categoryName: catData });
-  return sendMessage(chatId, `Category: ${catData}\n\nEnter the amount (${data.currency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  return sendMessage(chatId, `အမျိုးအစား: ${catData}\n\nပမာဏ ရိုက်ထည့်ပါ (${data.currency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 async function ieStepCategoryNewText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const name = text.trim();
-  if (!name) return sendMessage(chatId, "Category name can't be empty. Try again:");
+  if (!name) return sendMessage(chatId, "အမျိုးအစား နာမည် ဗလာ မဖြစ်ရပါ။ ပြန်ရိုက်ပါ:");
   await prisma.category.upsert({
     where: { businessId_type_name: { businessId: user.businessId, type: data.type as string, name } },
     create: { businessId: user.businessId, type: data.type as string, name },
     update: { active: true },
   });
   await setSession(user.id, chatId, "ie.amount", { ...data, categoryName: name });
-  return sendMessage(chatId, `Category: ${name}\n\nEnter the amount (${data.currency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  return sendMessage(chatId, `အမျိုးအစား: ${name}\n\nပမာဏ ရိုက်ထည့်ပါ (${data.currency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 async function ieStepAmountText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "Enter a valid positive amount, e.g. 5000");
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ပမာဏ ရိုက်ထည့်ပါ၊ ဥပမာ 5000");
   const type = data.type as string;
   const nextData = { ...data, amount: raw };
   if (type === "WITHDRAW") {
     await setSession(user.id, chatId, "ie.description", nextData);
-    return sendMessage(chatId, "Reason (or Skip):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+    return sendMessage(chatId, "အကြောင်းရင်း (မရှိရင် ကျော်ပါ):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
   }
   await setSession(user.id, chatId, "ie.description", nextData);
-  return sendMessage(chatId, "Description (or Skip):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+  return sendMessage(chatId, "မှတ်ချက် (မရှိရင် ကျော်ပါ):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
 }
 
 async function ieAskConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>) {
   const type = data.type as string;
-  const label = type === "INCOME" ? "Income" : type === "EXPENSE" ? "Expense" : "Withdrawal";
+  const label = type === "INCOME" ? "ဝင်ငွေ" : type === "EXPENSE" ? "ထွက်ငွေ" : "ငွေထုတ်";
   const lines = [
-    `Confirm ${label}`,
+    `${label} အတည်ပြုပါ`,
     `Wallet: ${data.walletName}`,
-    data.categoryName ? `Category: ${data.categoryName}` : undefined,
-    `Amount: ${money(data.amount as string)} ${data.currency}`,
-    data.description ? `Note: ${data.description}` : undefined,
+    data.categoryName ? `အမျိုးအစား: ${data.categoryName}` : undefined,
+    `ပမာဏ: ${money(data.amount as string)} ${data.currency}`,
+    data.description ? `မှတ်ချက်: ${data.description}` : undefined,
   ].filter(Boolean);
   await setSession(user.id, chatId, "ie.confirm", data);
-  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ Confirm", "confirm:yes"), btn("✕ Cancel", "confirm:no")]]) });
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
 }
 
 async function ieStepDescriptionText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
@@ -419,7 +419,7 @@ async function ieConfirm(chatId: string, user: AuthUser, data: Record<string, un
       })
     );
     await clearSession(user.id, chatId);
-    await sendMessage(chatId, `✅ Saved — ${item.txnNo}`);
+    await sendMessage(chatId, `✅ သိမ်းပြီး — ${item.txnNo}`);
     notifyAuditFeed(user.businessId, incomeExpenseNotice({
       txnNo: item.txnNo, type: item.type, categoryName: item.categoryName ?? "—",
       amount: item.amount, currency: item.currency, createdByName: user.name,
@@ -427,7 +427,7 @@ async function ieConfirm(chatId: string, user: AuthUser, data: Record<string, un
     }), chatId);
     await showMenu(chatId, user);
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
 
@@ -437,16 +437,16 @@ async function ieConfirm(chatId: string, user: AuthUser, data: Record<string, un
 
 async function startTransfer(chatId: string, user: AuthUser) {
   const branchId = await defaultBranchId(user);
-  if (!branchId) return sendMessage(chatId, "No branch is available for your account.");
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
   const { rows } = await walletButtons(user.businessId, branchId);
-  if (rows.length < 2) return sendMessage(chatId, "You need at least two wallets to transfer between.");
+  if (rows.length < 2) return sendMessage(chatId, "ငွေလွှဲဖို့ wallet အနည်းဆုံး နှစ်ခု လိုပါတယ်။");
   await setSession(user.id, chatId, "tr.source", { branchId });
-  await sendMessage(chatId, "🔁 Transfer\n\nFrom which wallet?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  await sendMessage(chatId, "🔁 ငွေလွှဲ\n\nဘယ် wallet ကနေ လွှဲမလဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function trStepSource(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet) return sendMessage(chatId, "Wallet not found.");
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
   const { rows } = await walletButtons(user.businessId, data.branchId as string);
   // Every wallet button carries a callback; the guard is for the type, since a button may
   // now carry a link instead.
@@ -454,50 +454,50 @@ async function trStepSource(chatId: string, user: AuthUser, data: Record<string,
     (r) => !("callback_data" in r[0] && r[0].callback_data.endsWith(walletId))
   );
   await setSession(user.id, chatId, "tr.dest", { ...data, sourceWalletId: walletId, sourceName: wallet.name, sourceCurrency: wallet.currency });
-  await sendMessage(chatId, `From: ${wallet.name}\n\nTo which wallet?`, { replyMarkup: keyboard([...filtered, CANCEL_ROW]) });
+  await sendMessage(chatId, `မှ: ${wallet.name}\n\nဘယ် wallet ကို လွှဲမလဲ?`, { replyMarkup: keyboard([...filtered, CANCEL_ROW]) });
 }
 
 async function trStepDest(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet) return sendMessage(chatId, "Wallet not found.");
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
   await setSession(user.id, chatId, "tr.amount", { ...data, destWalletId: walletId, destName: wallet.name, destCurrency: wallet.currency });
-  await sendMessage(chatId, `To: ${wallet.name}\n\nEnter the amount (${data.sourceCurrency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
+  await sendMessage(chatId, `သို့: ${wallet.name}\n\nပမာဏ ရိုက်ထည့်ပါ (${data.sourceCurrency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 async function trStepAmountText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "Enter a valid positive amount:");
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ပမာဏ ရိုက်ထည့်ပါ:");
   const nextData = { ...data, amount: raw };
   if (data.sourceCurrency !== data.destCurrency) {
     await setSession(user.id, chatId, "tr.rate", nextData);
-    return sendMessage(chatId, `Exchange rate (${data.destCurrency} per 1 ${data.sourceCurrency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
+    return sendMessage(chatId, `ငွေလဲနှုန်း (1 ${data.sourceCurrency} = ? ${data.destCurrency}):`, { replyMarkup: keyboard([CANCEL_ROW]) });
   }
   await setSession(user.id, chatId, "tr.fee", nextData);
-  return sendMessage(chatId, "Fee, if any (or Skip):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+  return sendMessage(chatId, "လွှဲခ (မရှိရင် ကျော်ပါ):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
 }
 
 async function trStepRateText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "Enter a valid rate:");
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ နှုန်း ရိုက်ထည့်ပါ:");
   await setSession(user.id, chatId, "tr.fee", { ...data, rate: raw });
-  return sendMessage(chatId, "Fee, if any (or Skip):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+  return sendMessage(chatId, "လွှဲခ (မရှိရင် ကျော်ပါ):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
 }
 
 async function trAskConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>) {
   const lines = [
-    "Confirm transfer",
+    "ငွေလွှဲ အတည်ပြုပါ",
     `${data.sourceName} → ${data.destName}`,
-    `Amount: ${money(data.amount as string)} ${data.sourceCurrency}`,
-    data.rate ? `Rate: ${data.rate}` : undefined,
-    `Fee: ${money((data.fee as string) ?? "0")}`,
+    `ပမာဏ: ${money(data.amount as string)} ${data.sourceCurrency}`,
+    data.rate ? `နှုန်း: ${data.rate}` : undefined,
+    `လွှဲခ: ${money((data.fee as string) ?? "0")}`,
   ].filter(Boolean);
   await setSession(user.id, chatId, "tr.confirm", data);
-  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ Confirm", "confirm:yes"), btn("✕ Cancel", "confirm:no")]]) });
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
 }
 
 async function trStepFeeText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw)) return sendMessage(chatId, "Enter a valid fee amount, or Skip:");
+  if (!isValidDecimalString(raw)) return sendMessage(chatId, "မှန်ကန်တဲ့ လွှဲခ ရိုက်ထည့်ပါ (သို့) ကျော်ပါ:");
   await trAskConfirm(chatId, user, { ...data, fee: raw });
 }
 
@@ -519,7 +519,7 @@ async function trConfirm(chatId: string, user: AuthUser, data: Record<string, un
       })
     );
     await clearSession(user.id, chatId);
-    await sendMessage(chatId, `✅ Transferred — ${transfer.txnNo}`);
+    await sendMessage(chatId, `✅ လွှဲပြီး — ${transfer.txnNo}`);
     notifyAuditFeed(user.businessId, transferNotice({
       txnNo: transfer.txnNo,
       sourceName: data.sourceName as string, destName: data.destName as string,
@@ -529,7 +529,7 @@ async function trConfirm(chatId: string, user: AuthUser, data: Record<string, un
     }), chatId);
     await showMenu(chatId, user);
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
 
@@ -541,7 +541,7 @@ async function trConfirm(chatId: string, user: AuthUser, data: Record<string, un
 
 async function startCreditPayable(chatId: string, user: AuthUser, kind: "credit" | "payable") {
   const branchId = await defaultBranchId(user);
-  if (!branchId) return sendMessage(chatId, "No branch is available for your account.");
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
 
   const outstanding =
     kind === "credit"
@@ -558,18 +558,18 @@ async function startCreditPayable(chatId: string, user: AuthUser, kind: "credit"
           take: 15,
         });
   if (outstanding.length === 0) {
-    return sendMessage(chatId, kind === "credit" ? "No outstanding credit to collect." : "No outstanding payables to pay.");
+    return sendMessage(chatId, kind === "credit" ? "ကောက်ရန် အကြွေး မရှိပါ။" : "ပေးရန်ငွေ မရှိပါ။");
   }
 
   const rows = outstanding.map((r) => {
     const partyName = kind === "credit"
       ? (r as typeof outstanding[number] & { customer: { name: string } }).customer.name
       : (r as typeof outstanding[number] & { supplier: { name: string } }).supplier.name;
-    return [btn(`${partyName} — ${money(r.remainingAmount.toString())} ${r.currency} left`, `r:${r.id}`)];
+    return [btn(`${partyName} — ${money(r.remainingAmount.toString())} ${r.currency} ကျန်`, `r:${r.id}`)];
   });
   await setSession(user.id, chatId, `cp.pick`, { kind, branchId });
-  const label = kind === "credit" ? "🤝 Collect credit" : "📤 Pay payable";
-  await sendMessage(chatId, `${label}\n\nWhich one?`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  const label = kind === "credit" ? "🤝 အကြွေးကောက်" : "📤 ပေးရန်ငွေ ချေ";
+  await sendMessage(chatId, `${label}\n\nဘယ်တစ်ခုလဲ?`, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function cpStepPick(chatId: string, user: AuthUser, data: Record<string, unknown>, recordId: string) {
@@ -577,7 +577,7 @@ async function cpStepPick(chatId: string, user: AuthUser, data: Record<string, u
   const record = kind === "credit"
     ? await prisma.receivable.findUnique({ where: { id: recordId }, include: { customer: { select: { name: true } } } })
     : await prisma.payable.findUnique({ where: { id: recordId }, include: { supplier: { select: { name: true } } } });
-  if (!record || record.businessId !== user.businessId) return sendMessage(chatId, "Record not found. /menu to start over.");
+  if (!record || record.businessId !== user.businessId) return sendMessage(chatId, "စာရင်း မတွေ့ပါ။ /menu နှိပ်ပြီး ပြန်စပါ။");
   const partyName = kind === "credit"
     ? (record as typeof record & { customer: { name: string } }).customer.name
     : (record as typeof record & { supplier: { name: string } }).supplier.name;
@@ -587,33 +587,33 @@ async function cpStepPick(chatId: string, user: AuthUser, data: Record<string, u
   });
   await sendMessage(
     chatId,
-    `${partyName} — ${money(record.remainingAmount.toString())} ${record.currency} remaining\n\nHow much ${kind === "credit" ? "was collected" : "are you paying"}?`,
+    `${partyName} — ${money(record.remainingAmount.toString())} ${record.currency} ကျန်\n\n${kind === "credit" ? "ဘယ်လောက် ကောက်ရလဲ" : "ဘယ်လောက် ပေးမလဲ"}?`,
     { replyMarkup: keyboard([CANCEL_ROW]) }
   );
 }
 
 async function cpStepAmountText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "Enter a valid positive amount:");
-  if (toMinor(raw) > BigInt(data.remaining as string)) return sendMessage(chatId, `That's more than the ${money(data.remaining as string)} ${data.currency} remaining. Enter a smaller amount:`);
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ပမာဏ ရိုက်ထည့်ပါ:");
+  if (toMinor(raw) > BigInt(data.remaining as string)) return sendMessage(chatId, `ကျန်ငွေ ${money(data.remaining as string)} ${data.currency} ထက် များနေပါတယ်။ နည်းတဲ့ ပမာဏ ရိုက်ထည့်ပါ:`);
   const { rows } = await walletButtons(user.businessId, data.branchId as string, data.currency as string);
-  if (rows.length === 0) return sendMessage(chatId, `No ${data.currency} wallet found.`);
+  if (rows.length === 0) return sendMessage(chatId, `${data.currency} wallet မရှိပါ။`);
   await setSession(user.id, chatId, "cp.wallet", { ...data, amount: raw });
-  await sendMessage(chatId, "Which wallet?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  await sendMessage(chatId, "ဘယ် wallet လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function cpStepWallet(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet) return sendMessage(chatId, "Wallet not found.");
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
   const kind = data.kind as "credit" | "payable";
   const lines = [
-    `Confirm ${kind === "credit" ? "collection" : "payment"}`,
+    `${kind === "credit" ? "အကြွေးကောက်ခြင်း" : "ငွေပေးချေခြင်း"} အတည်ပြုပါ`,
     `${data.partyName} · ${data.txnNo}`,
-    `Amount: ${money(data.amount as string)} ${data.currency}`,
+    `ပမာဏ: ${money(data.amount as string)} ${data.currency}`,
     `Wallet: ${wallet.name}`,
   ];
   await setSession(user.id, chatId, "cp.confirm", { ...data, walletId, walletName: wallet.name });
-  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ Confirm", "confirm:yes"), btn("✕ Cancel", "confirm:no")]]) });
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
 }
 
 async function cpConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>) {
@@ -632,14 +632,14 @@ async function cpConfirm(chatId: string, user: AuthUser, data: Record<string, un
       await prisma.$transaction((tx) => payPayable(tx, { ...opts, payableId: data.recordId as string }));
     }
     await clearSession(user.id, chatId);
-    await sendMessage(chatId, `✅ Saved — ${data.txnNo}`);
+    await sendMessage(chatId, `✅ သိမ်းပြီး — ${data.txnNo}`);
     notifyAuditFeed(user.businessId, creditPayableNotice({
       kind, txnNo: data.txnNo as string, partyName: data.partyName as string,
       amount: opts.amount, currency: data.currency as string, createdByName: user.name,
     }), chatId);
     await showMenu(chatId, user);
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
 
@@ -650,48 +650,48 @@ async function cpConfirm(chatId: string, user: AuthUser, data: Record<string, un
 
 async function startNewCredit(chatId: string, user: AuthUser) {
   const branchId = await defaultBranchId(user);
-  if (!branchId) return sendMessage(chatId, "No branch is available for your account.");
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
   const customers = await prisma.contact.findMany({
     where: { businessId: user.businessId, type: "CUSTOMER", active: true, deletedAt: null },
     orderBy: { name: "asc" },
     take: 15,
   });
   const rows = customers.map((c) => [btn(c.name, `c:${c.id}`)]);
-  rows.push([btn("+ New customer", "c:__new__")]);
+  rows.push([btn("+ ဖောက်သည်အသစ်", "c:__new__")]);
   await setSession(user.id, chatId, "nc.customer", { branchId });
-  await sendMessage(chatId, "🆕 New credit\n\nWhich customer?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+  await sendMessage(chatId, "🆕 အကြွေးသစ်\n\nဘယ် ဖောက်သည်လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
 
 async function ncStepCustomerPick(chatId: string, user: AuthUser, data: Record<string, unknown>, customerId: string) {
   if (customerId === "__new__") {
     await setSession(user.id, chatId, "nc.customer_new", data);
-    return sendMessage(chatId, "Type the customer's name:", { replyMarkup: keyboard([CANCEL_ROW]) });
+    return sendMessage(chatId, "ဖောက်သည် နာမည် ရိုက်ထည့်ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
   }
   const customer = await prisma.contact.findUnique({ where: { id: customerId } });
-  if (!customer || customer.businessId !== user.businessId) return sendMessage(chatId, "Customer not found. /menu to start over.");
+  if (!customer || customer.businessId !== user.businessId) return sendMessage(chatId, "ဖောက်သည် မတွေ့ပါ။ /menu နှိပ်ပြီး ပြန်စပါ။");
   await setSession(user.id, chatId, "nc.amount", { ...data, customerId, customerName: customer.name, currency: customer.currency });
-  await sendMessage(chatId, `Customer: ${customer.name}\n\nHow much did they take on credit? (${customer.currency})`, {
+  await sendMessage(chatId, `ဖောက်သည်: ${customer.name}\n\nအကြွေး ဘယ်လောက် ယူလဲ? (${customer.currency})`, {
     replyMarkup: keyboard([CANCEL_ROW]),
   });
 }
 
 async function ncStepCustomerNewText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const name = text.trim();
-  if (!name) return sendMessage(chatId, "Name can't be empty. Try again:");
+  if (!name) return sendMessage(chatId, "နာမည် ဗလာ မဖြစ်ရပါ။ ပြန်ရိုက်ပါ:");
   const customer = await prisma.contact.create({
     data: { businessId: user.businessId, branchId: data.branchId as string, name, type: "CUSTOMER" },
   });
   await setSession(user.id, chatId, "nc.amount", { ...data, customerId: customer.id, customerName: customer.name, currency: customer.currency });
-  await sendMessage(chatId, `Customer: ${customer.name}\n\nHow much did they take on credit? (${customer.currency})`, {
+  await sendMessage(chatId, `ဖောက်သည်: ${customer.name}\n\nအကြွေး ဘယ်လောက် ယူလဲ? (${customer.currency})`, {
     replyMarkup: keyboard([CANCEL_ROW]),
   });
 }
 
 async function ncStepAmountText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
   const raw = text.trim().replace(/,/g, "");
-  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "Enter a valid positive amount:");
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ပမာဏ ရိုက်ထည့်ပါ:");
   await setSession(user.id, chatId, "nc.note", { ...data, amount: raw });
-  await sendMessage(chatId, "Note (or Skip):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+  await sendMessage(chatId, "မှတ်ချက် (မရှိရင် ကျော်ပါ):", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
 }
 
 /** Ask which wallet the cash was handed out from. Handing out cash is optional —
@@ -701,28 +701,28 @@ async function ncAskWallet(chatId: string, user: AuthUser, data: Record<string, 
   await setSession(user.id, chatId, "nc.wallet", data);
   await sendMessage(
     chatId,
-    "Which wallet did the cash come out of?\n\nPick a wallet only if you actually handed money over — it is deducted straight away. Choose \"No wallet\" for goods sold on credit.",
-    { replyMarkup: keyboard([...rows, [btn("⏭ No wallet (goods on credit)", "w:none")], CANCEL_ROW]) }
+    "ငွေသား ဘယ် wallet ကနေ ထွက်လဲ?\n\nငွေ တကယ် ထုတ်ပေးခဲ့မှသာ wallet ရွေးပါ — ချက်ချင်း နုတ်ပါမယ်။ ပစ္စည်း အကြွေးရောင်းတာဆိုရင် \"Wallet မသုံးပါ\" ကို ရွေးပါ။",
+    { replyMarkup: keyboard([...rows, [btn("⏭ Wallet မသုံးပါ (ပစ္စည်း အကြွေး)", "w:none")], CANCEL_ROW]) }
   );
 }
 
 async function ncStepWallet(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   if (walletId === "none") return ncAskConfirm(chatId, user, data);
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
-  if (!wallet || wallet.businessId !== user.businessId) return sendMessage(chatId, "Wallet not found.");
+  if (!wallet || wallet.businessId !== user.businessId) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
   await ncAskConfirm(chatId, user, { ...data, walletId, walletName: wallet.name });
 }
 
 async function ncAskConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>) {
   const lines = [
-    "Confirm new credit",
-    `Customer: ${data.customerName}`,
-    `Amount: ${money(data.amount as string)} ${data.currency}`,
-    data.walletName ? `Paid out from: ${data.walletName}` : "Paid out from: — (goods on credit, no cash moved)",
-    data.notes ? `Note: ${data.notes}` : undefined,
+    "အကြွေးသစ် အတည်ပြုပါ",
+    `ဖောက်သည်: ${data.customerName}`,
+    `ပမာဏ: ${money(data.amount as string)} ${data.currency}`,
+    data.walletName ? `ထုတ်ပေးတဲ့ wallet: ${data.walletName}` : "ထုတ်ပေးတဲ့ wallet: — (ပစ္စည်း အကြွေး၊ ငွေသား မထွက်ပါ)",
+    data.notes ? `မှတ်ချက်: ${data.notes}` : undefined,
   ].filter(Boolean);
   await setSession(user.id, chatId, "nc.confirm", data);
-  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ Confirm", "confirm:yes"), btn("✕ Cancel", "confirm:no")]]) });
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
 }
 
 async function ncStepNoteText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
@@ -749,7 +749,7 @@ async function ncConfirm(chatId: string, user: AuthUser, data: Record<string, un
       })
     );
     await clearSession(user.id, chatId);
-    await sendMessage(chatId, `✅ Saved — ${rec.txnNo}`);
+    await sendMessage(chatId, `✅ သိမ်းပြီး — ${rec.txnNo}`);
     notifyAuditFeed(user.businessId, newCreditNotice({
       txnNo: rec.txnNo, customerName: data.customerName as string,
       amount: rec.originalAmount, currency: rec.currency, createdByName: user.name,
@@ -757,7 +757,7 @@ async function ncConfirm(chatId: string, user: AuthUser, data: Record<string, un
     }), chatId);
     await showMenu(chatId, user);
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
 
@@ -769,28 +769,28 @@ async function ncConfirm(chatId: string, user: AuthUser, data: Record<string, un
  *  cancelling closes the job, so both stay in the app. */
 const BOT_REPAIR_MOVES = (from: string): RepairStatus[] => nextStatuses(from).filter((s) => s !== "DELIVERED" && s !== "CANCELLED");
 
-const statusText = (s: string) => `${REPAIR_STATUS_LABELS[s as RepairStatus] ?? s} (${REPAIR_STATUS_MM[s] ?? s})`;
+const statusText = (s: string) => REPAIR_STATUS_MM[s] ?? REPAIR_STATUS_LABELS[s as RepairStatus] ?? s;
 
 type BotRepairJob = NonNullable<Awaited<ReturnType<typeof findRepairJob>>>;
 
 async function startRepair(chatId: string, user: AuthUser) {
   await setSession(user.id, chatId, "rp.voucher", {});
-  await sendMessage(chatId, "🔧 Type the voucher number (e.g. MS0012):", { replyMarkup: keyboard([CANCEL_ROW]) });
+  await sendMessage(chatId, "🔧 Voucher နံပါတ် ရိုက်ထည့်ပါ (ဥပမာ MS0012):", { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 async function showRepairJob(chatId: string, user: AuthUser, job: BotRepairJob, heading?: string) {
   const moves = BOT_REPAIR_MOVES(job.status);
   const rows = [];
-  for (let i = 0; i < moves.length; i += 2) rows.push(moves.slice(i, i + 2).map((m) => btn(REPAIR_STATUS_LABELS[m], `rs:${job.id}:${m}`)));
-  rows.push([btn("✕ Close", "cancel")]);
+  for (let i = 0; i < moves.length; i += 2) rows.push(moves.slice(i, i + 2).map((m) => btn(REPAIR_STATUS_MM[m] ?? REPAIR_STATUS_LABELS[m], `rs:${job.id}:${m}`)));
+  rows.push([btn("✕ ပိတ်မည်", "cancel")]);
   const lines = [
     heading,
     `🔧 ${job.jobNo} · ${job.deviceBrand} ${job.deviceModel}`,
     job.customerName || job.customerPhone ? `👤 ${[job.customerName, job.customerPhone].filter(Boolean).join(" · ")}` : null,
-    `Problem: ${job.problem}`,
-    `Status: ${statusText(job.status)}`,
-    job.technicianName ? `Technician: ${job.technicianName}` : null,
-    moves.length ? "\nTap the status it is in now, or type another voucher number:" : "\nThis job is closed; it can only change in the app.",
+    `ပြဿနာ: ${job.problem}`,
+    `အခြေအနေ: ${statusText(job.status)}`,
+    job.technicianName ? `ပြင်သူ: ${job.technicianName}` : null,
+    moves.length ? "\nလက်ရှိ အခြေအနေကို နှိပ်ပါ (သို့) တခြား voucher နံပါတ် ရိုက်ပါ:" : "\nဒီ job ပိတ်ပြီးပါပြီ၊ app ထဲမှာပဲ ပြင်လို့ရပါတယ်။",
   ].filter(Boolean);
   // Stays ready for the next voucher number.
   await setSession(user.id, chatId, "rp.voucher", {});
@@ -801,16 +801,16 @@ async function rpFind(chatId: string, user: AuthUser, text: string) {
   const job = await findRepairJob(user, text);
   if (!job) {
     await setSession(user.id, chatId, "rp.voucher", {});
-    return sendMessage(chatId, `No repair with voucher ${text}. Check the number and type it again:`, { replyMarkup: keyboard([CANCEL_ROW]) });
+    return sendMessage(chatId, `Voucher ${text} နဲ့ ပြင်ဆင်မှု မရှိပါ။ နံပါတ် စစ်ပြီး ပြန်ရိုက်ပါ:`, { replyMarkup: keyboard([CANCEL_ROW]) });
   }
   return showRepairJob(chatId, user, job);
 }
 
 async function rpMove(chatId: string, user: AuthUser, jobId: string, to: string) {
   const before = await prisma.repairJob.findFirst({ where: { id: jobId, businessId: user.businessId, deletedAt: null, ...branchScope(user) } });
-  if (!before) return sendMessage(chatId, "That repair is no longer there.");
+  if (!before) return sendMessage(chatId, "ဒီ ပြင်ဆင်မှု မရှိတော့ပါ။");
   if (!BOT_REPAIR_MOVES(before.status).includes(to as RepairStatus)) {
-    return showRepairJob(chatId, user, before, `It is ${statusText(before.status)} now, so it cannot become ${statusText(to)} here.\n`);
+    return showRepairJob(chatId, user, before, `အခု ${statusText(before.status)} ဖြစ်နေလို့ ဒီမှာ ${statusText(to)} ပြောင်းလို့ မရပါ။\n`);
   }
   const job = await prisma.$transaction(async (tx) => {
     // A technician who moves a job nobody was given takes it, so it counts as theirs.
@@ -822,7 +822,7 @@ async function rpMove(chatId: string, user: AuthUser, jobId: string, to: string)
   notifyAuditFeed(user.businessId, repairStatusNotice({
     ...job, from: before.status, to: job.status, paidNow: 0n, createdByName: user.name,
   }), chatId);
-  return showRepairJob(chatId, user, job, `✅ ${job.jobNo} is now ${statusText(job.status)}.\n`);
+  return showRepairJob(chatId, user, job, `✅ ${job.jobNo} ကို ${statusText(job.status)} ပြောင်းပြီးပါပြီ။\n`);
 }
 
 /** This month so far for the technician whose bot this is, with what they have earned. */
@@ -830,15 +830,15 @@ async function showMyRepairs(chatId: string, user: AuthUser) {
   const month = todayBusinessDate().slice(0, 7);
   const { technicians } = await technicianPerformance(user.businessId, month);
   const mine = technicians.find((t) => t.userId === user.id) ?? technicians.find((t) => t.name && t.name === user.name.trim());
-  if (!mine) return showMenu(chatId, user, `📊 ${month}: no repairs under ${user.name} yet.`);
+  if (!mine) return showMenu(chatId, user, `📊 ${month}: ${user.name} အမည်နဲ့ ပြင်ဆင်မှု မရှိသေးပါ။`);
   const lines = [
     `📊 ${mine.name} · ${month}`,
-    `Taken in: ${mine.takenIn}`,
-    `Repaired: ${mine.repaired}`,
-    `Could not repair: ${mine.cannotRepair}`,
-    `In work now: ${mine.working}`,
-    `Avg days: ${mine.avgDays ?? "—"}`,
-    mine.userId ? `💰 Commission: ${fmtMoney(mine.commission.toString())}` : null,
+    `လက်ခံ: ${mine.takenIn}`,
+    `ပြင်ပြီး: ${mine.repaired}`,
+    `မပြင်နိုင်: ${mine.cannotRepair}`,
+    `ပြင်နေဆဲ: ${mine.working}`,
+    `ပျမ်းမျှ ရက်: ${mine.avgDays ?? "—"}`,
+    mine.userId ? `💰 ကော်မရှင်: ${fmtMoney(mine.commission.toString())}` : null,
   ].filter(Boolean);
   return showMenu(chatId, user, lines.join("\n"));
 }
@@ -904,23 +904,23 @@ export async function handleUpdate(update: TgUpdate, ownerUserId: string) {
   } catch (e) {
     // Whatever broke, the person gets an answer instead of a bot that went quiet.
     console.error("[telegram bot] update failed:", e);
-    await sendMessage(chatId, `⚠️ ${e instanceof ApiError ? e.message : "Something went wrong on our side."}\n\nPlease try again in a moment, or tap /menu.`);
+    await sendMessage(chatId, `⚠️ ${e instanceof ApiError ? e.message : "စနစ်မှာ အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}\n\nခဏနေ ပြန်ကြိုးစားပါ (သို့) /menu ကို နှိပ်ပါ။`);
   }
 }
 
 /** Said when a message is not what the bot is waiting for. */
 function helpText(user: AuthUser, repairOn: boolean): string {
-  const lines = ["🤔 I didn't catch that.", "", "Choose from the menu below."];
-  if (repairOn && can(user, "repair.update")) lines.push("Or type a repair voucher number, e.g. MS0012.");
+  const lines = ["🤔 နားမလည်ပါ။", "", "အောက်က menu ကနေ ရွေးပါ။"];
+  if (repairOn && can(user, "repair.update")) lines.push("(သို့) ပြင်ဆင်မှု voucher နံပါတ် ရိုက်ပါ၊ ဥပမာ MS0012။");
   return lines.join("\n");
 }
 
 async function handleMessage(ownerUserId: string, chatId: string, text: string) {
   const resolved = await resolveOwner(ownerUserId, chatId);
-  if (resolved.kind === "not_found") return sendMessage(chatId, "This bot isn't set up correctly. Contact the Mahar Mini POS admin.");
-  if (resolved.kind === "chat_mismatch") return sendMessage(chatId, "This bot is already linked to a different Telegram account. Unlink it in Mahar Mini POS first if this is you.");
+  if (resolved.kind === "not_found") return sendMessage(chatId, "ဒီ bot ကို မှန်မှန် မချိတ်ထားပါ။ Mahar Mini POS admin ကို ဆက်သွယ်ပါ။");
+  if (resolved.kind === "chat_mismatch") return sendMessage(chatId, "ဒီ bot ကို တခြား Telegram အကောင့်နဲ့ ချိတ်ထားပြီးပါပြီ။ သင်ဖြစ်ရင် Mahar Mini POS မှာ အရင် ဖြုတ်ပါ။");
   const { user, justLinked } = resolved;
-  if (justLinked) return showMenu(chatId, user, `✅ Linked as ${user.name} (${user.roleName}).\n\nQuick start:`);
+  if (justLinked) return showMenu(chatId, user, `✅ ${user.name} (${user.roleName}) အဖြစ် ချိတ်ပြီးပါပြီ။\n\nစတင်ရန်:`);
 
   const trimmed = text.trim();
   if (trimmed === "/start" || trimmed === "/menu" || trimmed === "/cancel") return showMenu(chatId, user);
@@ -933,17 +933,17 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
       return await rpFind(chatId, user, trimmed);
     }
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
     return;
   }
   if (!trimmed) {
     // A photo, sticker or voice note: the bot only reads text and buttons.
-    return sendMessage(chatId, "📝 I can only read text and buttons. Type it, or tap /menu.");
+    return sendMessage(chatId, "📝 စာနဲ့ ခလုတ်ကိုပဲ ဖတ်နိုင်ပါတယ်။ စာရိုက်ပါ (သို့) /menu ကို နှိပ်ပါ။");
   }
   if (!session) return showMenu(chatId, user, helpText(user, (await businessFeatures(user.businessId)).repair));
 
   const [flow, step] = session.step.split(".");
-  if (step === "saving") return sendMessage(chatId, "⏳ Still saving the last one, please wait…");
+  if (step === "saving") return sendMessage(chatId, "⏳ ခုနက စာရင်းကို သိမ်းနေဆဲပါ၊ ခဏစောင့်ပါ…");
   try {
     if (flow === "rp" && step === "voucher") return await rpFind(chatId, user, trimmed);
     if (flow === "bl") {
@@ -969,11 +969,11 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string) 
       if (step === "note") return ncStepNoteText(chatId, user, session.data, trimmed);
     }
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
     return;
   }
   // A flow is open and waiting on a button, not on typing.
-  return sendMessage(chatId, "👆 Please tap one of the buttons above, or Cancel to start over.", { replyMarkup: keyboard([CANCEL_ROW]) });
+  return sendMessage(chatId, "👆 အပေါ်က ခလုတ်တစ်ခုကို နှိပ်ပါ (သို့) ပြန်စဖို့ မလုပ်တော့ပါ ကို နှိပ်ပါ။", { replyMarkup: keyboard([CANCEL_ROW]) });
 }
 
 /** Every flow's Confirm step, as "<flow>.confirm". */
@@ -995,26 +995,26 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
   const data = cq.data ?? "";
   if (!chatId) return answerCallbackQuery(cq.id);
   // The small toast on the button is the first sign the tap arrived.
-  await answerCallbackQuery(cq.id, data === "confirm:yes" ? "⏳ Saving…" : undefined);
+  await answerCallbackQuery(cq.id, data === "confirm:yes" ? "⏳ သိမ်းနေသည်…" : undefined);
 
   const resolved = await resolveOwner(ownerUserId, chatId);
-  if (resolved.kind === "not_found") return sendMessage(chatId, "This bot isn't set up correctly. Contact the Mahar Mini POS admin.");
-  if (resolved.kind === "chat_mismatch") return sendMessage(chatId, "This bot is already linked to a different Telegram account. Unlink it in Mahar Mini POS first if this is you.");
+  if (resolved.kind === "not_found") return sendMessage(chatId, "ဒီ bot ကို မှန်မှန် မချိတ်ထားပါ။ Mahar Mini POS admin ကို ဆက်သွယ်ပါ။");
+  if (resolved.kind === "chat_mismatch") return sendMessage(chatId, "ဒီ bot ကို တခြား Telegram အကောင့်နဲ့ ချိတ်ထားပြီးပါပြီ။ သင်ဖြစ်ရင် Mahar Mini POS မှာ အရင် ဖြုတ်ပါ။");
   const { user, justLinked } = resolved;
-  if (justLinked) return showMenu(chatId, user, `✅ Linked as ${user.name} (${user.roleName}).\n\nQuick start:`);
+  if (justLinked) return showMenu(chatId, user, `✅ ${user.name} (${user.roleName}) အဖြစ် ချိတ်ပြီးပါပြီ။\n\nစတင်ရန်:`);
 
   if (data === "cancel") {
     await clearSession(ownerUserId, chatId);
-    return showMenu(chatId, user, "Cancelled.");
+    return showMenu(chatId, user, "မလုပ်တော့ပါ။");
   }
 
   if (data.startsWith("menu:")) {
     const key = data.slice(5);
     const perm = FLOW_REQUIRED_PERM[key];
-    if (perm && !can(user, perm)) return sendMessage(chatId, "You don't have permission for that.");
+    if (perm && !can(user, perm)) return sendMessage(chatId, "ဒါကို လုပ်ခွင့် မရှိပါ။");
     const feature = FLOW_FEATURE[key];
     if (feature && !(await businessFeatures(user.businessId))[feature]) {
-      return sendMessage(chatId, "This function is turned off in Mahar Mini POS Settings.");
+      return sendMessage(chatId, "ဒီ function ကို Mahar Mini POS Settings မှာ ပိတ်ထားပါတယ်။");
     }
     if (key === "income") return startIncomeExpense(chatId, user, "INCOME");
     if (key === "expense") return startIncomeExpense(chatId, user, "EXPENSE");
@@ -1031,24 +1031,24 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
 
   if (data.startsWith("rs:")) {
     const [, jobId, to] = data.split(":");
-    if (!can(user, "repair.update")) return sendMessage(chatId, "You don't have permission for that.");
-    if (!(await businessFeatures(user.businessId)).repair) return sendMessage(chatId, "This function is turned off in Mahar Mini POS Settings.");
+    if (!can(user, "repair.update")) return sendMessage(chatId, "ဒါကို လုပ်ခွင့် မရှိပါ။");
+    if (!(await businessFeatures(user.businessId)).repair) return sendMessage(chatId, "ဒီ function ကို Mahar Mini POS Settings မှာ ပိတ်ထားပါတယ်။");
     try {
       return await rpMove(chatId, user, jobId, to);
     } catch (e) {
-      return sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+      return sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
     }
   }
 
   const session = await getSession(ownerUserId, chatId);
   // A button from a flow that is finished or was cancelled.
-  if (!session) return showMenu(chatId, user, "⌛ That button has expired. Start again from the menu:");
+  if (!session) return showMenu(chatId, user, "⌛ ဒီခလုတ် သက်တမ်းကုန်ပါပြီ။ menu ကနေ ပြန်စပါ:");
   const [flow, step] = session.step.split(".");
-  if (step === "saving") return sendMessage(chatId, "⏳ Still saving, please wait…");
+  if (step === "saving") return sendMessage(chatId, "⏳ သိမ်းနေဆဲပါ၊ ခဏစောင့်ပါ…");
 
   if (data === "confirm:yes" && CONFIRM_STEP.test(session.step)) {
-    if (!(await claimConfirm(ownerUserId, chatId, session.step))) return sendMessage(chatId, "⏳ Already saving, please wait…");
-    await sendMessage(chatId, "⏳ Saving, please wait…");
+    if (!(await claimConfirm(ownerUserId, chatId, session.step))) return sendMessage(chatId, "⏳ သိမ်းနေပြီးသားပါ၊ ခဏစောင့်ပါ…");
+    await sendMessage(chatId, "⏳ သိမ်းနေပါတယ်၊ ခဏစောင့်ပါ…");
     try {
       if (flow === "bl") return await blConfirm(chatId, user, session.data);
       if (flow === "ie") return await ieConfirm(chatId, user, session.data);
@@ -1066,35 +1066,35 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
       if (step === "biller" && data.startsWith("b:")) return blStepBiller(chatId, user, session.data, data.slice(2));
       if (step === "kind" && data.startsWith("k:")) return blStepKind(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return blStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
     if (flow === "ie") {
       if (step === "wallet" && data.startsWith("w:")) return ieStepWallet(chatId, user, session.data, data.slice(2));
       if (step === "category" && data.startsWith("cat:")) return ieStepCategoryPick(chatId, user, session.data, data.slice(4));
       if (step === "description" && data === "skip") return ieStepDescriptionSkip(chatId, user, session.data);
-      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
     if (flow === "tr") {
       if (step === "source" && data.startsWith("w:")) return trStepSource(chatId, user, session.data, data.slice(2));
       if (step === "dest" && data.startsWith("w:")) return trStepDest(chatId, user, session.data, data.slice(2));
       if (step === "fee" && data === "skip") return trStepFeeSkip(chatId, user, session.data);
-      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
     if (flow === "cp") {
       if (step === "pick" && data.startsWith("r:")) return cpStepPick(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return cpStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
     if (flow === "nc") {
       if (step === "customer" && data.startsWith("c:")) return ncStepCustomerPick(chatId, user, session.data, data.slice(2));
       if (step === "note" && data === "skip") return ncStepNoteSkip(chatId, user, session.data);
       if (step === "wallet" && data.startsWith("w:")) return ncStepWallet(chatId, user, session.data, data.slice(2));
-      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "Cancelled.");
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
   } catch (e) {
-    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "Something went wrong."}`);
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
     return;
   }
   // A button from an earlier step of this flow.
-  return sendMessage(chatId, "⌛ That button is from an earlier step. Use the latest message, or Cancel.", { replyMarkup: keyboard([CANCEL_ROW]) });
+  return sendMessage(chatId, "⌛ ဒီခလုတ်က အရင်အဆင့်က ဖြစ်ပါတယ်။ နောက်ဆုံး message ကို သုံးပါ (သို့) မလုပ်တော့ပါ ကို နှိပ်ပါ။", { replyMarkup: keyboard([CANCEL_ROW]) });
 }

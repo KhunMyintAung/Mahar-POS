@@ -126,32 +126,32 @@ export async function buildDailyReport(businessId: string, date: string): Promis
     }),
   ]);
   const t = day.totals;
-  const parts = ([["sales", "Sales"], ["service", "Service"], ["topup", "Top-up"]] as const).filter(([k]) => day.shown[k]);
+  const parts = ([["sales", "အရောင်း"], ["service", "ဝန်ဆောင်မှု"], ["topup", "ဖုန်းဘေ"]] as const).filter(([k]) => day.shown[k]);
   const col = (label: string, v: bigint) => `   • ${label}: ${money(v)}`;
 
   const lines = [
-    `📊 Daily report · ${business?.name ?? ""}`,
+    `📊 နေ့စဉ် အစီရင်ခံစာ · ${business?.name ?? ""}`,
     `📅 ${date}`,
     "",
-    "💰 Income",
+    "💰 ဝင်ငွေ",
     ...parts.map(([k, label]) => col(label, t.inc[k])),
-    col("Other income", t.inc.other),
-    `   = Total income: ${money(t.inc.total)} MMK`,
+    col("အခြား ဝင်ငွေ", t.inc.other),
+    `   = ဝင်ငွေ စုစုပေါင်း: ${money(t.inc.total)} MMK`,
     "",
-    "💸 Expense",
+    "💸 ထွက်ငွေ",
     ...parts.map(([k, label]) => col(label, t.exp[k])),
-    col("Other expense", t.exp.other),
-    `   = Total expense: ${money(t.exp.total)} MMK`,
+    col("အခြား ထွက်ငွေ", t.exp.other),
+    `   = ထွက်ငွေ စုစုပေါင်း: ${money(t.exp.total)} MMK`,
     "",
-    `${t.net >= 0n ? "📈 Net profit" : "📉 Net loss"}: ${money(t.net)} MMK`,
+    `${t.net >= 0n ? "📈 အသားတင် အမြတ်" : "📉 အသားတင် အရှုံး"}: ${money(t.net)} MMK`,
     "",
-    `🔧 Repairs taken in: ${repairsIn} · finished: ${repairsDone}`,
+    `🔧 ပြင်ဆင်မှု လက်ခံ: ${repairsIn} · ပြီး: ${repairsDone}`,
     "",
-    "👛 Wallets now:",
+    "👛 လက်ရှိ Wallet များ:",
     ...wallets.map((w) => `   • ${w.name}: ${money(w.currentBalance)} ${w.currency}`),
   ];
-  if (summary.credit.outstanding > 0n) lines.push("", `🧾 Customers owe: ${money(summary.credit.outstanding)} MMK`);
-  if (summary.payable.outstanding > 0n) lines.push(`🏷️ We owe suppliers: ${money(summary.payable.outstanding)} MMK`);
+  if (summary.credit.outstanding > 0n) lines.push("", `🧾 ဖောက်သည် အကြွေး: ${money(summary.credit.outstanding)} MMK`);
+  if (summary.payable.outstanding > 0n) lines.push(`🏷️ ပေးသွင်းသူ ပေးရန်: ${money(summary.payable.outstanding)} MMK`);
   return lines.join("\n");
 }
 
