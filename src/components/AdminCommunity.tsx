@@ -91,7 +91,7 @@ export function AdminCommunity() {
         <div className="grid gap-2 sm:grid-cols-2">
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Donor / shop name" className={input} />
           <input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} inputMode="numeric" placeholder="Amount (Ks)" className={input} />
-          <input value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} placeholder="KPay / Wave / USDT" className={input} />
+          <input value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })} placeholder="KPay / Wave / PromptPay" className={input} />
           <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} />
           <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Note (optional)" className={cn(input, "sm:col-span-2")} />
         </div>

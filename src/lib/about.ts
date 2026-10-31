@@ -16,8 +16,6 @@ export interface AboutContent {
   copyright: string;
   kbzName: string;
   kbzPayload: string;
-  cryptoName: string;
-  cryptoPayload: string;
   promptPayName: string;
   promptPayPayload: string;
 }
@@ -40,8 +38,6 @@ export const DEFAULT_ABOUT: AboutContent = {
   copyright: "",
   kbzName: "Khun Myint Aung (*******4052)",
   kbzPayload: "hQZLQlpQYXlhQE8C8FACEFECMTFXFgl3g5QFLSYGEBAfnwgEAQGfJAEwF519efdc3ff89=",
-  cryptoName: "0x63179f1c1b2e04c189b2fb0c8081904110d5d54a",
-  cryptoPayload: "0x63179f1c1b2e04c189b2fb0c8081904110d5d54a",
   promptPayName: "MR. KHUN MYINT AUNG",
   promptPayPayload: "00020101021229370016A0000006770101110113006694407024653037645802TH6304DEAC",
 };

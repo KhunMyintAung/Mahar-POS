@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 
 /** The donations listed on the About page, kept by hand in the admin portal (a donation comes
- *  in by KPay or crypto, outside the app, so there is nothing to read it from). */
+ *  in by KPay or PromptPay, outside the app, so there is nothing to read it from). */
 export const DONATIONS_KEY = "donations";
 
 export interface Donation {

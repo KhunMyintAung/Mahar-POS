@@ -178,7 +178,6 @@ export default function AboutPage() {
     ? []
     : [
         { title: "For Local KBZ Pay", subtitle: "Myanmar local donation", name: about.kbzName, payload: about.kbzPayload },
-        { title: "For World Wide Crypto", subtitle: "USDT Deposit · BNB Smart Chain (BEP20)", name: about.cryptoName, payload: about.cryptoPayload },
         { title: "For Thailand PromptPay", subtitle: "Thai QR Payment", name: about.promptPayName, payload: about.promptPayPayload },
       ].filter((item) => item.payload);
 
