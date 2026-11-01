@@ -9,9 +9,8 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
-import { SaleReceipt, SaleReceiptSlip, type ReceiptData } from "@/components/SaleReceipt";
-import { printSaleReceipt } from "@/lib/slipPrint";
-import { warrantyUntil } from "@/lib/warranty";
+import { type ReceiptData } from "@/components/SaleReceipt";
+import { receiptForSale, SaleReprintDialog } from "@/components/SaleReprint";
 import { PageHeader } from "@/components/PageHeader";
 
 interface Sale {
@@ -24,9 +23,6 @@ interface Sale {
     imeis?: string[];
   }[];
 }
-
-/** Amounts come back in minor units; the slip prints whole kyat, as at the till. */
-const major = (minor: string) => Number(minor) / 100;
 
 export default function SalesPage() {
   const [sales, setSales] = useState<Sale[] | null>(null);
@@ -68,42 +64,11 @@ export default function SalesPage() {
     }
   }
 
-  /** Rebuild the slip from what was saved. Change given is not stored, so it is left off. */
   function openReprint(s: Sale) {
     setReceipt(receiptFor(s));
   }
 
-  function receiptFor(s: Sale): ReceiptData {
-    const total = major(s.total);
-    const paid = major(s.paidAmount);
-    return {
-      txnNo: s.txnNo,
-      at: s.createdAt,
-      shopName: me?.business?.name ?? "Mahar Mini POS",
-      shopLogo: me?.business?.logoUrl ?? undefined,
-      shopPhone: me?.business?.phone ?? undefined,
-      shopAddress: me?.business?.address ?? undefined,
-      customerName: s.customerName,
-      cashierName: s.cashierName,
-      lines: s.lines.map((l) => ({
-        name: l.item.name,
-        quantity: l.quantity,
-        unitPrice: major(l.unitPrice),
-        warranty: l.warranty ?? undefined,
-        // Counted from when the sale was made, so a reprint carries the same end date.
-        warrantyUntil: l.warranty ? warrantyUntil(new Date(s.createdAt), l.warrantyDays)?.toISOString() : undefined,
-        warrantyCondition: l.warrantyCondition ?? undefined,
-        note: l.note ?? undefined,
-        imeis: l.imeis?.length ? l.imeis : undefined,
-      })),
-      subtotal: major(s.subtotal),
-      discount: major(s.discount),
-      total,
-      paid,
-      change: 0,
-      credit: Math.max(0, total - paid),
-    };
-  }
+  const receiptFor = (s: Sale) => receiptForSale(s, me?.business);
 
   if (!sales) return <Spinner />;
 
@@ -202,26 +167,7 @@ export default function SalesPage() {
 
       <WarrantyCardDialog receipt={cardFor} onClose={() => setCardFor(null)} />
 
-      {/* Closing clears the slip, so a later print of another page does not pick it up. */}
-      <Modal open={Boolean(receipt)} onClose={() => setReceipt(null)} title={`Reprint ${receipt?.txnNo ?? ""}`}>
-        {receipt && (
-          <div className="space-y-3">
-            {/* What will print, on a paper-white strip the width of the roll. */}
-            <div className="max-h-[55vh] overflow-y-auto rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-              <div className="mx-auto w-[58mm] max-w-full bg-white py-2 shadow">
-                <SaleReceiptSlip data={receipt} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => receipt && printSaleReceipt(receipt)}>
-                <Printer size={16} className="mr-1 inline" />Print slip
-              </Button>
-              <Button onClick={() => setReceipt(null)}>Close</Button>
-            </div>
-          </div>
-        )}
-      </Modal>
-      {receipt && <SaleReceipt data={receipt} />}
+      <SaleReprintDialog receipt={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus, Printer } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
@@ -11,6 +11,8 @@ import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import Link from "next/link";
+import { receiptForSale, SaleReprintDialog, type SavedSale } from "@/components/SaleReprint";
+import type { ReceiptData } from "@/components/SaleReceipt";
 
 interface Item {
   id: string; txnNo: string; originalAmount: string; paidAmount: string; remainingAmount: string;
@@ -21,19 +23,40 @@ interface Item {
   sale?: { saleNo: string; date: string; items: { name: string; quantity: number; lineTotal: string }[] } | null;
 }
 
-/** What a debt is for: the items of the sale it came from, else its reference or note. */
-function DebtFor({ it }: { it: Item }) {
-  const what = it.sale
-    ? it.sale.items.map((l) => `${l.name} ×${l.quantity}`).join(", ")
-    : it.reference || (it.notes?.startsWith("Auto-created") ? "" : it.notes) || "";
+/** What a debt is for. A POS sale's number opens its items on a tap, beside a Reprint of
+ *  its slip; any other debt shows its reference or note. */
+function DebtFor({ it, onReprint }: { it: Item; onReprint?: (saleNo: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const note = it.sale ? "" : it.reference || (it.notes?.startsWith("Auto-created") ? "" : it.notes) || "";
   return (
-    <div className="mt-0.5 space-y-0.5 text-xs text-gray-500">
-      <div>
-        {it.creditDate ?? it.payableDate}
-        {it.sale && <> · {it.sale.saleNo}</>}
-        {it.customer?.address && <> · 📍 {it.customer.address}</>}
+    <div className="mt-0.5 space-y-1 text-xs text-gray-500">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span>{it.creditDate ?? it.payableDate}</span>
+        {it.customer?.address && <span>📍 {it.customer.address}</span>}
       </div>
-      {what && <div className="text-gray-700 dark:text-gray-300">{what}</div>}
+      {it.sale && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => setOpen(!open)} className="inline-flex items-center gap-0.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+            {it.sale.saleNo} <ChevronDown size={12} className={cn("transition", open && "rotate-180")} />
+          </button>
+          {onReprint && (
+            <button type="button" onClick={() => onReprint(it.sale!.saleNo)} className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-2 py-1 font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200">
+              <Printer size={12} />Reprint
+            </button>
+          )}
+        </div>
+      )}
+      {open && it.sale && (
+        <ul className="rounded-md bg-gray-50 px-2 py-1.5 text-gray-700 dark:bg-gray-800/60 dark:text-gray-300">
+          {it.sale.items.map((l, i) => (
+            <li key={i} className="flex justify-between gap-3">
+              <span className="min-w-0">{l.name} ×{l.quantity}</span>
+              <span className="shrink-0 tabular-nums">{fmtMoney(l.lineTotal)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {note && <div className="text-gray-700 dark:text-gray-300">{note}</div>}
     </div>
   );
 }
@@ -55,7 +78,20 @@ function CreditContent() {
   const [day, setDay] = useState(todayDate);
   const [allDates, setAllDates] = useState(false);
   const { push } = useToast();
-  const { hasPerm, defaultBranchId } = useAuth();
+  const { hasPerm, defaultBranchId, me } = useAuth();
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+
+  /** The slip of the sale a debt came from, rebuilt from the saved sale. */
+  async function reprint(saleNo: string) {
+    try {
+      const d = await api<{ sales: SavedSale[] }>(`/api/v1/sales?q=${encodeURIComponent(saleNo)}&pageSize=5`);
+      const sale = d.sales.find((s) => s.txnNo === saleNo);
+      if (!sale) return push(`${saleNo} not found`, "error");
+      setReceipt(receiptForSale(sale, me?.business));
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    }
+  }
 
   // loan: money handed out (to a friend, a walk-in customer) — it leaves a wallet now.
   // contactId "new": someone not saved yet, by name and phone.
@@ -169,7 +205,7 @@ function CreditContent() {
                       {isRec && it.customer?.id ? <Link href={`/customers/${it.customer.id}`} className="text-blue-600">{it.customer.name}</Link> : (isRec ? it.customer : it.supplier)?.name}
                     </div>
                     <div className="mt-0.5 text-xs text-gray-500">{it.txnNo}</div>
-                    <DebtFor it={it} />
+                    <DebtFor it={it} onReprint={isRec && hasPerm("sale.view") ? reprint : undefined} />
                   </div>
                   <Badge status={it.status} />
                 </div>
@@ -207,7 +243,7 @@ function CreditContent() {
                     <div className="font-medium">
                       {isRec && it.customer?.id ? <Link href={`/customers/${it.customer.id}`} className="text-blue-600 hover:underline">{it.customer.name}</Link> : (isRec ? it.customer : it.supplier)?.name}
                     </div>
-                    <DebtFor it={it} />
+                    <DebtFor it={it} onReprint={isRec && hasPerm("sale.view") ? reprint : undefined} />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(it.originalAmount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-green-600">{fmtMoney(it.paidAmount)}</td>
@@ -307,6 +343,7 @@ function CreditContent() {
           </div>
         </div>
       </Modal>
+      <SaleReprintDialog receipt={receipt} onClose={() => setReceipt(null)} />
     </div>
   );
 }
