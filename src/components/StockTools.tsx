@@ -10,6 +10,7 @@ import { ImeiAdjustFields } from "@/components/ImeiTools";
 import { useAuth } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
 import { partModelCodes, repairFitsPart } from "@/lib/partMatch";
+import { useLanguage } from "@/components/LanguageProvider";
 
 /** Stock tools for the Items page (the Stock page merged into it): the Adjust form — what
  *  happened, how many, IMEIs for a tracked phone, the repair job or walk-in a part went to —
@@ -150,6 +151,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
   const canLinkRepairs = featureEnabled("repair") && hasPerm("repair.view");
+  const language = useLanguage();
 
   // Jobs a part can still go into: anything not yet handed back or cancelled.
   useEffect(() => {
@@ -199,8 +201,31 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
     }
   }
 
+  const reason = STOCK_REASONS.find((r) => r.key === adjust.reasonType)!;
+  const qty = adjustTarget?.trackSerial ? imeiQuantity() : parseInt(adjust.quantity);
+  const needsWords = reason.key === "CORRECTION" || reason.key === "ADJUSTMENT";
+  // English says Save; Myanmar says which way the stock goes.
+  const way = reason.direction === "either" ? (adjustTarget?.trackSerial ? adjustWay : qty < 0 ? "out" : "in") : reason.direction;
+  const saveLabel = language !== "mm" ? "Save" : way === "out" ? "အထွက်မှတ်မည်" : "အဝင်မှတ်မည်";
+
   return (
-    <Modal open={!!adjustTarget} onClose={onClose} title={`Adjust ${adjustTarget?.name}`}>
+    <Modal
+      open={!!adjustTarget}
+      onClose={onClose}
+      title={`Adjust ${adjustTarget?.name}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            variant={reason.direction === "in" ? "primary" : "danger"}
+            onClick={doAdjust}
+            disabled={busy || !adjustBranchId || !qty || (needsWords && !adjust.reason.trim())}
+          >
+            {busy ? "Saving…" : saveLabel}
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-3">
         <Select label="Branch" value={adjustBranchId} onChange={(e) => setAdjustBranchId(e.target.value)}>
           {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
@@ -231,11 +256,6 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
             ))}
           </div>
         </div>
-        {(() => {
-          const reason = STOCK_REASONS.find((r) => r.key === adjust.reasonType)!;
-          const qty = adjustTarget?.trackSerial ? imeiQuantity() : parseInt(adjust.quantity);
-          const needsWords = reason.key === "CORRECTION" || reason.key === "ADJUSTMENT";
-          return (
             <>
               {adjustTarget?.trackSerial ? (
                 <>
@@ -281,19 +301,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
                 value={adjust.reason}
                 onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })}
               />
-              <div className="sticky -bottom-4 -mx-4 flex justify-end gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:-bottom-5 sm:-mx-5 sm:px-5">
-                <Button variant="secondary" onClick={onClose}>Cancel</Button>
-                <Button
-                  variant={reason.direction === "in" ? "primary" : "danger"}
-                  onClick={doAdjust}
-                  disabled={busy || !adjustBranchId || !qty || (needsWords && !adjust.reason.trim())}
-                >
-                  {reason.direction === "out" && qty ? `Take out ${Math.abs(qty)}` : reason.direction === "in" && qty ? `Put back ${Math.abs(qty)}` : "Adjust stock"}
-                </Button>
-              </div>
             </>
-          );
-        })()}
       </div>
     </Modal>
   );

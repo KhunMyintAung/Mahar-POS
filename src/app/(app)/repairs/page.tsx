@@ -663,7 +663,20 @@ export default function RepairsPage() {
         {modelSuggestions.map((m) => <option key={m} value={m} />)}
       </datalist>
 
-      <Modal open={showNew} onClose={() => setShowNew(false)} title="Take in a device" wide>
+      <Modal
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        title="Take in a device"
+        wide
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
+            <Button onClick={create} disabled={busy || !form.deviceBrand.trim() || !form.deviceModel.trim() || !form.problem.trim()}>
+              {busy ? "Saving…" : "Take it in"}
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Customer name" value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
@@ -709,12 +722,6 @@ export default function RepairsPage() {
               <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
-            <Button onClick={create} disabled={busy || !form.deviceBrand.trim() || !form.deviceModel.trim() || !form.problem.trim()}>
-              {busy ? "Saving…" : "Take it in"}
-            </Button>
-          </div>
         </div>
       </Modal>
 

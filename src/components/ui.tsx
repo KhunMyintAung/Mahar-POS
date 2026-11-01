@@ -117,8 +117,10 @@ export function Badge({ status }: { status: string }) {
   );
 }
 
-export function Modal({ open, onClose, title, children, wide }: {
-  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean;
+/** `footer` holds the form's buttons: it stays at the foot of the dialog while a long form
+ *  scrolls above it, so Save is never below the screen. */
+export function Modal({ open, onClose, title, children, wide, footer }: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean; footer?: ReactNode;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -130,18 +132,25 @@ export function Modal({ open, onClose, title, children, wide }: {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
       <div
         className={cn(
-          "max-h-[calc(100dvh-1rem)] w-full overflow-y-auto rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-gray-900 sm:max-h-[92vh] sm:rounded-xl sm:p-5",
+          "flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl bg-white shadow-xl dark:bg-gray-900 sm:max-h-[92vh] sm:rounded-xl",
           wide ? "sm:max-w-3xl" : "sm:max-w-lg"
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="min-w-0 pr-2 text-base font-semibold text-gray-900 dark:text-gray-100 sm:text-lg">{title}</h2>
-          <button onClick={onClose} className="min-h-10 min-w-10 rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
-            <X size={20} />
-          </button>
+        <div className={cn("min-h-0 flex-1 overflow-y-auto p-4 sm:p-5", footer ? "pb-3 sm:pb-3" : "pb-[max(1rem,env(safe-area-inset-bottom))]")}>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="min-w-0 pr-2 text-base font-semibold text-gray-900 dark:text-gray-100 sm:text-lg">{title}</h2>
+            <button onClick={onClose} className="min-h-10 min-w-10 rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <X size={20} />
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
+        {footer && (
+          <div className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-gray-800 sm:px-5">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

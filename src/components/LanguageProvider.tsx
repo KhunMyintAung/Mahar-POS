@@ -1555,3 +1555,9 @@ export function LanguageSwitch({ className }: { className?: string }) {
     </div>
   );
 }
+
+/** The language shown, for the few labels whose Myanmar is not a word-for-word match of
+ *  the English (one English "Save" that has to say what it saves in Myanmar). */
+export function useLanguage(): Language {
+  return useContext(LanguageContext).language;
+}
