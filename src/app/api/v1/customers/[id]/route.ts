@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
+import { creditSalesFor } from "@/lib/creditSales";
 
 export const GET = withAuth("customer.view", async ({ user, params }) => {
   const contact = await prisma.contact.findUnique({ where: { id: params.id } });
@@ -24,8 +25,10 @@ export const GET = withAuth("customer.view", async ({ user, params }) => {
       _sum: { remainingAmount: true },
     }),
   ]);
+  const sales = await creditSalesFor(receivables.map((r) => r.id));
   return json({
-    contact, receivables,
+    contact,
+    receivables: receivables.map((r) => ({ ...r, sale: sales.get(r.id) ?? null })),
     currentReceivable: recAgg._sum.remainingAmount ?? 0n,
     currentPayable: payAgg._sum.remainingAmount ?? 0n,
   });
@@ -36,6 +39,7 @@ const patchSchema = z.object({
   phone: z.string().optional(),
   telegram: z.string().optional(),
   address: z.string().optional(),
+  location: z.string().max(500).optional(),
   type: z.enum(["CUSTOMER", "SUPPLIER", "AGENT", "CREDITOR", "DEBTOR", "OTHER"]).optional(),
   creditLimit: z.string().optional(),
   notes: z.string().optional(),

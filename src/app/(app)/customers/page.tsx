@@ -8,6 +8,7 @@ import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } f
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { LocationField } from "@/components/LocationField";
 
 interface Contact { id: string; name: string; phone?: string; type: string; active: boolean; notes?: string }
 
@@ -36,7 +37,7 @@ export default function CustomersPage() {
   const { push } = useToast();
   const { hasPerm } = useAuth();
 
-  const [form, setForm] = useState({ name: "", phone: "", telegram: "", address: "", type: "CUSTOMER", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", telegram: "", address: "", location: "", type: "CUSTOMER", notes: "" });
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "100" });
@@ -57,7 +58,7 @@ export default function CustomersPage() {
       await api("/api/v1/customers", { method: "POST", body: form });
       push("Contact created");
       setShowNew(false);
-      setForm({ name: "", phone: "", telegram: "", address: "", type: "CUSTOMER", notes: "" });
+      setForm({ name: "", phone: "", telegram: "", address: "", location: "", type: "CUSTOMER", notes: "" });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -111,6 +112,7 @@ export default function CustomersPage() {
           </div>
           <Input label="Telegram" value={form.telegram} onChange={(e) => setForm({ ...form, telegram: e.target.value })} />
           <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          <LocationField value={form.location} onChange={(location) => setForm({ ...form, location })} />
           <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>

@@ -10,12 +10,34 @@ import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { DayPicker, todayDate } from "@/components/DayPicker";
+import Link from "next/link";
+import { mapLink } from "@/lib/mapLink";
 
 interface Item {
   id: string; txnNo: string; originalAmount: string; paidAmount: string; remainingAmount: string;
   currency: string; dueDate?: string; status: string; aging: string; notes?: string;
-  customer?: { name: string; phone?: string }; supplier?: { name: string; phone?: string };
-  creditDate?: string; payableDate?: string; category?: string;
+  customer?: { id: string; name: string; phone?: string; location?: string }; supplier?: { name: string; phone?: string };
+  creditDate?: string; payableDate?: string; category?: string; reference?: string;
+  /** The POS sale the debt came from, with what was bought. */
+  sale?: { saleNo: string; date: string; items: { name: string; quantity: number; lineTotal: string }[] } | null;
+}
+
+/** What a debt is for: the items of the sale it came from, else its reference or note. */
+function DebtFor({ it }: { it: Item }) {
+  const what = it.sale
+    ? it.sale.items.map((l) => `${l.name} ×${l.quantity}`).join(", ")
+    : it.reference || (it.notes?.startsWith("Auto-created") ? "" : it.notes) || "";
+  const map = mapLink(it.customer?.location);
+  return (
+    <div className="mt-0.5 space-y-0.5 text-xs text-gray-500">
+      <div>
+        {it.creditDate ?? it.payableDate}
+        {it.sale && <> · {it.sale.saleNo}</>}
+        {map && <> · <a href={map} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">📍 Map</a></>}
+      </div>
+      {what && <div className="text-gray-700 dark:text-gray-300">{what}</div>}
+    </div>
+  );
 }
 interface Contact { id: string; name: string; type: string }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
@@ -145,8 +167,11 @@ function CreditContent() {
               <Card key={it.id} className="space-y-3 p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate font-semibold">{(isRec ? it.customer : it.supplier)?.name}</div>
+                    <div className="truncate font-semibold">
+                      {isRec && it.customer?.id ? <Link href={`/customers/${it.customer.id}`} className="text-blue-600">{it.customer.name}</Link> : (isRec ? it.customer : it.supplier)?.name}
+                    </div>
                     <div className="mt-0.5 text-xs text-gray-500">{it.txnNo}</div>
+                    <DebtFor it={it} />
                   </div>
                   <Badge status={it.status} />
                 </div>
@@ -180,7 +205,12 @@ function CreditContent() {
               {items.map((it) => (
                 <tr key={it.id}>
                   <td className="px-3 py-2 text-xs">{it.txnNo}</td>
-                  <td className="px-3 py-2 font-medium">{(isRec ? it.customer : it.supplier)?.name}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium">
+                      {isRec && it.customer?.id ? <Link href={`/customers/${it.customer.id}`} className="text-blue-600 hover:underline">{it.customer.name}</Link> : (isRec ? it.customer : it.supplier)?.name}
+                    </div>
+                    <DebtFor it={it} />
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(it.originalAmount)}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-green-600">{fmtMoney(it.paidAmount)}</td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtMoney(it.remainingAmount)}</td>

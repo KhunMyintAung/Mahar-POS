@@ -516,7 +516,7 @@ export default function PosPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* On a wide screen the items stay in view beside the cart, as tall as it, and the
             grid scrolls inside: down to the bottom of the screen, never stopping short. */}
-        <div className="min-w-0 space-y-3 lg:sticky lg:top-3 lg:col-span-3 lg:flex lg:max-h-[calc(100dvh-1.5rem)] lg:flex-col lg:self-start">
+        <div className="min-w-0 space-y-3 lg:sticky lg:top-3 lg:col-span-3 lg:flex lg:max-h-[calc(100dvh-4.5rem)] lg:flex-col lg:self-start">
           <div className="grid shrink-0 gap-2 sm:grid-cols-[1fr_12rem]">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-3 text-gray-400" />
@@ -623,8 +623,9 @@ export default function PosPage() {
         <div id="pos-cart" className="scroll-mt-4" />
         {/* Desktop: the cart is a panel the height of the screen. Lines and payment scroll
             inside it, and the total with the Review button stays pinned at its foot, so the
-            cashier never scrolls the page to see what the sale comes to. */}
-        <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-3 lg:max-h-[calc(100dvh-1.5rem)]">
+            cashier never scrolls the page to see what the sale comes to. Its height leaves
+            room for the top bar above it, or the button would start below the screen. */}
+        <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-3 lg:max-h-[calc(100dvh-4.5rem)]">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2.5 dark:border-gray-800">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <ShoppingCart size={16} className="text-blue-600" />Cart

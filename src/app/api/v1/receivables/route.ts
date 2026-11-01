@@ -6,6 +6,7 @@ import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { todayBusinessDate, isValidBusinessDate } from "@/lib/dates";
 import { agingBucket, createReceivable } from "@/services/creditService";
+import { creditSalesFor } from "@/lib/creditSales";
 
 export const GET = withAuth("credit.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -26,7 +27,7 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
     prisma.receivable.findMany({
       where: listWhere,
       orderBy: { createdAt: "desc" },
-      include: { customer: { select: { name: true, phone: true } }, payments: true },
+      include: { customer: { select: { id: true, name: true, phone: true, location: true } }, payments: true },
       skip, take,
     }),
     prisma.receivable.count({ where: listWhere }),
@@ -35,7 +36,8 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
       _sum: { remainingAmount: true },
     }),
   ]);
-  const withAging = items.map((r) => ({ ...r, aging: agingBucket(r.dueDate, today) }));
+  const sales = await creditSalesFor(items.map((r) => r.id));
+  const withAging = items.map((r) => ({ ...r, aging: agingBucket(r.dueDate, today), sale: sales.get(r.id) ?? null }));
   return json({ items: withAging, total, page, pageSize, totalOutstanding: agg._sum.remainingAmount ?? 0n });
 });
 

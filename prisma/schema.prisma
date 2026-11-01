@@ -342,6 +342,8 @@ model Contact {
   phone       String?
   telegram    String?
   address     String?
+  /// Where the customer is: a Google Maps link, or "lat,lng" from the phone's location.
+  location    String?
   type        String    @default("CUSTOMER") // CUSTOMER SUPPLIER AGENT CREDITOR DEBTOR OTHER
   currency    String    @default("MMK")
   creditLimit BigInt    @default(0)
