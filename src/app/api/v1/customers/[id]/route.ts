@@ -39,7 +39,6 @@ const patchSchema = z.object({
   phone: z.string().optional(),
   telegram: z.string().optional(),
   address: z.string().optional(),
-  location: z.string().max(500).optional(),
   type: z.enum(["CUSTOMER", "SUPPLIER", "AGENT", "CREDITOR", "DEBTOR", "OTHER"]).optional(),
   creditLimit: z.string().optional(),
   notes: z.string().optional(),

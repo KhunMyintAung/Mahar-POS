@@ -11,12 +11,11 @@ import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import Link from "next/link";
-import { mapLink } from "@/lib/mapLink";
 
 interface Item {
   id: string; txnNo: string; originalAmount: string; paidAmount: string; remainingAmount: string;
   currency: string; dueDate?: string; status: string; aging: string; notes?: string;
-  customer?: { id: string; name: string; phone?: string; location?: string }; supplier?: { name: string; phone?: string };
+  customer?: { id: string; name: string; phone?: string; address?: string }; supplier?: { name: string; phone?: string };
   creditDate?: string; payableDate?: string; category?: string; reference?: string;
   /** The POS sale the debt came from, with what was bought. */
   sale?: { saleNo: string; date: string; items: { name: string; quantity: number; lineTotal: string }[] } | null;
@@ -27,13 +26,12 @@ function DebtFor({ it }: { it: Item }) {
   const what = it.sale
     ? it.sale.items.map((l) => `${l.name} ×${l.quantity}`).join(", ")
     : it.reference || (it.notes?.startsWith("Auto-created") ? "" : it.notes) || "";
-  const map = mapLink(it.customer?.location);
   return (
     <div className="mt-0.5 space-y-0.5 text-xs text-gray-500">
       <div>
         {it.creditDate ?? it.payableDate}
         {it.sale && <> · {it.sale.saleNo}</>}
-        {map && <> · <a href={map} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">📍 Map</a></>}
+        {it.customer?.address && <> · 📍 {it.customer.address}</>}
       </div>
       {what && <div className="text-gray-700 dark:text-gray-300">{what}</div>}
     </div>

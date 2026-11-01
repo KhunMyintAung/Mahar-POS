@@ -27,7 +27,7 @@ export const GET = withAuth("credit.view", async ({ req, user }) => {
     prisma.receivable.findMany({
       where: listWhere,
       orderBy: { createdAt: "desc" },
-      include: { customer: { select: { id: true, name: true, phone: true, location: true } }, payments: true },
+      include: { customer: { select: { id: true, name: true, phone: true, address: true } }, payments: true },
       skip, take,
     }),
     prisma.receivable.count({ where: listWhere }),
