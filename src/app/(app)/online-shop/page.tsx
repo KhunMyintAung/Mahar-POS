@@ -385,7 +385,8 @@ function SettingsTab() {
   }, [push]);
 
   if (!cfg) return <Spinner />;
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  // On the live app the link to share is the shorter maharpos.shop address, which shows the same page.
+  const origin = typeof window === "undefined" ? "" : window.location.hostname === "app.maharpos.shop" ? "https://maharpos.shop" : window.location.origin;
   const link = `${origin}/shop/${cfg.slug}`;
 
   async function save() {
@@ -437,7 +438,7 @@ function SettingsTab() {
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-950/40">
           <span className="min-w-0 flex-1 truncate font-mono text-xs text-blue-700 dark:text-blue-300">{link}</span>
           <Button size="sm" variant="secondary" onClick={() => navigator.clipboard?.writeText(link).then(() => push("Link copied"))}><Copy size={14} className="mr-1 inline" />Copy</Button>
-          <a href={`/shop/${cfg.slug}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-lg px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40"><ExternalLink size={14} className="mr-1" />Open</a>
+          <a href={link} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center rounded-lg px-2.5 text-xs font-medium text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40"><ExternalLink size={14} className="mr-1" />Open</a>
         </div>
       )}
 
