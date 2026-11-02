@@ -4,7 +4,7 @@ import type { AuthUser } from "./auth";
 import { toMinor, isValidDecimalString } from "./money";
 import { fmtMoney } from "./format";
 import { todayBusinessDate } from "./dates";
-import { createIncomeExpenseEntry } from "@/services/incomeExpenseService";
+import { createIncomeExpenseEntry, recordFloatExpense } from "@/services/incomeExpenseService";
 import { createTransfer } from "@/services/walletService";
 import { collectReceivable, payPayable, createReceivable } from "@/services/creditService";
 import { recordBillerTxn } from "@/services/billerService";
@@ -310,8 +310,32 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
       }),
       chatId
     );
+    // Bought float with cash: ask, as the web app does, whether the cash goes into expense.
+    if (txn.kind === "TOPUP" && txn.cashAmount > 0n && txn.walletId) {
+      await setSession(user.id, chatId, "bl.expense", { txnId: txn.id, txnNo: txn.txnNo, cash: txn.cashAmount.toString(), billerName: data.billerName });
+      await sendMessage(
+        chatId,
+        `ဘေဝယ်ငွေ ${fmtMoney(txn.cashAmount)} ကို ထွက်ငွေ (Daily Bill Expense) ထဲ ထည့်မလား?\n\nငွေက ဒီဝယ်ယူမှုနဲ့ wallet ထဲက ထွက်ပြီးပါပြီ — ထွက်ငွေ စာရင်းမှာ မှတ်ရုံပဲ ဖြစ်လို့ နှစ်ခါ မနှုတ်ပါ။`,
+        { replyMarkup: keyboard([[btn("✅ ထွက်ငွေထဲ ထည့်မည်", "fx:yes"), btn("မထည့်ပါ", "fx:no")]]) }
+      );
+      return;
+    }
     await showMenu(chatId, user);
   } catch (e) {
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
+  }
+}
+
+/** "Add to expense" after buying float: records the purchase as Daily Bill Expense, once. */
+async function blAddExpense(chatId: string, user: AuthUser, data: Record<string, unknown>) {
+  if (!(await claimConfirm(user.id, chatId, "bl.expense"))) return sendMessage(chatId, "⏳ သိမ်းနေပြီးသားပါ၊ ခဏစောင့်ပါ…");
+  try {
+    await prisma.$transaction((tx) => recordFloatExpense(tx, { businessId: user.businessId, userId: user.id, billerTxnId: String(data.txnId) }));
+    await clearSession(user.id, chatId);
+    notifyAuditFeed(user.businessId, `💸 ထွက်ငွေ — ${fmtMoney(BigInt(String(data.cash)))} · Daily Bill Expense\nဘေဝယ် ${data.billerName ?? ""} (${data.txnNo})\n👤 ${user.name}`, chatId);
+    await showMenu(chatId, user, `✅ ${fmtMoney(BigInt(String(data.cash)))} ကို ထွက်ငွေထဲ ထည့်ပြီးပါပြီ။`);
+  } catch (e) {
+    await prisma.telegramSession.updateMany({ where: { ownerUserId: user.id, chatId, step: "bl.saving" }, data: { step: "bl.expense" } });
     await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
   }
 }
@@ -1217,6 +1241,11 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
       if (step === "kind" && data.startsWith("k:")) return blStepKind(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return blStepWallet(chatId, user, session.data, data.slice(2));
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
+      if (step === "expense" && data === "fx:yes") return blAddExpense(chatId, user, session.data);
+      if (step === "expense" && data === "fx:no") {
+        await clearSession(ownerUserId, chatId);
+        return showMenu(chatId, user, "ထွက်ငွေထဲ မထည့်ပါ။");
+      }
     }
     if (flow === "ie") {
       if (step === "wallet" && data.startsWith("w:")) return ieStepWallet(chatId, user, session.data, data.slice(2));
