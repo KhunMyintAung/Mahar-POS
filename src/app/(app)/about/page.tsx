@@ -182,6 +182,7 @@ export default function AboutPage() {
       ].filter((item) => item.payload);
 
   const links = [
+    { label: "Manual", value: "User manual · အသုံးပြုနည်း", href: "/manual" },
     { label: "Facebook", value: "My Choice My Life", href: externalUrl(about.facebook) },
     { label: "TikTok", value: about.tiktok, href: tiktokUrl(about.tiktok) },
     { label: "Telegram", value: about.telegram, href: telegramUrl(about.telegram) },
