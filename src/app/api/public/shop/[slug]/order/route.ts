@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z, ZodError } from "zod";
-import { prisma } from "@/lib/prisma";
 import { clientIp } from "@/lib/client-ip";
-import { nextNumber } from "@/lib/sequence";
 import { allowOrder, publicShop } from "@/lib/onlineShop";
-import { notifyAuditFeed, onlineOrderNotice } from "@/lib/telegramNotify";
+import { placeOnlineOrder } from "@/lib/onlineOrder";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +18,7 @@ const schema = z.object({
 
 const reply = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
-/** A customer's order from the Online Shop. Prices and stock are read here, never taken
- *  from the browser, so the order is always at the shop's own prices. */
+/** A customer's order from the Online Shop page. */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const ip = clientIp(req.headers);
@@ -36,29 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
   const shop = await publicShop(slug);
   if (!shop) return reply({ ok: false, error: "This shop is not taking orders now" }, 404);
 
-  const byId = new Map(shop.items.map((i) => [i.id, i]));
-  const wanted = new Map<string, number>();
-  for (const l of body.lines) wanted.set(l.itemId, (wanted.get(l.itemId) ?? 0) + l.quantity);
-  const lines: { itemId: string; name: string; quantity: number; unitPrice: bigint }[] = [];
-  for (const [itemId, quantity] of wanted) {
-    const item = byId.get(itemId);
-    if (!item) return reply({ ok: false, error: "An item in your cart is no longer sold online. Please refresh." }, 409);
-    if (quantity > item.stock) return reply({ ok: false, error: `Only ${item.stock} of ${item.name} left` }, 409);
-    lines.push({ itemId, name: item.name, quantity, unitPrice: item.price });
-  }
-  const total = lines.reduce((t, l) => t + l.unitPrice * BigInt(l.quantity), 0n);
-
-  const order = await prisma.$transaction(async (tx) => {
-    const orderNo = await nextNumber(tx, shop.business.id, "ONLINE_ORDER", (n) => `ORD-${String(n).padStart(5, "0")}`);
-    return tx.onlineOrder.create({
-      data: {
-        businessId: shop.business.id, orderNo, customerName: body.customerName, customerPhone: body.customerPhone,
-        address: body.address || null, note: body.note || null, total,
-        lines: { create: lines },
-      },
-      select: { orderNo: true },
-    });
-  });
-  notifyAuditFeed(shop.business.id, onlineOrderNotice({ ...body, orderNo: order.orderNo, lines, total }));
-  return reply({ ok: true, orderNo: order.orderNo, total: total.toString() });
+  const result = await placeOnlineOrder(shop, body);
+  if (!result.ok) return reply({ ok: false, error: result.error }, result.status);
+  return reply({ ok: true, orderNo: result.orderNo, total: result.total.toString() });
 }
