@@ -13,6 +13,7 @@
  */
 
 import { pageCss, printableMm, SLIP_LAYOUT_MM, slipZoom } from "@/lib/printSettings";
+import { cloudPrintActive, sendToCloudPrinter } from "@/lib/cloudPrintSend";
 
 const FRAME_ID = "print-frame";
 
@@ -67,6 +68,11 @@ export async function printReceipt() {
 /** Print one element, such as an on-screen preview, through the same isolated frame. */
 export async function printElement(slip: Element) {
   if (typeof window === "undefined") return;
+  if (cloudPrintActive()) {
+    // The station opens the app's stylesheets from the same site, so the links still work.
+    await sendToCloudPrinter(document.title, frameDocument(slip));
+    return;
+  }
   document.getElementById(FRAME_ID)?.remove();
   const frame = document.createElement("iframe");
   frame.id = FRAME_ID;

@@ -6,19 +6,36 @@ import { Button, Card, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { getPaperWidth, setPaperWidth, type PaperWidth } from "@/lib/printSettings";
+import { cloudPrintOnThisPhone, isPhoneDevice, setCloudPrintOnThisPhone } from "@/lib/cloudPrintSend";
+import Link from "next/link";
 
 /** Settings → Printing: which roll this device's receipt printer takes, with a test slip
  *  that shows whether the print reaches both edges. */
 export function PrinterPaperCard() {
   const [width, setWidth] = useState<PaperWidth>(58);
-  const { me, phoneShop } = useAuth();
+  // Cloud print: whether this is a phone, and whether it sends slips to the counter printer.
+  const [phone, setPhone] = useState(false);
+  const [cloudOn, setCloudOn] = useState(true);
+  const { me, phoneShop, hasPerm } = useAuth();
   const { push } = useToast();
+  const cloudShop = me?.cloudPrint ?? false;
 
   // Read after mount: the choice lives in this browser, which the server cannot see.
   useEffect(() => {
-    const timer = window.setTimeout(() => setWidth(getPaperWidth()), 0);
+    const timer = window.setTimeout(() => {
+      setWidth(getPaperWidth());
+      setPhone(isPhoneDevice());
+      setCloudOn(cloudPrintOnThisPhone());
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  function toggleCloud() {
+    const next = !cloudOn;
+    setCloudPrintOnThisPhone(next);
+    setCloudOn(next);
+    push(next ? "Slips go to the counter printer" : "Slips print on this phone's own printer");
+  }
 
   function choose(next: PaperWidth) {
     setPaperWidth(next);
@@ -63,6 +80,25 @@ export function PrinterPaperCard() {
         </Button>
         <p className="text-xs text-gray-500">In the print window choose the printer and keep Margins on Default and Scale on 100%. Allow pop-ups for this site if the print window does not open.</p>
       </div>
+
+      {cloudShop && phone && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+          <div>
+            <div className="text-sm font-semibold">Counter printer (Cloud Print)</div>
+            <p className="mt-1 text-xs text-gray-500">
+              {cloudOn
+                ? "On: Print sends the slip to the shop's XP-80C (80mm). ဖုန်းကနေ Print နှိပ်ရင် ဆိုင်ရဲ့ printer ကနေ ထွက်ပါမယ်။"
+                : "Off: slips print on this phone's own printer, at the paper size above."}
+            </p>
+          </div>
+          <Button variant={cloudOn ? "primary" : "secondary"} onClick={toggleCloud}>{cloudOn ? "On" : "Off"}</Button>
+        </div>
+      )}
+      {cloudShop && !phone && hasPerm("settings.manage") && (
+        <p className="text-xs text-gray-500">
+          Phones print on the counter printer through the <Link href="/print-station" className="font-medium text-blue-600 hover:underline">print station</Link>. Keep it open on the PC the printer is attached to.
+        </p>
+      )}
 
     </Card>
   );

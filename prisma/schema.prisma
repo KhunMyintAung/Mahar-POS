@@ -991,3 +991,25 @@ model Feedback {
 
   @@index([shown, createdAt])
 }
+
+/// A slip a phone sent to the shop's counter printer (cloud print). The print station page,
+/// open on the PC the printer hangs off, takes each one in turn and prints it there.
+/// Only shops listed in CLOUD_PRINT_BUSINESS_IDS can send them; old rows are cleared after a day.
+model PrintJob {
+  id         String    @id @default(uuid())
+  businessId String
+  userId     String
+  /// The slip's name in the station's list, such as the invoice or voucher number.
+  title      String
+  /// The whole slip as a page of its own, styles included.
+  html       String
+  /// QUEUED, PRINTING (a station took it), PRINTED or FAILED.
+  status     String    @default("QUEUED")
+  error      String?
+  claimedAt  DateTime?
+  printedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([businessId, status, createdAt])
+  @@index([createdAt])
+}

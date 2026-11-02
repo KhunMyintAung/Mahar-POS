@@ -2,6 +2,7 @@ import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { parseModuleAccess } from "@/lib/modules";
 import { appEdition } from "@/lib/edition";
+import { cloudPrintEnabled } from "@/lib/cloudPrint";
 
 export const GET = withAuth(null, async ({ user }) => {
   // The shop's own details, so a printed slip can carry them. Anyone signed in already
@@ -34,5 +35,6 @@ export const GET = withAuth(null, async ({ user }) => {
     }
   }
 
-  return json({ user, business, branches, modules, edition: appEdition() });
+  // Whether this shop may send phone slips to its counter printer (CLOUD_PRINT_BUSINESS_IDS).
+  return json({ user, business, branches, modules, edition: appEdition(), cloudPrint: cloudPrintEnabled(user.businessId) });
 });

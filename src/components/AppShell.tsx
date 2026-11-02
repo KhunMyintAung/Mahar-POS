@@ -12,7 +12,8 @@ import {
   Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
 } from "lucide-react";
 import { api } from "@/lib/client";
-import { ToastProvider, cn } from "./ui";
+import { ToastProvider, cn, useToast } from "./ui";
+import { CLOUD_PRINT_EVENT, setCloudPrintAllowed, type CloudPrintNotice } from "@/lib/cloudPrintSend";
 import { PwaInstall } from "./PwaInstall";
 import { SoundToggle } from "./SoundToggle";
 import { ThemeToggle } from "./ThemeToggle";
@@ -37,6 +38,22 @@ interface Me {
     category: string;
   };
   edition: "FULL" | "PLAY";
+  /** This shop's phones send slips to its counter printer (lib/cloudPrint.ts). */
+  cloudPrint?: boolean;
+}
+
+/** The outcome of a slip a phone sent to the counter printer, as a toast. */
+function CloudPrintNotices() {
+  const { push } = useToast();
+  useEffect(() => {
+    const onNotice = (e: Event) => {
+      const { ok, message } = (e as CustomEvent<CloudPrintNotice>).detail;
+      push(message, ok ? "success" : "error");
+    };
+    window.addEventListener(CLOUD_PRINT_EVENT, onNotice);
+    return () => window.removeEventListener(CLOUD_PRINT_EVENT, onNotice);
+  }, [push]);
+  return null;
 }
 
 const AuthCtx = createContext<{
@@ -184,6 +201,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (me && blockedModulePath) router.replace("/");
   }, [blockedModulePath, me, router]);
 
+  useEffect(() => {
+    setCloudPrintAllowed(me?.cloudPrint ?? false);
+  }, [me]);
+
   if (loading || !me) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -274,6 +295,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       }}
     >
       <ToastProvider>
+        <CloudPrintNotices />
         <div className="flex min-h-screen">
           {/* Desktop sidebar */}
           {/* Pinned to the screen and scrolled on its own, so the last items (Settings,

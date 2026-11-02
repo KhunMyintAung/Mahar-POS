@@ -6,6 +6,8 @@
  *  phone with a 58mm Bluetooth printer and a till PC with an 80mm XP-80C can share a shop.
  */
 
+import { cloudPrintActive } from "@/lib/cloudPrintSend";
+
 export type PaperWidth = 58 | 80;
 
 const KEY = "mahar.paperWidth";
@@ -33,20 +35,26 @@ export function setPaperWidth(width: PaperWidth) {
   }
 }
 
+/** The roll the slip will come out on. A phone sending to the shop's counter printer
+ *  (cloud print) prints on the XP-80C's 80mm, whatever paper its own printer takes. */
+export function targetPaperWidth(): PaperWidth {
+  return cloudPrintActive() ? 80 : getPaperWidth();
+}
+
 /** How wide the slip itself prints: inside the margins on 80mm, edge to edge on 58mm. */
-export function printableMm(width: PaperWidth = getPaperWidth()): number {
+export function printableMm(width: PaperWidth = targetPaperWidth()): number {
   return width === 80 ? 80 - 2 * PAGE_MARGIN_MM : 58;
 }
 
 /** How much the 58mm slip is scaled to fill that width. */
-export function slipZoom(width: PaperWidth = getPaperWidth()): number {
+export function slipZoom(width: PaperWidth = targetPaperWidth()): number {
   return printableMm(width) / SLIP_LAYOUT_MM;
 }
 
 /** The print page rules. 80mm names the paper size and its margins, as the multishop app
  *  does. 58mm keeps margin 0 and no size: Android's print view ignored a 58mm size and
  *  printed the slip small in the corner of a full page. */
-export function pageCss(width: PaperWidth = getPaperWidth()): string {
+export function pageCss(width: PaperWidth = targetPaperWidth()): string {
   return width === 80
     ? `@page{size:80mm auto;margin:${PAGE_MARGIN_MM}mm}`
     : "@page{margin:0}";

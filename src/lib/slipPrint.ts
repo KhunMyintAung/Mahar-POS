@@ -14,7 +14,8 @@ import type { ReceiptData } from "@/components/SaleReceipt";
 import type { RepairVoucherData } from "@/components/RepairVoucher";
 import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
 import { DEFAULT_REPAIR_VOUCHER } from "@/lib/repairVoucherSettings";
-import { getPaperWidth } from "@/lib/printSettings";
+import { targetPaperWidth } from "@/lib/printSettings";
+import { cloudPrintActive, sendToCloudPrinter } from "@/lib/cloudPrintSend";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -37,6 +38,8 @@ const when = (iso: string) =>
 /** Opens the print window. Call it straight from the click; a window opened later, after
  *  an await, is blocked as a popup. */
 export function openPrintWindow(): Window | null {
+  // A phone sending to the counter printer has no print view to open.
+  if (cloudPrintActive()) return null;
   const popup = window.open("", "_blank", "width=430,height=760");
   if (popup) {
     popup.document.write('<!doctype html><html><body style="font-family:Arial;padding:30px;text-align:center">Preparing slip…</body></html>');
@@ -45,7 +48,11 @@ export function openPrintWindow(): Window | null {
   return popup;
 }
 
-function printWindow(targetWindow: Window | null, html: string): boolean {
+function printWindow(targetWindow: Window | null, html: string, title: string): boolean {
+  if (cloudPrintActive()) {
+    void sendToCloudPrinter(title, html);
+    return true;
+  }
   const popup = targetWindow || window.open("", "_blank", "width=430,height=760");
   if (!popup) return false;
   popup.document.open();
@@ -54,7 +61,7 @@ function printWindow(targetWindow: Window | null, html: string): boolean {
   return true;
 }
 
-const paper = () => (getPaperWidth() === 58 ? "58mm" : "80mm");
+const paper = () => (targetPaperWidth() === 58 ? "58mm" : "80mm");
 
 /** Prints once the slip (and its logo and QR) has loaded. With closeAfter, the window
  *  closes itself once the print dialog is done, on a computer. A phone returns from print()
@@ -124,14 +131,15 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
     <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div>${sale.discount > 0 ? `<div><span>Discount</span><b>${money(sale.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div>${sale.paid !== sale.total || sale.change > 0 ? `<div><span>Paid</span><b>${money(sale.paid)}</b></div>` : ""}${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
     <div class="footer">Thank you.</div>
     ${autoPrint()}</body></html>`;
-  return printWindow(targetWindow, html);
+  return printWindow(targetWindow, html, sale.txnNo);
 }
 
 /** The repair voucher, as the multishop app prints it, with this app's QR to the customer's
  *  status page, its "paid" stamp and the shop's own terms from Settings. */
 export async function printRepairVoucher(repair: RepairVoucherData, targetWindow: Window | null = null): Promise<boolean> {
+  const cloud = cloudPrintActive();
   const popup = targetWindow ?? openPrintWindow();
-  if (!popup) return false;
+  if (!popup && !cloud) return false;
   let qr = "";
   if (repair.trackUrl) {
     try {
@@ -161,5 +169,5 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
     <div class="footer">${receipt ? "ကျေးဇူးတင်ပါသည် 🙏" : terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
     ${receipt ? "" : `<div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>`}
     ${autoPrint(true)}</body></html>`;
-  return printWindow(popup, html);
+  return printWindow(popup, html, repair.jobNo);
 }

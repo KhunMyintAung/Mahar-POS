@@ -36,6 +36,8 @@ services:
       DEFAULT_TIMEZONE: Asia/Yangon
       DEFAULT_CURRENCY: MMK
       REDIS_URL: redis://redis:6379
+      # Shops whose phones send slips to their counter printer (comma-separated business ids).
+      CLOUD_PRINT_BUSINESS_IDS: ${CLOUD_PRINT_BUSINESS_IDS:-}
     expose:
       - "3000"
 
