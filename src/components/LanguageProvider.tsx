@@ -1351,6 +1351,18 @@ const MM: Record<string, string> = {
   "Hand back": "ဖုန်းပြန်ပေးမည်",
   "This repair was cancelled. Hand it back from the Repairs page if needed.": "ဤ Repair ကို ပယ်ဖျက်ထားသည်။ လိုအပ်ပါက Repair စာမျက်နှာမှ ပြန်ပေးပါ။",
   "Handing a phone back takes money, which your account cannot do.": "ဖုန်းပြန်ပေးရာတွင် ငွေယူရသဖြင့် သင့်အကောင့်ဖြင့် မလုပ်နိုင်ပါ။",
+  "Cover photo": "ဆိုင်မျက်နှာဖုံး ပုံ",
+  "No cover photo": "ဆိုင်ပုံ မထည့်ရသေးပါ",
+  "Change photo": "ပုံ ပြောင်းမည်",
+  "Cover photo saved": "ဆိုင်ပုံ သိမ်းပြီး",
+  "A photo of the shop front or your best products, shown across the top of the shop page.": "ဆိုင်မျက်နှာစာ (သို့) ပစ္စည်းကောင်းများ၏ ပုံ — Shop စာမျက်နှာ ထိပ်ဆုံးတွင် ပြမည်။",
+  "Google Maps link": "Google Maps link",
+  "Empty: the map button uses the location saved in Settings.": "မထည့်ပါက Settings တွင် သိမ်းထားသော ဆိုင်တည်နေရာကို သုံးမည်။",
+  "Empty: the map button searches for the shop's address.": "မထည့်ပါက ဆိုင်လိပ်စာဖြင့် မြေပုံပေါ်တွင် ရှာပေးမည်။",
+  "Paste the link from Google Maps → Share, so customers can find the shop.": "ဖောက်သည်များ ဆိုင်ကို ရှာတွေ့စေရန် Google Maps → Share မှ link ကို ထည့်ပါ။",
+  "Links on the shop page": "Shop စာမျက်နှာရှိ Link များ",
+  "Game Top-up link": "ဂိမ်းဖြည့်ငွေ (Game Top-up) link",
+  "The shop page shows a Game Top-up button that opens this link. Empty: no button.": "Shop စာမျက်နှာတွင် ဂိမ်းဖြည့်ငွေ ခလုတ် ပြပြီး ဤ link ကို ဖွင့်မည်။ မထည့်ပါက ခလုတ် မပြပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

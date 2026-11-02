@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, MapPin, Minus, Phone, Plus, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, Gamepad2, MapPin, Minus, Navigation, Phone, Plus, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
 import { fmtMoney } from "@/lib/format";
 import { cn } from "@/components/ui";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
@@ -11,9 +11,22 @@ import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
  *  Myanmar first, for the shop's own customers. */
 
 interface ShopItem { id: string; name: string; description: string; category: string; price: string; stock: number; images: string[]; model: string; variant: string }
-interface ShopInfo { name: string; logo: string; address: string; phone: string; intro: string; delivery: string; payment: string }
+interface ShopLink { kind: "facebook" | "messenger" | "telegram" | "viber" | "tiktok"; href: string }
+interface ShopInfo {
+  name: string; logo: string; address: string; phone: string; intro: string; delivery: string; payment: string;
+  cover: string; mapHref: string; links: ShopLink[]; gameTopupUrl: string;
+}
 
 const imageUrl = (id: string) => `/api/public/item-image/${id}`;
+/** Each site's own name and colour, so a customer knows the button at a glance. */
+const LINK_STYLE: Record<ShopLink["kind"], { label: string; className: string }> = {
+  facebook: { label: "Facebook", className: "bg-[#1877F2]" },
+  messenger: { label: "Messenger", className: "bg-[#0084FF]" },
+  telegram: { label: "Telegram", className: "bg-[#229ED9]" },
+  viber: { label: "Viber", className: "bg-[#7360F2]" },
+  tiktok: { label: "TikTok", className: "bg-black" },
+};
+const chip = "flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-medium";
 const field = "w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
 
 export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo; items: ShopItem[] }) {
@@ -60,6 +73,12 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
     <main className="min-h-dvh bg-gray-50 pb-28 text-gray-900">
       {/* Shop header */}
       <header className="bg-white px-4 pb-4 pt-5 shadow-sm">
+        {shop.cover && (
+          <div className="-mx-4 -mt-5 mb-4 sm:mx-auto sm:mt-0 sm:max-w-5xl">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the shop's own cover route */}
+            <img src={shop.cover} alt={shop.name} className="aspect-[2/1] w-full object-cover sm:aspect-[3/1] sm:rounded-2xl" />
+          </div>
+        )}
         <div className="mx-auto flex max-w-5xl items-center gap-3">
           {shop.logo
             // eslint-disable-next-line @next/next/no-img-element -- the shop's own logo route
@@ -74,7 +93,32 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
           )}
         </div>
         {shop.address && <p className="mx-auto mt-2 flex max-w-5xl items-start gap-1.5 text-xs text-gray-500"><MapPin size={13} className="mt-0.5 shrink-0" />{shop.address}</p>}
+        {(shop.mapHref || shop.links.length > 0) && (
+          <div className="mx-auto mt-3 flex max-w-5xl gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+            {shop.mapHref && (
+              <a href={shop.mapHref} target="_blank" rel="noopener noreferrer" className={cn(chip, "border border-gray-300 text-gray-700")}><Navigation size={15} className="text-red-500" />ဆိုင်တည်နေရာ</a>
+            )}
+            {shop.links.map((l) => (
+              <a key={l.kind} href={l.href} {...(l.href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})} className={cn(chip, "text-white", LINK_STYLE[l.kind].className)}>
+                {LINK_STYLE[l.kind].label}
+              </a>
+            ))}
+          </div>
+        )}
       </header>
+
+      {shop.gameTopupUrl && (
+        <div className="mx-auto max-w-5xl px-4 pt-3">
+          <a href={shop.gameTopupUrl} className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 p-3 text-white shadow-sm">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/20"><Gamepad2 size={24} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">ဂိမ်းဖြည့်ငွေ · Game Top-up</span>
+              <span className="block truncate text-xs text-white/85">Mobile Legends, PUBG နှင့် အခြားဂိမ်းများ ဖြည့်ရန်</span>
+            </span>
+            <ChevronRight size={20} className="shrink-0" />
+          </a>
+        </div>
+      )}
 
       {/* Search + categories */}
       <div className="sticky top-0 z-20 border-b border-gray-200 bg-gray-50/95 px-4 py-3 backdrop-blur">

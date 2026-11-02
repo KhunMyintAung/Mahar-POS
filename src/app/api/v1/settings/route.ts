@@ -5,9 +5,11 @@ import { audit } from "@/lib/audit";
 import { moduleSettingFromFeatures, parseModuleAccess } from "@/lib/modules";
 import { TELEGRAM_REPORTS_KEY } from "@/lib/telegramReports";
 import { GSHEET_KEY } from "@/lib/gsheetBackup";
+import { ONLINE_SHOP_COVER_KEY } from "@/lib/onlineShop";
 
-// Keys with secrets in them, read and written only by their own owner-only routes.
-const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY];
+// Keys with secrets in them, read and written only by their own owner-only routes; and the
+// shop cover photo, too big to send with every settings read, which has its own route.
+const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY, ONLINE_SHOP_COVER_KEY];
 
 // Settings are namespaced JSON documents per business: about, business_profile, modules…
 

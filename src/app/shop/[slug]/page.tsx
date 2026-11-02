@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { publicShop } from "@/lib/onlineShop";
+import { loadShopCover, publicShop, shopLinkHref, shopMapHref, SHOP_LINK_KINDS } from "@/lib/onlineShop";
 import { ShopFront } from "@/components/ShopFront";
 
 /** A shop's Online Shop: its items shown online, with photos, price and stock, and a cart
@@ -25,6 +25,8 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const shop = await publicShop(slug);
   if (!shop) notFound();
+  const cover = await loadShopCover(shop.business.id);
+  const links = SHOP_LINK_KINDS.map((kind) => ({ kind, href: shopLinkHref(kind, shop.cfg.links[kind]) })).filter((l) => l.href);
   return (
     <ShopFront
       slug={slug}
@@ -36,6 +38,10 @@ export default async function ShopPage({ params }: { params: Promise<{ slug: str
         intro: shop.cfg.intro,
         delivery: shop.cfg.delivery,
         payment: shop.cfg.payment,
+        cover: cover ? `/api/public/shop/${encodeURIComponent(slug)}/cover?v=${cover.version}` : "",
+        mapHref: shopMapHref(shop.cfg.mapUrl, shop.business.latitude, shop.business.longitude, shop.business.address),
+        links,
+        gameTopupUrl: shop.cfg.gameTopupUrl,
       }}
       items={shop.items.map((i) => ({ ...i, price: i.price.toString() }))}
     />

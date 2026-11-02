@@ -325,7 +325,8 @@ export const MANUAL: ManualGuide[] = [
     description: "ကုန်ပစ္စည်းများကို ဆိုင်၏ ကိုယ်ပိုင် Web စာမျက်နှာတွင် ပြခြင်း၊ ဓာတ်ပုံတင်ခြင်း၊ Order လက်ခံပြီး POS တွင် ရောင်းခြင်း။",
     steps: [
       { t: "Online ဆိုင် ဖွင့်ပါ", d: "ဆက်တင်များ → Menu တွင် Online Shop ကို ဖွင့်ပါ။ ထို့နောက် Menu → Online ဆိုင် ပေါ်လာပါမည်။" },
-      { t: "ဆိုင်စာမျက်နှာ ပြင်ဆင်ပါ", d: "Shop page တွင် ဆိုင်အကြောင်း စာကြောင်း၊ Phone for customers၊ Delivery နှင့် Payment အချက်အလက် ဖြည့်ပါ။ Copy / Open ဖြင့် ဆိုင် Link ကို မျှဝေပါ။" },
+      { t: "ဆိုင်စာမျက်နှာ ပြင်ဆင်ပါ", d: "Shop page တွင် ဆိုင်အကြောင်း စာကြောင်း၊ Phone for customers၊ Delivery နှင့် Payment အချက်အလက် ဖြည့်ပါ။ Copy / Open ဖြင့် ဆိုင် Link (maharpos.shop/shop/…) ကို မျှဝေပါ။" },
+      { t: "ဆိုင်ပုံ၊ မြေပုံနှင့် Link များ ထည့်ပါ", d: "Cover photo တွင် ဆိုင်ပုံ တင်ပါ — Shop စာမျက်နှာ ထိပ်ဆုံးတွင် ပြပါမည်။ Google Maps link (Google Maps → Share) ထည့်လျှင် ဆိုင်တည်နေရာ ခလုတ် ပေါ်ပါမည်၊ မထည့်လျှင် Settings ရှိ ဆိုင်တည်နေရာ (သို့) လိပ်စာကို သုံးပါသည်။ Facebook၊ Messenger၊ Telegram၊ Viber၊ TikTok link များနှင့် Game Top-up link ထည့်ပြီး Save နှိပ်ပါ။" },
       { t: "ပစ္စည်း ပြပါ", d: "ပစ္စည်းတစ်ခုချင်းကို Show online ဖွင့်ပြီး ဓာတ်ပုံတင်ပါ၊ Make cover ဖြင့် မျက်နှာဖုံးပုံ ရွေးပါ။ Description (shown to customers) ရေးနိုင်ပါသည်။ ဖွင့်ထားချိန်သာ ဖောက်သည် မြင်ရပါသည်။" },
       { t: "Order လက်ခံပါ", d: "ဖောက်သည် Order တင်လျှင် Online ဆိုင် တွင် ပေါ်လာပါမည်။ Confirm လုပ်ပြီး Ring up in POS ဖြင့် POS တွင် ရောင်းချမှု အဖြစ် ပြီးဆုံးပါ။" },
     ],

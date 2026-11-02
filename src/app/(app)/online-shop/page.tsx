@@ -26,7 +26,18 @@ interface Product {
 interface ShopSettings {
   slug: string; suggestedSlug: string; shopPhone: string;
   enabled: boolean; intro: string; delivery: string; payment: string; phone: string;
+  mapUrl: string; links: Record<LinkKind, string>; gameTopupUrl: string;
+  hasLocation: boolean; hasAddress: boolean; cover: string;
 }
+
+type LinkKind = "facebook" | "messenger" | "telegram" | "viber" | "tiktok";
+const LINK_FIELDS: [LinkKind, string, string][] = [
+  ["facebook", "Facebook", "facebook.com/yourpage"],
+  ["messenger", "Messenger", "m.me/yourpage"],
+  ["telegram", "Telegram", "@yourshop or t.me/yourshop"],
+  ["viber", "Viber", "09…"],
+  ["tiktok", "TikTok", "@yourshop"],
+];
 
 const TABS = [["orders", "Orders"], ["products", "Products"], ["settings", "Shop settings"]] as const;
 type Tab = (typeof TABS)[number][0];
@@ -371,6 +382,59 @@ function ProductEditor({ item, canEdit, onChange }: { item: Product; canEdit: bo
 
 /* ---------------- Settings ---------------- */
 
+/** The photo across the top of the shop page. It saves on its own, as soon as it is chosen. */
+function CoverPhoto({ cover, canEdit, onChange }: { cover: string; canEdit: boolean; onChange: (cover: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { push } = useToast();
+
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const dataUrl = await resizeImage(file, 1600);
+      const saved = await api<{ cover: string }>("/api/v1/online-shop/cover", { method: "PUT", body: { dataUrl } });
+      onChange(saved.cover);
+      push("Cover photo saved");
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Upload failed", "error");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    try {
+      await api("/api/v1/online-shop/cover", { method: "DELETE" });
+      onChange("");
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Cover photo</div>
+      {cover
+        // eslint-disable-next-line @next/next/no-img-element -- served by our own route
+        ? <img src={cover} alt="" className="aspect-[2/1] w-full rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
+        : <div className="flex aspect-[3/1] w-full items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-400 dark:border-gray-700">No cover photo</div>}
+      {canEdit && (
+        <div className="flex gap-2">
+          <Button size="sm" variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}><ImagePlus size={14} className="mr-1 inline" />{busy ? "Uploading…" : cover ? "Change photo" : "Add photo"}</Button>
+          {cover && <Button size="sm" variant="secondary" disabled={busy} onClick={remove}><Trash2 size={14} className="mr-1 inline" />Remove</Button>}
+        </div>
+      )}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => choose(e.target.files?.[0])} />
+      <p className="text-xs text-gray-500">A photo of the shop front or your best products, shown across the top of the shop page.</p>
+    </div>
+  );
+}
+
 function SettingsTab() {
   const [cfg, setCfg] = useState<ShopSettings | null>(null);
   const [busy, setBusy] = useState(false);
@@ -395,7 +459,10 @@ function SettingsTab() {
     try {
       const saved = await api<Partial<ShopSettings>>("/api/v1/online-shop/settings", {
         method: "PUT",
-        body: { slug: cfg.slug, enabled: cfg.enabled, intro: cfg.intro, delivery: cfg.delivery, payment: cfg.payment, phone: cfg.phone },
+        body: {
+          slug: cfg.slug, enabled: cfg.enabled, intro: cfg.intro, delivery: cfg.delivery, payment: cfg.payment, phone: cfg.phone,
+          mapUrl: cfg.mapUrl, links: cfg.links, gameTopupUrl: cfg.gameTopupUrl,
+        },
       });
       setCfg({ ...cfg, ...saved });
       push(cfg.enabled ? "Saved. Your shop is open." : "Saved. The shop page is off.");
@@ -455,6 +522,29 @@ function SettingsTab() {
         <textarea value={cfg.payment} disabled={!canEdit} onChange={(e) => setCfg({ ...cfg, payment: e.target.value })} rows={2} maxLength={300} className={field} />
       </label>
       <Input label="Phone for customers" value={cfg.phone} disabled={!canEdit} onChange={(e) => setCfg({ ...cfg, phone: e.target.value })} placeholder={cfg.shopPhone || "09…"} inputMode="tel" />
+
+      <CoverPhoto cover={cfg.cover} canEdit={canEdit} onChange={(cover) => setCfg({ ...cfg, cover })} />
+
+      <div>
+        <Input label="Google Maps link" value={cfg.mapUrl} disabled={!canEdit} onChange={(e) => setCfg({ ...cfg, mapUrl: e.target.value })} placeholder="https://maps.app.goo.gl/…" inputMode="url" />
+        <p className="mt-1 text-xs text-gray-500">
+          {cfg.hasLocation ? "Empty: the map button uses the location saved in Settings." : cfg.hasAddress ? "Empty: the map button searches for the shop's address." : "Paste the link from Google Maps → Share, so customers can find the shop."}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Links on the shop page</div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {LINK_FIELDS.map(([kind, label, placeholder]) => (
+            <Input key={kind} label={label} value={cfg.links[kind]} disabled={!canEdit} onChange={(e) => setCfg({ ...cfg, links: { ...cfg.links, [kind]: e.target.value } })} placeholder={placeholder} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Input label="Game Top-up link" value={cfg.gameTopupUrl} disabled={!canEdit} onChange={(e) => setCfg({ ...cfg, gameTopupUrl: e.target.value })} placeholder="https://maharpos.shop/digital/game/?shop=…" inputMode="url" />
+        <p className="mt-1 text-xs text-gray-500">The shop page shows a Game Top-up button that opens this link. Empty: no button.</p>
+      </div>
 
       {canEdit && <Button disabled={busy || !cfg.slug} onClick={save}>{busy ? "Saving…" : "Save"}</Button>}
     </Card>
