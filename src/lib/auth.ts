@@ -4,7 +4,8 @@ import { prisma } from "./prisma";
 import type { Permission } from "./permissions";
 
 export const SESSION_COOKIE = "wn_session";
-const SESSION_DAYS = 7;
+// Stay signed in until signing out: a year from signing in (or until signed out by the admin).
+const SESSION_DAYS = 365;
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_MINUTES = 15;
 

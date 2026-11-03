@@ -9,6 +9,11 @@ import { PwaInstall } from "@/components/PwaInstall";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { PageToggles } from "@/components/ThemeToggle";
 import { api } from "@/lib/client";
+import { Eye, EyeOff } from "lucide-react";
+
+/** The username is kept on this device so the next sign-in only needs the password, which
+ *  the browser's own password manager saves (never this page). */
+const REMEMBER_KEY = "mahar.login.username";
 
 /** Google sends people back here with a reason when sign-in did not go through. Each one
  *  says what to do next rather than just reporting that it did not work. */
@@ -29,16 +34,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [shown, setShown] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   useEffect(() => {
     // Read straight from the URL rather than through useSearchParams, which would make
-    // this page dynamic and need a Suspense boundary for one query parameter. Deferred a
-    // frame so it is an ordinary update rather than one during mount.
-    const frame = window.requestAnimationFrame(() => {
+    // this page dynamic and need a Suspense boundary for one query parameter. Deferred (a
+    // timeout, which also runs in a background tab) so it is an ordinary update, not one during mount.
+    const timer = window.setTimeout(() => {
       const reason = new URLSearchParams(window.location.search).get("error");
       if (reason) setError(SIGN_IN_ERRORS[reason] ?? "Sign-in failed. Please try again.");
+      try {
+        const saved = window.localStorage.getItem(REMEMBER_KEY);
+        if (saved) setUsername((current) => current || saved);
+      } catch {}
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -47,6 +58,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await api("/api/v1/auth/login", { method: "POST", body: { username, password } });
+      try {
+        if (remember) window.localStorage.setItem(REMEMBER_KEY, username.trim());
+        else window.localStorage.removeItem(REMEMBER_KEY);
+      } catch {}
       router.push("/");
       router.refresh();
     } catch (err) {
@@ -69,7 +84,17 @@ export default function LoginPage() {
         </div>
         <form onSubmit={submit} className="space-y-4">
           <Input label="Username or email" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus autoComplete="username" />
-          <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <div className="relative">
+            <Input label="Password" type={shown ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" className="pr-10" />
+            <button type="button" onClick={() => setShown((v) => !v)} aria-label={shown ? "Hide password" : "Show password"}
+              className="absolute bottom-0 right-0 flex h-11 w-10 sm:h-10 items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
+              {shown ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <label className="-mt-1 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Remember my username
+          </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="-mt-2 text-right">
             <Link className="text-xs text-gray-500 hover:text-blue-600" href="/forgot-password">Forgot password?</Link>
@@ -91,6 +116,9 @@ export default function LoginPage() {
           <PwaInstall />
         </div>
         <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
+          <a className="text-gray-500 hover:text-blue-600" href="https://maharpos.shop">Home page</a>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /manual is a route handler serving plain HTML */}
+          <a className="text-gray-500 hover:text-blue-600" href="/manual">User manual</a>
           <Link className="text-gray-500 hover:text-blue-600" href="/features">What is Mahar Mini POS?</Link>
           <Link className="text-gray-500 hover:text-blue-600" href="/privacy">Privacy</Link>
           <Link className="text-gray-500 hover:text-red-600" href="/account-deletion">Delete account</Link>

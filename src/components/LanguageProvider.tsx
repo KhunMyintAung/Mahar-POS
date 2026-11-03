@@ -1426,6 +1426,11 @@ const MM: Record<string, string> = {
   "No item found": "ပစ္စည်း မတွေ့ပါ",
   "Could not save the barcode": "Barcode သိမ်းလို့ မရပါ",
   "Google": "Google",
+  "Remember my username": "Username ကို မှတ်ထားပါ",
+  "Show password": "Password ပြပါ",
+  "Hide password": "Password ဖျောက်ပါ",
+  "Home page": "ပင်မစာမျက်နှာ",
+  "User manual": "အသုံးပြုနည်း လမ်းညွှန်",
 };
 
 const originalText = new WeakMap<Node, string>();
