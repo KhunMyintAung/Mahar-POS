@@ -312,7 +312,11 @@ export async function createSale(
       await tx.saleLine.create({
         data: {
           saleId: sale.id, itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice, unitCost: l.outside.cost,
-          lineTotal: BigInt(l.quantity) * l.unitPrice, warrantyDays: 0, note: l.note || null,
+          lineTotal: BigInt(l.quantity) * l.unitPrice, note: l.note || null,
+          // A phone fetched from another shop still goes out with the shop's warranty.
+          warranty: l.warranty || null,
+          warrantyDays: l.warranty ? Math.max(0, l.warrantyDays ?? 0) : 0,
+          warrantyCondition: l.warranty ? l.warrantyCondition ?? null : null,
         },
       });
       continue;

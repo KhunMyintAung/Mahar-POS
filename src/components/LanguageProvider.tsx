@@ -1415,6 +1415,10 @@ const MM: Record<string, string> = {
   "Keep it": "မဖျက်တော့ပါ",
   "Yes, cancel it": "ဟုတ်ကဲ့၊ ပယ်ဖျက်မယ်",
   "Only the owner can cancel an entry": "ပိုင်ရှင်သာ ပယ်ဖျက်နိုင်ပါသည်",
+  "What is it?": "ဘာပစ္စည်းလဲ?",
+  "Other (accessory, part…)": "အခြား (Accessory၊ Part…)",
+  "Phone — new (warranty card)": "ဖုန်း — အသစ် (အာမခံကတ် ထွက်)",
+  "Phone — second-hand (warranty card)": "ဖုန်း — တစ်ပတ်ရစ် (အာမခံကတ် ထွက်)",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -41,13 +41,13 @@ interface Contact { id: string; name: string; type: string }
  *  its cost counts against the sale's profit. listPrice is the price to go back to. */
 /** outside: goods the shop does not stock, fetched from another shop for this sale at its
  *  best price (cost). Its item is made up here (id "outside:…") and on the server. */
-interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { cost: number } }
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { cost: number; kind?: OutsideKind } }
 interface SaleResult { id: string; txnNo: string; total: string; profit: string }
 /** An Online Shop order being rung up: Online Shop → Orders puts it in the draft. */
 interface OnlineOrderRef { id: string; orderNo: string; customerName: string; customerPhone: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { name: string; cost: number } }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { name: string; cost: number; kind?: OutsideKind } }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -59,9 +59,18 @@ interface Draft {
 
 const DRAFT_LIFETIME = 12 * 60 * 60 * 1000;
 
-/** A made-up item for goods fetched from another shop: no stock, no category. */
-function outsideItemOf(name: string): Item {
-  return { id: `outside:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, sku: "", sellingPrice: "0", stockLevels: [] };
+/** What an outside item is: a new or second-hand phone gets the warranty picker and card,
+ *  like a phone from the shelf; anything else gets neither. */
+type OutsideKind = "" | "NEW" | "SECOND";
+const OUTSIDE_CATEGORY: Record<OutsideKind, string | undefined> = { "": undefined, NEW: "Phone New", SECOND: "Phone Second" };
+
+/** A made-up item for goods fetched from another shop: no stock; a phone category only when it is a phone. */
+function outsideItemOf(name: string, kind: OutsideKind = ""): Item {
+  const category = OUTSIDE_CATEGORY[kind];
+  return {
+    id: `outside:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, sku: "", sellingPrice: "0", stockLevels: [],
+    ...(category ? { category: { name: category } } : {}),
+  };
 }
 
 function readAmount(value: string) {
@@ -103,7 +112,7 @@ export default function PosPage() {
   const [cashReceived, setCashReceived] = useState("");
   const [onlineOrder, setOnlineOrder] = useState<OnlineOrderRef | null>(null);
   // Goods fetched from another shop: the one being added, and how that shop is paid.
-  const [outsideForm, setOutsideForm] = useState<{ name: string; quantity: string; price: string; cost: string } | null>(null);
+  const [outsideForm, setOutsideForm] = useState<{ name: string; quantity: string; price: string; cost: string; kind: OutsideKind } | null>(null);
   const [outsideMode, setOutsideMode] = useState<"PAID" | "OWE">("PAID");
   const [outsideWalletId, setOutsideWalletId] = useState("");
   const [outsideShop, setOutsideShop] = useState("");
@@ -166,7 +175,7 @@ export default function PosPage() {
         if (draft && Date.now() - draft.savedAt < DRAFT_LIFETIME) {
           const byId = new Map(items.map((item) => [item.id, item]));
           setCart(draft.lines.flatMap((line): CartLine[] => {
-            if (line.outside) return [{ item: outsideItemOf(line.outside.name), quantity: line.quantity, unitPrice: line.unitPrice, note: line.note, outside: { cost: line.outside.cost } }];
+            if (line.outside) return [{ item: outsideItemOf(line.outside.name, line.outside.kind), quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, outside: { cost: line.outside.cost, kind: line.outside.kind } }];
             const item = byId.get(line.itemId);
             if (!item) return [];
             const stock = item.stockLevels
@@ -200,7 +209,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice, outside: line.outside ? { name: line.item.name, cost: line.outside.cost } : undefined })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice, outside: line.outside ? { name: line.item.name, cost: line.outside.cost, kind: line.outside.kind } : undefined })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived, onlineOrder,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -349,7 +358,12 @@ export default function PosPage() {
     const name = outsideForm.name.trim();
     const quantity = Math.max(1, Math.round(readAmount(outsideForm.quantity)) || 1);
     if (!name) return;
-    setCart((current) => [{ item: outsideItemOf(name), quantity, unitPrice: readAmount(outsideForm.price), outside: { cost: readAmount(outsideForm.cost) } }, ...current]);
+    const item = outsideItemOf(name, outsideForm.kind);
+    setCart((current) => [{
+      item, quantity, unitPrice: readAmount(outsideForm.price),
+      warranty: warrantyOptionsFor(offered, phoneCondition(item))[0] ?? null,
+      outside: { cost: readAmount(outsideForm.cost), kind: outsideForm.kind },
+    }, ...current]);
     setOutsideForm(null);
     playBeep();
   }
@@ -474,6 +488,9 @@ export default function PosPage() {
             outside: { name: line.item.name, cost: line.outside.cost.toString() },
             quantity: line.quantity,
             unitPrice: line.unitPrice.toString(),
+            warranty: line.warranty?.label,
+            warrantyDays: line.warranty?.days,
+            warrantyCondition: line.warranty ? phoneCondition(line.item) ?? undefined : undefined,
             note: line.note?.trim() || undefined,
           } : ({
             itemId: line.item.id,
@@ -668,7 +685,7 @@ export default function PosPage() {
               {cart.length > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">{cart.reduce((sum, line) => sum + line.quantity, 0)}</span>}
             </h3>
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setOutsideForm({ name: "", quantity: "1", price: "", cost: "" })} className="text-xs font-medium text-blue-600" title="Sell something fetched from another shop">
+              <button type="button" onClick={() => setOutsideForm({ name: "", quantity: "1", price: "", cost: "", kind: "" })} className="text-xs font-medium text-blue-600" title="Sell something fetched from another shop">
                 + Outside item
               </button>
               {cart.length > 0 && (
@@ -972,6 +989,12 @@ export default function PosPage() {
             <div className="space-y-3">
               <p className="text-xs text-gray-500">{"Not in stock here: fetched from another shop for this sale. Nothing comes off the shelf; the profit is the selling price less the other shop's best price."}</p>
               <Input label="Item name" value={outsideForm.name} autoFocus onChange={(e) => setOutsideForm({ ...outsideForm, name: e.target.value })} />
+              {/* A phone gets the warranty picker in the cart, and its warranty card. */}
+              <Select label="What is it?" value={outsideForm.kind} onChange={(e) => setOutsideForm({ ...outsideForm, kind: e.target.value as OutsideKind })}>
+                <option value="">Other (accessory, part…)</option>
+                <option value="NEW">Phone — new (warranty card)</option>
+                <option value="SECOND">Phone — second-hand (warranty card)</option>
+              </Select>
               <div className="grid grid-cols-3 gap-2">
                 <Input label="Qty" value={outsideForm.quantity} inputMode="numeric" onChange={(e) => setOutsideForm({ ...outsideForm, quantity: e.target.value })} />
                 <Input label="Selling price" value={outsideForm.price} inputMode="decimal" onChange={(e) => setOutsideForm({ ...outsideForm, price: e.target.value })} />
