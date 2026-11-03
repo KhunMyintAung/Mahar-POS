@@ -169,11 +169,13 @@ export async function computeDayIncome(
     topup: topupSales + byBucket.topup,
     other: byBucket.other,
   };
+  // Repair money and Daily Service income are one line, as the report adds them up.
+  const isService = (name: string | null) => bucketForKey(keyOf.get((name ?? "").toLowerCase())) === "service";
   const lines: DayLine[] = [
     { label: "POS sales", amount: sales },
-    { label: "Repairs", amount: repair },
+    { label: "Service / repair", amount: out.service },
     { label: "Top-up & Bill sales", amount: topupSales },
-    ...incomeByCategory.map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
+    ...incomeByCategory.filter((row) => !isService(row.categoryName)).map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
   ].filter((l) => l.amount !== 0n);
   return { ...out, total: out.sales + out.service + out.topup + out.other, lines };
 }
