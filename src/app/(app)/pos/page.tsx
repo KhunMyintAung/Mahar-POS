@@ -39,13 +39,15 @@ interface Contact { id: string; name: string; type: string }
 /** imeis: for an IMEI-tracked item, the phones being sold; quantity is their count. */
 /** foc: a free gift with the sale (charger, case, glass…): sold at 0, still leaves stock,
  *  its cost counts against the sale's profit. listPrice is the price to go back to. */
-interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }
+/** outside: goods the shop does not stock, fetched from another shop for this sale at its
+ *  best price (cost). Its item is made up here (id "outside:…") and on the server. */
+interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { cost: number } }
 interface SaleResult { id: string; txnNo: string; total: string; profit: string }
 /** An Online Shop order being rung up: Online Shop → Orders puts it in the draft. */
 interface OnlineOrderRef { id: string; orderNo: string; customerName: string; customerPhone: string }
 interface Draft {
   savedAt: number;
-  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number }[];
+  lines: { itemId: string; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { name: string; cost: number } }[];
   discount: string;
   walletId: string;
   customerId: string;
@@ -56,6 +58,11 @@ interface Draft {
 }
 
 const DRAFT_LIFETIME = 12 * 60 * 60 * 1000;
+
+/** A made-up item for goods fetched from another shop: no stock, no category. */
+function outsideItemOf(name: string): Item {
+  return { id: `outside:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, sku: "", sellingPrice: "0", stockLevels: [] };
+}
 
 function readAmount(value: string) {
   return parseFloat(value.replace(/,/g, "")) || 0;
@@ -95,6 +102,11 @@ export default function PosPage() {
   const [partialAmount, setPartialAmount] = useState("");
   const [cashReceived, setCashReceived] = useState("");
   const [onlineOrder, setOnlineOrder] = useState<OnlineOrderRef | null>(null);
+  // Goods fetched from another shop: the one being added, and how that shop is paid.
+  const [outsideForm, setOutsideForm] = useState<{ name: string; quantity: string; price: string; cost: string } | null>(null);
+  const [outsideMode, setOutsideMode] = useState<"PAID" | "OWE">("PAID");
+  const [outsideWalletId, setOutsideWalletId] = useState("");
+  const [outsideShop, setOutsideShop] = useState("");
   // A model tile tapped: its variants, to pick one from.
   const [picking, setPicking] = useState<ModelGroup<Item> | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -153,7 +165,8 @@ export default function PosPage() {
         const draft = raw ? JSON.parse(raw) as Draft : null;
         if (draft && Date.now() - draft.savedAt < DRAFT_LIFETIME) {
           const byId = new Map(items.map((item) => [item.id, item]));
-          setCart(draft.lines.flatMap((line) => {
+          setCart(draft.lines.flatMap((line): CartLine[] => {
+            if (line.outside) return [{ item: outsideItemOf(line.outside.name), quantity: line.quantity, unitPrice: line.unitPrice, note: line.note, outside: { cost: line.outside.cost } }];
             const item = byId.get(line.itemId);
             if (!item) return [];
             const stock = item.stockLevels
@@ -164,7 +177,7 @@ export default function PosPage() {
               return [{ item, quantity: imeis.length, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, imeis, foc: line.foc, listPrice: line.listPrice }];
             }
             return [{ item, quantity: Math.min(line.quantity, stock), unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, foc: line.foc, listPrice: line.listPrice }];
-          }).filter((line) => line.quantity > 0 || line.item.trackSerial));
+          }).filter((line) => line.quantity > 0 || line.item.trackSerial || line.outside));
           setDiscount(draft.discount);
           setWalletId(draft.walletId);
           setCustomerId(draft.customerId);
@@ -187,7 +200,7 @@ export default function PosPage() {
     if (!draftReady) return;
     const draft: Draft = {
       savedAt: Date.now(),
-      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice })),
+      lines: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty, note: line.note, imeis: line.imeis, foc: line.foc, listPrice: line.listPrice, outside: line.outside ? { name: line.item.name, cost: line.outside.cost } : undefined })),
       discount, walletId, customerId, payMode, partialAmount, cashReceived, onlineOrder,
     };
     localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -326,8 +339,19 @@ export default function PosPage() {
       return;
     }
     setCart((current) => current.map((entry) =>
-      entry.item.id === itemId ? { ...entry, quantity: Math.min(quantity, stockOf(entry.item)) } : entry
+      entry.item.id === itemId ? { ...entry, quantity: entry.outside ? quantity : Math.min(quantity, stockOf(entry.item)) } : entry
     ));
+  }
+
+  /** Adds goods fetched from another shop: named, priced, at that shop's best price. */
+  function addOutside() {
+    if (!outsideForm) return;
+    const name = outsideForm.name.trim();
+    const quantity = Math.max(1, Math.round(readAmount(outsideForm.quantity)) || 1);
+    if (!name) return;
+    setCart((current) => [{ item: outsideItemOf(name), quantity, unitPrice: readAmount(outsideForm.price), outside: { cost: readAmount(outsideForm.cost) } }, ...current]);
+    setOutsideForm(null);
+    playBeep();
   }
 
   /** Put the item with this code in the cart. Shared by the three ways a code arrives:
@@ -395,7 +419,9 @@ export default function PosPage() {
   const part1 = paidAmount - part2;
   const splitOk = !split || (part2 > 0 && part1 > 0 && Boolean(wallet2Id) && wallet2Id !== walletId);
   const missingImei = cart.find((l) => l.item.trackSerial && l.quantity < 1);
-  const canCheckout = cart.length > 0 && !missingImei && disc >= 0 && disc <= subtotal &&
+  const outsideCost = cart.reduce((total, line) => total + (line.outside ? line.outside.cost * line.quantity : 0), 0);
+  const outsideOk = outsideCost <= 0 || (outsideMode === "PAID" ? Boolean(outsideWalletId) : outsideShop.trim().length > 0);
+  const canCheckout = cart.length > 0 && !missingImei && outsideOk && disc >= 0 && disc <= subtotal &&
     (paidAmount === 0 || Boolean(walletId)) && splitOk &&
     (creditAmount === 0 || Boolean(customerId)) &&
     (payMode !== "full" || !cashReceived || received >= total);
@@ -411,6 +437,7 @@ export default function PosPage() {
     setWallet2Id("");
     setSplitAmount("");
     setOnlineOrder(null);
+    setOutsideShop("");
     localStorage.removeItem(draftKey);
   }
 
@@ -442,7 +469,13 @@ export default function PosPage() {
         body: {
           branchId: defaultBranchId,
           customerId: customerId || undefined,
-          lines: cart.map((line) => ({
+          lines: cart.map((line) => line.outside ? {
+            itemId: "",
+            outside: { name: line.item.name, cost: line.outside.cost.toString() },
+            quantity: line.quantity,
+            unitPrice: line.unitPrice.toString(),
+            note: line.note?.trim() || undefined,
+          } : ({
             itemId: line.item.id,
             quantity: line.quantity,
             unitPrice: line.unitPrice.toString(),
@@ -457,6 +490,9 @@ export default function PosPage() {
           walletId: paidAmount > 0 ? walletId : undefined,
           payments: split
             ? [{ walletId, amount: part1.toString() }, { walletId: wallet2Id, amount: part2.toString() }]
+            : undefined,
+          outsidePay: outsideCost > 0
+            ? outsideMode === "PAID" ? { walletId: outsideWalletId, supplierName: outsideShop.trim() || undefined } : { supplierName: outsideShop.trim() }
             : undefined,
           notes: onlineOrder ? `Online order ${onlineOrder.orderNo} · ${onlineOrder.customerName} ${onlineOrder.customerPhone}` : undefined,
         },
@@ -631,9 +667,14 @@ export default function PosPage() {
               <ShoppingCart size={16} className="text-blue-600" />Cart
               {cart.length > 0 && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">{cart.reduce((sum, line) => sum + line.quantity, 0)}</span>}
             </h3>
-            {cart.length > 0 && (
-              <button type="button" onClick={clearSale} className="text-xs font-medium text-red-600">Clear</button>
-            )}
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setOutsideForm({ name: "", quantity: "1", price: "", cost: "" })} className="text-xs font-medium text-blue-600" title="Sell something fetched from another shop">
+                + Outside item
+              </button>
+              {cart.length > 0 && (
+                <button type="button" onClick={clearSale} className="text-xs font-medium text-red-600">Clear</button>
+              )}
+            </div>
           </div>
           {onlineOrder && (
             <div className="flex shrink-0 items-center gap-2 border-b border-purple-100 bg-purple-50 px-3 py-1.5 text-xs text-purple-800 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-200">
@@ -652,6 +693,7 @@ export default function PosPage() {
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium leading-tight" title={line.item.name}>{line.item.name}</div>
                       <div className="text-[11px] tabular-nums text-gray-500">{line.foc ? "🎁 FOC" : `${line.unitPrice.toLocaleString()} × ${line.quantity}`}</div>
+                      {line.outside && <div className="text-[11px] text-amber-700 dark:text-amber-300">🏪 <span>Other shop</span> · <span>best price</span> {line.outside.cost.toLocaleString()}</div>}
                     </div>
                     {line.item.trackSerial ? (
                       <span className="flex h-8 shrink-0 items-center rounded-md bg-blue-50 px-2 text-xs font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
@@ -661,7 +703,7 @@ export default function PosPage() {
                       <div className="flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-gray-300 dark:border-gray-700">
                         <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity - 1)} className="flex h-full w-8 items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800" aria-label="Decrease quantity"><Minus size={14} /></button>
                         <span className="w-7 text-center text-sm font-semibold tabular-nums">{line.quantity}</span>
-                        <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity + 1)} disabled={line.quantity >= stockOf(line.item)} className="flex h-full w-8 items-center justify-center hover:bg-gray-50 disabled:opacity-30 dark:hover:bg-gray-800" aria-label="Increase quantity"><Plus size={14} /></button>
+                        <button type="button" onClick={() => changeQuantity(line.item.id, line.quantity + 1)} disabled={!line.outside && line.quantity >= stockOf(line.item)} className="flex h-full w-8 items-center justify-center hover:bg-gray-50 disabled:opacity-30 dark:hover:bg-gray-800" aria-label="Increase quantity"><Plus size={14} /></button>
                       </div>
                     )}
                     <b className="w-24 shrink-0 text-right tabular-nums">{(line.unitPrice * line.quantity).toLocaleString()}</b>
@@ -784,6 +826,32 @@ export default function PosPage() {
             </div>
           )}
 
+          {outsideCost > 0 && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+              <div className="flex justify-between text-xs">
+                <span className="font-medium">{"Other shop's money"}</span>
+                <b className="tabular-nums">{outsideCost.toLocaleString()} MMK</b>
+              </div>
+              <div className="flex gap-1 rounded-lg bg-white/70 p-1 text-xs dark:bg-gray-800">
+                {(["PAID", "OWE"] as const).map((mode) => (
+                  <button key={mode} type="button" onClick={() => { setOutsideMode(mode); if (mode === "PAID" && !outsideWalletId) setOutsideWalletId(walletId); }} className={cn("min-h-8 flex-1 rounded-md px-2 font-medium", outsideMode === mode ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                    {mode === "PAID" ? "Paid now" : "Owe them"}
+                  </button>
+                ))}
+              </div>
+              {outsideMode === "PAID" && (
+                <Select label="Paid out of" value={outsideWalletId} onChange={(event) => setOutsideWalletId(event.target.value)}>
+                  <option value="">Choose…</option>
+                  {wallets.filter((wallet) => wallet.currency === "MMK").map((wallet) => (
+                    <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
+                  ))}
+                </Select>
+              )}
+              <Input label={outsideMode === "OWE" ? "Shop owed (Credit & Payable)" : "Shop name (optional)"} value={outsideShop} onChange={(event) => setOutsideShop(event.target.value)} />
+              <p className="text-[11px] text-gray-500">{"Profit on these = selling price − the other shop's price."}</p>
+            </div>
+          )}
+
           <div className="space-y-2 border-t border-gray-100 pt-2.5 dark:border-gray-800">
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1">
@@ -895,6 +963,34 @@ export default function PosPage() {
         </div>
       </div>
 
+      <Modal open={Boolean(outsideForm)} onClose={() => setOutsideForm(null)} title="Outside item">
+        {outsideForm && (() => {
+          const price = readAmount(outsideForm.price);
+          const cost = readAmount(outsideForm.cost);
+          const qty = Math.max(1, Math.round(readAmount(outsideForm.quantity)) || 1);
+          return (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500">{"Not in stock here: fetched from another shop for this sale. Nothing comes off the shelf; the profit is the selling price less the other shop's best price."}</p>
+              <Input label="Item name" value={outsideForm.name} autoFocus onChange={(e) => setOutsideForm({ ...outsideForm, name: e.target.value })} />
+              <div className="grid grid-cols-3 gap-2">
+                <Input label="Qty" value={outsideForm.quantity} inputMode="numeric" onChange={(e) => setOutsideForm({ ...outsideForm, quantity: e.target.value })} />
+                <Input label="Selling price" value={outsideForm.price} inputMode="decimal" onChange={(e) => setOutsideForm({ ...outsideForm, price: e.target.value })} />
+                <Input label="Best price (other shop)" value={outsideForm.cost} inputMode="decimal" onChange={(e) => setOutsideForm({ ...outsideForm, cost: e.target.value })} />
+              </div>
+              {price > 0 && (
+                <div className={cn("flex justify-between text-sm", price - cost < 0 ? "text-red-600" : "text-green-600")}>
+                  <span>Profit</span><b className="tabular-nums">{((price - cost) * qty).toLocaleString()} MMK</b>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setOutsideForm(null)}>Cancel</Button>
+                <Button onClick={addOutside} disabled={!outsideForm.name.trim() || price <= 0 || cost < 0}>Add to cart</Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
       <Modal open={Boolean(newCustomer)} onClose={() => setNewCustomer(null)} title="New customer">
         {newCustomer && (
           <div className="space-y-3">
@@ -955,6 +1051,12 @@ export default function PosPage() {
             )}
             <div className="flex justify-between"><span>Customer</span><b>{customers.find((c) => c.id === customerId)?.name ?? "Walk-in customer"}</b></div>
             {creditAmount > 0 && <div className="flex justify-between text-amber-600"><span>Customer owes</span><b>{creditAmount.toLocaleString()} MMK</b></div>}
+            {outsideCost > 0 && (
+              <div className="flex justify-between text-amber-700 dark:text-amber-300">
+                <span>{outsideMode === "PAID" ? `Paid to other shop (${wallets.find((w) => w.id === outsideWalletId)?.name ?? ""})` : `Owed to ${outsideShop.trim()}`}</span>
+                <b>{outsideCost.toLocaleString()} MMK</b>
+              </div>
+            )}
             {change > 0 && <div className="flex justify-between text-green-600"><span>Change</span><b>{change.toLocaleString()} MMK</b></div>}
           </div>
           <div className="grid grid-cols-2 gap-2">

@@ -177,10 +177,13 @@ const zeroRow = (period: string): PeriodRow => ({
 /** Section profits for one row (or the totals). */
 /** A biller trade into its period. Only a sale brings top-up cash in, but the margin is
  *  earned on both sides: a sale above face value, and float bought below it (200,000 of
- *  credit for 194,000). A shop that sells at face value makes all of it on the refill. */
-export function addBillerTxn(r: PeriodRow, b: { kind: string; cashAmount: bigint; profit: bigint }) {
-  if (b.kind === "SALE") r.topup += b.cashAmount;
-  r.topupMargin += b.profit;
+ *  credit for 194,000). A shop that sells at face value makes all of it on the refill.
+ *
+ *  A sale whose profit was filed as Bill Profit income (`profitBooked`) has that profit in
+ *  Other income already, so here it counts only as the operator's cash passing through. */
+export function addBillerTxn(r: PeriodRow, b: { kind: string; cashAmount: bigint; profit: bigint }, profitBooked = false) {
+  if (b.kind === "SALE") r.topup += profitBooked ? b.cashAmount - b.profit : b.cashAmount;
+  if (!profitBooked) r.topupMargin += b.profit;
 }
 
 export function sectionsOf(r: PeriodRow): SectionResult[] {
@@ -231,7 +234,9 @@ function periodKeys(from: string, to: string, groupBy: "day" | "month"): string[
   return keys;
 }
 
-const ledgerMovesCash = (refType: string) => !["TRANSFER_IN", "TRANSFER_OUT", "EXCHANGE_IN", "EXCHANGE_OUT", "OPENING"].includes(refType);
+// A customer's transfer or cash-out only swaps money between the drawer and the KBZPay /
+// Wave account, like a transfer between the shop's own wallets; its fee is income of its own.
+const ledgerMovesCash = (refType: string) => !["TRANSFER_IN", "TRANSFER_OUT", "EXCHANGE_IN", "EXCHANGE_OUT", "OPENING", "MONEY_SERVICE"].includes(refType);
 
 export async function buildReport(businessId: string, from: string, to: string, branchIds?: string[]): Promise<Report> {
   const groupBy: "day" | "month" = periodKeys(from, to, "day").length > 62 ? "month" : "day";
@@ -253,7 +258,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       where: { businessId, createdAt: range, ...branch },
       select: { walletId: true, direction: true, amount: true, refType: true, createdAt: true },
     }),
-    prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { kind: true, cashAmount: true, profit: true, createdAt: true } }),
+    prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { id: true, kind: true, cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
       where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
       select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true, purchaseId: true },
@@ -282,7 +287,8 @@ export async function buildReport(businessId: string, from: string, to: string, 
       if (l.direction === "DEBIT") r.cashIn += l.amount; else r.cashOut += l.amount;
     }
   }
-  for (const b of billerSales) addBillerTxn(at(businessDateOf(b.createdAt)), b);
+  const profitBooked = new Set(entries.filter((e) => e.type === "INCOME" && e.billerTxnId).map((e) => e.billerTxnId));
+  for (const b of billerSales) addBillerTxn(at(businessDateOf(b.createdAt)), b, profitBooked.has(b.id));
   const keyByName = new Map(keyedCats.filter((c) => c.type === "INCOME").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseKey = new Map(keyedCats.filter((c) => c.type === "EXPENSE").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseSection = (name: string): Section => {

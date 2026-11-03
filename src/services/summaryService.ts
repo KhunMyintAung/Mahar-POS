@@ -127,7 +127,7 @@ export async function computeDayIncome(
 ): Promise<DayIncome> {
   const range = dateRangeUtc(date);
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [repairIn, repairOut, topup, sales, incomeByCategory, keyed] = await Promise.all([
+  const [repairIn, repairOut, topup, billProfit, sales, incomeByCategory, keyed] = await Promise.all([
     tx.walletLedgerEntry.aggregate({
       where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
       _sum: { amount: true },
@@ -139,6 +139,12 @@ export async function computeDayIncome(
     tx.billerTxn.aggregate({
       where: { businessId, voidedAt: null, createdAt: range, kind: "SALE", ...branch },
       _sum: { cashAmount: true },
+    }),
+    // Bill sales whose profit was filed as Bill Profit income: that part of their cash is
+    // counted there, in Other income, not again with the bill sales.
+    tx.incomeExpense.aggregate({
+      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: { not: null }, date, ...branch },
+      _sum: { amount: true },
     }),
     salesTotal !== undefined
       ? Promise.resolve(salesTotal)
@@ -159,7 +165,7 @@ export async function computeDayIncome(
   const byBucket = { sales: 0n, service: 0n, topup: 0n, other: 0n };
   for (const row of incomeByCategory) byBucket[bucketForKey(keyOf.get((row.categoryName ?? "").toLowerCase()))] += row._sum.amount ?? 0n;
   const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
-  const topupSales = topup._sum.cashAmount ?? 0n;
+  const topupSales = (topup._sum.cashAmount ?? 0n) - (billProfit._sum.amount ?? 0n);
   const out = {
     sales: sales + byBucket.sales,
     service: repair + byBucket.service,

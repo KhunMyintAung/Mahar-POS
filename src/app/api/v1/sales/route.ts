@@ -65,7 +65,8 @@ export const GET = withAuth("sale.view", async ({ req, user }) => {
 });
 
 const lineSchema = z.object({
-  itemId: z.string().min(1),
+  // Empty for goods fetched from another shop (outside), which have no item of their own yet.
+  itemId: z.string().default(""),
   quantity: z.number().int().positive(),
   unitPrice: z.string().min(1),
   warranty: z.string().trim().max(60).optional(),
@@ -73,7 +74,8 @@ const lineSchema = z.object({
   warrantyCondition: z.enum(["NEW", "SECOND"]).optional(),
   note: z.string().trim().max(200).optional(),
   imeis: z.array(z.string().trim().max(40)).max(500).optional(),
-});
+  outside: z.object({ name: z.string().trim().min(1).max(120), cost: z.string().min(1) }).optional(),
+}).refine((l) => l.itemId || l.outside, "Each line needs an item");
 
 const schema = z.object({
   branchId: z.string().min(1),
@@ -86,6 +88,8 @@ const schema = z.object({
   // A payment split across wallets, e.g. half cash and half a mobile wallet. When given,
   // the amounts must add up to paidAmount.
   payments: z.array(z.object({ walletId: z.string().min(1), amount: z.string().min(1) })).max(4).optional(),
+  // How the other shop is paid for outside lines: out of a wallet now, or owed to them.
+  outsidePay: z.object({ walletId: z.string().optional(), supplierName: z.string().trim().max(80).optional() }).optional(),
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
@@ -111,11 +115,13 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
         warrantyCondition: l.warrantyCondition,
         note: l.note || undefined,
         imeis: l.imeis,
+        outside: l.outside ? { name: l.outside.name, cost: toMinor(l.outside.cost) } : undefined,
       })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),
       walletId: body.walletId,
       payments: body.payments?.map((p) => ({ walletId: p.walletId, amount: toMinor(p.amount) })),
+      outsidePay: body.outsidePay,
       dueDate: body.dueDate,
       reference: body.reference,
       notes: body.notes,

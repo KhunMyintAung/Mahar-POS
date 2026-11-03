@@ -109,6 +109,18 @@ export function billerNotice(opts: {
   );
 }
 
+export function moneyServiceNotice(opts: { kind: string; txnNo: string; accountName: string; cashName: string; amount: bigint; fee: bigint; customer?: string | null; createdByName: string }) {
+  const what = opts.kind === "TRANSFER" ? "💸 ငွေလွဲပေး" : "💵 ငွေထုတ်ပေး";
+  const flow = opts.kind === "TRANSFER" ? `${opts.cashName} ← ငွေသား · ${opts.accountName} မှ လွဲ` : `${opts.accountName} ထဲ ဝင် · ${opts.cashName} မှ ငွေသား ပေး`;
+  return (
+    `${what} ${opts.txnNo}${opts.customer ? ` · ${opts.customer}` : ""}
+` +
+    `ပမာဏ: ${money(opts.amount)} · ခ: ${money(opts.fee)}
+${flow}
+လုပ်သူ: ${opts.createdByName}`
+  );
+}
+
 export function transferNotice(opts: { txnNo: string; sourceName: string; destName: string; sourceAmount: bigint; sourceCurrency: string; destAmount: bigint; destCurrency: string; createdByName: string; notes?: string | null }) {
   const amount = opts.sourceCurrency === opts.destCurrency
     ? money(opts.sourceAmount, opts.sourceCurrency)

@@ -49,6 +49,18 @@ describe("report maths", () => {
     expect(incomeExpenseOf(r).net).toBe(7_000_00n);
   });
 
+  it("counts a sale's profit once when it was filed as Bill Profit income", () => {
+    const r = row({});
+    // Balance fell by 4,635, the customer paid 5,000: 365 profit, filed in Other income.
+    addBillerTxn(r, { kind: "SALE", cashAmount: 5_000_00n, profit: 365_00n }, true);
+    r.otherIncome += 365_00n;
+    expect(r.topup).toBe(4_635_00n);
+    expect(r.topupMargin).toBe(0n);
+    expect(sectionsOf(r).find((s) => s.section === "topup")!.profit).toBe(0n);
+    expect(incomeExpenseOf(r).inc.total).toBe(5_000_00n);
+    expect(incomeExpenseOf(r).net).toBe(365_00n);
+  });
+
   it("keeps a percent for next month and splits the rest equally", () => {
     const d = distribute(246_500_00n, { ...DEFAULT_REPORT_SETTINGS, reserve: { mode: "percent", value: 10 }, partners: [{ name: "A", percent: 0 }, { name: "B", percent: 0 }, { name: "C", percent: 0 }] }, 1);
     expect(d.reserve).toBe(24_650_00n);

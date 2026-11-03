@@ -16,11 +16,13 @@ export const GET = withAuth("income_expense.view", async ({ req, user }) => {
     where: { businessId: user.businessId, active: true, ...(type ? { type } : {}) },
     orderBy: { name: "asc" },
   })).filter((c) => !hidden.includes(c.systemKey));
-  // The standard ones first, in their set order, then the shop's own A to Z.
+  // The standard ones first, in their set order, then the shop's own A to Z (with the
+  // ones the app files by itself, Bill Profit and the transfer fee).
   const order = ["DAILY_SERVICE", "DAILY_SALE", "DAILY_BILL", "DAILY_GENERAL"];
+  const rank = (key: string | null) => (key && order.includes(key) ? order.indexOf(key) : 99);
   categories.sort((a, b) => {
-    const ia = a.systemKey ? order.indexOf(a.systemKey) : 99;
-    const ib = b.systemKey ? order.indexOf(b.systemKey) : 99;
+    const ia = rank(a.systemKey);
+    const ib = rank(b.systemKey);
     return ia - ib || a.name.localeCompare(b.name);
   });
   return json(categories);

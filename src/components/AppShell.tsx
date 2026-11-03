@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
-  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store,
+  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn, useToast } from "./ui";
@@ -110,11 +110,13 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
 
 interface NavTab { href: string; label: string; icon: typeof LayoutDashboard; perm: string; feature: FeatureKey }
 
-/** Wallets, Transfer and Withdraw share one sidebar entry; the pages switch between them
+/** Wallets, Transfer, Transfer & Cash-out and Withdraw share one sidebar entry; the pages switch between them
  *  with tabs. Each tab keeps its own permission and module switch. */
 const WALLET_TABS: NavTab[] = [
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
   { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
+  // Customers' KBZPay / Wave transfers and cash-outs, with the shop's fee.
+  { href: "/money-service", label: "Transfer & Cash-out", icon: ArrowLeftRight, perm: "wallet.transfer", feature: "transfers" },
   { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
 ];
 

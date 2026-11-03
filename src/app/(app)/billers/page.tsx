@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
+import { roundUpBill } from "@/lib/billRound";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
@@ -151,10 +152,11 @@ export default function BillersPage() {
   /** How much the balance moves for a given amount. */
   const moveFor = (amount: number) =>
     trading?.kind === "SALE" ? -amount + Math.round(amount * sellRate) : amount;
+  // A bill sells for a round sum: an odd fall in the balance is paid as the next thousand up.
   const autoCash = Math.max(
     trading?.kind === "TOPUP"
       ? Math.round(bonus ? face / (1 + refillRate) : face * (1 - refillRate))
-      : face,
+      : roundUpBill(face),
     0,
   );
   const cash = trade.cashTouched ? num(trade.cashAmount) : autoCash;
@@ -583,7 +585,7 @@ export default function BillersPage() {
                 )}
                 {margin !== 0 && (
                   <div className="flex justify-between text-sm">
-                    <span>Margin on this trade</span>
+                    <span>{trading.kind === "SALE" && margin > 0 ? "Profit (added to income as Bill Profit)" : "Margin on this trade"}</span>
                     <b className={`tabular-nums ${margin < 0 ? "text-red-600" : "text-green-600"}`}>
                       {fmtMoney(String(Math.round(margin * 100)))}
                     </b>

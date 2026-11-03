@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api";
 import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
+import { recordBillProfitIncome } from "./incomeExpenseService";
 
 /** Top-up billers: the float a phone shop holds with each operator.
  *
@@ -187,6 +188,9 @@ export async function recordBillerTxn(
     });
   }
 
+  // The profit on a sale goes into Income as Bill Profit (Other income) by itself.
+  if (opts.kind === "SALE" && profit > 0n) await recordBillProfitIncome(tx, { businessId: opts.businessId, userId: opts.userId, billerTxnId: record.id });
+
   await audit(tx, {
     businessId: opts.businessId,
     userId: opts.userId,
@@ -246,10 +250,9 @@ export async function voidBillerTxn(
     });
   }
 
-  // Its expense record, if the owner made one, goes with it.
-  if (kind === "TOPUP") {
-    await tx.incomeExpense.updateMany({ where: { businessId: opts.businessId, billerTxnId: record.id, status: "COMPLETED" }, data: { status: "REVERSED" } });
-  }
+  // Its expense record (a float purchase) or Bill Profit income (a sale) goes with it.
+  // Neither moved money of its own, so there is nothing else to put back.
+  await tx.incomeExpense.updateMany({ where: { businessId: opts.businessId, billerTxnId: record.id, status: "COMPLETED" }, data: { status: "REVERSED" } });
 
   const voided = await tx.billerTxn.update({
     where: { id: record.id },

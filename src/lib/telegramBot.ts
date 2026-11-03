@@ -8,13 +8,15 @@ import { createIncomeExpenseEntry, recordFloatExpense } from "@/services/incomeE
 import { createTransfer } from "@/services/walletService";
 import { collectReceivable, payPayable, createReceivable } from "@/services/creditService";
 import { recordBillerTxn } from "@/services/billerService";
+import { roundUpBillMinor } from "./billRound";
+import { recordMoneyService } from "@/services/moneyService";
 import { updateRepairDetails, updateRepairStatus } from "@/services/repairService";
 import { technicianPerformance } from "@/services/technicianService";
 import { findRepairJob, VOUCHER_LIKE } from "./repairLookup";
 import { nextStatuses, REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "./repairStatus";
 import { ApiError } from "./api";
 import {
-  notifyAuditFeed, incomeExpenseNotice, transferNotice, creditPayableNotice, newCreditNotice,
+  notifyAuditFeed, incomeExpenseNotice, transferNotice, moneyServiceNotice, creditPayableNotice, newCreditNotice,
   billerNotice, repairStatusNotice,
 } from "./telegramNotify";
 import {
@@ -132,6 +134,8 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
   const row2 = [];
   if (features.transfers && can(user, "wallet.transfer")) row2.push(btn("🔁 ငွေလွှဲ", "menu:transfer"));
   if (features.withdraw && can(user, "wallet.withdraw")) row2.push(btn("➖ ငွေထုတ်", "menu:withdraw"));
+  const row2b = [];
+  if (features.transfers && can(user, "wallet.transfer")) row2b.push(btn("💸 ငွေလွဲ / ငွေထုတ် ပေး", "menu:money"));
   const row3 = [];
   if (features.credit && can(user, "credit.create")) row3.push(btn("🆕 အကြွေးသစ်", "menu:newcredit"));
   if (features.credit && can(user, "credit.collect")) row3.push(btn("🤝 အကြွေးကောက်", "menu:credit"));
@@ -143,7 +147,7 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
   if (features.repair && can(user, "repair.view")) row5.push(btn("📊 ကျွန်ုပ်၏ ပြင်ဆင်မှုများ", "menu:myrepairs"));
   // Everyone can ask; what the answer may draw on is held to their own permissions.
   const row6 = [btn("🤖 AI ကို မေးရန်", "menu:ai")];
-  const rows = [row1, row2, row3, row4, row5, row6].filter((r) => r.length > 0);
+  const rows = [row1, row2, row2b, row3, row4, row5, row6].filter((r) => r.length > 0);
   return keyboard(rows);
 }
 
@@ -217,12 +221,22 @@ async function blStepBiller(chatId: string, user: AuthUser, data: Record<string,
     billerId,
     billerName: biller.name,
     billerBalance: biller.currentBalance.toString(),
+    sellPercent: biller.sellPercent,
   });
   await sendMessage(
     chatId,
     `${biller.name}\nလက်ရှိ ဘေလက်ကျန်: ${fmtMoney(biller.currentBalance)}\n\nဘာကို မှတ်မလဲ?`,
     { replyMarkup: keyboard([...rows, CANCEL_ROW]) }
   );
+}
+
+/** What the operator puts back into the balance on a sale, as the web page works it out
+ *  (whole kyats of the amount × the biller's sell commission). */
+function saleCommission(data: Record<string, unknown>): bigint {
+  const pct = Number(data.sellPercent) || 0;
+  if (data.kind !== "SALE" || pct <= 0) return 0n;
+  const faceKs = Number(BigInt(String(data.face)) / 100n);
+  return BigInt(Math.max(Math.round(faceKs * pct / 100), 0)) * 100n;
 }
 
 async function blStepKind(chatId: string, user: AuthUser, data: Record<string, unknown>, kind: string) {
@@ -239,8 +253,10 @@ async function blStepFaceText(chatId: string, user: AuthUser, data: Record<strin
   if (face <= 0n) return sendMessage(chatId, "ပမာဏက သုညထက် များရပါမယ်။");
   await setSession(user.id, chatId, "bl.cash", { ...data, face: face.toString() });
   const prompt = data.kind === "TOPUP" ? "ငွေသား ဘယ်လောက် ပေးခဲ့လဲ?" : "ဖောက်သည် ငွေသား ဘယ်လောက် ပေးလဲ?";
+  // A bill sells for a round sum: offered as a button, the next thousand up.
+  const round = data.kind === "SALE" ? roundUpBillMinor(face) : 0n;
   await sendMessage(chatId, `${prompt}\n\nလျှော့ဈေး မရှိရင် ပမာဏ အတူတူ ပို့ပါ။`, {
-    replyMarkup: keyboard([CANCEL_ROW]),
+    replyMarkup: keyboard([...(round > 0n ? [[btn(`💵 ${fmtMoney(round)}`, `c:${(round / 100n).toString()}`)]] : []), CANCEL_ROW]),
   });
 }
 
@@ -263,8 +279,9 @@ async function blStepWallet(chatId: string, user: AuthUser, data: Record<string,
   const face = BigInt(String(data.face));
   const cash = BigInt(String(data.cash));
   const balance = BigInt(String(data.billerBalance));
-  const margin = kind === "TOPUP" ? face - cash : cash - face;
-  const after = kind === "TOPUP" ? balance + face : balance - face;
+  const commission = saleCommission(data);
+  const margin = kind === "TOPUP" ? face - cash : cash - face + commission;
+  const after = kind === "TOPUP" ? balance + face : balance - face + commission;
 
   await setSession(user.id, chatId, "bl.confirm", { ...data, walletId, walletName: wallet.name });
   const lines = [
@@ -272,7 +289,8 @@ async function blStepWallet(chatId: string, user: AuthUser, data: Record<string,
     `${data.billerName}`,
     `ဘေ: ${fmtMoney(face)}`,
     `ငွေသား: ${fmtMoney(cash)} (${wallet.name} ${kind === "TOPUP" ? "မှ ထွက်" : "ထဲ ဝင်"})`,
-    `အမြတ်: ${fmtMoney(margin)}`,
+    ...(commission > 0n ? [`Commission ပြန်ရ: ${fmtMoney(commission)}`] : []),
+    `အမြတ်: ${fmtMoney(margin)}${kind === "SALE" && margin > 0n ? " (ဝင်ငွေ Bill Profit ထဲ ထည့်မည်)" : ""}`,
     `ပြီးရင် ဘေလက်ကျန်: ${fmtMoney(after)}`,
   ];
   await sendMessage(chatId, lines.join("\n"), {
@@ -291,6 +309,7 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
         kind: String(data.kind) as "TOPUP" | "SALE",
         faceAmount: BigInt(String(data.face)),
         cashAmount: BigInt(String(data.cash)),
+        commission: saleCommission(data),
         walletId: String(data.walletId),
       })
     );
@@ -555,6 +574,92 @@ async function trConfirm(chatId: string, user: AuthUser, data: Record<string, un
       sourceAmount: transfer.sourceAmount, sourceCurrency: data.sourceCurrency as string,
       destAmount: transfer.destAmount, destCurrency: data.destCurrency as string,
       createdByName: user.name,
+    }), chatId);
+    await showMenu(chatId, user);
+  } catch (e) {
+    await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Money transfer / cash-out for a customer through KBZPay / Wave, with the shop's fee.
+// The fee goes into income by itself. See moneyService.
+// ---------------------------------------------------------------------------
+
+async function startMoneyService(chatId: string, user: AuthUser) {
+  const branchId = await defaultBranchId(user);
+  if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
+  const { rows } = await walletButtons(user.businessId, branchId, "MMK");
+  if (rows.length < 2) return sendMessage(chatId, "KBZPay / Wave wallet နဲ့ ငွေသား wallet နှစ်ခု လိုပါတယ်။");
+  await setSession(user.id, chatId, "ms.kind", { branchId });
+  await sendMessage(chatId, "💸 ငွေလွဲ / ငွေထုတ် ပေး\n\nဘာလုပ်ပေးမလဲ?", {
+    replyMarkup: keyboard([[btn("💸 ငွေလွဲပေး", "mk:TRANSFER"), btn("💵 ငွေထုတ်ပေး", "mk:CASHOUT")], CANCEL_ROW]),
+  });
+}
+
+async function msStepKind(chatId: string, user: AuthUser, data: Record<string, unknown>, kind: string) {
+  if (kind !== "TRANSFER" && kind !== "CASHOUT") return;
+  const { rows } = await walletButtons(user.businessId, String(data.branchId), "MMK", "MOBILE");
+  await setSession(user.id, chatId, "ms.account", { ...data, kind });
+  await sendMessage(chatId, kind === "TRANSFER" ? "ဘယ် KBZPay / Wave ကနေ လွဲပေးလဲ?" : "ဘယ် KBZPay / Wave ထဲ ဝင်လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
+}
+
+async function msStepAccount(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
+  const wallet = await prisma.wallet.findFirst({ where: { id: walletId, businessId: user.businessId } });
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
+  const { rows } = await walletButtons(user.businessId, String(data.branchId), "MMK", "CASH");
+  const others = rows.filter((r) => !("callback_data" in r[0] && r[0].callback_data.endsWith(walletId)));
+  await setSession(user.id, chatId, "ms.cash", { ...data, accountWalletId: walletId, accountName: wallet.name });
+  await sendMessage(chatId, data.kind === "TRANSFER" ? "ငွေသား ဘယ် wallet ထဲ ဝင်လဲ?" : "ငွေသား ဘယ် wallet ကနေ ပေးလဲ?", { replyMarkup: keyboard([...others, CANCEL_ROW]) });
+}
+
+async function msStepCash(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
+  const wallet = await prisma.wallet.findFirst({ where: { id: walletId, businessId: user.businessId } });
+  if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
+  await setSession(user.id, chatId, "ms.amount", { ...data, cashWalletId: walletId, cashName: wallet.name });
+  await sendMessage(chatId, data.kind === "TRANSFER" ? "လွဲပေးမယ့် ပမာဏ ရိုက်ထည့်ပါ:" : "KBZPay / Wave ထဲ ဝင်တဲ့ ပမာဏ ရိုက်ထည့်ပါ:", { replyMarkup: keyboard([CANCEL_ROW]) });
+}
+
+async function msStepAmountText(chatId: string, user: AuthUser, data: Record<string, unknown>, text: string) {
+  const raw = text.trim().replace(/,/g, "");
+  if (!isValidDecimalString(raw) || Number(raw) <= 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ပမာဏ ရိုက်ထည့်ပါ:");
+  await setSession(user.id, chatId, "ms.fee", { ...data, amount: raw });
+  await sendMessage(chatId, "ခ ဘယ်လောက် ယူလဲ? (ဆိုင်ရဲ့ ဝင်ငွေ — မရှိရင် ကျော်ပါ)", { replyMarkup: keyboard([SKIP_ROW, CANCEL_ROW]) });
+}
+
+async function msAskConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>, feeRaw: string) {
+  const raw = feeRaw.trim().replace(/,/g, "") || "0";
+  if (!isValidDecimalString(raw) || Number(raw) < 0) return sendMessage(chatId, "မှန်ကန်တဲ့ ခ ရိုက်ထည့်ပါ (သို့) ကျော်ပါ:");
+  const amount = toMinor(String(data.amount));
+  const fee = toMinor(raw);
+  const transfer = data.kind === "TRANSFER";
+  if (!transfer && fee >= amount) return sendMessage(chatId, "ခ က ပမာဏထက် နည်းရပါမယ်။");
+  const lines = transfer
+    ? ["💸 ငွေလွဲပေး", `ပမာဏ: ${fmtMoney(amount)} (${data.accountName} မှ လွဲ)`, `ခ: ${fmtMoney(fee)}`, `ဖောက်သည် ငွေသား ပေးရ: ${fmtMoney(amount + fee)} (${data.cashName} ထဲ ဝင်)`]
+    : ["💵 ငွေထုတ်ပေး", `ပမာဏ: ${fmtMoney(amount)} (${data.accountName} ထဲ ဝင်)`, `ခ: ${fmtMoney(fee)}`, `ဖောက်သည်ကို ငွေသား ပေး: ${fmtMoney(amount - fee)} (${data.cashName} မှ)`];
+  if (fee > 0n) lines.push("ခ ကို ဝင်ငွေ (Transfer & Cash-out Fee) ထဲ အလိုလို ထည့်ပါမယ်။");
+  await setSession(user.id, chatId, "ms.confirm", { ...data, fee: raw });
+  await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
+}
+
+async function msConfirm(chatId: string, user: AuthUser, data: Record<string, unknown>) {
+  try {
+    const record = await prisma.$transaction((tx) =>
+      recordMoneyService(tx, {
+        businessId: user.businessId,
+        userId: user.id,
+        kind: data.kind === "CASHOUT" ? "CASHOUT" : "TRANSFER",
+        accountWalletId: String(data.accountWalletId),
+        cashWalletId: String(data.cashWalletId),
+        amount: toMinor(String(data.amount)),
+        fee: toMinor(String(data.fee ?? "0")),
+      })
+    );
+    await clearSession(user.id, chatId);
+    await sendMessage(chatId, `✅ သိမ်းပြီး — ${record.txnNo}`);
+    notifyAuditFeed(user.businessId, moneyServiceNotice({
+      kind: record.kind, txnNo: record.txnNo, accountName: record.accountName, cashName: record.cashName,
+      amount: record.amount, fee: record.fee, createdByName: user.name,
     }), chatId);
     await showMenu(chatId, user);
   } catch (e) {
@@ -1014,6 +1119,7 @@ const FLOW_REQUIRED_PERM: Record<string, string> = {
   expense: "income_expense.create",
   withdraw: "wallet.withdraw",
   transfer: "wallet.transfer",
+  money: "wallet.transfer",
   credit: "credit.collect",
   payable: "payable.pay",
   newcredit: "credit.create",
@@ -1027,6 +1133,7 @@ const FLOW_FEATURE: Record<string, FeatureKey> = {
   expense: "incomeExpense",
   withdraw: "withdraw",
   transfer: "transfers",
+  money: "transfers",
   credit: "credit",
   payable: "credit",
   newcredit: "credit",
@@ -1130,6 +1237,10 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string, 
       if (step === "rate") return trStepRateText(chatId, user, session.data, trimmed);
       if (step === "fee") return trStepFeeText(chatId, user, session.data, trimmed);
     }
+    if (flow === "ms") {
+      if (step === "amount") return msStepAmountText(chatId, user, session.data, trimmed);
+      if (step === "fee") return msAskConfirm(chatId, user, session.data, trimmed);
+    }
     if (flow === "cp") {
       if (step === "amount") return cpStepAmountText(chatId, user, session.data, trimmed);
     }
@@ -1147,7 +1258,7 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string, 
 }
 
 /** Every flow's Confirm step, as "<flow>.confirm". */
-const CONFIRM_STEP = /^(bl|ie|tr|cp|nc)\.confirm$/;
+const CONFIRM_STEP = /^(bl|ie|tr|ms|cp|nc)\.confirm$/;
 
 /** Takes the Confirm tap for this chat, once. A double tap, or Telegram sending the same
  *  tap twice, finds the step already taken and saves nothing a second time. */
@@ -1190,6 +1301,7 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     if (key === "expense") return startIncomeExpense(chatId, user, "EXPENSE");
     if (key === "withdraw") return startIncomeExpense(chatId, user, "WITHDRAW");
     if (key === "transfer") return startTransfer(chatId, user);
+    if (key === "money") return startMoneyService(chatId, user);
     if (key === "credit") return startCreditPayable(chatId, user, "credit");
     if (key === "payable") return startCreditPayable(chatId, user, "payable");
     if (key === "newcredit") return startNewCredit(chatId, user);
@@ -1227,6 +1339,7 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
       if (flow === "bl") return await blConfirm(chatId, user, session.data);
       if (flow === "ie") return await ieConfirm(chatId, user, session.data);
       if (flow === "tr") return await trConfirm(chatId, user, session.data);
+      if (flow === "ms") return await msConfirm(chatId, user, session.data);
       if (flow === "cp") return await cpConfirm(chatId, user, session.data);
       if (flow === "nc") return await ncConfirm(chatId, user, session.data);
     } finally {
@@ -1239,6 +1352,7 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     if (flow === "bl") {
       if (step === "biller" && data.startsWith("b:")) return blStepBiller(chatId, user, session.data, data.slice(2));
       if (step === "kind" && data.startsWith("k:")) return blStepKind(chatId, user, session.data, data.slice(2));
+      if (step === "cash" && data.startsWith("c:")) return blStepCashText(chatId, user, session.data, data.slice(2));
       if (step === "wallet" && data.startsWith("w:")) return blStepWallet(chatId, user, session.data, data.slice(2));
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
       if (step === "expense" && data === "fx:yes") return blAddExpense(chatId, user, session.data);
@@ -1257,6 +1371,13 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
       if (step === "source" && data.startsWith("w:")) return trStepSource(chatId, user, session.data, data.slice(2));
       if (step === "dest" && data.startsWith("w:")) return trStepDest(chatId, user, session.data, data.slice(2));
       if (step === "fee" && data === "skip") return trStepFeeSkip(chatId, user, session.data);
+      if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
+    }
+    if (flow === "ms") {
+      if (step === "kind" && data.startsWith("mk:")) return msStepKind(chatId, user, session.data, data.slice(3));
+      if (step === "account" && data.startsWith("w:")) return msStepAccount(chatId, user, session.data, data.slice(2));
+      if (step === "cash" && data.startsWith("w:")) return msStepCash(chatId, user, session.data, data.slice(2));
+      if (step === "fee" && data === "skip") return msAskConfirm(chatId, user, session.data, "0");
       if (step === "confirm" && data === "confirm:no") return showMenu(chatId, user, "မလုပ်တော့ပါ။");
     }
     if (flow === "cp") {

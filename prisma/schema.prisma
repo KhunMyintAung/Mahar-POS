@@ -788,6 +788,8 @@ model Sale {
   status        String    @default("COMPLETED") // COMPLETED CANCELLED
   walletId      String?
   receivableId  String?
+  /// Goods fetched from another shop for this sale and not paid for yet: what is owed them.
+  outsidePayableId String?
   totalCost     BigInt    @default(0)
   profit        BigInt    @default(0) // total - discount... = revenue - cost
   date          String
@@ -1012,4 +1014,36 @@ model PrintJob {
 
   @@index([businessId, status, createdAt])
   @@index([createdAt])
+}
+
+/// A money transfer or cash-out done for a customer through the shop's KBZPay / Wave
+/// account (an agent service). TRANSFER: the customer hands over cash and the shop sends it
+/// from the account. CASHOUT: the customer sends to the account and takes cash. The amount
+/// moves between the two wallets; the fee is the shop's, an income entry of its own (Other income).
+model MoneyService {
+  id              String    @id @default(uuid())
+  txnNo           String
+  businessId      String
+  branchId        String?
+  /// TRANSFER or CASHOUT.
+  kind            String
+  /// The KBZPay / Wave wallet the money went out of or came into.
+  accountWalletId String
+  /// The drawer the customer's cash went into or came out of; the fee lands here too.
+  cashWalletId    String
+  amount          BigInt
+  fee             BigInt    @default(0)
+  /// The fee's income entry.
+  feeIncomeId     String?
+  customerName    String?
+  customerPhone   String?
+  note            String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  voidedAt        DateTime?
+  voidedById      String?
+  voidReason      String?
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, createdAt])
 }

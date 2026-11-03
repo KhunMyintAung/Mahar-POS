@@ -1,7 +1,8 @@
 import { Tx } from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { moveStock } from "./stockService";
-import { postLedger } from "./walletService";
+import { randomUUID } from "crypto";
+import { postLedger, reverseLedgerEntries } from "./walletService";
 import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
@@ -24,6 +25,28 @@ export interface LineInput {
   note?: string;
   /** For an IMEI-tracked item: one IMEI or serial per unit, bought or sold. */
   imeis?: string[];
+  /** Sales only: goods the shop does not stock, fetched from another shop for this sale.
+   *  `cost` is what that shop charges (its best price); itemId is then left empty. */
+  outside?: { name: string; cost: bigint };
+}
+
+/** Items made for goods fetched from another shop carry this SKU prefix. They are kept out
+ *  of every list (deleted from the start) and never hold stock; they exist so the sale line,
+ *  its receipt and the reports name what was sold. */
+export const OUTSIDE_SKU = "OUTSIDE-";
+
+async function outsideItem(tx: Tx, businessId: string, name: string, cost: bigint) {
+  const clean = name.trim().slice(0, 120);
+  if (!clean) throw new ApiError(422, "Name the item fetched from the other shop");
+  const found = await tx.item.findFirst({ where: { businessId, sku: { startsWith: OUTSIDE_SKU }, name: clean } });
+  if (found) return tx.item.update({ where: { id: found.id }, data: { costPrice: cost } });
+  return tx.item.create({
+    data: {
+      businessId, name: clean, sku: `${OUTSIDE_SKU}${randomUUID().slice(0, 8).toUpperCase()}`,
+      costPrice: cost, active: false, deletedAt: new Date(),
+      description: "Fetched from another shop for a sale; not stocked here.",
+    },
+  });
 }
 
 /** Each IMEI-tracked line must carry exactly one IMEI per unit; other lines carry none.
@@ -205,12 +228,24 @@ export async function createSale(
     walletId?: string;
     /** The received amount split across wallets; when absent it all goes to walletId. */
     payments?: { walletId: string; amount: bigint }[];
+    /** For goods fetched from another shop (outside lines): paid now out of walletId, or
+     *  owed to the shop named supplierName (a Payable). */
+    outsidePay?: { walletId?: string; supplierName?: string };
     dueDate?: string;
     reference?: string;
     notes?: string;
   }
 ) {
   if (opts.lines.length === 0) throw new ApiError(422, "A sale needs at least one line");
+  // Goods fetched from another shop get their hidden item first, so each line has an item.
+  const outsideCost = opts.lines.reduce((a, l) => a + (l.outside ? BigInt(l.quantity) * l.outside.cost : 0n), 0n);
+  for (const l of opts.lines) {
+    if (!l.outside) continue;
+    if (l.outside.cost < 0n) throw new ApiError(422, "The other shop's price cannot be negative");
+    l.itemId = (await outsideItem(tx, opts.businessId, l.outside.name, l.outside.cost)).id;
+  }
+  if (outsideCost > 0n && !opts.outsidePay?.walletId && !opts.outsidePay?.supplierName?.trim())
+    throw new ApiError(422, "Say how the other shop is paid: out of a wallet now, or owed to them");
   const payments = (opts.payments ?? []).filter((p) => p.amount > 0n);
   if (payments.length > 0) {
     const sum = payments.reduce((a, p) => a + p.amount, 0n);
@@ -270,6 +305,18 @@ export async function createSale(
   const soldItems: { name: string; quantity: number }[] = [];
   const saleImeis = await imeisPerLine(tx, opts.businessId, opts.lines);
   for (const [i, l] of opts.lines.entries()) {
+    if (l.outside) {
+      // Not stocked here: nothing leaves the shelf, and its cost is the other shop's price.
+      soldItems.push({ name: l.outside.name.trim(), quantity: l.quantity });
+      totalCost += BigInt(l.quantity) * l.outside.cost;
+      await tx.saleLine.create({
+        data: {
+          saleId: sale.id, itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice, unitCost: l.outside.cost,
+          lineTotal: BigInt(l.quantity) * l.unitPrice, warrantyDays: 0, note: l.note || null,
+        },
+      });
+      continue;
+    }
     const { item } = await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
@@ -317,6 +364,41 @@ export async function createSale(
     });
   }
 
+  // The other shop's money for goods fetched for this sale: paid now, or owed to them.
+  if (outsideCost > 0n) {
+    const supplierName = opts.outsidePay?.supplierName?.trim();
+    if (opts.outsidePay?.walletId) {
+      await postLedger(tx, {
+        businessId: opts.businessId,
+        walletId: opts.outsidePay.walletId,
+        direction: "CREDIT",
+        amount: outsideCost,
+        refType: "OUTSIDE_COST",
+        refId: sale.id,
+        description: `${txnNo} paid to ${supplierName || "another shop"} for goods sold`,
+        createdById: opts.userId,
+      });
+    } else if (supplierName) {
+      const supplier = await tx.contact.findFirst({ where: { businessId: opts.businessId, type: "SUPPLIER", deletedAt: null, name: { equals: supplierName, mode: "insensitive" } } })
+        ?? await tx.contact.create({ data: { businessId: opts.businessId, branchId: opts.branchId, name: supplierName.slice(0, 80), type: "SUPPLIER" } });
+      const payable = await tx.payable.create({
+        data: {
+          txnNo: await nextNumber(tx, opts.businessId, "PAYABLE"),
+          businessId: opts.businessId,
+          branchId: opts.branchId,
+          supplierId: supplier.id,
+          reference: txnNo,
+          originalAmount: outsideCost,
+          remainingAmount: outsideCost,
+          payableDate: opts.date,
+          notes: `Goods fetched for sale ${txnNo}`,
+          createdById: opts.userId,
+        },
+      });
+      await tx.sale.update({ where: { id: sale.id }, data: { outsidePayableId: payable.id } });
+    }
+  }
+
   let receivableId: string | undefined;
   if (unpaid > 0n && opts.customerId) {
     const crdTxnNo = await nextNumber(tx, opts.businessId, "CREDIT");
@@ -358,7 +440,7 @@ export async function cancelSaleOrPurchase(
   if (!opts.reason.trim()) throw new ApiError(422, "A reason is required");
   const record =
     kind === "sale"
-      ? await tx.sale.findUnique({ where: { id: opts.id }, include: { lines: true } })
+      ? await tx.sale.findUnique({ where: { id: opts.id }, include: { lines: { include: { item: { select: { sku: true } } } } } })
       : await tx.purchase.findUnique({ where: { id: opts.id }, include: { lines: true } });
   if (!record || record.businessId !== opts.businessId) throw new ApiError(404, "Record not found");
   if (record.status === "CANCELLED") throw new ApiError(422, "Already cancelled");
@@ -367,8 +449,9 @@ export async function cancelSaleOrPurchase(
   if (kind === "sale") await releaseSaleSerials(tx, record.id);
   else await removePurchaseSerials(tx, record.id);
 
-  // reverse stock
+  // reverse stock (goods fetched from another shop never came off a shelf here)
   for (const l of record.lines) {
+    if ("item" in l && (l.item as { sku: string }).sku.startsWith(OUTSIDE_SKU)) continue;
     await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
@@ -418,7 +501,15 @@ export async function cancelSaleOrPurchase(
 
   // cancel the linked receivable/payable if untouched
   if (kind === "sale") {
-    const s = record as typeof record & { receivableId?: string | null };
+    const s = record as typeof record & { receivableId?: string | null; outsidePayableId?: string | null };
+    // What was paid to, or owed to, the other shop for goods fetched for this sale.
+    await reverseLedgerEntries(tx, opts.businessId, "OUTSIDE_COST", record.id, opts.userId, opts.reason);
+    if (s.outsidePayableId) {
+      const owed = await tx.payable.findUnique({ where: { id: s.outsidePayableId } });
+      if (owed && owed.paidAmount > 0n)
+        throw new ApiError(422, "Cannot cancel: the other shop has already been paid part of what was owed");
+      if (owed) await tx.payable.update({ where: { id: owed.id }, data: { status: "CANCELLED", remainingAmount: 0n } });
+    }
     if (s.receivableId) {
       const rec = await tx.receivable.findUnique({ where: { id: s.receivableId } });
       if (rec && rec.paidAmount > 0n)

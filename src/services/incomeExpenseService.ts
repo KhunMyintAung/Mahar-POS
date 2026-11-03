@@ -221,3 +221,90 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
   });
   return it;
 }
+
+/** Income the app files by itself, each under a category of its own that the shop can rename
+ *  but not delete: the profit on a bill sale, and the fee on a money transfer or cash-out.
+ *  Neither is one of the standard daily categories, so both count as Other income. */
+export const AUTO_INCOME_CATEGORIES = { BILL_PROFIT: "Bill Profit", MONEY_FEE: "Transfer & Cash-out Fee" } as const;
+export type AutoIncomeKey = keyof typeof AUTO_INCOME_CATEGORIES;
+
+async function autoIncomeCategory(tx: Tx, businessId: string, key: AutoIncomeKey) {
+  const keyed = await tx.category.findFirst({ where: { businessId, type: "INCOME", systemKey: key } });
+  if (keyed) return keyed.active ? keyed : tx.category.update({ where: { id: keyed.id }, data: { active: true } });
+  // One the shop already made by hand under the same name takes the key rather than being doubled.
+  const name = AUTO_INCOME_CATEGORIES[key];
+  const named = await tx.category.findFirst({ where: { businessId, type: "INCOME", name } });
+  if (named && !named.systemKey) return tx.category.update({ where: { id: named.id }, data: { systemKey: key, active: true } });
+  return tx.category.create({ data: { businessId, type: "INCOME", name: named ? `${name} (auto)` : name, systemKey: key } });
+}
+
+/** The branch to file an entry under: the wallet's, else the record's, else the shop's first. */
+async function entryBranch(tx: Tx, businessId: string, ...candidates: (string | null | undefined)[]) {
+  const id = candidates.find(Boolean)
+    ?? (await tx.branch.findFirst({ where: { businessId }, orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
+  if (!id) throw new ApiError(422, "No branch to file the income under");
+  return id;
+}
+
+/** The profit on a bill sale as income (Bill Profit, under Other income), filed with every
+ *  sale that makes one. The sale already put its cash in the wallet, so this entry moves no
+ *  money: it is the record that shows the profit in Income & Expense and in Reports, where
+ *  the sale's cash then counts as the operator's money passing through. */
+export async function recordBillProfitIncome(tx: Tx, opts: { businessId: string; userId: string; billerTxnId: string }) {
+  const txn = await tx.billerTxn.findFirst({ where: { id: opts.billerTxnId, businessId: opts.businessId }, include: { biller: true } });
+  if (!txn || txn.kind !== "SALE" || txn.voidedAt || txn.profit <= 0n || !txn.walletId) return null;
+  const wallet = await tx.wallet.findUnique({ where: { id: txn.walletId } });
+  if (!wallet) return null;
+  const category = await autoIncomeCategory(tx, opts.businessId, "BILL_PROFIT");
+  const branchId = await entryBranch(tx, opts.businessId, wallet.branchId, txn.branchId);
+  const it = await tx.incomeExpense.create({
+    data: {
+      txnNo: await nextNumber(tx, opts.businessId, "INCOME"),
+      businessId: opts.businessId,
+      branchId,
+      type: "INCOME",
+      categoryId: category.id,
+      categoryName: category.name,
+      amount: txn.profit,
+      currency: wallet.currency,
+      walletId: wallet.id,
+      date: businessDateOf(txn.createdAt),
+      reference: txn.txnNo,
+      description: `Bill sale · ${txn.biller.name} (${txn.txnNo})`,
+      billerTxnId: txn.id,
+      createdById: opts.userId,
+    },
+  });
+  await audit(tx, {
+    businessId: opts.businessId, userId: opts.userId, branchId,
+    action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
+    after: { txnNo: it.txnNo, type: "INCOME", category: category.name, amount: txn.profit, billSale: txn.txnNo },
+  });
+  return it;
+}
+
+/** A fee the shop earned, as income into the wallet that took it (Transfer & Cash-out Fee). */
+export async function recordFeeIncome(
+  tx: Tx,
+  opts: { businessId: string; userId: string; branchId?: string | null; amount: bigint; walletId: string; date: string; reference: string; description: string }
+) {
+  const wallet = await tx.wallet.findUnique({ where: { id: opts.walletId } });
+  if (!wallet || wallet.businessId !== opts.businessId) throw new ApiError(404, "Wallet not found");
+  const category = await autoIncomeCategory(tx, opts.businessId, "MONEY_FEE");
+  const branchId = await entryBranch(tx, opts.businessId, wallet.branchId, opts.branchId);
+  const txnNo = await nextNumber(tx, opts.businessId, "INCOME");
+  const it = await tx.incomeExpense.create({
+    data: {
+      txnNo, businessId: opts.businessId, branchId, type: "INCOME",
+      categoryId: category.id, categoryName: category.name,
+      amount: opts.amount, currency: wallet.currency, walletId: wallet.id,
+      date: opts.date, reference: opts.reference, description: opts.description,
+      createdById: opts.userId,
+    },
+  });
+  await postLedger(tx, {
+    businessId: opts.businessId, walletId: wallet.id, direction: "DEBIT", amount: opts.amount,
+    refType: "INCOME", refId: it.id, description: `${txnNo} ${category.name}`, createdById: opts.userId,
+  });
+  return it;
+}
