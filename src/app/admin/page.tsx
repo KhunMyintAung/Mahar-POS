@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Activity, BarChart3, Bot, Building2, HeartHandshake, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
-import { Button, Card, Select, Spinner } from "@/components/ui";
+import { Button, Card, Input, Modal, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { AdminShops } from "@/components/AdminShops";
 import { AdminEmail } from "@/components/AdminEmail";
@@ -135,6 +135,36 @@ export default function AdminPage() {
       window.clearInterval(timer);
     };
   }, [load]);
+
+  // Setting a password by hand, for an account whose email is wrong or missing.
+  const [pwFor, setPwFor] = useState<{ id: string; username: string } | null>(null);
+  const [newPw, setNewPw] = useState("");
+  const [pwShown, setPwShown] = useState(false);
+  const setPassword = async () => {
+    if (!pwFor) return;
+    setUserBusy(pwFor.id);
+    setUserNote("");
+    try {
+      const response = await fetch(`/api/admin/users/${pwFor.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "setpassword", password: newPw }) });
+      const body = await response.json();
+      if (!response.ok || !body.ok) throw new Error(body.error || "Failed");
+      setUserNote(`New password set for ${pwFor.username}. They are signed out everywhere and can sign in with it now.`);
+      setPwFor(null);
+      setNewPw("");
+      await load();
+    } catch (failure) {
+      setUserNote(failure instanceof Error ? failure.message : "Failed");
+    } finally {
+      setUserBusy(null);
+    }
+  };
+  /** A password that is easy to read out over the phone: no 0/O or 1/l to mix up. */
+  const makePassword = () => {
+    const letters = "abcdefghjkmnpqrstuvwxyz", digits = "23456789";
+    const pick = (set: string, n: number) => Array.from(crypto.getRandomValues(new Uint32Array(n)), (v) => set[v % set.length]).join("");
+    setNewPw(`${pick(letters, 4)}${pick(digits, 4)}`);
+    setPwShown(true);
+  };
 
   /** Switch an account on or off, sign it out everywhere, or email it a reset link. */
   const userAction = async (id: string, action: "enable" | "disable" | "signout" | "reset", label: string) => {
@@ -422,6 +452,7 @@ export default function AdminPage() {
                           : <Button size="sm" variant="secondary" disabled={userBusy === user.id} onClick={() => userAction(user.id, "enable", "")}>Enable</Button>}
                         <Button size="sm" variant="ghost" disabled={userBusy === user.id || !user.hasValidSession} onClick={() => userAction(user.id, "signout", `Sign ${user.username} out of every device`)}>Sign out</Button>
                         <Button size="sm" variant="ghost" disabled={userBusy === user.id} onClick={() => userAction(user.id, "reset", `Email ${user.username} a password reset link`)}>Reset pw</Button>
+                        <Button size="sm" variant="ghost" disabled={userBusy === user.id} onClick={() => { setPwFor({ id: user.id, username: user.username }); setNewPw(""); setPwShown(false); }}>Set pw</Button>
                       </div>
                     </td>
                   </tr>
@@ -506,6 +537,24 @@ export default function AdminPage() {
           <span>{data ? `Updated ${fmtDateTime(data.updatedAt)}` : "Loading..."}</span>
         </div>
       </div>
+      <Modal open={Boolean(pwFor)} onClose={() => setPwFor(null)} title={`Set a new password · ${pwFor?.username ?? ""}`}>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">For an account whose email is wrong or missing. Give the new password to the owner yourself; they are signed out of every device and can sign in with it straight away.</p>
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <Input label="New password (8 or more characters)" type={pwShown ? "text" : "password"} value={newPw} autoComplete="new-password" onChange={(e) => setNewPw(e.target.value)} />
+            </div>
+            <Button variant="secondary" onClick={makePassword}>Make one</Button>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-gray-500">
+            <input type="checkbox" checked={pwShown} onChange={(e) => setPwShown(e.target.checked)} /> Show password
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPwFor(null)}>Cancel</Button>
+            <Button onClick={setPassword} disabled={newPw.length < 8 || newPw.length > 72 || userBusy === pwFor?.id}>Set password</Button>
+          </div>
+        </div>
+      </Modal>
     </main>
   );
 }
