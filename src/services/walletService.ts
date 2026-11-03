@@ -19,6 +19,8 @@ export interface LedgerPost {
   description?: string;
   createdById: string;
   allowNegative?: boolean;
+  /** For a record entered for an earlier day: when the money moved. */
+  createdAt?: Date;
 }
 
 export async function postLedger(tx: Tx, post: LedgerPost) {
@@ -56,6 +58,7 @@ export async function postLedger(tx: Tx, post: LedgerPost) {
       refId: post.refId,
       description: post.description,
       createdById: post.createdById,
+      ...(post.createdAt ? { createdAt: post.createdAt } : {}),
     },
   });
   return { entry, wallet: { ...wallet, currentBalance: newBalance } };

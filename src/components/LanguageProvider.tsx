@@ -1400,6 +1400,11 @@ const MM: Record<string, string> = {
   "Add to cart": "ခြင်းတောင်းထဲ ထည့်မည်",
   "Bill Profit": "Bill အမြတ်",
   "Transfer & Cash-out Fee": "ငွေလွဲ / ငွေထုတ် ခ",
+  "Not today": "ဒီနေ့ မဟုတ်ပါ",
+  "That day's totals and reports will change. Make sure the date is right.": "အဲဒီနေ့ရဲ့ စုစုပေါင်းနဲ့ အစီရင်ခံစာ ပြောင်းသွားပါမယ်။ ရက်စွဲ မှန်မမှန် သေချာစစ်ပါ။",
+  "Yes, record it": "ဟုတ်ကဲ့၊ မှတ်မည်",
+  "A day still to come cannot be used": "နောက်ရက် (မရောက်သေးတဲ့ရက်) နဲ့ မှတ်လို့ မရပါ",
+  "Only the owner or an admin can record for another day": "တခြားရက်နဲ့ မှတ်တာကို Owner သို့ Admin သာ လုပ်နိုင်ပါတယ်",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1478,6 +1483,7 @@ function translate(value: string) {
     [/^Today's transfers \((.+)\)$/, (cur) => `ဒီနေ့ ငွေလွှဲ (${cur})`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
+    [/^Record this for (\S+), not today\?$/, (date) => `ဒီနေ့ မဟုတ်တဲ့ ရက် ${date} နဲ့ မှတ်မှာ သေချာလား?`],
     [/^Total withdrawn \((.+)\)$/, (cur) => `စုစုပေါင်း ငွေထုတ် (${cur})`],
     // Wallet history lines the app writes.
     [/^Collection for (.+)$/, (ref) => `${ref} အကြွေး ပြန်ရ`],

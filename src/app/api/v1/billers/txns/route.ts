@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { withAuth, json, parseBody, pagination } from "@/lib/api";
+import { withAuth, json, parseBody, pagination, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { toMinor } from "@/lib/money";
-import { dateRangeUtc, isValidBusinessDate } from "@/lib/dates";
+import { dateRangeUtc, isValidBusinessDate, todayBusinessDate } from "@/lib/dates";
+import { otherDayProblem } from "@/lib/backdate";
 import { BILLER_TXN_KINDS, recordBillerTxn } from "@/services/billerService";
 
 export const GET = withAuth("biller.view", async ({ req, user }) => {
@@ -63,10 +64,15 @@ const createSchema = z.object({
   walletId: z.string().optional(),
   customerPhone: z.string().trim().max(40).optional(),
   note: z.string().trim().max(300).optional(),
+  // A day before today, for the owner or an admin entering a day's trades afterwards.
+  date: z.string().refine(isValidBusinessDate).optional(),
 });
 
 export const POST = withAuth("biller.trade", async ({ req, user }) => {
   const body = await parseBody(req, createSchema);
+  const today = todayBusinessDate();
+  const dateProblem = body.date ? otherDayProblem(user.roleName, body.date, today) : null;
+  if (dateProblem) throw new ApiError(403, dateProblem);
 
   const txn = await prisma.$transaction((tx) =>
     recordBillerTxn(tx, {
@@ -80,6 +86,7 @@ export const POST = withAuth("biller.trade", async ({ req, user }) => {
       walletId: body.walletId,
       customerPhone: body.customerPhone,
       note: body.note,
+      date: body.date && body.date < today ? body.date : undefined,
     })
   );
 

@@ -4,6 +4,8 @@ import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
 import { recordBillProfitIncome } from "./incomeExpenseService";
+import { assertDateOpen } from "./closeGuard";
+import { businessNoon } from "@/lib/backdate";
 
 /** Top-up billers: the float a phone shop holds with each operator.
  *
@@ -122,6 +124,8 @@ export async function recordBillerTxn(
     walletId?: string;
     customerPhone?: string;
     note?: string;
+    /** An earlier business day the trade is entered for (the caller checks who may). */
+    date?: string;
   }
 ) {
   const biller = await tx.biller.findFirst({
@@ -144,6 +148,9 @@ export async function recordBillerTxn(
   const commission = opts.kind === "SALE" ? opts.commission ?? 0n : 0n;
   if (commission < 0n || (commission > 0n && commission > opts.faceAmount))
     throw new ApiError(422, "Commission must be between zero and the amount sold");
+  const at = opts.date ? businessNoon(opts.date) : undefined;
+  const branchId = opts.branchId ?? biller.branchId;
+  if (opts.date && branchId) await assertDateOpen(tx, branchId, opts.date);
   const delta = floatDelta(opts.kind, opts.faceAmount, commission);
   const balanceAfter = biller.currentBalance + delta;
   const profit = txnProfit(opts.kind, opts.faceAmount, opts.cashAmount, commission);
@@ -170,6 +177,7 @@ export async function recordBillerTxn(
       customerPhone: opts.customerPhone,
       note: opts.note,
       createdById: opts.userId,
+      ...(at ? { createdAt: at } : {}),
     },
   });
 
@@ -185,6 +193,7 @@ export async function recordBillerTxn(
       refId: record.id,
       description: `${txnNo} ${biller.name} ${opts.kind === "TOPUP" ? "float top-up" : "top-up sale"}`,
       createdById: opts.userId,
+      createdAt: at,
     });
   }
 

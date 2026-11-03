@@ -11,6 +11,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { NewSupplierModal, type Supplier } from "@/components/SupplierList";
 import { SupplierPayments } from "@/components/SupplierPayments";
 import { DayPicker, todayDate } from "@/components/DayPicker";
+import { OtherDayConfirm } from "@/components/OtherDayConfirm";
+import { canRecordOtherDay } from "@/lib/backdate";
 
 interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
@@ -46,7 +48,10 @@ export default function IncomeExpensePage() {
   const [reverseId, setReverseId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const { push } = useToast();
-  const { hasPerm, defaultBranchId, featureEnabled } = useAuth();
+  const { hasPerm, defaultBranchId, featureEnabled, me } = useAuth();
+  // Only the owner or an admin may record for another day, and is asked first.
+  const otherDayOk = canRecordOtherDay(me?.user.roleName);
+  const [askDate, setAskDate] = useState<string | null>(null);
   const canSuppliers = featureEnabled("suppliers") && hasPerm("customer.view");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [newSupplier, setNewSupplier] = useState(false);
@@ -64,7 +69,14 @@ export default function IncomeExpensePage() {
   }, [push, day, allDates, canSuppliers]);
   useEffect(load, [load]);
 
+  /** Save, asking first when the date is not today. */
+  function save() {
+    if (form.date && form.date !== todayDate()) setAskDate(form.date);
+    else void create();
+  }
+
   async function create() {
+    setAskDate(null);
     setBusy(true);
     try {
       let categoryName = form.categoryName;
@@ -83,7 +95,7 @@ export default function IncomeExpensePage() {
           categoryName,
           amount: form.amount,
           walletId: form.walletId,
-          date: form.date || undefined,
+          date: otherDayOk && form.date ? form.date : undefined,
           description: form.description || undefined,
           reference: form.reference || undefined,
           supplierId: offerSupplier && form.supplierId ? form.supplierId : undefined,
@@ -382,7 +394,7 @@ export default function IncomeExpensePage() {
               <option value="__new__">+ Add new category</option>
             </Select>
             )}
-            <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+            {otherDayOk && <Input label="Date" type="date" max={todayDate()} value={form.date || todayDate()} onChange={(e) => setForm({ ...form, date: e.target.value })} />}
           </div>
           {newCategory && (
             <button
@@ -419,10 +431,12 @@ export default function IncomeExpensePage() {
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
-            <Button onClick={create} disabled={busy || !canSave}>Save</Button>
+            <Button onClick={save} disabled={busy || !canSave}>Save</Button>
           </div>
         </div>
       </Modal>
+
+      <OtherDayConfirm date={askDate} busy={busy} onCancel={() => setAskDate(null)} onConfirm={() => void create()} />
 
       <SupplierPayments open={showBySupplier} onClose={() => setShowBySupplier(false)} />
 

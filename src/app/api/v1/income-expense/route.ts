@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { branchScope, canAccessBranch, can } from "@/lib/auth";
 import { toMinor } from "@/lib/money";
 import { todayBusinessDate, isValidBusinessDate } from "@/lib/dates";
+import { otherDayProblem } from "@/lib/backdate";
 import { notifyAuditFeed, incomeExpenseNotice } from "@/lib/telegramNotify";
 import { createIncomeExpenseEntry } from "@/services/incomeExpenseService";
 
@@ -76,6 +77,8 @@ export const POST = withAuth(null, async ({ req, user }) => {
     throw new ApiError(403, "You do not have permission to perform this action");
   }
   if (!canAccessBranch(user, body.branchId)) throw new ApiError(403, "No access to this branch");
+  const dateProblem = otherDayProblem(user.roleName, body.date, todayBusinessDate());
+  if (dateProblem) throw new ApiError(403, dateProblem);
   const amount = toMinor(body.amount);
 
   const item = await prisma.$transaction((tx) =>

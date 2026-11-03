@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { roundUpBill } from "@/lib/billRound";
+import { canRecordOtherDay } from "@/lib/backdate";
+import { OtherDayConfirm } from "@/components/OtherDayConfirm";
+import { todayDate } from "@/components/DayPicker";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
@@ -93,10 +96,13 @@ export default function BillersPage() {
   // way until Edit at the top is pressed.
   const [editMode, setEditMode] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
-  const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "" });
+  const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "", date: "" });
+  // A day's trades added up and entered afterwards: the owner or an admin picks the day.
+  const [askDate, setAskDate] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
   const { push } = useToast();
-  const { hasPerm } = useAuth();
+  const { hasPerm, me } = useAuth();
+  const otherDayOk = canRecordOtherDay(me?.user.roleName);
 
   const load = useCallback(() => {
     api<{ billers: Biller[]; totalFloat: string }>("/api/v1/billers?all=1")
@@ -199,11 +205,19 @@ export default function BillersPage() {
       walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
       customerPhone: "",
       note: "",
+      date: "",
     });
+  }
+
+  /** Save, asking first when the trade is for a day other than today. */
+  function saveTrade() {
+    if (trade.date && trade.date !== todayDate()) setAskDate(trade.date);
+    else void applyTrade();
   }
 
   async function applyTrade() {
     if (!trading) return;
+    setAskDate(null);
     setBusy(true);
     try {
       const saved = await api<{ id: string; txnNo: string; cashAmount: string }>("/api/v1/billers/txns", {
@@ -215,8 +229,8 @@ export default function BillersPage() {
           cashAmount: trading.kind === "ADJUST" ? "0" : String(cash),
           commission: trading.kind === "SALE" ? String(commission) : "0",
           walletId: trading.kind === "ADJUST" ? undefined : (trade.walletId || undefined),
-          customerPhone: trade.customerPhone || undefined,
           note: trade.note || undefined,
+          date: otherDayOk && trade.date && trade.date !== todayDate() ? trade.date : undefined,
         },
       });
       push(KIND_LABEL[trading.kind] ?? "Saved");
@@ -591,22 +605,24 @@ export default function BillersPage() {
                     </b>
                   </div>
                 )}
-                {trading.kind === "SALE" && (
-                  <Input label="Customer phone" value={trade.customerPhone} onChange={(e) => setTrade({ ...trade, customerPhone: e.target.value })} />
-                )}
               </>
             )}
             <Input label="Note" value={trade.note} onChange={(e) => setTrade({ ...trade, note: e.target.value })} />
+            {otherDayOk && (
+              <Input label="Date" type="date" max={todayDate()} value={trade.date || todayDate()} onChange={(e) => setTrade({ ...trade, date: e.target.value })} />
+            )}
             {trading.kind === "TOPUP" && floatAlways && (
               <p className="text-xs text-gray-500">The cash paid is added to expense automatically. <button type="button" className="text-blue-600" onClick={askAgain}>Ask me instead</button></p>
             )}
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="secondary" onClick={() => setTrading(null)}>Cancel</Button>
-              <Button onClick={applyTrade} disabled={busy || !amountOk || (trading.kind !== "ADJUST" && cash > 0 && !trade.walletId)}>{busy ? "Saving…" : "Save"}</Button>
+              <Button onClick={saveTrade} disabled={busy || !amountOk || (trading.kind !== "ADJUST" && cash > 0 && !trade.walletId)}>{busy ? "Saving…" : "Save"}</Button>
             </div>
           </div>
         )}
       </Modal>
+
+      <OtherDayConfirm date={askDate} busy={busy} onCancel={() => setAskDate(null)} onConfirm={() => void applyTrade()} />
 
       <Modal open={Boolean(floatAsk)} onClose={() => setFloatAsk(null)} title="Add to expense?">
         {floatAsk && (
