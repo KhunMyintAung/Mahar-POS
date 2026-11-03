@@ -296,7 +296,14 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }
   }
   const profitBooked = new Set(entries.filter((e) => e.type === "INCOME" && e.billerTxnId).map((e) => e.billerTxnId));
-  for (const b of billerSales) addBillerTxn(at(businessDateOf(b.createdAt)), b, profitBooked.has(b.id));
+  // Each day's top-up money, to show in whole thousands (below).
+  const dayTopup = new Map<string, bigint>();
+  const addDayTopup = (day: string, amount: bigint) => dayTopup.set(day, (dayTopup.get(day) ?? 0n) + amount);
+  for (const b of billerSales) {
+    const day = businessDateOf(b.createdAt);
+    addBillerTxn(at(day), b, profitBooked.has(b.id));
+    if (b.kind === "SALE") addDayTopup(day, b.cashAmount - b.profit);
+  }
   const keyByName = new Map(keyedCats.filter((c) => c.type === "INCOME").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseKey = new Map(keyedCats.filter((c) => c.type === "EXPENSE").map((c) => [c.name.toLowerCase(), c.systemKey]));
   const expenseSection = (name: string): Section => {
@@ -325,7 +332,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       const bucket = bucketForKey(keyByName.get(name.toLowerCase()));
       if (bucket === "sales") r.sales += e.amount;
       else if (bucket === "service") r.service += e.amount;
-      else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; }
+      else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; addDayTopup(e.date, e.amount); }
       else { r.otherIncome += e.amount; addOther(r.period, name, e.amount); }
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && e.purchaseId) {
@@ -348,6 +355,16 @@ export async function buildReport(businessId: string, from: string, to: string, 
     } else if (e.type === "WITHDRAW") {
       r.shares += e.amount;
     }
+  }
+
+  // A day's top-up shows in whole thousands, as the shop counts it; what is left over
+  // (170,292 → 170,000 and 292) is the shop's, under Other income as Bill Profit.
+  for (const [day, amount] of dayTopup) {
+    const rest = amount > 0n ? amount % 1000_00n : 0n;
+    if (rest === 0n) continue;
+    const r = at(day);
+    r.topup -= rest; r.otherIncome += rest; r.billProfit += rest;
+    addOther(r.period, "Bill Profit", rest);
   }
 
   // Float purchases recorded as expense in this period: top-up cost comes from them.
