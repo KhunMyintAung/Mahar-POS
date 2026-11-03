@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/adminAccess";
+import { loginMethod } from "@/lib/loginMethod";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export async function GET() {
           action: true,
           module: true,
           resourceType: true,
+          after: true,
           reason: true,
           createdAt: true,
           user: {
@@ -123,7 +125,8 @@ export async function GET() {
             username: detailed ? (log.user?.username ?? "system") : null,
             action: log.action,
             module: log.module,
-            resourceType: log.resourceType,
+            // A sign-in says how it was made: Google or Password.
+            resourceType: log.resourceType ?? loginMethod(log),
             // Free text a person typed; it can name anyone or anything.
             reason: detailed ? log.reason : null,
             createdAt: log.createdAt,

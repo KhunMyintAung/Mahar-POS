@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
           module: "auth",
           ip,
           userAgent,
+          after: { method: "password", via: "maharpos.shop" },
         });
       }
       return errorJson(401, "Invalid username or password");

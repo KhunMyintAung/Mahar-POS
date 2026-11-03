@@ -1419,6 +1419,13 @@ const MM: Record<string, string> = {
   "Other (accessory, part…)": "အခြား (Accessory၊ Part…)",
   "Phone — new (warranty card)": "ဖုန်း — အသစ် (အာမခံကတ် ထွက်)",
   "Phone — second-hand (warranty card)": "ဖုန်း — တစ်ပတ်ရစ် (အာမခံကတ် ထွက်)",
+  "New barcode": "Barcode အသစ်",
+  "No item has this barcode yet:": "ဒီ Barcode နဲ့ ပစ္စည်း မရှိသေးပါ:",
+  "Pick the product it belongs to. It is saved on that item, so the next scan finds it.": "ဘယ်ပစ္စည်းရဲ့ Barcode လဲ ရွေးပါ။ အဲဒီပစ္စည်းမှာ သိမ်းထားမှာမို့ နောက်တစ်ခါ Scan ဖတ်ရင် တန်းတွေ့ပါမယ်။",
+  "Find the item": "ပစ္စည်း ရှာပါ",
+  "No item found": "ပစ္စည်း မတွေ့ပါ",
+  "Could not save the barcode": "Barcode သိမ်းလို့ မရပါ",
+  "Google": "Google",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1495,6 +1502,9 @@ function translate(value: string) {
     [/^New variant of (.+)$/, (model) => `${model} — အမျိုးအစားခွဲ အသစ်`],
     [/^stock (-?\d+)$/, (n) => `လက်ကျန် ${n}`],
     [/^Today's transfers \((.+)\)$/, (cur) => `ဒီနေ့ ငွေလွှဲ (${cur})`],
+    [/^Barcode saved on (.+)$/, (name) => `${name} မှာ Barcode သိမ်းပြီး`],
+    [/^This barcode is already on (.+)$/, (name) => `ဒီ Barcode က ${name} မှာ ရှိပြီးသားပါ`],
+    [/^replaces (.+)$/, (code) => `${code} ကို အစားထိုး`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

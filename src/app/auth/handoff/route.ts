@@ -55,6 +55,7 @@ export async function GET(req: NextRequest) {
     module: "auth",
     ip,
     userAgent,
+    after: { method: "password", via: "maharpos.shop" },
   });
 
   const res = NextResponse.redirect(new URL("/", origin));

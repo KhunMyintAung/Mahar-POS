@@ -50,6 +50,14 @@ export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
     if (body.name) body.name = autoCorrectName(body.name);
     if (body.model) body.model = autoCorrectName(body.model);
   }
+  if (body.barcode) {
+    body.barcode = body.barcode.trim();
+    const taken = await prisma.item.findFirst({
+      where: { businessId: user.businessId, barcode: body.barcode, deletedAt: null, id: { not: item.id } },
+      select: { name: true },
+    });
+    if (taken) throw new ApiError(409, `This barcode is already on ${taken.name}`);
+  }
   const { costPrice, sellingPrice, expiresAt, ...rest } = body;
   const updated = await prisma.$transaction(async (tx) => {
     if (body.categoryId) {

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         });
         await audit(prisma, {
           businessId: user.businessId, userId: user.id,
-          action: "LOGIN_FAILED", module: "auth", ip, userAgent,
+          action: "LOGIN_FAILED", module: "auth", ip, userAgent, after: { method: "password" },
         });
       }
       return errorJson(401, "Invalid username or password");
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     const { token, expiresAt } = await createSession(user.id, { ip, userAgent });
     await audit(prisma, {
       businessId: user.businessId, userId: user.id,
-      action: "LOGIN", module: "auth", ip, userAgent,
+      action: "LOGIN", module: "auth", ip, userAgent, after: { method: "password" },
     });
 
     const res = NextResponse.json({ ok: true, data: { name: user.name, username: user.username } });

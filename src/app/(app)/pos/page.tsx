@@ -88,6 +88,9 @@ function cashSuggestions(total: number) {
 
 export default function PosPage() {
   const [items, setItems] = useState<Item[] | null>(null);
+  // A scanned barcode no item has yet: pick the product it belongs to and it is saved on it.
+  const [newBarcode, setNewBarcode] = useState<string | null>(null);
+  const [barcodeSearch, setBarcodeSearch] = useState("");
   const [flashId, setFlashId] = useState<string | null>(null);
   const [bump, setBump] = useState(0);
   // Every IMEI on the shelf in this branch, by item, for the picker and for scanning.
@@ -410,6 +413,31 @@ export default function PosPage() {
     setReceipt(null);
   }
 
+  /** A code that looks like a printed barcode (no spaces, 6 or more characters) and that
+   *  someone allowed to edit items scanned: offer to put it on an existing product. */
+  function offerBarcode(code: string): boolean {
+    const text = code.trim();
+    if (!hasPerm("item.manage") || !/^[A-Za-z0-9-]{6,40}$/.test(text)) return false;
+    setBarcodeSearch("");
+    setNewBarcode(text);
+    return true;
+  }
+
+  async function saveBarcode(item: Item) {
+    if (!newBarcode) return;
+    try {
+      await api(`/api/v1/items/${item.id}`, { method: "PATCH", body: { barcode: newBarcode } });
+      const updated = { ...item, barcode: newBarcode };
+      setItems((current) => current?.map((it) => (it.id === item.id ? updated : it)) ?? current);
+      setNewBarcode(null);
+      setQ("");
+      addToCart(updated);
+      push(`Barcode saved on ${item.name}`, "success");
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Could not save the barcode", "error");
+    }
+  }
+
   function scan(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key !== "Enter") return;
     if (addByCode(q)) {
@@ -418,7 +446,10 @@ export default function PosPage() {
       return;
     }
     const code = q;
-    void openRepairByCode(code).then((found) => { if (found) setQ(""); });
+    void openRepairByCode(code).then((found) => {
+      if (found) setQ("");
+      else if (offerBarcode(code)) setQ("");
+    });
   }
 
   const subtotal = cart.reduce((total, line) => total + line.quantity * line.unitPrice, 0);
@@ -1115,6 +1146,37 @@ export default function PosPage() {
         )}
       </Modal>
       <WarrantyCardDialog receipt={cardFor} onClose={() => setCardFor(null)} />
+      <Modal open={Boolean(newBarcode)} onClose={() => setNewBarcode(null)} title="New barcode">
+        {newBarcode && (() => {
+          const needle = barcodeSearch.trim().toLowerCase();
+          const matches = (items ?? [])
+            .filter((it) => !needle || it.name.toLowerCase().includes(needle) || it.sku.toLowerCase().includes(needle))
+            .slice(0, 30);
+          return (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                <span>{"No item has this barcode yet:"}</span> <b className="font-mono">{newBarcode}</b>
+              </p>
+              <p className="text-xs text-gray-500">{"Pick the product it belongs to. It is saved on that item, so the next scan finds it."}</p>
+              <Input label="Find the item" value={barcodeSearch} autoFocus onChange={(e) => setBarcodeSearch(e.target.value)} />
+              <ul className="max-h-72 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                {matches.map((it) => (
+                  <li key={it.id}>
+                    <button type="button" onClick={() => void saveBarcode(it)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-blue-50 dark:hover:bg-gray-800">
+                      <span className="min-w-0 truncate">{it.name}</span>
+                      {it.barcode && <span className="shrink-0 font-mono text-[11px] text-amber-600">{`replaces ${it.barcode}`}</span>}
+                    </button>
+                  </li>
+                ))}
+                {matches.length === 0 && <li className="px-3 py-4 text-center text-sm text-gray-500">{"No item found"}</li>}
+              </ul>
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={() => setNewBarcode(null)}>Cancel</Button>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
       {/* The camera stays open across scans: a basket is many items, and closing it after
           each one would mean re-opening it for every single line. */}
       <BarcodeScannerModal
@@ -1125,6 +1187,7 @@ export default function PosPage() {
           if (!addByCode(code)) {
             void openRepairByCode(code).then((found) => {
               if (found) setScanning(false);
+              else if (offerBarcode(code)) setScanning(false);
               else push(`No item with code ${code}`, "error");
             });
           }

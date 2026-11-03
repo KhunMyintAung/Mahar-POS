@@ -5,6 +5,7 @@ import { api } from "@/lib/client";
 import { fmtDateTime } from "@/lib/format";
 import { Button, Card, Select, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
+import { loginMethod } from "@/lib/loginMethod";
 
 interface Log {
   id: string; action: string; module: string; resourceType?: string; resourceId?: string;
@@ -51,7 +52,7 @@ export default function AuditPage() {
               <td className="px-3 py-2 text-xs">{l.user?.name ?? "—"}</td>
               <td className="px-3 py-2 text-xs font-semibold">{l.action}</td>
               <td className="px-3 py-2 text-xs">{l.module}</td>
-              <td className="px-3 py-2 text-xs">{l.resourceType ?? ""}</td>
+              <td className="px-3 py-2 text-xs">{l.resourceType ?? loginMethod(l) ?? ""}</td>
               <td className="px-3 py-2 text-xs text-gray-500">{l.reason ?? ""}</td>
               <td className="px-3 py-2">
                 {(l.before || l.after) && (
