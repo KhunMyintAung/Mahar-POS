@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
-  Send, MinusCircle, Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight,
+  Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn, useToast } from "./ui";
@@ -100,8 +100,6 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
   { section: "/repairs", perm: "repair.create", feature: "repair", label: "Take in a device" },
   { section: "/billers", perm: "biller.manage", feature: "biller", label: "New biller" },
   { section: "/wallets", perm: "wallet.create", feature: "wallets", label: "New wallet" },
-  { section: "/transfers", perm: "wallet.transfer", feature: "transfers", label: "New transfer" },
-  { section: "/withdraw", perm: "wallet.withdraw", feature: "withdraw", label: "New withdrawal" },
   { section: "/credit", perm: "credit.create", feature: "credit", label: "New credit record" },
   { section: "/income-expense", perm: "income_expense.create", feature: "incomeExpense", label: "New income or expense" },
   { section: "/customers", perm: "customer.manage", feature: "customers", label: "New customer" },
@@ -110,14 +108,14 @@ const CREATE_ACTIONS: { section: string; perm: string; feature?: FeatureKey; lab
 
 interface NavTab { href: string; label: string; icon: typeof LayoutDashboard; perm: string; feature: FeatureKey }
 
-/** Wallets, Transfer, Transfer & Cash-out and Withdraw share one sidebar entry; the pages switch between them
- *  with tabs. Each tab keeps its own permission and module switch. */
+/** Wallets and Transfer & Cash-out share one sidebar entry; the pages switch between them
+ *  with tabs. Each tab keeps its own permission and module switch. The older Transfer
+ *  (between the shop's wallets) and Withdraw (owner's money) pages are off the tabs: the
+ *  shop's transfers and cash-outs are a service for customers only. */
 const WALLET_TABS: NavTab[] = [
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: "wallet.view", feature: "wallets" },
-  { href: "/transfers", label: "Transfer", icon: Send, perm: "wallet.transfer", feature: "transfers" },
   // Customers' KBZPay / Wave transfers and cash-outs, with the shop's fee.
   { href: "/money-service", label: "Transfer & Cash-out", icon: ArrowLeftRight, perm: "wallet.transfer", feature: "transfers" },
-  { href: "/withdraw", label: "Withdraw", icon: MinusCircle, perm: "wallet.withdraw", feature: "withdraw" },
 ];
 
 interface NavItem {
@@ -139,15 +137,15 @@ const NAV: NavItem[] = [
   { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair" },
   { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases" },
   { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items" },
+  { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },
+  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers" },
+  { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users" },
   // Running the online shop (its orders, prices and photos), not just seeing the items in it.
   { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.manage", feature: "onlineShop" },
   { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS },
-  { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },
   { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense" },
   { href: "/reports", label: "Reports", icon: FileBarChart, perm: "report.view", feature: "reports" },
-  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers" },
-  { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users" },
   { href: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
   { href: "/audit", label: "Audit Logs", icon: ScrollText, perm: "audit.view", feature: "audit" },
   { href: "/telegram", label: "Telegram", icon: MessageCircle, perm: null, feature: "telegram" },
