@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, use } from "react";
 import { api } from "@/lib/client";
+import { canCancelEntry } from "@/lib/backdate";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
@@ -42,7 +43,9 @@ export default function WalletLedgerPage({ params }: { params: Promise<{ id: str
   const [voidReason, setVoidReason] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
-  const { hasPerm } = useAuth();
+  const { hasPerm, me } = useAuth();
+  // Cancelling an income, expense or withdrawal is the owner's alone.
+  const ownerOnly = new Set(["INCOME", "EXPENSE", "WITHDRAW"]);
 
   const load = useCallback(() => {
     api<Data>(`/api/v1/wallets/${id}/ledger?page=${page}`)
@@ -91,7 +94,7 @@ export default function WalletLedgerPage({ params }: { params: Promise<{ id: str
         <Table headers={["Date", "Type", "Description", "In", "Out", "Balance", ""]} rightAlign={[3, 4, 5]}>
           {data.entries.map((e) => {
             const action = VOID_ACTIONS[e.refType];
-            const canVoid = action && e.refId && !e.reversed && hasPerm(action.permission);
+            const canVoid = action && e.refId && !e.reversed && hasPerm(action.permission) && (!ownerOnly.has(e.refType) || canCancelEntry(me?.user.roleName));
             return (
               <tr key={e.id}>
                 <td className="px-3 py-2 text-xs text-gray-500">{fmtDateTime(e.createdAt)}</td>

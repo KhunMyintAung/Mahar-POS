@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { withAuth, json, parseBody } from "@/lib/api";
+import { withAuth, json, parseBody, ApiError } from "@/lib/api";
+import { canCancelEntry } from "@/lib/backdate";
 import { prisma } from "@/lib/prisma";
 import { reverseIncomeExpense } from "@/services/incomeExpenseService";
 import { notifyAuditFeed, reversalNotice } from "@/lib/telegramNotify";
@@ -7,6 +8,7 @@ import { notifyAuditFeed, reversalNotice } from "@/lib/telegramNotify";
 const schema = z.object({ reason: z.string().min(3, "A reason is required") });
 
 export const POST = withAuth("wallet.reverse", async ({ req, user, params }) => {
+  if (!canCancelEntry(user.roleName)) throw new ApiError(403, "Only the owner can cancel an entry");
   const body = await parseBody(req, schema);
   const it = await prisma.incomeExpense.findFirst({ where: { id: params.id, businessId: user.businessId } });
   await prisma.$transaction((tx) =>

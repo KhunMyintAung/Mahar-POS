@@ -1405,6 +1405,16 @@ const MM: Record<string, string> = {
   "Yes, record it": "ဟုတ်ကဲ့၊ မှတ်မည်",
   "A day still to come cannot be used": "နောက်ရက် (မရောက်သေးတဲ့ရက်) နဲ့ မှတ်လို့ မရပါ",
   "Only the owner or an admin can record for another day": "တခြားရက်နဲ့ မှတ်တာကို Owner သို့ Admin သာ လုပ်နိုင်ပါတယ်",
+  "Cancelled history": "ပယ်ဖျက်ထားသော မှတ်တမ်း",
+  "Back to entries": "စာရင်းသို့ ပြန်သွား",
+  "Nothing has been cancelled": "ပယ်ဖျက်ထားတာ မရှိပါ",
+  "Nothing was cancelled for this day": "ဒီနေ့အတွက် ပယ်ဖျက်ထားတာ မရှိပါ",
+  "Cancel entry": "ပယ်ဖျက်",
+  "Danger zone — owner only": "အန္တရာယ်ရှိ — ပိုင်ရှင်သာ",
+  "This cancels the entry and puts its money back in the wallet. It cannot be undone; it stays in the cancelled history with your reason.": "ဒီစာရင်းကို ပယ်ဖျက်ပြီး ငွေကို wallet ထဲ ပြန်ထည့်ပါမယ်။ ပြန်ပြင်လို့ မရပါ။ ပယ်ဖျက်ထားသော မှတ်တမ်းထဲမှာ သင့်အကြောင်းပြချက်နဲ့အတူ ကျန်နေပါမယ်။",
+  "Keep it": "မဖျက်တော့ပါ",
+  "Yes, cancel it": "ဟုတ်ကဲ့၊ ပယ်ဖျက်မယ်",
+  "Only the owner can cancel an entry": "ပိုင်ရှင်သာ ပယ်ဖျက်နိုင်ပါသည်",
 };
 
 const originalText = new WeakMap<Node, string>();

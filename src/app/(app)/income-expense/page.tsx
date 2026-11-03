@@ -12,11 +12,13 @@ import { NewSupplierModal, type Supplier } from "@/components/SupplierList";
 import { SupplierPayments } from "@/components/SupplierPayments";
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import { OtherDayConfirm } from "@/components/OtherDayConfirm";
-import { canRecordOtherDay } from "@/lib/backdate";
+import { canRecordOtherDay, canCancelEntry } from "@/lib/backdate";
 
 interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
   currency: string; date: string; description?: string; status: string; supplierName?: string;
+  /** Cancelled entries only: when, by whom and why. */
+  cancelledAt?: string; cancelledBy?: string; cancelReason?: string;
 }
 /** Expense categories that are often money paid to a supplier: the form offers to name them. */
 const SUPPLIER_KEYS = ["DAILY_SERVICE", "DAILY_SALE"];
@@ -51,6 +53,10 @@ export default function IncomeExpensePage() {
   const { hasPerm, defaultBranchId, featureEnabled, me } = useAuth();
   // Only the owner or an admin may record for another day, and is asked first.
   const otherDayOk = canRecordOtherDay(me?.user.roleName);
+  // Cancelling is the owner's alone; everyone who can see the list sees what was cancelled.
+  const canCancel = canCancelEntry(me?.user.roleName);
+  const [showCancelled, setShowCancelled] = useState(false);
+  const [cancelledItems, setCancelledItems] = useState<Item[] | null>(null);
   const [askDate, setAskDate] = useState<string | null>(null);
   const canSuppliers = featureEnabled("suppliers") && hasPerm("customer.view");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -68,6 +74,12 @@ export default function IncomeExpensePage() {
     if (canSuppliers) api<{ contacts: Supplier[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200").then((d) => setSuppliers(d.contacts)).catch(() => {});
   }, [push, day, allDates, canSuppliers]);
   useEffect(load, [load]);
+  useEffect(() => {
+    if (!showCancelled) return;
+    api<{ items: Item[] }>(`/api/v1/income-expense?status=REVERSED&pageSize=100${allDates ? "" : `&date=${day}`}`)
+      .then((d) => setCancelledItems(d.items))
+      .catch((e) => push(e.message, "error"));
+  }, [showCancelled, day, allDates, push, items]);
 
   /** Save, asking first when the date is not today. */
   function save() {
@@ -231,6 +243,34 @@ export default function IncomeExpensePage() {
         </div>
       </div>
 
+      <div className="flex justify-end">
+        <Button size="sm" variant={showCancelled ? "primary" : "secondary"} onClick={() => setShowCancelled(!showCancelled)}>
+          {showCancelled ? "Back to entries" : "Cancelled history"}
+        </Button>
+      </div>
+
+      {showCancelled ? (
+        !cancelledItems ? <Spinner /> : cancelledItems.length === 0 ? (
+          <Card><Empty message={allDates ? "Nothing has been cancelled" : "Nothing was cancelled for this day"} /></Card>
+        ) : (
+          <Table headers={["Txn", "Date", "Type", "Category", "Amount", "Cancelled", "Reason"]} rightAlign={[4]}>
+            {cancelledItems.map((it) => (
+              <tr key={it.id} className="text-gray-500">
+                <td className="px-3 py-2 text-xs">{it.txnNo}</td>
+                <td className="px-3 py-2 text-xs">{it.date}</td>
+                <td className="px-3 py-2 text-xs font-bold">{it.type}</td>
+                <td className="px-3 py-2">{it.categoryName ?? "—"}</td>
+                <td className="px-3 py-2 text-right tabular-nums line-through">{fmtMoney(it.amount)} {it.currency}</td>
+                <td className="px-3 py-2 text-xs">
+                  {it.cancelledAt ? new Date(it.cancelledAt).toLocaleString() : "—"}
+                  {it.cancelledBy && <div className="font-semibold text-gray-700 dark:text-gray-200">{it.cancelledBy}</div>}
+                </td>
+                <td className="px-3 py-2 text-xs">{it.cancelReason ?? "—"}</td>
+              </tr>
+            ))}
+          </Table>
+        )
+      ) : (<>
       {typeFilter && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-gray-600 dark:text-gray-300">Showing {typeFilter === "INCOME" ? "income" : typeFilter === "EXPENSE" ? "expense" : "withdrawals"} only</span>
@@ -259,14 +299,15 @@ export default function IncomeExpensePage() {
                 {it.type === "INCOME" ? "+" : "-"}{fmtMoney(it.amount)} {it.currency}
               </td>
               <td className="px-3 py-2">
-                {it.status === "COMPLETED" && hasPerm("wallet.reverse") && (
-                  <Button size="sm" variant="ghost" onClick={() => setReverseId(it.id)}>Void</Button>
+                {it.status === "COMPLETED" && canCancel && (
+                  <Button size="sm" variant="ghost" onClick={() => setReverseId(it.id)}>Cancel entry</Button>
                 )}
               </td>
             </tr>
           ))}
         </Table>
       )}
+      </>)}
 
       <Modal open={showCategories} onClose={() => setShowCategories(false)} title="Categories">
         <div className="space-y-4">
@@ -450,13 +491,16 @@ export default function IncomeExpensePage() {
         }}
       />
 
-      <Modal open={!!reverseId} onClose={() => setReverseId(null)} title="Void entry">
+      <Modal open={!!reverseId} onClose={() => setReverseId(null)} title="Cancel entry">
         <div className="space-y-3">
-          <p className="text-sm text-gray-600 dark:text-gray-300">The wallet movement will be reversed. This action is logged.</p>
+          <div className="rounded-lg border-2 border-red-500 bg-red-50 p-3 dark:bg-red-950/40">
+            <div className="text-sm font-bold text-red-700 dark:text-red-300">Danger zone — owner only</div>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">This cancels the entry and puts its money back in the wallet. It cannot be undone; it stays in the cancelled history with your reason.</p>
+          </div>
           <Input label="Reason (required)" value={reverseReason} onChange={(e) => setReverseReason(e.target.value)} />
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setReverseId(null)}>Cancel</Button>
-            <Button variant="danger" onClick={reverse} disabled={busy || reverseReason.trim().length < 3}>Void</Button>
+            <Button variant="secondary" onClick={() => setReverseId(null)}>Keep it</Button>
+            <Button variant="danger" onClick={reverse} disabled={busy || reverseReason.trim().length < 3}>Yes, cancel it</Button>
           </div>
         </div>
       </Modal>

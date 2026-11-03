@@ -17,3 +17,8 @@ export function otherDayProblem(roleName: string | null | undefined, date: strin
 export function businessNoon(date: string): Date {
   return new Date(Date.parse(`${date}T12:00:00+06:30`));
 }
+
+/** Cancelling an income, expense or withdrawal entry is the owner's alone. */
+export function canCancelEntry(roleName?: string | null) {
+  return roleName === "Owner";
+}

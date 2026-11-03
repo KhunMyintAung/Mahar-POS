@@ -17,10 +17,12 @@ export const GET = withAuth(null, async ({ req, user }) => {
   if (!canRead) throw new ApiError(403, "You do not have permission to view these records");
 
   const { skip, take, page, pageSize } = pagination(req, 50);
+  // ?status=REVERSED lists the cancelled entries instead: the history of what was cancelled.
+  const cancelled = sp.get("status") === "REVERSED";
   const where = {
     businessId: user.businessId,
     deletedAt: null,
-    status: "COMPLETED",
+    status: cancelled ? "REVERSED" : "COMPLETED",
     ...branchScope(user),
     ...(requestedType ? { type: requestedType } : {}),
     ...(sp.get("date") ? { date: sp.get("date")! } : {}),
@@ -43,8 +45,25 @@ export const GET = withAuth(null, async ({ req, user }) => {
     ? await prisma.contact.findMany({ where: { id: { in: supplierIds }, businessId: user.businessId }, select: { id: true, name: true } })
     : [];
   const supplierName = new Map(suppliers.map((s) => [s.id, s.name]));
+  // Who cancelled each one, when and why, from the audit log.
+  const cancels = cancelled && items.length
+    ? await prisma.auditLog.findMany({
+        where: { businessId: user.businessId, action: "REVERSE", resourceType: "IncomeExpense", resourceId: { in: items.map((it) => it.id) } },
+        select: { resourceId: true, reason: true, createdAt: true, user: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const cancelOf = new Map<string, (typeof cancels)[number]>();
+  for (const c of cancels) if (c.resourceId && !cancelOf.has(c.resourceId)) cancelOf.set(c.resourceId, c);
   return json({
-    items: items.map((it) => ({ ...it, supplierName: it.supplierId ? supplierName.get(it.supplierId) : undefined })),
+    items: items.map((it) => {
+      const c = cancelOf.get(it.id);
+      return {
+        ...it,
+        supplierName: it.supplierId ? supplierName.get(it.supplierId) : undefined,
+        ...(cancelled ? { cancelledAt: c?.createdAt ?? it.updatedAt, cancelledBy: c?.user?.name, cancelReason: c?.reason } : {}),
+      };
+    }),
     total, page, pageSize,
     totals: {
       income: incomeAgg._sum.amount ?? 0n,
