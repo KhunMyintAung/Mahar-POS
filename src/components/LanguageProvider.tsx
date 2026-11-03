@@ -1405,7 +1405,6 @@ const MM: Record<string, string> = {
   "Yes, record it": "ဟုတ်ကဲ့၊ မှတ်မည်",
   "A day still to come cannot be used": "နောက်ရက် (မရောက်သေးတဲ့ရက်) နဲ့ မှတ်လို့ မရပါ",
   "Only the owner or an admin can record for another day": "တခြားရက်နဲ့ မှတ်တာကို Owner သို့ Admin သာ လုပ်နိုင်ပါတယ်",
-  "Bill Profit (Other income, in the bill sales)": "Bill အမြတ် (Other Income — Bill ရငွေထဲ ပါပြီး)",
 };
 
 const originalText = new WeakMap<Node, string>();

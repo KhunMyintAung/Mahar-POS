@@ -127,7 +127,7 @@ export async function computeDayIncome(
 ): Promise<DayIncome> {
   const range = dateRangeUtc(date);
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [repairIn, repairOut, topup, billProfit, sales, incomeByCategory, keyed] = await Promise.all([
+  const [repairIn, repairOut, topup, sales, incomeByCategory, keyed] = await Promise.all([
     tx.walletLedgerEntry.aggregate({
       where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
       _sum: { amount: true },
@@ -140,12 +140,6 @@ export async function computeDayIncome(
       where: { businessId, voidedAt: null, createdAt: range, kind: "SALE", ...branch },
       _sum: { cashAmount: true },
     }),
-    // The profit of those bill sales, filed as Bill Profit income. Shown as Other income on
-    // its own line, but not added to the total again: it is part of the cash taken above.
-    tx.incomeExpense.aggregate({
-      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: { not: null }, date, ...branch },
-      _sum: { amount: true },
-    }),
     salesTotal !== undefined
       ? Promise.resolve(salesTotal)
       : tx.sale.aggregate({
@@ -153,7 +147,8 @@ export async function computeDayIncome(
           _sum: { total: true },
         }).then((a) => a._sum.total ?? 0n),
     // Bill Profit entries made by bill sales are left out: their money is already in the
-    // cash taken for those sales, which is shown whole under Top-up & Bill sales.
+    // cash taken for those sales, shown whole under Top-up & Bill sales. (The report shows
+    // that profit as Other income.)
     tx.incomeExpense.groupBy({
       by: ["categoryName"],
       where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: null, date, currency: "MMK", ...branch },
@@ -178,7 +173,6 @@ export async function computeDayIncome(
     { label: "POS sales", amount: sales },
     { label: "Repairs", amount: repair },
     { label: "Top-up & Bill sales", amount: topupSales },
-    { label: "Bill Profit (Other income, in the bill sales)", amount: billProfit._sum.amount ?? 0n },
     ...incomeByCategory.map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
   ].filter((l) => l.amount !== 0n);
   return { ...out, total: out.sales + out.service + out.topup + out.other, lines };
