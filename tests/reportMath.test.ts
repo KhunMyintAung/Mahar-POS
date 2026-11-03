@@ -4,7 +4,7 @@ import { addBillerTxn, DEFAULT_REPORT_SETTINGS, distribute, incomeExpenseOf, sec
 import { buildXlsx } from "../src/lib/xlsx";
 
 const row = (over: Partial<PeriodRow>): PeriodRow => ({
-  period: "2026-10", sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
+  period: "2026-10", sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, topupBooked: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n, expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n, stockBought: 0n,
   ...over,
 });
@@ -54,7 +54,9 @@ describe("report maths", () => {
     // Balance fell by 4,635, the customer paid 5,000: 365 profit, filed in Other income.
     addBillerTxn(r, { kind: "SALE", cashAmount: 5_000_00n, profit: 365_00n }, true);
     r.otherIncome += 365_00n;
-    expect(r.topup).toBe(4_635_00n);
+    expect(r.topup).toBe(5_000_00n); // the cash taken, shown whole
+    expect(r.topupBooked).toBe(365_00n);
+    expect(incomeExpenseOf(r).exp.topup).toBe(4_635_00n);
     expect(r.topupMargin).toBe(0n);
     expect(sectionsOf(r).find((s) => s.section === "topup")!.profit).toBe(0n);
     expect(incomeExpenseOf(r).inc.total).toBe(5_000_00n);

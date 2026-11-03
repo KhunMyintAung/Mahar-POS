@@ -140,8 +140,8 @@ export async function computeDayIncome(
       where: { businessId, voidedAt: null, createdAt: range, kind: "SALE", ...branch },
       _sum: { cashAmount: true },
     }),
-    // Bill sales whose profit was filed as Bill Profit income: that part of their cash is
-    // counted there, in Other income, not again with the bill sales.
+    // The profit of those bill sales, filed as Bill Profit income. Shown as Other income on
+    // its own line, but not added to the total again: it is part of the cash taken above.
     tx.incomeExpense.aggregate({
       where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: { not: null }, date, ...branch },
       _sum: { amount: true },
@@ -152,9 +152,11 @@ export async function computeDayIncome(
           where: { businessId, deletedAt: null, status: "COMPLETED", date, ...branch },
           _sum: { total: true },
         }).then((a) => a._sum.total ?? 0n),
+    // Bill Profit entries made by bill sales are left out: their money is already in the
+    // cash taken for those sales, which is shown whole under Top-up & Bill sales.
     tx.incomeExpense.groupBy({
       by: ["categoryName"],
-      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", date, currency: "MMK", ...branch },
+      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: null, date, currency: "MMK", ...branch },
       _sum: { amount: true },
     }),
     // Entries carry the category's name; the standard ones are told apart by their key, so
@@ -165,7 +167,7 @@ export async function computeDayIncome(
   const byBucket = { sales: 0n, service: 0n, topup: 0n, other: 0n };
   for (const row of incomeByCategory) byBucket[bucketForKey(keyOf.get((row.categoryName ?? "").toLowerCase()))] += row._sum.amount ?? 0n;
   const repair = (repairIn._sum.amount ?? 0n) - (repairOut._sum.amount ?? 0n);
-  const topupSales = (topup._sum.cashAmount ?? 0n) - (billProfit._sum.amount ?? 0n);
+  const topupSales = topup._sum.cashAmount ?? 0n;
   const out = {
     sales: sales + byBucket.sales,
     service: repair + byBucket.service,
@@ -176,6 +178,7 @@ export async function computeDayIncome(
     { label: "POS sales", amount: sales },
     { label: "Repairs", amount: repair },
     { label: "Top-up & Bill sales", amount: topupSales },
+    { label: "Bill Profit (Other income, in the bill sales)", amount: billProfit._sum.amount ?? 0n },
     ...incomeByCategory.map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
   ].filter((l) => l.amount !== 0n);
   return { ...out, total: out.sales + out.service + out.topup + out.other, lines };

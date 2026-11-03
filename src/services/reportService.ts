@@ -78,12 +78,13 @@ export function parseReportSettings(raw: unknown): ReportSettings {
  *  both, so it is not counted twice. */
 export function incomeExpenseOf(r: PeriodRow, floatMode = false, purchaseMode = false) {
   const income = { sales: r.sales, service: r.service, topup: r.topup, other: r.otherIncome, total: 0n };
-  income.total = income.sales + income.service + income.topup + income.other;
+  // Bill Profit sits in both the bill sales' cash and Other income; the total counts it once.
+  income.total = income.sales + income.service + income.topup + income.other - r.topupBooked;
   const expense = {
     // Cost of goods sold, or the stock actually bought when purchases are recorded as expense.
     sales: (purchaseMode ? r.stockBought : r.salesCost) + r.expSales,
     service: r.expService,
-    topup: (floatMode ? r.floatBought : r.topup - r.topupMargin) + r.expTopup,
+    topup: (floatMode ? r.floatBought : r.topup - r.topupMargin - r.topupBooked) + r.expTopup,
     other: r.expGeneral,
     total: 0n,
   };
@@ -103,6 +104,8 @@ export async function loadReportSettings(businessId: string): Promise<ReportSett
 export interface PeriodRow {
   period: string;
   sales: bigint; salesCost: bigint; service: bigint; topup: bigint; topupMargin: bigint; otherIncome: bigint;
+  /** Profit of bill sales filed as Bill Profit income: inside `topup`, counted in otherIncome. */
+  topupBooked: bigint;
   expense: bigint; salary: bigint; shares: bigint;
   cashIn: bigint; cashOut: bigint;
   /** expense split by the section it comes out of (salary not included). */
@@ -144,7 +147,7 @@ function foldHidden(r: PeriodRow, shown: ReportSections) {
   if (!shown.topup) {
     // Only the margin is the shop's; the rest of top-up cash belongs to the operator.
     r.otherIncome += r.topupMargin; r.expGeneral += r.expTopup;
-    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n; r.floatBought = 0n;
+    r.topup = 0n; r.topupMargin = 0n; r.topupBooked = 0n; r.expTopup = 0n; r.floatBought = 0n;
   }
 }
 
@@ -169,7 +172,7 @@ export interface Report {
 }
 
 const zeroRow = (period: string): PeriodRow => ({
-  period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, otherIncome: 0n,
+  period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, topupBooked: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
   expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n, stockBought: 0n,
 });
@@ -179,11 +182,12 @@ const zeroRow = (period: string): PeriodRow => ({
  *  earned on both sides: a sale above face value, and float bought below it (200,000 of
  *  credit for 194,000). A shop that sells at face value makes all of it on the refill.
  *
- *  A sale whose profit was filed as Bill Profit income (`profitBooked`) has that profit in
- *  Other income already, so here it counts only as the operator's cash passing through. */
+ *  A sale whose profit was filed as Bill Profit income (`profitBooked`) shows its whole cash
+ *  here, but its profit is counted in Other income, not again as top-up margin. */
 export function addBillerTxn(r: PeriodRow, b: { kind: string; cashAmount: bigint; profit: bigint }, profitBooked = false) {
-  if (b.kind === "SALE") r.topup += profitBooked ? b.cashAmount - b.profit : b.cashAmount;
-  if (!profitBooked) r.topupMargin += b.profit;
+  if (b.kind === "SALE") r.topup += b.cashAmount;
+  if (profitBooked) r.topupBooked += b.profit;
+  else r.topupMargin += b.profit;
 }
 
 export function sectionsOf(r: PeriodRow): SectionResult[] {
@@ -337,10 +341,10 @@ export async function buildReport(businessId: string, from: string, to: string, 
   // Likewise purchases recorded as expense: sales cost comes from them, not from goods sold.
   const purchaseMode = entries.some((e) => e.type === "EXPENSE" && e.purchaseId);
   const finish = (r: PeriodRow) => {
-    const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
+    const totalIncome = r.sales + r.service + r.topup + r.otherIncome - r.topupBooked;
     // Top-up counts at its margin (or less the float bought): the rest of that cash is the
     // operator's credit passing through.
-    const topupProfit = floatMode ? r.topup - r.floatBought : r.topupMargin;
+    const topupProfit = floatMode ? r.topup - r.topupBooked - r.floatBought : r.topupMargin;
     const grossProfit = r.sales - (purchaseMode ? r.stockBought : r.salesCost) + r.service + topupProfit + r.otherIncome;
     const netProfit = grossProfit - r.expense - r.salary;
     return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r, floatMode, purchaseMode) };
