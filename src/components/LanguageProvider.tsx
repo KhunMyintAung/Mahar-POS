@@ -1495,6 +1495,7 @@ function translate(value: string) {
     [/^New variant of (.+)$/, (model) => `${model} — အမျိုးအစားခွဲ အသစ်`],
     [/^stock (-?\d+)$/, (n) => `လက်ကျန် ${n}`],
     [/^Today's transfers \((.+)\)$/, (cur) => `ဒီနေ့ ငွေလွှဲ (${cur})`],
+    [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
     [/^Record this for (\S+), not today\?$/, (date) => `ဒီနေ့ မဟုတ်တဲ့ ရက် ${date} နဲ့ မှတ်မှာ သေချာလား?`],

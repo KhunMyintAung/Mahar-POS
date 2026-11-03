@@ -34,6 +34,8 @@ interface Report {
   totals: Row;
   distribution: { reserve: Money; distributable: Money; months: number; partners: { name: string; percent: number; amount: Money }[] };
   stock: { name: string; category: string; quantity: number; cost: Money; value: Money }[];
+  /** What makes up Other income, per period and for "Total". */
+  otherIncomeBy?: Record<string, { label: string; amount: Money }[]>;
 }
 
 const big = (m: Money) => BigInt(m);
@@ -58,6 +60,8 @@ export default function ReportsPage() {
   const owner = hasPerm("settings.manage");
   const { push } = useToast();
   const [kind, setKind] = useState<Kind>("month");
+  // The period whose Other income is opened, to see what it is made of.
+  const [otherFor, setOtherFor] = useState<string | null>(null);
   const [value, setValue] = useState(() => today().slice(0, 7));
   const [from, setFrom] = useState(() => today().slice(0, 8) + "01");
   const [to, setTo] = useState(today);
@@ -170,9 +174,16 @@ export default function ReportsPage() {
                     return (
                       <tr key={r.period} className={cn(total && "bg-gray-50 font-semibold dark:bg-gray-800/60", empty && "text-gray-400")}>
                         <td className="whitespace-nowrap px-1.5 py-1.5">{report.groupBy === "day" && !total ? r.period.slice(5) : r.period}</td>
-                        {cells.map((v, i) => (
-                          <td key={i} className={cn("px-1.5 py-1.5 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>{fmtMoney(v)}</td>
-                        ))}
+                        {cells.map((v, i) => {
+                          const tappable = i === parts.length && (report.otherIncomeBy?.[r.period]?.length ?? 0) > 0;
+                          return (
+                            <td key={i} className={cn("px-1.5 py-1.5 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>
+                              {tappable
+                                ? <button type="button" className="text-blue-600 underline decoration-dotted underline-offset-2" onClick={() => setOtherFor(r.period)}>{fmtMoney(v)}</button>
+                                : fmtMoney(v)}
+                            </td>
+                          );
+                        })}
                         <td className={cn("border-l border-gray-100 px-1.5 py-1.5 text-right font-semibold tabular-nums dark:border-gray-800", !empty && tone(r.net))}>{fmtMoney(r.net)}</td>
                       </tr>
                     );
@@ -190,6 +201,16 @@ export default function ReportsPage() {
           )}
         </>
       )}
+
+      <Modal open={Boolean(otherFor)} onClose={() => setOtherFor(null)} title={`Other income · ${otherFor === "Total" ? "Total" : otherFor ?? ""}`}>
+        <ul className="divide-y divide-gray-100 text-sm dark:divide-gray-800">
+          {(otherFor ? report?.otherIncomeBy?.[otherFor] ?? [] : []).map((l) => (
+            <li key={l.label} className="flex justify-between gap-3 py-2">
+              <span>{l.label}</span><b className="tabular-nums">{fmtMoney(l.amount)}</b>
+            </li>
+          ))}
+        </ul>
+      </Modal>
 
       {owner && <ReportSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} shown={report?.shown ?? { sales: true, service: true, topup: true }} />}
     </div>
