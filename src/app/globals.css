@@ -3,13 +3,25 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #171717;
+  --background: #f4f7fb;
+  --foreground: #182235;
 }
 
 .dark {
-  --background: #0b0f17;
-  --foreground: #ededed;
+  --background: #0a0f18;
+  --foreground: #e6eaf2;
+}
+
+/* Mahar brand, the same navy and gold as the home page and the user manual. */
+@theme {
+  --color-navy-950: #09131f;
+  --color-navy-900: #0e1b2c;
+  --color-navy-800: #182a40;
+  --color-navy-700: #253a56;
+  --color-gold-300: #f8dd85;
+  --color-gold-400: #f3ce5c;
+  --color-gold-500: #c9950b;
+  --color-gold-600: #a67b08;
 }
 
 @theme inline {

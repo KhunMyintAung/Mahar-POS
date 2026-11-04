@@ -208,7 +208,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (loading || !me) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gold-500" />
       </div>
     );
   }
@@ -259,8 +259,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
               active
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-gold-400)] [&>svg]:text-gold-400"
+                : "text-slate-300 hover:bg-white/5 hover:text-white"
             )}
           >
             <n.icon size={18} />
@@ -271,7 +271,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <button
         type="button"
         onClick={logout}
-        className="mt-2 flex items-center gap-3 rounded-lg border-t border-gray-100 px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+        className="mt-2 flex items-center gap-3 rounded-lg border-t border-white/10 px-3 py-2 text-sm font-medium text-slate-400 hover:bg-white/5 hover:text-white"
       >
         <LogOut size={18} />Sign out
       </button>
@@ -300,12 +300,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Desktop sidebar */}
           {/* Pinned to the screen and scrolled on its own, so the last items (Settings,
               Telegram) are reachable however many menu items a shop has turned on. */}
-          <aside className={cn("no-print sticky top-0 hidden h-screen w-60 shrink-0 overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900", !sidebarHidden && "lg:block")}>
-            <div className="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-800">
-              <div className="rounded-lg bg-white p-1 ring-1 ring-gray-100 dark:ring-gray-800"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
+          <aside className={cn("no-print sticky top-0 hidden h-screen w-60 shrink-0 overflow-y-auto border-r border-white/5 bg-navy-900 text-white", !sidebarHidden && "lg:block")}>
+            <div className="flex items-center gap-2.5 border-b border-white/10 p-4">
+              <div className="rounded-lg bg-white p-1 ring-2 ring-gold-500/60"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
               <div className="min-w-0">
-                <div className="font-bold leading-tight">Mahar Mini POS</div>
-                <div className="truncate text-xs text-gray-500 dark:text-gray-400">{me.user.name} · {me.user.roleName}</div>
+                <div className="font-bold leading-tight">Mahar <span className="text-gold-400">Mini POS</span></div>
+                <div className="truncate text-xs text-slate-400">{me.user.name} · {me.user.roleName}</div>
               </div>
             </div>
             {sidebar}
@@ -314,18 +314,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Mobile drawer */}
           {drawer && (
             <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setDrawer(false)}>
-              <aside className="h-full w-[min(18rem,88vw)] overflow-y-auto bg-white pb-[env(safe-area-inset-bottom)] dark:bg-gray-900" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-800">
-                  <div className="min-w-0">
-                    <div className="font-bold leading-tight">Mahar Mini POS</div>
-                    <div className="truncate text-xs text-gray-500 dark:text-gray-400">{me.user.name} · {me.user.roleName}</div>
+              <aside className="h-full w-[min(18rem,88vw)] overflow-y-auto bg-navy-900 pb-[env(safe-area-inset-bottom)] text-white" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between border-b border-white/10 p-4">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="shrink-0 rounded-lg bg-white p-1 ring-2 ring-gold-500/60"><Image src="/mahar-pos-logo.svg" alt="Mahar Mini POS" width={24} height={24} /></div>
+                    <div className="min-w-0">
+                      <div className="font-bold leading-tight">Mahar <span className="text-gold-400">Mini POS</span></div>
+                      <div className="truncate text-xs text-slate-400">{me.user.name} · {me.user.roleName}</div>
+                    </div>
                   </div>
-                  <button onClick={() => setDrawer(false)}><X size={20} /></button>
+                  <button onClick={() => setDrawer(false)} className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10"><X size={20} /></button>
                 </div>
                 {/* Someone without the Dashboard (a technician) has no top bar with these on a
                     phone, so they sit at the top of the menu instead. */}
                 {homeHref !== "/" && (
-                  <div className="flex items-center gap-1 border-b border-gray-200 px-3 py-2 dark:border-gray-800">
+                  <div className="flex items-center gap-1 border-b border-white/10 bg-white px-3 py-2 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
                     <LanguageSwitch className="mr-1" />
                     <SoundToggle />
                     <ThemeToggle />
@@ -377,7 +380,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <main className="min-w-0 flex-1 px-3 pb-24 pt-2 sm:px-4 sm:pt-2.5 lg:pb-6">
               {blockedModulePath ? (
                 <div className="flex min-h-40 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gold-500" />
                 </div>
               ) : (
                 <>
@@ -392,7 +395,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                             href={t.href}
                             className={cn(
                               "flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
-                              on ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
+                              on ? "bg-white text-navy-900 shadow ring-1 ring-gold-500/40 dark:bg-gray-900 dark:text-gold-400" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
                             )}
                           >
                             <t.icon size={16} />{t.label}
@@ -415,10 +418,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                     key={n.href}
                     href={n.href}
                     className={cn(
-                      "flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11px] font-medium",
-                      active ? "text-blue-600" : "text-gray-500 dark:text-gray-400"
+                      "relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2 text-[11px] font-medium",
+                      active ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400"
                     )}
                   >
+                    {active && <span aria-hidden className="absolute top-0 h-[3px] w-8 rounded-b-full bg-gold-500" />}
                     <n.icon size={20} />
                     <span className="max-w-full truncate">{("short" in n && n.short) || n.label.split(" ")[0]}</span>
                   </Link>
@@ -434,7 +438,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 href={`${createAction.section}?new=1`}
                 onClick={() => window.dispatchEvent(new Event(NEW_EVENT))}
-                className="no-print fixed bottom-16 right-4 z-30 rounded-full bg-blue-600 p-3.5 text-white shadow-lg lg:hidden"
+                className="no-print fixed bottom-16 right-4 z-30 rounded-full bg-blue-600 p-3.5 text-white shadow-lg shadow-blue-600/30 ring-4 ring-white dark:ring-gray-950 lg:hidden"
                 title={createAction.label}
                 aria-label={createAction.label}
               >

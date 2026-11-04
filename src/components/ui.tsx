@@ -11,7 +11,7 @@ export function cn(...parts: (string | false | null | undefined)[]) {
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:p-4", className)}>
+    <div className={cn("rounded-xl border border-gray-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.04)] dark:border-gray-800 dark:bg-gray-900 sm:p-4", className)}>
       {children}
     </div>
   );
@@ -28,11 +28,16 @@ export function StatCard({ label, value, sub, onClick, tone }: {
     amber: "text-amber-600 dark:text-amber-400",
     default: "text-gray-900 dark:text-gray-100",
   };
+  // A thin bar along the top in the figure's colour; plain figures get the brand gold.
+  const bars: Record<string, string> = {
+    green: "bg-green-500", red: "bg-red-500", blue: "bg-blue-500", amber: "bg-amber-500", default: "bg-gold-500",
+  };
   return (
     <button
       onClick={onClick}
-      className="w-full rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-4"
+      className="relative w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white p-3 pt-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-4 sm:pt-[1.125rem]"
     >
+      <span aria-hidden className={cn("absolute inset-x-0 top-0 h-[3px]", bars[tone ?? "default"])} />
       <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className={cn("mt-1 text-lg font-bold tabular-nums sm:text-xl", tones[tone ?? "default"])}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sub}</div>}
@@ -48,9 +53,9 @@ export function Button({ children, onClick, type = "button", variant = "primary"
   title?: string; "aria-label"?: string;
 }) {
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300",
-    secondary: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
-    danger: "bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300",
+    primary: "bg-blue-600 text-white shadow-sm shadow-blue-600/25 hover:bg-blue-700 disabled:bg-blue-300 disabled:shadow-none",
+    secondary: "border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
+    danger: "bg-red-600 text-white shadow-sm shadow-red-600/25 hover:bg-red-700 disabled:bg-red-300 disabled:shadow-none",
     ghost: "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
   };
   return (
@@ -61,7 +66,7 @@ export function Button({ children, onClick, type = "button", variant = "primary"
       title={title}
       aria-label={ariaLabel}
       className={cn(
-        "whitespace-nowrap rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+        "whitespace-nowrap rounded-lg font-medium transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60",
         size === "sm" ? "min-h-9 px-2.5 py-1.5 text-xs" : "min-h-10 px-4 py-2 text-sm",
         variants[variant],
         className
@@ -81,7 +86,7 @@ export function Input({ label, error, ...props }: {
       <input
         {...props}
         className={cn(
-          "min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:min-h-10 sm:text-sm",
+          "min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-100 sm:min-h-10 sm:text-sm",
           props.className
         )}
       />
@@ -99,7 +104,7 @@ export function Select({ label, children, ...props }: {
       <select
         {...props}
         className={cn(
-          "min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:min-h-10 sm:text-sm",
+          "min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-100 sm:min-h-10 sm:text-sm",
           props.className
         )}
       >
@@ -129,10 +134,10 @@ export function Modal({ open, onClose, title, children, wide, footer }: {
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy-950/60 backdrop-blur-[2px] sm:items-center sm:p-4">
       <div
         className={cn(
-          "flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl bg-white shadow-xl dark:bg-gray-900 sm:max-h-[92vh] sm:rounded-xl",
+          "flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 sm:max-h-[92vh] sm:rounded-2xl",
           wide ? "sm:max-w-3xl" : "sm:max-w-lg"
         )}
         onClick={(e) => e.stopPropagation()}
@@ -185,12 +190,12 @@ export function Table({ headers, children, rightAlign }: {
     return () => watch.disconnect();
   }, []);
   return (
-    <div className="rtable-wrap max-w-full overscroll-x-contain overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+    <div className="rtable-wrap max-w-full overscroll-x-contain overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-800">
       <table ref={ref} className={cn("rtable w-full text-sm", actions && "has-actions")}>
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-900/60 dark:text-gray-400">
+          <tr className="border-b border-gray-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-gray-800 dark:bg-navy-900/60 dark:text-gray-400">
             {headers.map((h, i) => (
-              <th key={h + i} className={cn("px-3 py-2 font-medium leading-tight", rightAlign?.includes(i) && "text-right")}>{h}</th>
+              <th key={h + i} className={cn("px-3 py-2.5 font-semibold leading-tight", rightAlign?.includes(i) && "text-right")}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -209,7 +214,7 @@ export function Empty({ message }: { message: string }) {
 export function Spinner() {
   return (
     <div className="flex justify-center py-10">
-      <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-gold-500 dark:border-gray-700" />
     </div>
   );
 }
@@ -237,7 +242,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              "pointer-events-auto rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
+              "pointer-events-auto rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg ring-1 ring-black/5",
               t.kind === "success" ? "bg-green-600" : "bg-red-600"
             )}
           >
