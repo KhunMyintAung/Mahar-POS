@@ -29,6 +29,7 @@ import { questionsNoticeGiven, recordAiQuestion } from "./aiQuestions";
 import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
+import { handleCustomerUpdate } from "./telegramShop";
 
 // ---------------------------------------------------------------------------
 // Session state: one row per (owner user, chat), tracking the guided-entry
@@ -1150,19 +1151,21 @@ export async function handleUpdate(update: TgUpdate, ownerUserId: string) {
   if (!chatId) return;
 
   // A shop's bot answers the staff member whose chat it is linked to. Anyone else who
-  // finds the bot is told to contact the shop rather than shown a staff menu, in Myanmar:
-  // they are a customer, not an app user, and never chose a language.
+  // writes to it one-to-one is a customer: they get the shop's online list to order from
+  // (telegramShop.ts), in Myanmar. A group the bot sits in gets nothing of that.
   const owner = await prisma.user.findUnique({
     where: { id: ownerUserId },
     select: { telegramChatId: true },
   });
   if (owner?.telegramChatId && owner.telegramChatId !== chatId) {
-    return sendMessage(
-      chatId,
-      `မင်္ဂလာပါ 🙏
-
-ဤ bot မှတစ်ဆင့် ဝန်ဆောင်မှု မရှိပါ။ ဆိုင်သို့ တိုက်ရိုက် ဆက်သွယ်ပါ။`
-    );
+    const chatType = update.message?.chat.type ?? update.callback_query?.message?.chat.type;
+    if (chatType && chatType !== "private") return;
+    try {
+      return await handleCustomerUpdate(update, ownerUserId, chatId);
+    } catch (e) {
+      console.error("[telegram shop] update failed:", e);
+      return sendMessage(chatId, "⚠️ စနစ်မှာ အမှားတစ်ခု ဖြစ်သွားပါတယ်။ ခဏနေ ပြန်ကြိုးစားပါ။");
+    }
   }
 
   // "typing…" while the reply is worked out, so a slow answer does not look like silence.

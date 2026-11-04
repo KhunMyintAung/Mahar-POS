@@ -197,7 +197,8 @@ export interface TgPhotoSize {
 }
 export interface TgMessage {
   message_id: number;
-  chat: { id: number };
+  /** "private" for a one-to-one chat; groups and channels say so. */
+  chat: { id: number; type?: string };
   from?: TgUser;
   text?: string;
   caption?: string;
