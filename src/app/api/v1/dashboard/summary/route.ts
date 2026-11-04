@@ -1,4 +1,5 @@
 import { withAuth, json } from "@/lib/api";
+import { canSeeCost } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { computeDayExpense, computeDayIncome, computeDaySummary } from "@/services/summaryService";
 import { todayBusinessDate } from "@/lib/dates";
@@ -87,13 +88,15 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
       stockRetail += BigInt(it.qty) * it.sellingPrice;
     }
 
+    // Profit and what the shelf cost stay with those who may see costs (null for the rest).
+    const costs = canSeeCost(user.permissions);
     pos = {
       salesCount: salesAgg._count,
       salesTotal: salesAgg._sum.total ?? 0n,
-      salesProfit: salesAgg._sum.profit ?? 0n,
+      salesProfit: costs ? salesAgg._sum.profit ?? 0n : null,
       lowStock,
       expiring,
-      stockCost,
+      stockCost: costs ? stockCost : null,
       stockRetail,
       stockItems: withQty.filter((it) => it.qty > 0).length,
     };

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withAuth, json, parseBody, ApiError, pagination } from "@/lib/api";
+import { canSeeCost } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { generateSku } from "@/lib/sku";
@@ -42,7 +43,9 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     }),
     prisma.item.count({ where }),
   ]);
-  return json({ items, total, page, pageSize });
+  // A cashier or technician gets 0 for the cost price: the page shows "—" for them.
+  const shown = canSeeCost(user.permissions) ? items : items.map((it) => ({ ...it, costPrice: 0n }));
+  return json({ items: shown, total, page, pageSize });
 });
 
 const schema = z.object({

@@ -38,6 +38,8 @@ export default function SalesPage() {
   const [cardFor, setCardFor] = useState<ReceiptData | null>(null);
   const { push } = useToast();
   const { hasPerm, me } = useAuth();
+  // The server sends 0 for profit to a cashier; show "—" rather than a profit of nothing.
+  const showProfit = hasPerm("report.view") || hasPerm("item.manage");
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "1000" });
@@ -93,7 +95,7 @@ export default function SalesPage() {
             </div>
             <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
               <span className="whitespace-nowrap"><span>Total sales</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(totals.amount, "MMK")}</b></span>
-              <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, "MMK")}</b></span>
+              {showProfit && <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, "MMK")}</b></span>}
             </span>
           </>
         }
@@ -127,7 +129,7 @@ export default function SalesPage() {
               </td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(s.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(s.paidAmount)}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-green-600">{fmtMoney(s.profit)}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-green-600">{showProfit ? fmtMoney(s.profit) : "—"}</td>
               <td className="px-3 py-2"><Badge status={s.status === "CANCELLED" ? "VOID" : s.paymentStatus} /></td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">

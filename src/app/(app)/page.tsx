@@ -21,12 +21,12 @@ interface DashData {
   pos?: {
     salesCount: number;
     salesTotal: string;
-    salesProfit: string;
+    salesProfit: string | null; // null for staff who may not see costs
     lowStock: { id: string; name: string; minStock: number; qty: number }[];
     /** On the shelf and expired, or expiring within a month (YYYY-MM-DD). */
     expiring: { id: string; name: string; qty: number; expiresAt: string }[];
     /** What the shelf cost, and what it is priced at. */
-    stockCost: string;
+    stockCost: string | null;
     stockRetail: string;
     stockItems: number;
   };
@@ -137,7 +137,9 @@ export default function DashboardPage() {
         {featureEnabled("pos") && data.pos && (
           <>
             <StatCard label="Today's Sales" value={fmtMoney(data.pos.salesTotal, "MMK")} sub={`${data.pos.salesCount} sale(s)`} onClick={() => router.push("/sales")} />
-            <StatCard label="Sales Profit" value={fmtMoney(data.pos.salesProfit, "MMK")} tone={BigInt(data.pos.salesProfit) >= 0n ? "green" : "red"} onClick={() => router.push("/sales")} />
+            {data.pos.salesProfit !== null && (
+              <StatCard label="Sales Profit" value={fmtMoney(data.pos.salesProfit, "MMK")} tone={BigInt(data.pos.salesProfit) >= 0n ? "green" : "red"} onClick={() => router.push("/sales")} />
+            )}
           </>
         )}
         {featureEnabled("stock") && data.pos && (
@@ -145,16 +147,20 @@ export default function DashboardPage() {
             {/* What the shelf cost is the figure that matters to an owner: it is money
                 already spent and sitting there. The retail figure sits underneath it
                 rather than in its own card, because the two are only meaningful together. */}
-            <StatCard
-              label="Stock Value (cost)"
-              value={fmtMoney(data.pos.stockCost, "MMK")}
-              sub={`${data.pos.stockItems} item(s) in stock`}
-              onClick={() => router.push("/items")}
-            />
+            {data.pos.stockCost !== null && (
+              <StatCard
+                label="Stock Value (cost)"
+                value={fmtMoney(data.pos.stockCost, "MMK")}
+                sub={`${data.pos.stockItems} item(s) in stock`}
+                onClick={() => router.push("/items")}
+              />
+            )}
             <StatCard
               label="Stock Value (retail)"
               value={fmtMoney(data.pos.stockRetail, "MMK")}
-              sub={`${fmtMoney(String(BigInt(data.pos.stockRetail) - BigInt(data.pos.stockCost)), "MMK")} if it all sells`}
+              sub={data.pos.stockCost !== null
+                ? `${fmtMoney(String(BigInt(data.pos.stockRetail) - BigInt(data.pos.stockCost)), "MMK")} if it all sells`
+                : `${data.pos.stockItems} item(s) in stock`}
               tone="green"
               onClick={() => router.push("/items")}
             />

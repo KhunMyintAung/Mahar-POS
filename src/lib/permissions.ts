@@ -27,7 +27,7 @@ const CASHIER_PERMS: Permission[] = [
   "item.view", "stock.view", "sale.view", "sale.create",
   "repair.view", "repair.create", "repair.update",
   "biller.view", "biller.trade",
-  "wallet.view", "wallet.transfer", "wallet.withdraw",
+  "wallet.view", "wallet.transfer",
   "income_expense.view", "income_expense.create",
   "credit.view", "credit.collect",
   "payable.view", "payable.pay",
@@ -39,13 +39,13 @@ const ACCOUNTANT_PERMS: Permission[] = [
   "item.view", "stock.view", "purchase.view", "sale.view",
   "repair.view",
   "biller.view",
-  "wallet.view", "wallet.reconcile", "wallet.withdraw",
+  "wallet.view", "wallet.reconcile",
   "credit.view", "credit.create", "credit.collect",
   "payable.view", "payable.create", "payable.pay",
   "income_expense.view", "income_expense.create",
   "customer.view", "customer.manage",
   "report.view", "report.export",
-  "daily_close.view", "daily_close.create", "daily_close.approve",
+  "daily_close.view", "daily_close.create",
   "audit.view",
 ];
 
@@ -69,6 +69,12 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
   { name: "Service Tech", description: "Repairs and their parts, no money", permissions: SERVICE_TECH_PERMS },
   { name: "Viewer", description: "Read-only access", permissions: ["dashboard.view", "wallet.view", "credit.view", "payable.view", "income_expense.view", "customer.view", "report.view", "daily_close.view"] },
 ];
+
+/** What a thing cost the shop and what it made on it: for whoever sees the reports or runs
+ *  the item list (owner, admin, accountant), not for a cashier or a technician. */
+export function canSeeCost(userPerms: string[]): boolean {
+  return userPerms.includes("report.view") || userPerms.includes("item.manage");
+}
 
 export function hasPermission(userPerms: string[], required: Permission): boolean {
   return userPerms.includes(required);

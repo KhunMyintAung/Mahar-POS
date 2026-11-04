@@ -2,6 +2,7 @@ import { z } from "zod";
 import { withAuth, json, parseBody, pagination } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
+import { canSeeCost } from "@/lib/permissions";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { createSale } from "@/services/posService";
@@ -52,10 +53,13 @@ export const GET = withAuth("sale.view", async ({ req, user }) => {
   });
   const imeisByLine = new Map<string, string[]>();
   for (const u of serials) if (u.saleLineId) imeisByLine.set(u.saleLineId, [...(imeisByLine.get(u.saleLineId) ?? []), u.imei]);
+  // Profit and unit cost go to those who may see costs; a cashier gets 0 and the page shows "—".
+  const costs = canSeeCost(user.permissions);
   return json({
     sales: sales.map((s) => ({
       ...s,
-      lines: s.lines.map((l) => ({ ...l, imeis: imeisByLine.get(l.id) ?? [] })),
+      profit: costs ? s.profit : 0n,
+      lines: s.lines.map((l) => ({ ...l, unitCost: costs ? l.unitCost : 0n, imeis: imeisByLine.get(l.id) ?? [] })),
       customerName: s.customerId ? byId.get(s.customerId) : undefined,
       cashierName: cashierById.get(s.createdById),
     })),

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
+import { canSeeCost } from "@/lib/permissions";
 import { STOCK_REASONS, STOCK_REASON_KEYS, signedQuantity } from "@/lib/stockReasons";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
@@ -59,7 +60,7 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
       unit: it.unit?.name,
       category: it.category?.name,
       minStock: it.minStock,
-      costPrice: it.costPrice,
+      costPrice: canSeeCost(user.permissions) ? it.costPrice : 0n,
       sellingPrice: it.sellingPrice,
       totalQty,
       low: it.minStock > 0 && totalQty < it.minStock,

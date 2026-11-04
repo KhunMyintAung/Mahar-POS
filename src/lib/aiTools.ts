@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { branchScope, type AuthUser } from "./auth";
 import { buildReport } from "@/services/reportService";
+import { canSeeCost } from "./permissions";
 
 /** What the Telegram AI helper may look up about the shop.
  *
@@ -213,7 +214,7 @@ async function stockList(user: AuthUser, args: Record<string, unknown>) {
     category: i.category?.name,
     quantity: i.stockLevels.reduce((s, l) => s + l.quantity, 0),
     min_stock: i.minStock,
-    cost: ks(i.costPrice),
+    ...(canSeeCost(user.permissions) ? { cost: ks(i.costPrice) } : {}),
     price: ks(i.sellingPrice),
   });
   // Items holding more of the words come first: "spare part" puts "Spare Part X" above "Part".

@@ -136,6 +136,9 @@ export default function ItemsPage() {
   const [adjustFor, setAdjustFor] = useState<StockLevel | null>(null);
   const [imeiFor, setImeiFor] = useState<StockLevel | null>(null);
   const canStock = featureEnabled("stock") && hasPerm("stock.view");
+  // The server sends 0 for the cost to a cashier or technician; the page shows "—" instead.
+  const showCost = hasPerm("report.view") || hasPerm("item.manage");
+  const costText = (minor: string) => (showCost ? fmtMoney(minor) : "—");
 
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "1000" });
@@ -261,7 +264,7 @@ export default function ItemsPage() {
             {view === "items" && (
               <input placeholder={phoneShop ? "Search name, SKU, IMEI or barcode…" : "Search name, SKU or barcode…"} value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:max-w-sm sm:flex-1 sm:basis-auto sm:text-sm" />
             )}
-            {view === "items" && canStock && (
+            {view === "items" && canStock && showCost && (
               <span className="whitespace-nowrap text-sm text-gray-500">
                 <span>Value:</span> <b className="tabular-nums text-gray-800 dark:text-gray-200">{fmtMoney(stockValue.toString())}</b>
               </span>
@@ -387,7 +390,7 @@ export default function ItemsPage() {
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums"><QtyPill qty={stockAll} minStock={Math.max(...g.items.map((it) => it.minStock))} /></td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].category?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].unit?.name ?? "—"}</td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{range((it) => it.costPrice)}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{showCost ? range((it) => it.costPrice) : "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">{range((it) => it.sellingPrice)}</td>
                 <td className="px-3 py-2.5" />
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -426,7 +429,7 @@ export default function ItemsPage() {
                 </td>
                 <td className="px-3 py-2.5 text-xs">{it.category?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(it.costPrice)}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{costText(it.costPrice)}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{fmtMoney(it.sellingPrice)}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-xs text-gray-500">{it.sku}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">
@@ -482,7 +485,7 @@ export default function ItemsPage() {
                     <span>{`SKU ${it.sku}`}</span>
                     {it.barcode && <span>{`Barcode ${it.barcode}`}</span>}
                     <span>{`Category ${it.category?.name ?? "—"}`}</span>
-                    <span>{`Cost ${fmtMoney(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
+                    <span>{`Cost ${costText(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
                     <span>{`Min stock ${it.minStock}`}</span>
                     {it.expiresAt && <span>{`Expires ${it.expiresAt.slice(0, 10)}`}</span>}
                     {it.stockLevels.length > 1 && it.stockLevels.map((l) => (
