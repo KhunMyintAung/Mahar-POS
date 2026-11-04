@@ -36,6 +36,7 @@ interface Report {
   stock: { name: string; category: string; quantity: number; cost: Money; value: Money }[];
   /** What makes up Other income, per period and for "Total". */
   otherIncomeBy?: Record<string, { label: string; amount: Money }[]>;
+  serviceBy?: Record<string, { date: string; label: string; amount: Money }[]>;
 }
 
 const big = (m: Money) => BigInt(m);
@@ -62,6 +63,7 @@ export default function ReportsPage() {
   const [kind, setKind] = useState<Kind>("month");
   // The period whose Other income is opened, to see what it is made of.
   const [otherFor, setOtherFor] = useState<string | null>(null);
+  const [serviceFor, setServiceFor] = useState<string | null>(null);
   const [value, setValue] = useState(() => today().slice(0, 7));
   const [from, setFrom] = useState(() => today().slice(0, 8) + "01");
   const [to, setTo] = useState(today);
@@ -176,11 +178,16 @@ export default function ReportsPage() {
                         <td className="whitespace-nowrap px-1.5 py-1.5">{report.groupBy === "day" && !total ? r.period.slice(5) : r.period}</td>
                         {cells.map((v, i) => {
                           const tappable = i === parts.length && (report.otherIncomeBy?.[r.period]?.length ?? 0) > 0;
+                          // The Service income cell opens the repair payments behind it.
+                          const serviceCell = parts[i]?.[0] === "service" && (report.serviceBy?.[r.period]?.length ?? 0) > 0;
+                          const link = "text-blue-600 underline decoration-dotted underline-offset-2";
                           return (
                             <td key={i} className={cn("px-1.5 py-1.5 text-right tabular-nums", (i === 0 || i === half) && "border-l border-gray-100 dark:border-gray-800", (i === half - 1 || i === 2 * half - 1) && "font-semibold")}>
                               {tappable
-                                ? <button type="button" className="text-blue-600 underline decoration-dotted underline-offset-2" onClick={() => setOtherFor(r.period)}>{fmtMoney(v)}</button>
-                                : fmtMoney(v)}
+                                ? <button type="button" className={link} onClick={() => setOtherFor(r.period)}>{fmtMoney(v)}</button>
+                                : serviceCell
+                                  ? <button type="button" className={link} onClick={() => setServiceFor(r.period)}>{fmtMoney(v)}</button>
+                                  : fmtMoney(v)}
                             </td>
                           );
                         })}
@@ -207,6 +214,20 @@ export default function ReportsPage() {
           {(otherFor ? report?.otherIncomeBy?.[otherFor] ?? [] : []).map((l) => (
             <li key={l.label} className="flex justify-between gap-3 py-2">
               <span>{l.label}</span><b className="tabular-nums">{fmtMoney(l.amount)}</b>
+            </li>
+          ))}
+        </ul>
+      </Modal>
+
+      <Modal open={Boolean(serviceFor)} onClose={() => setServiceFor(null)} title={`Service · ${serviceFor ?? ""}`}>
+        <ul className="divide-y divide-gray-100 text-sm dark:divide-gray-800">
+          {(serviceFor ? report?.serviceBy?.[serviceFor] ?? [] : []).map((l, i) => (
+            <li key={i} className="flex justify-between gap-3 py-2">
+              <span className="min-w-0">
+                {serviceFor && serviceFor.length !== 10 && <span className="mr-2 text-xs text-gray-500">{l.date.slice(5)}</span>}
+                {l.label}
+              </span>
+              <b className={cn("shrink-0 tabular-nums", big(l.amount) < 0n && "text-red-600")}>{fmtMoney(l.amount)}</b>
             </li>
           ))}
         </ul>

@@ -159,6 +159,9 @@ export interface Report {
   rows: (PeriodRow & Finished)[];
   /** What makes up Other income, per period and for "Total": tapped open in the Daily summary. */
   otherIncomeBy: Record<string, { label: string; amount: bigint }[]>;
+  /** Each repair payment (with its voucher no) and service income behind the Service
+   *  column, per period and for "Total": tapped open in the Daily summary. */
+  serviceBy: Record<string, { date: string; label: string; amount: bigint }[]>;
   totals: PeriodRow & Finished & { saleCount: number };
   /** Current stock of the chosen categories. */
   stock: { name: string; category: string; group: string; quantity: number; cost: bigint; value: bigint }[];
@@ -264,7 +267,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }),
     prisma.walletLedgerEntry.findMany({
       where: { businessId, createdAt: range, ...branch },
-      select: { walletId: true, direction: true, amount: true, refType: true, createdAt: true },
+      select: { walletId: true, direction: true, amount: true, refType: true, refId: true, createdAt: true },
     }),
     prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { id: true, kind: true, cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
@@ -285,11 +288,27 @@ export async function buildReport(businessId: string, from: string, to: string, 
 
   for (const s of sales) { const r = at(s.date); r.sales += s.total; r.salesCost += s.totalCost; }
   const mmkWallets = new Set(wallets.filter((w) => w.currency === "MMK").map((w) => w.id));
+  // What the Service column is made of, line by line: each repair payment under its voucher.
+  const serviceBy = new Map<string, { date: string; label: string; amount: bigint }[]>();
+  const addService = (period: string, date: string, label: string, amount: bigint) => {
+    if (amount === 0n) return;
+    for (const key of [period, "Total"]) serviceBy.set(key, [...(serviceBy.get(key) ?? []), { date, label, amount }]);
+  };
+  const repairIds = [...new Set(ledger.filter((l) => (l.refType === "REPAIR_DEPOSIT" || l.refType === "REPAIR_PAYMENT") && l.refId).map((l) => l.refId!))];
+  const repairJobs = new Map((repairIds.length
+    ? await prisma.repairJob.findMany({ where: { id: { in: repairIds } }, select: { id: true, jobNo: true, customerName: true, deviceBrand: true, deviceModel: true } })
+    : []).map((j) => [j.id, j]));
   for (const l of ledger) {
     const date = businessDateOf(l.createdAt);
     const r = at(date);
     if (l.refType === "REPAIR_DEPOSIT" || l.refType === "REPAIR_PAYMENT") {
-      if (mmkWallets.has(l.walletId)) r.service += l.direction === "DEBIT" ? l.amount : -l.amount;
+      if (mmkWallets.has(l.walletId)) {
+        const amount = l.direction === "DEBIT" ? l.amount : -l.amount;
+        r.service += amount;
+        const job = l.refId ? repairJobs.get(l.refId) : undefined;
+        const who = job ? [job.jobNo, job.customerName || `${job.deviceBrand} ${job.deviceModel}`.trim()].filter(Boolean).join(" · ") : "Repair";
+        addService(r.period, date, `${who} · ${l.refType === "REPAIR_DEPOSIT" ? "Deposit" : "Payment"}${amount < 0n ? " (refund)" : ""}`, amount);
+      }
     }
     if (mmkWallets.has(l.walletId) && ledgerMovesCash(l.refType)) {
       if (l.direction === "DEBIT") r.cashIn += l.amount; else r.cashOut += l.amount;
@@ -331,7 +350,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     if (e.type === "INCOME") {
       const bucket = bucketForKey(keyByName.get(name.toLowerCase()));
       if (bucket === "sales") r.sales += e.amount;
-      else if (bucket === "service") r.service += e.amount;
+      else if (bucket === "service") { r.service += e.amount; addService(r.period, e.date, name, e.amount); }
       else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; addDayTopup(e.date, e.amount); }
       else { r.otherIncome += e.amount; addOther(r.period, name, e.amount); }
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
@@ -414,6 +433,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     rows: ordered,
     totals: { ...totals, saleCount: sales.length },
     otherIncomeBy: Object.fromEntries([...otherBy].map(([period, m]) => [period, [...m].map(([label, amount]) => ({ label, amount }))])),
+    serviceBy: Object.fromEntries([...serviceBy].map(([period, list]) => [period, [...list].sort((a, b) => a.date.localeCompare(b.date))])),
     incomeByCategory: [...incomeCats].map(([name, amount]) => ({ name, amount })).sort((a, b) => Number(b.amount - a.amount)),
     expenseByCategory: [...expenseCats].map(([name, amount]) => ({ name, amount, salary: salarySet.has(name.toLowerCase()) })).sort((a, b) => Number(b.amount - a.amount)),
     salesByItem: [...byItem.values()].map((i) => ({ ...i, profit: i.revenue - i.cost })).sort((a, b) => Number(b.revenue - a.revenue)),
