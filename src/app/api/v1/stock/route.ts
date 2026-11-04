@@ -108,7 +108,15 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
       throw new ApiError(422, `${job.jobNo} is closed; parts can no longer be added to it`);
     }
 
-    const notes = [label, job ? `for ${job.jobNo} (${job.deviceBrand} ${job.deviceModel})` : "", body.reason]
+    // Who the part is for and what is being fixed, e.g. "for MS1269 (Ko Aung · Charging port)".
+    const customer = job
+      ? job.customerName?.trim() ||
+        (job.customerId
+          ? (await tx.contact.findFirst({ where: { id: job.customerId, businessId: user.businessId }, select: { name: true } }))?.name
+          : null)
+      : null;
+    const forJob = job ? [customer, job.problem?.trim()].filter(Boolean).join(" · ") : "";
+    const notes = [label, job ? `for ${job.jobNo}${forJob ? ` (${forJob})` : ""}` : "", body.reason]
       .filter(Boolean).join(" — ");
 
     // A tracked phone moves with its IMEI: in records it, out marks it removed.
