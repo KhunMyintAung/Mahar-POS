@@ -44,8 +44,10 @@ const JOB_STATUS_LABEL: Record<string, string> = { RECEIVED: "Taken in", CHECKIN
 /** Who a part went to when there is no repair voucher: a walk-in, by name, phone and device. */
 interface WalkIn { name: string; phone: string; device: string }
 
-function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName }: {
+function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName, returning }: {
   jobs: RepairJobOption[]; value: string; onChange: (id: string) => void;
+  /** The part is coming back from the job, not going into it. */
+  returning?: boolean;
   /** The part being taken out: repairs of a phone it names come first, as suggestions. */
   partName?: string;
   walkIn: WalkIn | null; onWalkIn: (w: WalkIn | null) => void;
@@ -84,7 +86,7 @@ function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName }: 
     .slice(0, 5);
   return (
     <div>
-      <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Repair job (adds the part cost to it)</span>
+      <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">{returning ? "Back from repair job (optional, takes the part cost off it)" : "Repair job (adds the part cost to it)"}</span>
       {picked ? (
         <div className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm dark:border-blue-800 dark:bg-blue-950/40">
           <span className="min-w-0 flex-1 truncate"><b>{picked.jobNo}</b> · {picked.deviceBrand} {picked.deviceModel}{picked.customerName ? ` · ${picked.customerName}` : ""}</span>
@@ -107,9 +109,9 @@ function RepairJobPicker({ jobs, value, onChange, walkIn, onWalkIn, partName }: 
           </div>}
           <div className="mt-1.5 flex items-center justify-between gap-2">
             <p className="text-xs text-gray-500">Type the voucher no or model to find the repair.</p>
-            <button type="button" onClick={() => { onChange(""); onWalkIn({ name: "", phone: "", device: "" }); }} className="shrink-0 rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300">
+            {!returning && <button type="button" onClick={() => { onChange(""); onWalkIn({ name: "", phone: "", device: "" }); }} className="shrink-0 rounded-md border border-amber-300 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-800 dark:text-amber-300">
               Walk-in (no voucher)
-            </button>
+            </button>}
           </div>
         </>
       )}
@@ -137,7 +139,8 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
   // Without item.manage (a Service Tech) a part only leaves for a repair; the server holds
   // the same line.
   const repairOnly = !hasPerm("item.manage");
-  const reasons = repairOnly ? STOCK_REASONS.filter((r) => r.key === "REPAIR_USE") : STOCK_REASONS;
+  // They can also bring an unused part back from a repair.
+  const reasons = repairOnly ? STOCK_REASONS.filter((r) => r.key === "REPAIR_USE" || r.key === "RETURN_IN") : STOCK_REASONS;
   const startOf = (l: StockLevel | null) => ({
     // Spare parts mostly leave for repairs; anything else starts on a correction.
     ...blankAdjust, reasonType: (repairOnly || /spare|part|lcd|battery|အပို/i.test(l?.category ?? "") ? "REPAIR_USE" : "CORRECTION") as StockReason,
@@ -146,7 +149,10 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
   // A tracked phone moves by IMEI: the units picked or typed, and for a +/− correction which way.
   const [adjustImeis, setAdjustImeis] = useState<string[]>([]);
   const [adjustWay, setAdjustWay] = useState<"in" | "out">("out");
-  const [openJobs, setOpenJobs] = useState<RepairJobOption[]>([]);
+  // Every job not yet handed back: a part goes into one still being repaired, and can come
+  // back from any of them (a cancelled one too).
+  const [jobs, setJobs] = useState<RepairJobOption[]>([]);
+  const openJobs = useMemo(() => jobs.filter((j) => STILL_REPAIRING.has(j.status)), [jobs]);
   const [adjustBranchId, setAdjustBranchId] = useState(() => defaultBranchId || branches[0]?.id || "");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
@@ -157,8 +163,8 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
   useEffect(() => {
     if (!adjustTarget || !canLinkRepairs) return;
     api<{ jobs: RepairJobOption[] }>("/api/v1/repairs?pageSize=200")
-      .then((d) => setOpenJobs(d.jobs
-        .filter((j) => STILL_REPAIRING.has(j.status))
+      .then((d) => setJobs(d.jobs
+        .filter((j) => j.status !== "DELIVERED")
         .sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? "") || b.jobNo.localeCompare(a.jobNo))))
       .catch(() => {});
   }, [adjustTarget, canLinkRepairs]);
@@ -188,7 +194,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
               : "",
             adjust.reason.trim(),
           ].filter(Boolean).join(" — "),
-          repairJobId: adjust.reasonType === "REPAIR_USE" && adjust.repairJobId && !adjust.walkIn ? adjust.repairJobId : undefined,
+          repairJobId: (adjust.reasonType === "REPAIR_USE" || adjust.reasonType === "RETURN_IN") && adjust.repairJobId && !adjust.walkIn ? adjust.repairJobId : undefined,
         },
       });
       push("Stock adjusted");
@@ -285,6 +291,17 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
                 onChange={(e) => setAdjust({ ...adjust, quantity: e.target.value })}
                 placeholder={reason.direction === "either" ? "-5 or 10" : "1"}
               />
+              )}
+              {reason.key === "RETURN_IN" && canLinkRepairs && (
+                <RepairJobPicker
+                  returning
+                  partName={adjustTarget?.name}
+                  jobs={jobs}
+                  value={adjust.repairJobId}
+                  onChange={(id) => setAdjust({ ...adjust, repairJobId: id, walkIn: null })}
+                  walkIn={null}
+                  onWalkIn={() => {}}
+                />
               )}
               {reason.key === "REPAIR_USE" && (
                 <RepairJobPicker

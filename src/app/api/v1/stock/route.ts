@@ -78,7 +78,8 @@ const adjustSchema = z.object({
   /** What happened: used for a repair, damaged, a count error, returned… */
   reasonType: z.enum(STOCK_REASON_KEYS).default("ADJUSTMENT"),
   reason: z.string().trim().max(300).default(""),
-  /** For "used for repair": the job the part went into. */
+  /** For "used for repair": the job the part went into; for "returned back to stock", the
+   *  job it comes back from. */
   repairJobId: z.string().optional(),
   /** For an IMEI-tracked item: the units coming in or going out, one per unit. */
   imeis: z.array(z.string().trim().max(40)).max(500).optional(),
@@ -89,7 +90,8 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
   await assertBranchAccess(user, body.branchId);
   // Without item.manage (a Service Tech) stock only leaves for a repair: no adding stock,
   // no corrections.
-  if (body.reasonType !== "REPAIR_USE" && !user.permissions.includes("item.manage")) {
+  const forRepair = body.reasonType === "REPAIR_USE" || (body.reasonType === "RETURN_IN" && Boolean(body.repairJobId));
+  if (!forRepair && !user.permissions.includes("item.manage")) {
     throw new ApiError(403, "You can only take parts out for a repair.");
   }
   // The named reasons say what happened; a bare correction or "other" still needs words.
@@ -100,12 +102,27 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
   const label = STOCK_REASONS.find((r) => r.key === body.reasonType)?.label ?? "Adjustment";
 
   const result = await prisma.$transaction(async (tx) => {
-    const job = body.reasonType === "REPAIR_USE" && body.repairJobId
+    const returning = body.reasonType === "RETURN_IN";
+    const job = forRepair && body.repairJobId
       ? await tx.repairJob.findFirst({ where: { id: body.repairJobId, businessId: user.businessId, deletedAt: null } })
       : null;
-    if (body.repairJobId && body.reasonType === "REPAIR_USE" && !job) throw new ApiError(404, "Repair job not found");
-    if (job && (job.status === "DELIVERED" || job.status === "CANCELLED")) {
+    if (body.repairJobId && forRepair && !job) throw new ApiError(404, "Repair job not found");
+    if (job && !returning && (job.status === "DELIVERED" || job.status === "CANCELLED")) {
       throw new ApiError(422, `${job.jobNo} is closed; parts can no longer be added to it`);
+    }
+    if (job && returning) {
+      // Only what went into this job can come back from it (a cancelled job included).
+      if (job.status === "DELIVERED") throw new ApiError(422, `${job.jobNo} was handed back; its parts can no longer be returned`);
+      const moved = await tx.stockMovement.aggregate({
+        where: { businessId: user.businessId, itemId: body.itemId, refType: "REPAIR", refId: job.id },
+        _sum: { quantity: true },
+      });
+      const inJob = -(moved._sum.quantity ?? 0);
+      if (quantity > inJob) {
+        throw new ApiError(422, inJob <= 0
+          ? `This part was not used in ${job.jobNo}`
+          : `Only ${inJob} of this part went into ${job.jobNo}`);
+      }
     }
 
     // Who the part is for and what is being fixed, e.g. "for MS1269 (Ko Aung · Charging port)".
@@ -116,7 +133,7 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
           : null)
       : null;
     const forJob = job ? [customer, job.problem?.trim()].filter(Boolean).join(" · ") : "";
-    const notes = [label, job ? `for ${job.jobNo}${forJob ? ` (${forJob})` : ""}` : "", body.reason]
+    const notes = [label, job ? `${returning ? "from" : "for"} ${job.jobNo}${forJob ? ` (${forJob})` : ""}` : "", body.reason]
       .filter(Boolean).join(" — ");
 
     // A tracked phone moves with its IMEI: in records it, out marks it removed.
@@ -143,10 +160,13 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
 
     // A part fitted to a phone is a cost of that repair, so it lands on the job and shows
     // up in what the repair actually made.
+    // A part brought back comes off it again, never below nothing.
     if (job) {
+      const cost = r.item.costPrice * BigInt(-quantity);
+      const { partsCost } = await tx.repairJob.findUniqueOrThrow({ where: { id: job.id }, select: { partsCost: true } });
       await tx.repairJob.update({
         where: { id: job.id },
-        data: { partsCost: { increment: r.item.costPrice * BigInt(-quantity) } },
+        data: { partsCost: partsCost + cost < 0n ? 0n : partsCost + cost },
       });
     }
 

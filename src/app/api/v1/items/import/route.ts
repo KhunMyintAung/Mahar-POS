@@ -177,20 +177,24 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       // export is the count on the shelf, and adding would double it on a re-import. It is
       // moved by the difference, so the change shows in Stock movements like any other.
       if (product.quantity !== null) {
-        const now = stockNow.get(found.id) ?? 0;
-        if (product.quantity !== now) {
-          await moveStock(prisma, {
+        const target = product.quantity;
+        // Read inside the transaction, so a sale made while the file was going in is not undone.
+        await prisma.$transaction(async (tx) => {
+          const level = await tx.stockLevel.findUnique({ where: { itemId_branchId: { itemId: found.id, branchId } }, select: { quantity: true } });
+          const now = level?.quantity ?? 0;
+          if (target === now) return;
+          await moveStock(tx, {
             businessId: user.businessId,
             itemId: found.id,
             branchId,
             type: "IMPORT",
-            quantity: product.quantity - now,
-            notes: `CSV import: stock set to ${product.quantity}`,
+            quantity: target - now,
+            notes: `CSV import: stock set to ${target}`,
             createdById: user.id,
             allowNegative: true,
           });
-          stockNow.set(found.id, product.quantity);
-        }
+        });
+        stockNow.set(found.id, target);
       }
       updated += 1;
       continue;
@@ -222,15 +226,16 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       },
     });
     if (product.quantity) {
-      await moveStock(prisma, {
+      const opening = product.quantity;
+      await prisma.$transaction((tx) => moveStock(tx, {
         businessId: user.businessId,
         itemId: item.id,
         branchId,
         type: "IMPORT",
-        quantity: product.quantity,
+        quantity: opening,
         notes: "CSV import: opening stock",
         createdById: user.id,
-      });
+      }));
     } else {
       await prisma.stockLevel.create({ data: { itemId: item.id, branchId, quantity: 0 } });
     }

@@ -466,7 +466,10 @@ export async function cancelSaleOrPurchase(
       refId: record.id,
       notes: opts.reason,
       createdById: opts.userId,
-      allowNegative: true,
+      // A sale's goods come back, so it can always be cancelled. A purchase whose goods have
+      // since been sold would leave the shelf below zero: that has to be sorted out first.
+      allowNegative: kind === "sale",
+      allowInactive: true,
     });
   }
 

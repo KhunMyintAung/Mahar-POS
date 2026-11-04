@@ -1431,6 +1431,7 @@ const MM: Record<string, string> = {
   "Hide password": "Password ဖျောက်ပါ",
   "Home page": "ပင်မစာမျက်နှာ",
   "User manual": "အသုံးပြုနည်း လမ်းညွှန်",
+  "Back from repair job (optional, takes the part cost off it)": "ဘယ်ပြင်ဆင်မှုကနေ ပြန်လာတာလဲ (မထည့်လည်းရ၊ အပိုပစ္စည်းဖိုးကို အဲဒီ job ကနေ နုတ်ပေးမယ်)",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1510,6 +1511,10 @@ function translate(value: string) {
     [/^Barcode saved on (.+)$/, (name) => `${name} မှာ Barcode သိမ်းပြီး`],
     [/^This barcode is already on (.+)$/, (name) => `ဒီ Barcode က ${name} မှာ ရှိပြီးသားပါ`],
     [/^replaces (.+)$/, (code) => `${code} ကို အစားထိုး`],
+    [/^Only (d+) of this part went into (.+)$/, (n, job) => `${job} မှာ ဒီပစ္စည်း ${n} ခုပဲ သုံးထားပါတယ်`],
+    [/^This part was not used in (.+)$/, (job) => `ဒီပစ္စည်းကို ${job} မှာ မသုံးထားပါ`],
+    [/^(.+) was handed back; its parts can no longer be returned$/, (job) => `${job} ကို ပြန်ပေးပြီးသားမို့ ပစ္စည်း ပြန်သွင်းလို့ မရတော့ပါ`],
+    [/^Insufficient stock for (.+) (have (-?d+), need (d+))$/, (name, have, need) => `${name} လက်ကျန် မလောက်ပါ (ရှိ ${have}၊ လို ${need})`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
