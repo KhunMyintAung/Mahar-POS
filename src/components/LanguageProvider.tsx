@@ -1508,6 +1508,9 @@ const MM: Record<string, string> = {
   "Cards counted": "ကတ် ရေပြီး",
   "Type how many of each card you have now. From here on, cards bought are added and cards sold are taken off. Money and the balance are not changed.": "အခု လက်ထဲရှိ ကတ်အရေအတွက်ကို ထည့်ပါ။ ဒီနောက် ဝယ်တဲ့ကတ် ပေါင်းပြီး ရောင်းတဲ့ကတ် နုတ်ပါမည်။ ငွေနှင့် လက်ကျန်ကို မပြောင်းပါ။",
   "Biller not found": "Biller မတွေ့ပါ",
+  "Commission & notes ▾": "ကော်မရှင်နှင့် မှတ်ချက် ▾",
+  "Commission & notes ▴": "ကော်မရှင်နှင့် မှတ်ချက် ▴",
+  "Float held now is what the operator is holding for this shop today. A minus figure is fine if the shop has sold ahead of paying.": "လက်ကျန် Float ဆိုသည်မှာ ဒီနေ့ Operator ထံ ဆိုင်အတွက် ရှိနေသော ငွေ ဖြစ်သည်။ ငွေမပေးရသေးဘဲ ကြိုရောင်းထားလျှင် အနုတ် ထည့်နိုင်သည်။",
 };
 
 const originalText = new WeakMap<Node, string>();

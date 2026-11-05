@@ -126,6 +126,8 @@ export default function BillersPage() {
   // day's cards sold.
   const [cardsOpen, setCardsOpen] = useState<string | null>(null);
   const [soldCardsOpen, setSoldCardsOpen] = useState(false);
+  // New biller: commission and notes folded away, so the form is just name, type and float.
+  const [newMore, setNewMore] = useState(false);
   const [countForm, setCountForm] = useState<Record<string, string>>({});
   const [cardsText, setCardsText] = useState<string | null>(null);
   useEffect(() => {
@@ -654,12 +656,19 @@ export default function BillersPage() {
             onChange={(e) => setForm({ ...form, openingBalance: e.target.value })}
             placeholder="0"
           />
-          <p className="text-xs text-gray-500">
-            What the operator is holding for this shop today. A minus figure is fine if the
-            shop has sold ahead of paying.
-          </p>
-          <DealFields value={form} onChange={(v) => setForm({ ...form, ...v })} />
-          <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <button type="button" onClick={() => setNewMore(!newMore)} className="text-sm text-blue-600 hover:underline">
+            {newMore ? "Commission & notes ▴" : "Commission & notes ▾"}
+          </button>
+          {newMore && (
+            <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+              <p className="text-xs text-gray-500">
+                Float held now is what the operator is holding for this shop today. A minus figure is fine if the
+                shop has sold ahead of paying.
+              </p>
+              <DealFields value={form} onChange={(v) => setForm({ ...form, ...v })} />
+              <Input label="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
             <Button onClick={create} disabled={busy || !form.name.trim()}>{busy ? "Saving…" : "Add"}</Button>
