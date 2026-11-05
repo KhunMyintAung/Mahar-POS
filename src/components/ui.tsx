@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, ReactNode } from "react";
-import { X } from "lucide-react";
+import { Check, Download, X } from "lucide-react";
 import { STATUS_COLORS } from "@/lib/format";
 import { playError, playSuccess } from "@/lib/sound";
 
@@ -211,9 +211,13 @@ export function Table({ headers, children, rightAlign, csv, grid }: {
     watch.observe(table, { childList: true, subtree: true, characterData: true });
     return () => watch.disconnect();
   }, []);
+  // "Saved" shows on the button for a moment after the file is made.
+  const [csvSaved, setCsvSaved] = useState(false);
   function exportCsv() {
     const table = ref.current;
     if (!table) return;
+    setCsvSaved(true);
+    setTimeout(() => setCsvSaved(false), 1800);
     const page = window.location.pathname.split("/").filter(Boolean).slice(0, 2).join("-") || "dashboard";
     const name = `${csv || page}-${new Date().toISOString().slice(0, 10)}.csv`;
     const url = URL.createObjectURL(new Blob([tableToCsv(table, actions)], { type: "text/csv;charset=utf-8" }));
@@ -242,8 +246,17 @@ export function Table({ headers, children, rightAlign, csv, grid }: {
       </table>
     </div>
     {csv !== false && (
-      <div className="mt-1 flex justify-end">
-        <button type="button" onClick={exportCsv} className="no-print rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:underline dark:text-blue-400 dark:hover:bg-blue-950/40">Export CSV</button>
+      <div className="no-print mt-2 flex justify-start sm:justify-end">
+        <button type="button" onClick={exportCsv}
+          className={cn(
+            "inline-flex min-h-9 items-center gap-1.5 rounded-lg border px-3.5 text-sm font-semibold shadow-sm transition-all duration-200 active:scale-95",
+            csvSaved
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+              : "border-gray-200 bg-white text-navy-800 hover:-translate-y-0.5 hover:border-gold-400 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:text-gold-300 dark:hover:border-gold-500"
+          )}>
+          {csvSaved ? <Check size={16} /> : <Download size={16} />}
+          {csvSaved ? "Saved" : "Export CSV"}
+        </button>
       </div>
     )}
     </div>
