@@ -44,7 +44,10 @@ function DayLines({ title, total, lines, tone, empty }: {
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span className={tone === "green" ? "text-sm font-medium text-green-700 dark:text-green-300" : "text-sm font-medium text-red-600 dark:text-red-400"}>{title}</span>
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
+          <span aria-hidden className={tone === "green" ? "h-1.5 w-1.5 rounded-full bg-emerald-500/70" : "h-1.5 w-1.5 rounded-full bg-gray-400"} />
+          {title}
+        </span>
         <span className="text-lg font-bold tabular-nums">{fmtMoney(total, "MMK")}</span>
       </div>
       {lines.length === 0 ? (
@@ -179,7 +182,7 @@ export default function DashboardPage() {
         </>}
         {featureEnabled("incomeExpense") && <>
         <StatCard label="Today's Income" value={fmtMoney(s.general.otherIncome, "MMK")} tone="green" onClick={() => router.push("/income-expense")} />
-        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, "MMK")} tone="red" onClick={() => router.push("/income-expense")} />
+        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, "MMK")} onClick={() => router.push("/income-expense")} />
         <StatCard label="Net Cash Movement" value={fmtMoney(s.general.netCashMovement, "MMK")} tone={BigInt(s.general.netCashMovement) >= 0n ? "green" : "red"} />
         </>}
         {featureEnabled("credit") && <>
@@ -189,12 +192,12 @@ export default function DashboardPage() {
       </div>
 
       {featureEnabled("stock") && data.pos && data.pos.lowStock.length > 0 && (
-        <Card className="border-red-300 dark:border-red-800">
-          <h3 className="mb-2 text-sm font-semibold text-red-700 dark:text-red-400">Low stock alerts</h3>
+        <Card>
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500/70" />Low stock alerts</h3>
           <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {data.pos.lowStock.map((it) => (
               <li key={it.id}>
-                {it.name}: <b className="text-red-600">{it.qty}</b> {`(min ${it.minStock})`}
+                {it.name}: <b className="text-red-700/90 dark:text-red-300/90">{it.qty}</b> {`(min ${it.minStock})`}
               </li>
             ))}
           </ul>
@@ -202,8 +205,8 @@ export default function DashboardPage() {
       )}
 
       {featureEnabled("items") && data.pos && data.pos.expiring.length > 0 && (
-        <Card className="border-amber-300 dark:border-amber-700">
-          <h3 className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-400">Expiring soon</h3>
+        <Card>
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold-500/80" />Expiring soon</h3>
           <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {data.pos.expiring.map((it) => (
               <li key={it.id}>
@@ -215,12 +218,12 @@ export default function DashboardPage() {
       )}
 
       {featureEnabled("wallets") && s.wallets.lowBalance.length > 0 && (
-        <Card className="border-amber-300 dark:border-amber-700">
-          <h3 className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-400">Low wallet balance alerts</h3>
+        <Card>
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-gold-500/80" />Low wallet balance alerts</h3>
           <ul className="space-y-1 text-sm">
             {s.wallets.lowBalance.map((w) => (
               <li key={w.id}>
-                {w.name}: <span className="font-medium text-red-600">{fmtMoney(w.currentBalance)}</span> {`(min ${fmtMoney(w.minBalance)})`}
+                {w.name}: <span className="font-medium text-red-700/90 dark:text-red-300/90">{fmtMoney(w.currentBalance)}</span> {`(min ${fmtMoney(w.minBalance)})`}
               </li>
             ))}
           </ul>

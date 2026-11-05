@@ -21,23 +21,19 @@ export function StatCard({ label, value, sub, onClick, tone }: {
   label: string; value: ReactNode; sub?: ReactNode; onClick?: () => void;
   tone?: "green" | "red" | "blue" | "amber" | "default";
 }) {
+  // Calm on purpose: every figure in the same ink, one soft gold line on every card. Only a
+  // loss (red) keeps a colour, in a muted shade, so the one thing worth seeing stands out.
+  const neutral = "text-navy-900 dark:text-gray-100";
   const tones: Record<string, string> = {
-    green: "text-green-600 dark:text-green-400",
-    red: "text-red-600 dark:text-red-400",
-    blue: "text-blue-600 dark:text-blue-400",
-    amber: "text-amber-600 dark:text-amber-400",
-    default: "text-gray-900 dark:text-gray-100",
-  };
-  // A thin bar along the top in the figure's colour; plain figures get the brand gold.
-  const bars: Record<string, string> = {
-    green: "bg-green-500", red: "bg-red-500", blue: "bg-blue-500", amber: "bg-amber-500", default: "bg-gold-500",
+    green: neutral, blue: neutral, amber: neutral, default: neutral,
+    red: "text-red-700/90 dark:text-red-300/90",
   };
   return (
     <button
       onClick={onClick}
       className="relative w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white p-3 pt-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-4 sm:pt-[1.125rem]"
     >
-      <span aria-hidden className={cn("absolute inset-x-0 top-0 h-[3px]", bars[tone ?? "default"])} />
+      <span aria-hidden className="absolute inset-x-0 top-0 h-[2px] bg-gold-500/40 dark:bg-gold-400/30" />
       <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className={cn("mt-1 text-lg font-bold tabular-nums sm:text-xl", tones[tone ?? "default"])}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sub}</div>}
