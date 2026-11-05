@@ -12,6 +12,7 @@ const LanguageContext = createContext<{
 }>({ language: "en", setLanguage: () => {} });
 
 const MM: Record<string, string> = {
+  "All months": "လအားလုံး",
   "Dashboard": "ပင်မစာမျက်နှာ",
   "Sales & POS": "အရောင်းနှင့် POS",
   "Sale History": "အရောင်းမှတ်တမ်း",
@@ -1625,6 +1626,7 @@ function translate(value: string) {
     [/^Card report · (.+)$/, (d) => `ကတ် စာရင်းချုပ် · ${d}`],
     [/^From Users & Roles, not on this list yet: (.+)$/, (n) => `Users & Roles တွင် ရှိပြီး ဒီစာရင်းတွင် မပါသေးသူ: ${n}`],
     [/^Add them \((\d+)\)$/, (n) => `ထည့်မည် (${n})`],
+    [/^Showing (\w+) (\d{4})$/, (m, y) => `${y} ${m} ကို ပြနေသည်`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

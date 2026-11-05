@@ -42,6 +42,8 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
     // "WORKING" is every status still on the bench, the Working count on the page.
     ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } } : status ? { status } : {}),
     ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
+    // ?listMonth=1: the list too is the month's intake, matching the counts above it.
+    ...(sp.get("listMonth") === "1" ? { receivedAt: monthRangeUtc(month) } : {}),
     ...(q
       ? {
           OR: [

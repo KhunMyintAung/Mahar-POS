@@ -258,6 +258,9 @@ export default function RepairsPage() {
     if (q.trim()) params.set("q", q.trim());
     if (status) params.set("status", status);
     if (month) params.set("month", month);
+    // A month picked: the list shows that month's devices too. A search looks through every
+    // month, so a customer's old job is still found.
+    if (month && !q.trim()) params.set("listMonth", "1");
     api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(e.message, "error"));
@@ -567,6 +570,14 @@ export default function RepairsPage() {
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
       </div>
+      {month && !q.trim() && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-navy-800 px-3 py-1 text-xs font-semibold text-white dark:bg-gold-400 dark:text-navy-950">
+            {`Showing ${new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
+          </span>
+          <button type="button" onClick={() => setMonth("")} className="text-xs text-blue-600 hover:underline">All months</button>
+        </div>
+      )}
 
       {jobs.length === 0 ? (
         <Card><Empty message="No repair jobs yet." /></Card>
