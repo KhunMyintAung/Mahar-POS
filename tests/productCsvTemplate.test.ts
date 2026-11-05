@@ -22,8 +22,30 @@ describe("product CSV templates", () => {
     }
   });
 
-  it("files phones and accessories under their own categories", () => {
-    const categories = new Set(parseProductCsv(PHONE_SHOP_CSV_TEMPLATE).products.map((p) => p.category));
-    expect(categories).toEqual(new Set(["Phone New", "Phone Second", "Chargers & Cables", "Glass", "Cases", "Spare Parts"]));
+  it("files phones and accessories under categories and sub-categories", () => {
+    const products = parseProductCsv(PHONE_SHOP_CSV_TEMPLATE).products;
+    expect(new Set(products.map((p) => p.category))).toEqual(new Set(["Phone", "Accessory", "Spare Parts"]));
+    expect(products.filter((p) => p.category === "Phone").map((p) => p.subCategory)).toEqual(["New", "Second"]);
+    expect(products.find((p) => p.name.startsWith("Wireless Earphone"))?.subCategory).toBe("Earphone");
+  });
+
+  it("reads a sub-category from its own column or from one cell", () => {
+    const parsed = parseProductCsv([
+      "name,category,sub category,price",
+      "A,Accessory,Adapter,100",
+      "B,Accessory > Earphone,,100",
+      "C,Phone › Second,,100",
+      "D,,Glass,100",
+      "E,Grocery,,100",
+    ].join("\n"));
+    expect(parsed.unknownColumns).toEqual([]);
+    expect(parsed.products.map((p) => [p.category, p.subCategory])).toEqual([
+      ["Accessory", "Adapter"], ["Accessory", "Earphone"], ["Phone", "Second"], ["Glass", ""], ["Grocery", ""],
+    ]);
+  });
+
+  it("knows the Myanmar sub-category header", () => {
+    const parsed = parseProductCsv("အမည်,အမျိုးအစား,အမျိုးအစားခွဲ,ရောင်းဈေး\nVivo,Phone,New,100");
+    expect(parsed.products[0].subCategory).toBe("New");
   });
 });

@@ -1291,7 +1291,7 @@ const MM: Record<string, string> = {
   "Add these categories": "ဒီအမျိုးအစားများ ထည့်မည်",
   "e.g. 500g pack, best before printed on the box": "ဥပမာ 500g ထုပ်၊ သက်တမ်းကုန်ရက် ဘူးပေါ်တွင် ပါသည်",
   "Expiry date must be a date (YYYY-MM-DD)": "သက်တမ်းကုန်ရက်ကို ရက်စွဲ (YYYY-MM-DD) ဖြင့် ထည့်ပါ",
-  "Columns: name, sku, barcode, category, unit, cost, price, stock, min stock, expiry. Only the name is required — a SKU is made from the name when the column is empty, and a category or unit (pcs, box…) that does not exist yet is created; a new item with no unit gets pcs. Stock is the count on hand: it sets the stock to that number, and an empty stock cell leaves it as it is. Expiry is a best-before date (2026-12-31 or 31/12/2026), empty for none.": "ကော်လံများ: name, sku, barcode, category, unit, cost, price, stock, min stock, expiry။ name တစ်ခုသာ မဖြစ်မနေ လိုသည် — sku မပါလျှင် နာမည်မှ လုပ်ပေးမည်၊ မရှိသေးသော category / unit ကို အသစ်လုပ်မည်၊ unit မပါသော ပစ္စည်းအသစ်ကို pcs ပေးမည်။ stock က လက်ရှိ အရေအတွက် — ထိုအရေအတွက်အတိုင်း ထားမည်၊ stock အကွက် ဗလာဆိုလျှင် မပြောင်းပါ။ expiry က သက်တမ်းကုန်ရက် (2026-12-31 သို့ 31/12/2026)၊ မရှိလျှင် ဗလာထားပါ။",
+  "Columns: name, sku, barcode, category, sub category, unit, cost, price, stock, min stock, expiry. Only the name is required — a SKU is made from the name when the column is empty, and a category or unit (pcs, box…) that does not exist yet is created; a new item with no unit gets pcs. Stock is the count on hand: it sets the stock to that number, and an empty stock cell leaves it as it is. Expiry is a best-before date (2026-12-31 or 31/12/2026), empty for none.": "ကော်လံများ: name, sku, barcode, category, sub category (အမျိုးအစားခွဲ — ဥပမာ Accessory › Earphone, Phone › Second), unit, cost, price, stock, min stock, expiry။ name တစ်ခုသာ မဖြစ်မနေ လိုသည် — sku မပါလျှင် နာမည်မှ လုပ်ပေးမည်၊ မရှိသေးသော category / unit ကို အသစ်လုပ်မည်၊ unit မပါသော ပစ္စည်းအသစ်ကို pcs ပေးမည်။ stock က လက်ရှိ အရေအတွက် — ထိုအရေအတွက်အတိုင်း ထားမည်၊ stock အကွက် ဗလာဆိုလျှင် မပြောင်းပါ။ expiry က သက်တမ်းကုန်ရက် (2026-12-31 သို့ 31/12/2026)၊ မရှိလျှင် ဗလာထားပါ။",
   "For the printer on this device. Every receipt is sized to it.": "ဤစက်ရှိ Printer အတွက်ဖြစ်သည်။ ပြေစာ အားလုံးကို ဤအရွယ်ဖြင့် ထုတ်ပါမည်။",
   "Unpaid": "ပေးရန်ကျန်",
   "Create supplier": "ကုန်သွင်းသူ ထည့်မည်",
@@ -1521,6 +1521,8 @@ const MM: Record<string, string> = {
   "Card": "ကတ်",
   "No card movements yet. Count each card biller's cards first, then sell and buy by tapping cards.": "ကတ် အဝင်အထွက် မရှိသေးပါ။ ကတ် Biller တစ်ခုချင်းစီ၏ ကတ်ကို အရင် ရေပြီး ကတ်ခလုပ် နှိပ်၍ ရောင်း/ဝယ် ပါ။",
   "Opening is the last count plus cards bought and less cards sold before this day. Only sales and float bought by tapping cards are counted. Cost is by the biller's refill deal.": "ယခင်လက်ကျန် = နောက်ဆုံး ရေထားသော ကတ် + ဒီနေ့မတိုင်မီ ဝယ် − ရောင်း။ ကတ်ခလုပ် နှိပ်၍ ရောင်း/ဝယ် ထားသည်များသာ ပါပါသည်။ ဝယ်ဈေးကို Biller ၏ Refill အပေးအယူဖြင့် တွက်ပါသည်။",
+  "Under (for a sub-category)": "အောက်တွင် (အမျိုးအစားခွဲ အတွက်)",
+  "— (main category)": "— (အမျိုးအစား အကြီး)",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -121,7 +121,7 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
             </Button>
           </div>
           <p className="text-xs text-gray-500">
-            Columns: name, sku, barcode, category, unit, cost, price, stock, min stock, expiry. Only
+            Columns: name, sku, barcode, category, sub category, unit, cost, price, stock, min stock, expiry. Only
             the name is required — a SKU is made from the name when the column is empty, and a
             category or unit (pcs, box…) that does not exist yet is created; a new item with no
             unit gets pcs. Stock is the count on hand: it sets the stock to that number, and an

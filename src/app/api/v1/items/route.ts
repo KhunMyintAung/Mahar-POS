@@ -106,10 +106,12 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
     if (body.categoryId) {
       const category = await tx.itemCategory.findFirst({
         where: { id: body.categoryId, businessId: user.businessId, active: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, parentId: true },
       });
       if (!category) throw new ApiError(404, "Category not found");
-      categoryName = category.name;
+      // A sub-category reads with its category ("Phone New"), so Phone › New is a phone.
+      const parent = category.parentId ? await tx.itemCategory.findUnique({ where: { id: category.parentId }, select: { name: true } }) : null;
+      categoryName = parent ? `${parent.name} ${category.name}` : category.name;
     }
     if (body.unitId) {
       const unit = await tx.unit.findFirst({

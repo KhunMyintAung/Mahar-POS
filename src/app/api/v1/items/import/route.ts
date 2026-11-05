@@ -108,6 +108,22 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   }
 
   const categoryIds = new Map<string, string>();
+
+  /** The id of the category with this name (any case) under parentId (null: a top one),
+   *  made if missing. anyLevel: a row with no sub-category may name a sub-category the
+   *  shop already has, as files made before sub-categories did. */
+  async function categoryIdFor(name: string, parentId: string | null, anyLevel: boolean): Promise<string> {
+    const key = `${parentId ?? ""}|${anyLevel ? "*" : ""}|${name.toLowerCase()}`;
+    const cached = categoryIds.get(key);
+    if (cached) return cached;
+    const where = { businessId: user.businessId, name: { equals: name, mode: "insensitive" as const } };
+    const found =
+      (await prisma.itemCategory.findFirst({ where: { ...where, parentId }, select: { id: true } })) ??
+      (anyLevel ? await prisma.itemCategory.findFirst({ where, select: { id: true } }) : null) ??
+      (await prisma.itemCategory.create({ data: { businessId: user.businessId, name, parentId }, select: { id: true } }));
+    categoryIds.set(key, found.id);
+    return found.id;
+  }
   const unitIds = new Map<string, string>();
 
   /** The id of the unit with this name (any case), made if the shop does not have it yet. */
@@ -135,27 +151,14 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   for (const product of products) {
     const found = match(product);
 
-    // Categories are made as they are met. A file naming a category the shop does not have
-    // yet is the normal case on a first import, and stopping for it would be unhelpful.
+    // Categories (and sub-categories under them) are made as they are met. A file naming a
+    // category the shop does not have yet is the normal case on a first import, and
+    // stopping for it would be unhelpful.
     let categoryId: string | undefined;
     const categoryName = product.category.trim();
     if (categoryName) {
-      const key = categoryName.toLowerCase();
-      let id = categoryIds.get(key);
-      if (!id) {
-        const category =
-          (await prisma.itemCategory.findFirst({
-            where: { businessId: user.businessId, name: { equals: categoryName, mode: "insensitive" } },
-            select: { id: true },
-          })) ??
-          (await prisma.itemCategory.create({
-            data: { businessId: user.businessId, name: categoryName },
-            select: { id: true },
-          }));
-        id = category.id;
-        categoryIds.set(key, id);
-      }
-      categoryId = id;
+      const parentId = await categoryIdFor(categoryName, null, !product.subCategory);
+      categoryId = product.subCategory ? await categoryIdFor(product.subCategory, parentId, false) : parentId;
     }
 
     const unitId = product.unit ? await unitIdFor(product.unit) : undefined;

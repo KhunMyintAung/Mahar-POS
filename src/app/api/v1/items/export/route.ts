@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { todayBusinessDate } from "@/lib/dates";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { isPhoneShop } from "@/lib/modules";
+import { CATEGORY_SEP } from "@/lib/productCsv";
 
 /** The item list as a CSV in exactly the columns the import reads, so a shop can export,
  *  change prices or stock in a spreadsheet, and import the same file back.
@@ -12,7 +13,7 @@ import { isPhoneShop } from "@/lib/modules";
  *  file has an expiry column too; a phone shop's has it only when an item has a date.
  */
 
-const HEADER = ["name", "sku", "barcode", "category", "unit", "cost", "price", "stock", "min stock"];
+const HEADER = ["name", "sku", "barcode", "category", "sub category", "unit", "cost", "price", "stock", "min stock"];
 
 /** Whole kyat without ".00", which is how shops write prices and how the import reads them. */
 function amount(minor: bigint): string {
@@ -28,19 +29,40 @@ function cell(value: string | number): string {
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
   const category = req.nextUrl.searchParams.get("category");
+  // Every category, so a sub-category is written under its own category's name.
+  const cats = await prisma.itemCategory.findMany({ where: { businessId: user.businessId }, select: { id: true, name: true, parentId: true } });
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const split = (id: string | null) => {
+    const c = id ? byId.get(id) : undefined;
+    if (!c) return { category: "", sub: "" };
+    const parent = c.parentId ? byId.get(c.parentId) : undefined;
+    return parent ? { category: parent.name, sub: c.name } : { category: c.name, sub: "" };
+  };
+  // ?category= is a name ("Phone": it and every sub-category under it) or "Phone › New".
+  let categoryIds: string[] | null = null;
+  if (category && category !== "—") {
+    const [top, sub] = category.split(CATEGORY_SEP);
+    categoryIds = cats
+      .filter((c) => {
+        const s = split(c.id);
+        return sub ? s.category === top && s.sub === sub : c.name === top || s.category === top;
+      })
+      .map((c) => c.id);
+  }
   const items = await prisma.item.findMany({
     where: {
       businessId: user.businessId,
       deletedAt: null,
-      ...(category === "—" ? { categoryId: null } : category ? { category: { name: category } } : {}),
+      ...(category === "—" ? { categoryId: null } : categoryIds ? { categoryId: { in: categoryIds } } : {}),
     },
     include: {
-      category: { select: { name: true } },
       unit: { select: { name: true } },
       stockLevels: { select: { quantity: true } },
     },
-    orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
+    orderBy: [{ name: "asc" }],
   });
+  const sortKey = (id: string | null) => { const s = split(id); return `${s.category}\u0000${s.sub}`; };
+  items.sort((a, b) => sortKey(a.categoryId).localeCompare(sortKey(b.categoryId)) || a.name.localeCompare(b.name));
 
   const withExpiry = !isPhoneShop(await loadModuleAccess(user.businessId)) || items.some((it) => it.expiresAt);
   const header = withExpiry ? [...HEADER, "expiry"] : HEADER;
@@ -48,7 +70,8 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     it.name,
     it.sku,
     it.barcode ?? "",
-    it.category?.name ?? "",
+    split(it.categoryId).category,
+    split(it.categoryId).sub,
     it.unit?.name ?? "",
     amount(it.costPrice),
     amount(it.sellingPrice),

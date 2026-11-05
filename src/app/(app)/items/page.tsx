@@ -7,6 +7,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { isPhoneCategory } from "@/lib/itemCategoryPresets";
+import { CATEGORY_SEP } from "@/lib/productCsv";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
@@ -57,7 +58,7 @@ const ExpiryPill = ({ expiresAt }: { expiresAt: string }) => {
   );
 };
 
-interface Meta { categories: { id: string; name: string }[]; units: { id: string; name: string }[] }
+interface Meta { categories: { id: string; name: string; parentId?: string | null }[]; units: { id: string; name: string }[] }
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
@@ -126,7 +127,7 @@ export default function ItemsPage() {
   // Models whose variants are shown in the list (closed by default).
   const [openModels, setOpenModels] = useState<Set<string>>(new Set());
   const [form, setForm] = useState(empty);
-  const [metaForm, setMetaForm] = useState({ kind: "category", name: "" });
+  const [metaForm, setMetaForm] = useState({ kind: "category", name: "", parentId: "" });
   // Stock, merged in from the old Stock page: the movements tab, each item's stock levels,
   // a low-stock filter, and the Adjust and IMEI dialogs.
   const [view, setView] = useState<"items" | "movements">("items");
@@ -218,7 +219,8 @@ export default function ItemsPage() {
 
   async function addMeta() {
     try {
-      await api("/api/v1/item-meta", { method: "POST", body: metaForm });
+      const { parentId, ...rest } = metaForm;
+      await api("/api/v1/item-meta", { method: "POST", body: { ...rest, ...(rest.kind === "category" && parentId ? { parentId } : {}) } });
       push(`${metaForm.kind === "category" ? "Category" : "Unit"} added`);
       setMetaForm({ ...metaForm, name: "" });
       load();
@@ -232,7 +234,14 @@ export default function ItemsPage() {
   // Filtered by category the same way as Stock, so a whole shelf — all the glass, all the
   // spare parts — can be picked out and selected at once.
   const NONE = "—";
-  const categoryOf = (it: Item) => it.category?.name ?? NONE;
+  // A sub-category shows with its category: "Accessory › Earphone".
+  const catLabel = (id: string | null | undefined, fallback?: string) => {
+    const c = id ? meta.categories.find((x) => x.id === id) : undefined;
+    if (!c) return fallback;
+    const parent = c.parentId ? meta.categories.find((x) => x.id === c.parentId) : undefined;
+    return parent ? `${parent.name}${CATEGORY_SEP}${c.name}` : c.name;
+  };
+  const categoryOf = (it: Item) => catLabel(it.categoryId, it.category?.name) ?? NONE;
   const categories = [...new Set(items.map(categoryOf))].sort((a, b) =>
     a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b)
   );
@@ -388,7 +397,7 @@ export default function ItemsPage() {
                   <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants`}</span>
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums"><QtyPill qty={stockAll} minStock={Math.max(...g.items.map((it) => it.minStock))} /></td>
-                <td className="px-3 py-2.5 text-xs">{g.items[0].category?.name ?? "—"}</td>
+                <td className="px-3 py-2.5 text-xs">{catLabel(g.items[0].categoryId, g.items[0].category?.name) ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].unit?.name ?? "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{showCost ? range((it) => it.costPrice) : "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">{range((it) => it.sellingPrice)}</td>
@@ -427,7 +436,7 @@ export default function ItemsPage() {
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
                   <QtyPill qty={qty} minStock={it.minStock} />
                 </td>
-                <td className="px-3 py-2.5 text-xs">{it.category?.name ?? "—"}</td>
+                <td className="px-3 py-2.5 text-xs">{catLabel(it.categoryId, it.category?.name) ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>
                 <td className="px-3 py-2.5 text-right tabular-nums">{costText(it.costPrice)}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{fmtMoney(it.sellingPrice)}</td>
@@ -457,7 +466,7 @@ export default function ItemsPage() {
                     }}>Edit</Button>
                   )}
                   {/* Variants are for phones (storage, colour), or a model already started. */}
-                  {hasPerm("item.manage") && (it.model || (phoneShop && isPhoneCategory(it.category?.name))) && (
+                  {hasPerm("item.manage") && (it.model || (phoneShop && isPhoneCategory(catLabel(it.categoryId, it.category?.name)))) && (
                     <Button size="sm" variant="ghost" title="Add a variant of this model (another storage, colour…)" onClick={() => {
                       // A copy of this item, ready for the one thing that differs.
                       setForm({
@@ -484,7 +493,7 @@ export default function ItemsPage() {
                   <div className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
                     <span>{`SKU ${it.sku}`}</span>
                     {it.barcode && <span>{`Barcode ${it.barcode}`}</span>}
-                    <span>{`Category ${it.category?.name ?? "—"}`}</span>
+                    <span>{`Category ${catLabel(it.categoryId, it.category?.name) ?? "—"}`}</span>
                     <span>{`Cost ${costText(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
                     <span>{`Min stock ${it.minStock}`}</span>
                     {it.expiresAt && <span>{`Expires ${it.expiresAt.slice(0, 10)}`}</span>}
@@ -559,11 +568,14 @@ export default function ItemsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Select label="Category" value={form.categoryId} onChange={(e) => {
-                const name = meta.categories.find((c) => c.id === e.target.value)?.name;
+                const name = catLabel(e.target.value);
                 setForm({ ...form, categoryId: e.target.value, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
               }}>
                 <option value="">—</option>
-                {meta.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {meta.categories
+                  .map((c) => ({ id: c.id, label: catLabel(c.id) ?? c.name }))
+                  .sort((a, b) => a.label.localeCompare(b.label))
+                  .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </Select>
               {missingPresets.length > 0 && hasPerm("item.manage") && (
                 <button type="button" onClick={addPresets} className="mt-1 text-xs font-medium text-blue-600 hover:underline">
@@ -722,6 +734,13 @@ export default function ItemsPage() {
             <div className="flex-1"><Input label="Name" value={metaForm.name} onChange={(e) => setMetaForm({ ...metaForm, name: e.target.value })} /></div>
             <Button onClick={addMeta} disabled={!metaForm.name}>Add</Button>
           </div>
+          {metaForm.kind === "category" && (
+            // Empty: a category of its own. A category picked: a sub-category under it (Accessory › Earphone).
+            <Select label="Under (for a sub-category)" value={metaForm.parentId} onChange={(e) => setMetaForm({ ...metaForm, parentId: e.target.value })}>
+              <option value="">— (main category)</option>
+              {meta.categories.filter((c) => !c.parentId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+          )}
           {missingPresets.length > 0 && (
             <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-900/30">
               <p className="text-gray-700 dark:text-gray-200">Ready-made categories you do not have yet:</p>
@@ -732,7 +751,18 @@ export default function ItemsPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <h4 className="mb-1 font-semibold">Categories</h4>
-              <ul className="space-y-0.5">{meta.categories.map((c) => <li key={c.id}>{c.name}</li>)}</ul>
+              <ul className="space-y-0.5">
+                {meta.categories.filter((c) => !c.parentId).map((c) => (
+                  <li key={c.id}>
+                    {c.name}
+                    {meta.categories.some((x) => x.parentId === c.id) && (
+                      <ul className="ml-3 text-xs text-gray-500 dark:text-gray-400">
+                        {meta.categories.filter((x) => x.parentId === c.id).map((x) => <li key={x.id}>{`› ${x.name}`}</li>)}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div>
               <h4 className="mb-1 font-semibold">Units</h4>
