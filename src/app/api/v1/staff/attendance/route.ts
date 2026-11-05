@@ -5,7 +5,7 @@ import { isValidBusinessDate, isValidMonth, todayBusinessDate } from "@/lib/date
 import { ATTENDANCE_STATUSES } from "@/services/staffService";
 
 /** Attendance for one day (?date=) or a whole month (?month=). */
-export const GET = withAuth("users.manage", async ({ req, user }) => {
+export const GET = withAuth("staff.manage", async ({ req, user }) => {
   const url = new URL(req.url);
   const month = url.searchParams.get("month");
   const date = url.searchParams.get("date") || todayBusinessDate();
@@ -29,7 +29,7 @@ const schema = z.object({
 });
 
 /** Marks a day for several staff at once. */
-export const PUT = withAuth("users.manage", async ({ req, user }) => {
+export const PUT = withAuth("staff.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const ids = new Set((await prisma.staff.findMany({ where: { businessId: user.businessId }, select: { id: true } })).map((s) => s.id));
   await prisma.$transaction(async (tx) => {

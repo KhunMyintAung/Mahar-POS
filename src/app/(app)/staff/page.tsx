@@ -51,8 +51,8 @@ export default function StaffPage() {
   }, [push]);
   useEffect(() => {
     loadStaff();
-    api<Wallet[]>("/api/v1/wallets").then((l) => setWallets(l.filter((w) => w.currency === "MMK" && w.branchId && w.active !== false))).catch(() => {});
-    api<UserRow[]>("/api/v1/users").then(setUsers).catch(() => {});
+    api<Wallet[]>("/api/v1/staff/wallets").then(setWallets).catch(() => {});
+    api<UserRow[]>("/api/v1/staff/from-users?all=1").then(setUsers).catch(() => {});
   }, [loadStaff]);
 
   if (!staff) return <Spinner />;

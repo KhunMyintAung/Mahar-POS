@@ -11,6 +11,8 @@ export const ALL_PERMISSIONS = [
   "daily_close.view", "daily_close.create", "daily_close.approve", "daily_close.reopen",
   "settings.manage",
   "users.manage",
+  // Staff Management (salaries, advances, attendance): the owner and HR only.
+  "staff.manage",
   "audit.view",
   "item.view", "item.manage",
   "stock.view", "stock.adjust",
@@ -58,7 +60,7 @@ export const SERVICE_TECH_PERMS: Permission[] = [
 ];
 
 const ADMIN_PERMS: Permission[] = ALL_PERMISSIONS.filter(
-  (p) => p !== "settings.manage"
+  (p) => p !== "settings.manage" && p !== "staff.manage"
 ) as Permission[];
 
 export const DEFAULT_ROLES: { name: string; description: string; permissions: Permission[] }[] = [
@@ -67,6 +69,7 @@ export const DEFAULT_ROLES: { name: string; description: string; permissions: Pe
   { name: "Cashier", description: "Cash and wallet operations", permissions: CASHIER_PERMS },
   { name: "Accountant", description: "Accounting and reports", permissions: ACCOUNTANT_PERMS },
   { name: "Service Tech", description: "Repairs and their parts, no money", permissions: SERVICE_TECH_PERMS },
+  { name: "HR", description: "Staff, attendance and salaries", permissions: ["dashboard.view", "staff.manage"] },
   { name: "Viewer", description: "Read-only access", permissions: ["dashboard.view", "wallet.view", "credit.view", "payable.view", "income_expense.view", "customer.view", "report.view", "daily_close.view"] },
 ];
 

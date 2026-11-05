@@ -76,11 +76,16 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     name: u.name,
     username: u.username,
     roleName: u.role.name,
-    permissions: JSON.parse(u.role.permissions) as string[],
+    permissions: withOwnerExtras(u.role.name, JSON.parse(u.role.permissions) as string[]),
     allBranches: u.allBranches,
     branchIds: u.branches.map((b) => b.branchId),
     commissionRate: u.commissionRate,
   };
+}
+
+/** The owner manages staff even under a role saved before Staff Management existed. */
+function withOwnerExtras(roleName: string, perms: string[]): string[] {
+  return roleName === "Owner" && !perms.includes("staff.manage") ? [...perms, "staff.manage"] : perms;
 }
 
 export function can(user: AuthUser, perm: Permission): boolean {

@@ -6,7 +6,7 @@ import { isValidBusinessDate, isValidMonth, todayBusinessDate } from "@/lib/date
 import { payroll, paySalary } from "@/services/staffService";
 
 /** The month's pay for everyone (?month=YYYY-MM): what each is owed and whether it was paid. */
-export const GET = withAuth("users.manage", async ({ req, user }) => {
+export const GET = withAuth("staff.manage", async ({ req, user }) => {
   const month = new URL(req.url).searchParams.get("month") || todayBusinessDate().slice(0, 7);
   if (!isValidMonth(month)) throw new ApiError(422, "Invalid month");
   return json({ month, rows: await payroll(user.businessId, month) });
@@ -24,7 +24,7 @@ const schema = z.object({
   note: z.string().trim().max(280).optional(),
 });
 
-export const POST = withAuth("users.manage", async ({ req, user }) => {
+export const POST = withAuth("staff.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const p = await prisma.$transaction((tx) => paySalary(tx, {
     businessId: user.businessId, userId: user.id, staffId: body.staffId, month: body.month, walletId: body.walletId,

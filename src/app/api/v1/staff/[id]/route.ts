@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 /** Edits a member of staff; switching one off keeps their history. */
-export const PATCH = withAuth("users.manage", async ({ req, user, params }) => {
+export const PATCH = withAuth("staff.manage", async ({ req, user, params }) => {
   const body = await parseBody(req, schema);
   const before = await prisma.staff.findFirst({ where: { id: params.id, businessId: user.businessId } });
   if (!before) throw new ApiError(404, "Staff not found");

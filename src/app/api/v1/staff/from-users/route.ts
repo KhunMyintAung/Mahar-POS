@@ -18,9 +18,19 @@ async function missing(businessId: string) {
   return users.filter((u) => !linked.has(u.id) && !names.has(u.name.trim().toLowerCase()));
 }
 
-export const GET = withAuth("users.manage", async ({ user }) => json(await missing(user.businessId)));
+export const GET = withAuth("staff.manage", async ({ req, user }) => {
+  // ?all=1: every active login, to link a staff member to.
+  if (req.nextUrl.searchParams.get("all") === "1") {
+    return json(await prisma.user.findMany({
+      where: { businessId: user.businessId, deletedAt: null, active: true },
+      select: { id: true, name: true, role: { select: { name: true } } },
+      orderBy: { name: "asc" },
+    }));
+  }
+  return json(await missing(user.businessId));
+});
 
-export const POST = withAuth("users.manage", async ({ user }) => {
+export const POST = withAuth("staff.manage", async ({ user }) => {
   const list = await missing(user.businessId);
   if (list.length) {
     await prisma.staff.createMany({

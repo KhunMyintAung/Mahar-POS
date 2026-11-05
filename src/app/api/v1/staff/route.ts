@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
 
-// Staff Management (switched on in Settings): the people the shop pays. Salaries are for
-// whoever manages users (owner and admins).
-export const GET = withAuth("users.manage", async ({ user }) => {
+// Staff Management (switched on in Settings): the people the shop pays. Owner and HR only
+// (staff.manage).
+export const GET = withAuth("staff.manage", async ({ user }) => {
   const staff = await prisma.staff.findMany({ where: { businessId: user.businessId }, orderBy: [{ active: "desc" }, { name: "asc" }] });
   return json(staff);
 });
@@ -21,7 +21,7 @@ const schema = z.object({
   note: z.string().trim().max(280).optional(),
 });
 
-export const POST = withAuth("users.manage", async ({ req, user }) => {
+export const POST = withAuth("staff.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const s = await prisma.staff.create({
     data: {
