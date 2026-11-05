@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { NewSupplierModal, SupplierList, type Supplier, type SupplierTotals } from "@/components/SupplierList";
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
+import { ContactCsvTools } from "@/components/ContactCsv";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -267,6 +268,7 @@ export default function PurchasesPage() {
         )}
       >
         <div className="flex flex-wrap gap-1.5">
+          {tab === "suppliers" && <ContactCsvTools type="SUPPLIER" label="Suppliers" onDone={load} />}
           {tab === "suppliers" && hasPerm("customer.manage") && (
             <Button variant={hasPerm("purchase.create") ? "secondary" : "primary"} onClick={() => setNewSupplier(true)}><Plus size={16} className="mr-1 inline" />New supplier</Button>
           )}

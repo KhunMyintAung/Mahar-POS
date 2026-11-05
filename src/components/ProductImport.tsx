@@ -161,7 +161,7 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
                 <div>
                   <h3 className="mb-1 text-sm font-semibold text-red-600">Rows that will be skipped</h3>
                   <div className="max-h-40 overflow-y-auto">
-                    <Table headers={["Line", "Why", "Content"]}>
+                    <Table headers={["Line", "Why", "Content"]} csv={false}>
                       {preview.rejected.map((row) => (
                         <tr key={row.row}>
                           <td className="px-3 py-1.5 tabular-nums">{row.row}</td>
@@ -178,7 +178,7 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
                 <div>
                   <h3 className="mb-1 text-sm font-semibold">What will be saved</h3>
                   <div className="max-h-56 overflow-y-auto">
-                    <Table headers={["Line", "Product", "SKU", "Price", "Stock", ""]} rightAlign={[3, 4]}>
+                    <Table headers={["Line", "Product", "SKU", "Price", "Stock", ""]} rightAlign={[3, 4]} csv={false}>
                       {preview.planned.map((row) => (
                         <tr key={row.row}>
                           <td className="px-3 py-1.5 tabular-nums text-gray-500">{row.row}</td>

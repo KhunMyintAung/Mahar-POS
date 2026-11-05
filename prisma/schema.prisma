@@ -1047,3 +1047,85 @@ model MoneyService {
   @@unique([businessId, txnNo])
   @@index([businessId, createdAt])
 }
+
+/// A member of staff the shop pays: not necessarily a login (a user can be linked to them).
+model Staff {
+  id          String    @id @default(uuid())
+  businessId  String
+  name        String
+  phone       String?
+  position    String?
+  /// Monthly salary.
+  salary      BigInt    @default(0)
+  startDate   String?
+  /// The login this person uses, if any: a Service Tech's repair commission comes from it.
+  userId      String?
+  note        String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([businessId, active])
+}
+
+/// One day of one member of staff: PRESENT, ABSENT, HALF (half a day off) or LEAVE (paid leave).
+model StaffAttendance {
+  id          String   @id @default(uuid())
+  businessId  String
+  staffId     String
+  date        String
+  status      String
+  note        String?
+  createdById String
+  updatedAt   DateTime @updatedAt
+
+  @@unique([staffId, date])
+  @@index([businessId, date])
+}
+
+/// Money given to staff before payday; taken off their next salary.
+model StaffAdvance {
+  id              String    @id @default(uuid())
+  businessId      String
+  staffId         String
+  amount          BigInt
+  date            String
+  walletId        String
+  /// The Staff Salary expense that took the money out of the wallet.
+  expenseId       String
+  /// The salary payment it was taken off, once paid.
+  salaryPaymentId String?
+  note            String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  voidedAt        DateTime?
+
+  @@index([businessId, staffId])
+}
+
+/// A month's salary paid to one member of staff.
+model StaffSalaryPayment {
+  id               String    @id @default(uuid())
+  businessId       String
+  staffId          String
+  /// YYYY-MM
+  month            String
+  baseSalary       BigInt
+  absentDays       Decimal   @default(0) @db.Decimal(5, 1)
+  absentDeduction  BigInt    @default(0)
+  advanceDeduction BigInt    @default(0)
+  commission       BigInt    @default(0)
+  bonus            BigInt    @default(0)
+  otherDeduction   BigInt    @default(0)
+  net              BigInt
+  walletId         String
+  /// The Staff Salary expense; none when nothing was left to pay.
+  expenseId        String?
+  note             String?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  voidedAt         DateTime?
+
+  @@index([businessId, month])
+  @@index([staffId, month])
+}

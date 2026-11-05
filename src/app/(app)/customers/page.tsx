@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/client";
-import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
+import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
+import { fmtMoney } from "@/lib/format";
+import { ContactCsvTools, type ContactBalanceRow } from "@/components/ContactCsv";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 
-interface Contact { id: string; name: string; phone?: string; type: string; active: boolean; notes?: string }
 
 /** The value has to be written out.
  *
@@ -27,7 +28,7 @@ const CONTACT_TYPES = [
 ];
 
 export default function CustomersPage() {
-  const [contacts, setContacts] = useState<Contact[] | null>(null);
+  const [contacts, setContacts] = useState<ContactBalanceRow[] | null>(null);
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [showNew, setShowNew] = useNewModal();
@@ -38,18 +39,18 @@ export default function CustomersPage() {
 
   const [form, setForm] = useState({ name: "", phone: "", telegram: "", address: "", type: "CUSTOMER", notes: "" });
 
+  // Every contact of the type with what they owe and are owed; the search filters here.
   const load = useCallback(() => {
-    const params = new URLSearchParams({ pageSize: "100" });
-    if (q) params.set("q", q);
-    if (type) params.set("type", type);
-    api<{ contacts: Contact[] }>(`/api/v1/customers?${params}`)
-      .then((d) => setContacts(d.contacts))
+    api<ContactBalanceRow[]>(`/api/v1/customers/balances${type ? `?type=${type}` : ""}`)
+      .then(setContacts)
       .catch((e) => push(e.message, "error"));
-  }, [q, type, push]);
-  useEffect(() => {
-    const t = setTimeout(load, q ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [load, q]);
+  }, [type, push]);
+  useEffect(load, [load]);
+  const needle = q.trim().toLowerCase();
+  const shown = (contacts ?? []).filter((c) => !needle || c.name.toLowerCase().includes(needle) || (c.phone ?? "").includes(needle));
+  const showRec = shown.some((c) => c.theyOwe !== null);
+  const showPay = shown.some((c) => c.weOwe !== null);
+  const sumOf = (k: "theyOwe" | "weOwe") => shown.reduce((n, c) => n + BigInt(c[k] ?? "0"), 0n);
 
   async function create() {
     setBusy(true);
@@ -80,20 +81,37 @@ export default function CustomersPage() {
           </>
         }
       >
-        {hasPerm("customer.manage") && (
-          <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New contact</Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <ContactCsvTools type={type === "CUSTOMER" || type === "SUPPLIER" ? type : ""} label={type === "SUPPLIER" ? "Suppliers" : type === "CUSTOMER" ? "Customers" : "Contacts"} onDone={load} />
+          {hasPerm("customer.manage") && (
+            <Button onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />New contact</Button>
+          )}
+        </div>
       </PageHeader>
 
-      {!contacts ? <Spinner /> : contacts.length === 0 ? (
+      {(showRec || showPay) && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {showRec && <StatCard label="Customers owe us" value={fmtMoney(sumOf("theyOwe").toString(), "MMK")} tone="amber" />}
+          {showPay && <StatCard label="We owe suppliers" value={fmtMoney(sumOf("weOwe").toString(), "MMK")} tone="red" />}
+        </div>
+      )}
+
+      {!contacts ? <Spinner /> : shown.length === 0 ? (
         <Card><Empty message="No contacts found" /></Card>
       ) : (
-        <Table headers={["Name", "Phone", "Type", "Notes"]}>
-          {contacts.map((c) => (
+        <Table headers={["Name", "Phone", "Type", "Sold / bought", ...(showRec ? ["They owe us"] : []), ...(showPay ? ["We owe them"] : []), "Notes"]}
+          rightAlign={[3, 4, ...(showRec && showPay ? [5] : [])]}>
+          {shown.map((c) => (
             <tr key={c.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => router.push(`/customers/${c.id}`)}>
               <td className="px-3 py-2.5 font-medium text-blue-600">{c.name}</td>
               <td className="px-3 py-2.5">{c.phone ?? "—"}</td>
               <td className="px-3 py-2.5 text-xs">{c.type}</td>
+              <td className="px-3 py-2.5 text-right text-xs tabular-nums">
+                {BigInt(c.sold) > 0n && <div>{fmtMoney(c.sold)}</div>}
+                {BigInt(c.bought) > 0n && <div className="text-gray-500">{fmtMoney(c.bought)}</div>}
+              </td>
+              {showRec && <td className="px-3 py-2.5 text-right tabular-nums">{c.theyOwe && BigInt(c.theyOwe) > 0n ? <b className="text-amber-700 dark:text-amber-400">{fmtMoney(c.theyOwe)}</b> : "—"}</td>}
+              {showPay && <td className="px-3 py-2.5 text-right tabular-nums">{c.weOwe && BigInt(c.weOwe) > 0n ? <b className="text-red-600">{fmtMoney(c.weOwe)}</b> : "—"}</td>}
               <td className="px-3 py-2.5 text-xs text-gray-500">{c.notes ?? ""}</td>
             </tr>
           ))}

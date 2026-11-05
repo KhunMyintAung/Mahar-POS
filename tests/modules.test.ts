@@ -69,8 +69,8 @@ describe("module access", () => {
     expect(miniMart.features.repair).toBe(false);
 
     const allInOne = parseModuleAccess(moduleSettingForCategory("ALL_IN_ONE"));
-    // Everything, except the Online Shop: a public page stays off until a shop turns it on.
-    expect(Object.entries(allInOne.features).every(([key, on]) => on === (key !== "onlineShop"))).toBe(true);
+    // Everything, except the opt-in ones (Online Shop, Staff Management): off until a shop turns them on.
+    expect(Object.entries(allInOne.features).every(([key, on]) => on === (key !== "onlineShop" && key !== "staff"))).toBe(true);
     for (const category of BUSINESS_CATEGORIES) {
       expect(parseModuleAccess(moduleSettingForCategory(category)).features.onlineShop, category).toBe(false);
     }

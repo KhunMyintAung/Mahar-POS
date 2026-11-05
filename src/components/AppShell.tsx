@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
-  Users, UserCog, Settings, ScrollText, Info, Menu, X, LogOut,
+  Users, UserCog, IdCard, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
   Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight,
 } from "lucide-react";
@@ -140,6 +140,7 @@ const NAV: NavItem[] = [
   { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },
   { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers" },
   { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users" },
+  { href: "/staff", label: "Staff Management", short: "Staff", icon: IdCard, perm: "users.manage", feature: "staff" },
   // Running the online shop (its orders, prices and photos), not just seeing the items in it.
   { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.manage", feature: "onlineShop" },
   { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },

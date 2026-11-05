@@ -161,8 +161,27 @@ export function Modal({ open, onClose, title, children, wide, footer }: {
   );
 }
 
-export function Table({ headers, children, rightAlign }: {
+/** The table as shown, as CSV: its headings and each row's cells as text (a cell's lines
+ *  joined with " · "), without the buttons column. Amounts written "1,500" or "-1,500 MMK"
+ *  become 1500 / -1500 so a spreadsheet reads them as numbers. */
+function tableToCsv(table: HTMLTableElement, skipLast: boolean): string {
+  const cell = (el: Element) => {
+    const text = ((el as HTMLElement).innerText ?? el.textContent ?? "").split(/\n+/).map((t) => t.trim()).filter(Boolean).join(" · ");
+    const amount = /^([-+]?[\d,]+(\.\d+)?)( ?(MMK|THB|Ks|ကျပ်))?$/.exec(text);
+    const plain = amount ? amount[1].replace(/,/g, "") : text;
+    return /[",\r\n]/.test(plain) ? `"${plain.replace(/"/g, '""')}"` : plain;
+  };
+  const line = (cells: Element[]) => (skipLast ? cells.slice(0, -1) : cells).map(cell).join(",");
+  const head = line([...table.querySelectorAll("thead th")]);
+  const rows = [...table.querySelectorAll("tbody > tr")].map((tr) => [...tr.children]).filter((c) => c.length > 1).map(line);
+  return "﻿" + [head, ...rows].join("\r\n") + "\r\n";
+}
+
+export function Table({ headers, children, rightAlign, csv }: {
   headers: string[]; children: ReactNode; rightAlign?: number[];
+  /** An Export CSV link under the table, saving the rows as shown; the file is named after
+   *  the page unless a name is given. False for tables that are not a list worth saving. */
+  csv?: string | false;
 }) {
   // A last column with no heading holds the row's buttons (Voucher, Edit, Mark as paid…).
   const actions = headers.length > 1 && headers[headers.length - 1] === "";
@@ -189,7 +208,22 @@ export function Table({ headers, children, rightAlign }: {
     watch.observe(table, { childList: true, subtree: true, characterData: true });
     return () => watch.disconnect();
   }, []);
+  function exportCsv() {
+    const table = ref.current;
+    if (!table) return;
+    const page = window.location.pathname.split("/").filter(Boolean).slice(0, 2).join("-") || "dashboard";
+    const name = `${csv || page}-${new Date().toISOString().slice(0, 10)}.csv`;
+    const url = URL.createObjectURL(new Blob([tableToCsv(table, actions)], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   return (
+    <div className="min-w-0">
     <div className="rtable-wrap max-w-full overscroll-x-contain overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-800">
       <table ref={ref} className={cn("rtable w-full text-sm", actions && "has-actions")}>
         <thead>
@@ -203,6 +237,12 @@ export function Table({ headers, children, rightAlign }: {
           {children}
         </tbody>
       </table>
+    </div>
+    {csv !== false && (
+      <div className="mt-1 flex justify-end">
+        <button type="button" onClick={exportCsv} className="no-print rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:underline dark:text-blue-400 dark:hover:bg-blue-950/40">Export CSV</button>
+      </div>
+    )}
     </div>
   );
 }

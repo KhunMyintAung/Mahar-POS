@@ -26,6 +26,7 @@ export const FEATURE_KEYS = [
   "customers",
   "suppliers",
   "users",
+  "staff",
   "audit",
   "telegram",
   "about",
@@ -54,6 +55,7 @@ export const FEATURE_DEFINITIONS: {
   { key: "reports", label: "Reports", group: "General" },
   { key: "customers", label: "Customers", group: "General" },
   { key: "users", label: "Users & Roles", group: "General" },
+  { key: "staff", label: "Staff Management", group: "General" },
   { key: "audit", label: "Audit Logs", group: "General" },
   { key: "telegram", label: "Telegram", group: "General" },
   { key: "about", label: "About Us", group: "General" },
@@ -98,7 +100,7 @@ function visibility(enabled: readonly FeatureKey[]): FeatureVisibility {
 /** Off until the shop turns it on in Settings, whatever the shop's type: a public page is a
  *  step a shop takes on purpose. A stored menu without the key (every shop from before the
  *  Online Shop) falls back to this too, so none of them finds it switched on. */
-const OPT_IN_FEATURES: FeatureKey[] = ["onlineShop"];
+const OPT_IN_FEATURES: FeatureKey[] = ["onlineShop", "staff"];
 
 export function defaultFeaturesForMode(mode: ModuleMode): FeatureVisibility {
   const hidden = new Set<FeatureKey>(OPT_IN_FEATURES);

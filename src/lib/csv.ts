@@ -15,3 +15,21 @@ export function buildCsv(sheets: Sheet[]): string {
   );
   return "﻿" + blocks.join("\r\n\r\n") + "\r\n";
 }
+
+/** One table as CSV text (with the byte-order mark, so Excel reads Myanmar text). */
+export function rowsToCsv(rows: Cell[][]): string {
+  return "﻿" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/** Saves CSV text as a file in the browser. */
+export function downloadCsv(filename: string, csv: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
