@@ -1523,6 +1523,8 @@ const MM: Record<string, string> = {
   "Opening is the last count plus cards bought and less cards sold before this day. Only sales and float bought by tapping cards are counted. Cost is by the biller's refill deal.": "ယခင်လက်ကျန် = နောက်ဆုံး ရေထားသော ကတ် + ဒီနေ့မတိုင်မီ ဝယ် − ရောင်း။ ကတ်ခလုပ် နှိပ်၍ ရောင်း/ဝယ် ထားသည်များသာ ပါပါသည်။ ဝယ်ဈေးကို Biller ၏ Refill အပေးအယူဖြင့် တွက်ပါသည်။",
   "Under (for a sub-category)": "အောက်တွင် (အမျိုးအစားခွဲ အတွက်)",
   "— (main category)": "— (အမျိုးအစား အကြီး)",
+  " (already on file)": " (ရှိပြီးသား)",
+  "A name spelled a little differently goes to the category you already have, so no second one is made.": "စာလုံးပေါင်း နည်းနည်းကွဲနေရင် ရှိပြီးသား အမျိုးအစားထဲ ထည့်ပေးမည် — နှစ်ခု မထပ်ပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -27,6 +27,8 @@ interface Preview {
   planned: Planned[];
   rejected: Rejected[];
   unknownColumns: string[];
+  /** Categories read under another spelling, and ones that will be made. */
+  categories?: { file: string; to: string; isNew: boolean }[];
 }
 
 /** Import products from a CSV, showing what will happen before anything is written. */
@@ -155,6 +157,28 @@ export function ProductImport({ onDone }: { onDone: () => void }) {
                   These columns were not recognised and will be ignored:{" "}
                   <b>{preview.unknownColumns.join(", ")}</b>
                 </p>
+              )}
+
+              {preview.categories && preview.categories.length > 0 && (
+                <div className="rounded-lg border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
+                  <h3 className="mb-1 text-sm font-semibold">Categories</h3>
+                  <ul className="space-y-0.5">
+                    {preview.categories.map((c) => (
+                      <li key={c.file}>
+                        {c.file.toLowerCase() !== c.to.toLowerCase() ? (
+                          <>
+                            <span className="text-gray-500 line-through">{c.file}</span>{" → "}<b>{c.to}</b>
+                            {!c.isNew && <span className="text-gray-500">{" (already on file)"}</span>}
+                          </>
+                        ) : (
+                          <b>{c.to}</b>
+                        )}
+                        {c.isNew && <span className="ml-1 rounded bg-amber-100 px-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">new</span>}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-gray-500">A name spelled a little differently goes to the category you already have, so no second one is made.</p>
+                </div>
               )}
 
               {preview.rejected.length > 0 && (
