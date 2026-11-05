@@ -262,12 +262,20 @@ export default function ItemsPage() {
     return parent ? `${parent.name}${CATEGORY_SEP}${c.name}` : c.name;
   };
   const categoryOf = (it: Item) => catLabel(it.categoryId, it.category?.name) ?? NONE;
-  const categories = [...new Set(items.map(categoryOf))].sort((a, b) =>
-    a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b)
-  );
+  // The chips show main categories only; a main one picked shows its sub-categories in a
+  // second row, so a file with many sub-categories does not fill the screen with chips.
+  const mainOf = (it: Item) => categoryOf(it).split(CATEGORY_SEP)[0];
+  const byNone = (a: string, b: string) => (a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b));
+  const categories = [...new Set(items.map(mainOf))].sort(byNone);
+  const openMain = category === "ALL" ? null : category.split(CATEGORY_SEP)[0];
+  const subChips = openMain
+    ? [...new Set(items.filter((it) => mainOf(it) === openMain).map(categoryOf))].filter((c) => c !== openMain).sort()
+    : [];
+  const inCategory = (it: Item) =>
+    category === "ALL" || categoryOf(it) === category || (!category.includes(CATEGORY_SEP) && mainOf(it) === category);
   const isLow = (it: Item) => Boolean(levels.get(it.id)?.low);
   const isExpiring = (it: Item) => Boolean(it.expiresAt) && daysLeft(it.expiresAt!, today()) <= EXPIRY_WARN_DAYS;
-  const shownItems = items.filter((it) => (category === "ALL" || categoryOf(it) === category) && (!lowOnly || isLow(it)) && (!expiringOnly || isExpiring(it)));
+  const shownItems = items.filter((it) => inCategory(it) && (!lowOnly || isLow(it)) && (!expiringOnly || isExpiring(it)));
   const expiringCount = items.filter(isExpiring).length;
   const stockOf = (it: Item) => it.stockLevels.reduce((a, l) => a + l.quantity, 0);
   const lowCount = items.filter(isLow).length;
@@ -343,14 +351,36 @@ export default function ItemsPage() {
               onClick={() => setCategory(c)}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium",
-                category === c
+                (c === "ALL" ? category === "ALL" : openMain === c)
                   ? "border-blue-600 bg-blue-600 text-white"
                   : "border-gray-200 bg-white text-gray-700 hover:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
               )}
             >
               {c === "ALL" ? "All" : c === NONE ? "No category" : c}
-              <span className={cn("rounded-full px-1.5 text-xs", category === c ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800")}>
-                {c === "ALL" ? items.length : items.filter((it) => categoryOf(it) === c).length}
+              <span className={cn("rounded-full px-1.5 text-xs", (c === "ALL" ? category === "ALL" : openMain === c) ? "bg-white/20" : "bg-gray-100 dark:bg-gray-800")}>
+                {c === "ALL" ? items.length : items.filter((it) => mainOf(it) === c).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {openMain && subChips.length > 0 && (
+        <div className="-mt-1 flex gap-1.5 overflow-x-auto pb-1 pl-2">
+          {[openMain, ...subChips].map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
+              className={cn(
+                "flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium",
+                category === c
+                  ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/40 dark:text-blue-200"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+              )}
+            >
+              {c === openMain ? "All" : c.split(CATEGORY_SEP)[1]}
+              <span className="text-gray-400">
+                {c === openMain ? items.filter((it) => mainOf(it) === c).length : items.filter((it) => categoryOf(it) === c).length}
               </span>
             </button>
           ))}
