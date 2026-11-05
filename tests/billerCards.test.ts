@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardsOnHand, cardsTotal, parseCards, tallyCards } from "@/lib/billerCards";
+import { cardReport, cardsOnHand, cardsTotal, parseCards, tallyCards } from "@/lib/billerCards";
 
 describe("top-up cards sold", () => {
   it("adds up the cards and reads only good counts", () => {
@@ -36,5 +36,24 @@ describe("cards on hand", () => {
   });
   it("with no count, counts every card movement", () => {
     expect(cardsOnHand(null, [{ kind: "SALE", cards: { "1000": 2 }, createdAt: at("2026-11-05T06:00:00Z") }])).toEqual({ "1000": -2 });
+  });
+});
+
+describe('card report', () => {
+  it('opening, bought, sold and left for the day, margin shared by value', () => {
+    const d = (h: string) => new Date('2026-11-05T' + h + ':00Z');
+    const rows = cardReport({
+      billerId: 'b', billerName: 'MPT', count: { counts: { '5000': 3 }, at: '2026-11-04T01:00:00.000Z' },
+      movements: [
+        { kind: 'SALE', cards: { '5000': 1 }, createdAt: new Date('2026-11-04T05:00:00Z'), faceAmount: 500000n, profit: 0n },
+        { kind: 'TOPUP', cards: { '1000': 10 }, createdAt: d('03'), faceAmount: 1000000n, profit: 0n },
+        { kind: 'SALE', cards: { '5000': 1, '1000': 5 }, createdAt: d('04'), faceAmount: 1000000n, profit: 30000n },
+      ],
+      dayStart: d('00'), dayEnd: new Date('2026-11-06T00:00:00Z'),
+    });
+    expect(rows).toEqual([
+      { billerId: 'b', billerName: 'MPT', amount: 1000, opening: 0, bought: 10, sold: 5, closing: 5, sales: '500000', profit: '15000' },
+      { billerId: 'b', billerName: 'MPT', amount: 5000, opening: 2, bought: 0, sold: 1, closing: 1, sales: '500000', profit: '15000' },
+    ]);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { roundUpBill } from "@/lib/billRound";
@@ -12,7 +12,8 @@ import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
-import type { CardTally } from "@/lib/billerCards";
+import type { CardReportRow, CardTally } from "@/lib/billerCards";
+import { printElement } from "@/lib/printReceipt";
 
 interface Biller {
   id: string; name: string; type: string; currency: string;
@@ -136,6 +137,15 @@ export default function BillersPage() {
     }, 0);
     return () => clearTimeout(t);
   }, []);
+  // The day's card stock statement: on hand, bought, sold, left, sales and margin per card.
+  const [report, setReport] = useState<CardReportRow[] | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+  function openReport() {
+    setReportOpen(true);
+    setReport(null);
+    api<{ rows: CardReportRow[] }>(`/api/v1/billers/cards/report?date=${date}`).then((d) => setReport(d.rows)).catch((e) => push(e.message, "error"));
+  }
   function chooseView(v: "cards" | "table") {
     setBillerView(v);
     try { localStorage.setItem("mahar.billerView", v); } catch { /* private mode */ }
@@ -481,7 +491,12 @@ export default function BillersPage() {
       </div>
 
       {billers.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {billers.some((b) => b.type === "TOPUP_CARD") && (
+            <button type="button" onClick={openReport} className="mr-auto rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-gray-700 dark:hover:bg-blue-950/40">
+              Card report
+            </button>
+          )}
           <div className="inline-flex rounded-lg border border-gray-200 p-0.5 text-xs font-medium dark:border-gray-700">
             {([["cards", "Cards view"], ["table", "Table view"]] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => chooseView(v)}
@@ -666,6 +681,53 @@ export default function BillersPage() {
         </Table>
         );
       })()}
+
+      <Modal open={reportOpen} onClose={() => setReportOpen(false)} wide title={`Card report · ${date}`}
+        footer={<>
+          <Button variant="secondary" onClick={() => setReportOpen(false)}>Close</Button>
+          <Button disabled={!report?.length} onClick={() => reportRef.current && void printElement(reportRef.current)}>Print</Button>
+        </>}>
+        {!report ? <Spinner /> : report.length === 0 ? (
+          <Empty message="No card movements yet. Count each card biller's cards first, then sell and buy by tapping cards." />
+        ) : (() => {
+          const sum = (k: "sold" | "bought") => report.reduce((a, r) => a + r[k], 0);
+          const money = (k: "sales" | "profit") => report.reduce((a, r) => a + BigInt(r[k]), 0n).toString();
+          return (
+            <div ref={reportRef} className="space-y-2">
+              <Table grid csv={`card-report-${date}`} rightAlign={[2, 3, 4, 5, 6, 7, 8, 9]}
+                headers={["Biller", "Card", "Opening", "Bought", "Total", "Sold", "Left", "Cost", "Sales", "Margin"]}>
+                {report.map((r) => (
+                  <tr key={`${r.billerId}-${r.amount}`}>
+                    <td className="px-3 py-2 font-medium">{r.billerName}</td>
+                    <td className="px-3 py-2 tabular-nums">{r.amount.toLocaleString("en-US")}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.opening}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.bought || ""}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{r.opening + r.bought}</td>
+                    <td className="px-3 py-2 text-right font-medium tabular-nums text-amber-600">{r.sold || ""}</td>
+                    <td className={cn("px-3 py-2 text-right font-bold tabular-nums", r.closing < 0 ? "text-red-600" : "text-emerald-600")}>{r.closing}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-500">{r.cost ? fmtMoney(r.cost) : ""}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{BigInt(r.sales) ? fmtMoney(r.sales) : ""}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{BigInt(r.profit) ? fmtMoney(r.profit) : ""}</td>
+                  </tr>
+                ))}
+                <tr className="font-bold">
+                  <td className="px-3 py-2">Total</td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2 text-right tabular-nums">{sum("bought") || ""}</td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2 text-right tabular-nums text-amber-600">{sum("sold")}</td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(money("sales"))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-emerald-600">{fmtMoney(money("profit"))}</td>
+                </tr>
+              </Table>
+              <p className="text-xs text-gray-500">{"Opening is the last count plus cards bought and less cards sold before this day. Only sales and float bought by tapping cards are counted. Cost is by the biller's refill deal."}</p>
+            </div>
+          );
+        })()}
+      </Modal>
 
       <Modal open={Boolean(counting)} onClose={() => setCounting(null)} title={counting ? `Count cards · ${counting.name}` : "Count cards"}
         footer={<>

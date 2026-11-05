@@ -1515,6 +1515,11 @@ const MM: Record<string, string> = {
   "Table view": "ဇယားပုံစံ",
   "Deal": "အပေးအယူ",
   "Cards left": "ကျန်ကတ်",
+  "Card report": "ကတ် စာရင်းချုပ်",
+  "Left": "လက်ကျန်",
+  "Card": "ကတ်",
+  "No card movements yet. Count each card biller's cards first, then sell and buy by tapping cards.": "ကတ် အဝင်အထွက် မရှိသေးပါ။ ကတ် Biller တစ်ခုချင်းစီ၏ ကတ်ကို အရင် ရေပြီး ကတ်ခလုပ် နှိပ်၍ ရောင်း/ဝယ် ပါ။",
+  "Opening is the last count plus cards bought and less cards sold before this day. Only sales and float bought by tapping cards are counted. Cost is by the biller's refill deal.": "ယခင်လက်ကျန် = နောက်ဆုံး ရေထားသော ကတ် + ဒီနေ့မတိုင်မီ ဝယ် − ရောင်း။ ကတ်ခလုပ် နှိပ်၍ ရောင်း/ဝယ် ထားသည်များသာ ပါပါသည်။ ဝယ်ဈေးကို Biller ၏ Refill အပေးအယူဖြင့် တွက်ပါသည်။",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1617,6 +1622,7 @@ function translate(value: string) {
     [/^Cards( · (-?\d+))? ▾$/, (_x, n) => `ကတ်${n ? ` · ${n}` : ""} ▾`],
     [/^Cards sold on this day · (\d+) ▾$/, (n) => `ဒီနေ့ ရောင်းခဲ့သော ကတ် · ${n} ▾`],
     [/^Cards sold on this day ▴$/, () => "ဒီနေ့ ရောင်းခဲ့သော ကတ်များ ▴"],
+    [/^Card report · (.+)$/, (d) => `ကတ် စာရင်းချုပ် · ${d}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

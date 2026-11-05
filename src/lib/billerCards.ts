@@ -68,3 +68,71 @@ export function cardsOnHand(
 }
 
 export const cardCountKey = (billerId: string) => `billerCardCount:${billerId}`;
+
+export interface CardReportRow {
+  billerId: string;
+  billerName: string;
+  /** Card face value in kyat. */
+  amount: number;
+  opening: number;
+  bought: number;
+  sold: number;
+  closing: number;
+  /** What the cards sold brought in, and the margin on them (minor units, as strings). */
+  sales: string;
+  profit: string;
+  /** What one card cost by the biller's refill deal (minor units); set by the caller. */
+  cost?: string;
+}
+
+/** What one card of `amount` kyat costs by the refill deal: a discount takes the percent off
+ *  the face value, a bonus gives the percent extra float for the money (minor units). */
+export function cardCost(amount: number, refillPercent: number, refillMode: string): bigint {
+  const face = amount * 100;
+  if (!refillPercent) return BigInt(face);
+  return BigInt(Math.round(refillMode === "BONUS" ? face / (1 + refillPercent / 100) : face * (1 - refillPercent / 100)));
+}
+
+/** A day's card stock statement for one biller: per card, what was on hand when the day
+ *  began, bought and sold during it, and left at the end, with the sales and margin of the
+ *  cards sold. A sale's margin is shared between its cards by their value. */
+export function cardReport(opts: {
+  billerId: string;
+  billerName: string;
+  count: { counts: CardCounts; at: string } | null;
+  movements: { kind: string; cards: CardCounts | null; createdAt: Date; faceAmount: bigint; profit: bigint }[];
+  dayStart: Date;
+  dayEnd: Date;
+}): CardReportRow[] {
+  const before = opts.movements.filter((m) => m.createdAt < opts.dayStart);
+  const opening = cardsOnHand(opts.count, before);
+  const since = opts.count ? Date.parse(opts.count.at) : -Infinity;
+  const rows = new Map<number, { opening: number; bought: number; sold: number; sales: bigint; profit: bigint }>();
+  const row = (amount: number) => {
+    const r = rows.get(amount) ?? { opening: 0, bought: 0, sold: 0, sales: 0n, profit: 0n };
+    rows.set(amount, r);
+    return r;
+  };
+  for (const [k, n] of Object.entries(opening)) row(Number(k)).opening = n;
+  for (const m of opts.movements) {
+    if (!m.cards || m.createdAt < opts.dayStart || m.createdAt >= opts.dayEnd || m.createdAt.getTime() <= since) continue;
+    for (const [k, n] of Object.entries(m.cards)) {
+      const r = row(Number(k));
+      if (m.kind === "TOPUP") r.bought += n;
+      else if (m.kind === "SALE") {
+        r.sold += n;
+        const value = BigInt(k) * BigInt(n) * 100n;
+        r.sales += value;
+        if (m.faceAmount > 0n) r.profit += (m.profit * value) / m.faceAmount;
+      }
+    }
+  }
+  return [...rows.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([amount, r]) => ({
+      billerId: opts.billerId, billerName: opts.billerName, amount,
+      opening: r.opening, bought: r.bought, sold: r.sold, closing: r.opening + r.bought - r.sold,
+      sales: r.sales.toString(), profit: r.profit.toString(),
+    }))
+    .filter((r) => r.opening || r.bought || r.sold || r.closing);
+}
