@@ -465,8 +465,9 @@ export default function ItemsPage() {
                       setShowNew(true);
                     }}>Edit</Button>
                   )}
-                  {/* Variants are for phones (storage, colour), or a model already started. */}
-                  {hasPerm("item.manage") && (it.model || (phoneShop && isPhoneCategory(catLabel(it.categoryId, it.category?.name)))) && (
+                  {/* A phone shop: variants (storage, colour) are for phones only (Phone New / Second),
+                      not spare parts or accessories named after a phone. Other shops: a model already started. */}
+                  {hasPerm("item.manage") && (phoneShop ? isPhoneCategory(catLabel(it.categoryId, it.category?.name)) : Boolean(it.model)) && (
                     <Button size="sm" variant="ghost" title="Add a variant of this model (another storage, colour…)" onClick={() => {
                       // A copy of this item, ready for the one thing that differs.
                       setForm({
