@@ -119,10 +119,30 @@ export default function BillersPage() {
   // Top-up card amounts the shop sells: tapped to make up the sold amount. Editable by
   // whoever manages billers ("1000, 3000, 5000, 10000").
   const [cardAmounts, setCardAmounts] = useState<number[]>([]);
+  // Cards each biller has on hand: the last count plus cards bought, less cards sold since.
+  const [onHand, setOnHand] = useState<Record<string, Record<string, number>>>({});
+  const [counting, setCounting] = useState<Biller | null>(null);
+  const [countForm, setCountForm] = useState<Record<string, string>>({});
   const [cardsText, setCardsText] = useState<string | null>(null);
   useEffect(() => {
-    api<{ amounts: number[] }>("/api/v1/billers/cards").then((d) => setCardAmounts(d.amounts)).catch(() => {});
+    api<{ amounts: number[]; onHand: Record<string, Record<string, number>> }>("/api/v1/billers/cards").then((d) => { setCardAmounts(d.amounts); setOnHand(d.onHand ?? {}); }).catch(() => {});
   }, []);
+  async function saveCount() {
+    if (!counting) return;
+    setBusy(true);
+    try {
+      const counts = Object.fromEntries(Object.entries(countForm).map(([k, v]) => [k, Number(v) || 0]));
+      await api(`/api/v1/billers/${counting.id}/cards`, { method: "PUT", body: { counts } });
+      push("Cards counted");
+      setCounting(null);
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveCards() {
     const amounts = (cardsText ?? "").split(/[,\s]+/).map((v) => parseInt(v.replace(/[^\d]/g, ""), 10)).filter((n) => n > 0);
     try {
@@ -145,6 +165,7 @@ export default function BillersPage() {
       .then((d) => { setTxns(d.txns); setSummary(d.summary); })
       .catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
+    api<{ onHand: Record<string, Record<string, number>> }>("/api/v1/billers/cards").then((d) => setOnHand(d.onHand ?? {})).catch(() => {});
   }, [push, filter, date]);
 
   useEffect(load, [load]);
@@ -275,7 +296,7 @@ export default function BillersPage() {
           note: trade.note || undefined,
           date: otherDayOk && trade.date && trade.date !== todayDate() ? trade.date : undefined,
           // The cards tapped, when they still make up the amount (the amount may have been typed over).
-          cards: trading.kind === "SALE" && Object.keys(trade.cards).length > 0
+          cards: (trading.kind === "SALE" || trading.kind === "TOPUP") && Object.keys(trade.cards).length > 0
             && Object.entries(trade.cards).reduce((a, [k, n]) => a + Number(k) * n, 0) === face ? trade.cards : undefined,
         },
       });
@@ -467,6 +488,20 @@ export default function BillersPage() {
               <div className={`text-base font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
+              {(onHand[b.id] || hasPerm("biller.manage")) && (
+                <div className="flex items-start gap-1 text-[11px] leading-snug">
+                  <div className={cn("min-w-0 flex-1", onHand[b.id] && Object.values(onHand[b.id]).some((n) => n < 0) && "text-red-600")}>
+                    {onHand[b.id] && Object.keys(onHand[b.id]).length > 0
+                      ? <><span className="text-gray-500">Cards left: </span><span className="font-semibold tabular-nums">{cardsLabel(onHand[b.id])}</span>
+                        <div className="text-gray-500 tabular-nums">{`= ${Object.entries(onHand[b.id]).reduce((a, [k, n]) => a + Number(k) * n, 0).toLocaleString("en-US")}`}</div></>
+                      : <span className="text-gray-400">No cards counted</span>}
+                  </div>
+                  {hasPerm("biller.manage") && (
+                    <button type="button" className="shrink-0 text-blue-600 hover:underline"
+                      onClick={() => { setCounting(b); setCountForm(Object.fromEntries(cardAmounts.map((a) => [String(a), String(Math.max(0, onHand[b.id]?.[a] ?? 0) || "")]))); }}>Count</button>
+                  )}
+                </div>
+              )}
               {hasPerm("biller.trade") && b.active && (
                 <div className="flex flex-wrap gap-1 text-xs font-medium">
                   <button type="button" onClick={() => startTrade(b, "SALE")} className="h-7 flex-1 whitespace-nowrap rounded-md bg-blue-600 px-2 text-white hover:bg-blue-700">Sell</button>
@@ -572,6 +607,26 @@ export default function BillersPage() {
         );
       })()}
 
+      <Modal open={Boolean(counting)} onClose={() => setCounting(null)} title={counting ? `Count cards · ${counting.name}` : "Count cards"}
+        footer={<>
+          <Button variant="secondary" onClick={() => setCounting(null)}>Cancel</Button>
+          <Button disabled={busy} onClick={() => void saveCount()}>Save</Button>
+        </>}>
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">Type how many of each card you have now. From here on, cards bought are added and cards sold are taken off. Money and the balance are not changed.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {cardAmounts.map((a) => (
+              <Input key={a} label={`${a.toLocaleString("en-US")} cards`} inputMode="numeric" value={countForm[String(a)] ?? ""}
+                onChange={(e) => setCountForm({ ...countForm, [String(a)]: e.target.value.replace(/[^0-9]/g, "") })} />
+            ))}
+          </div>
+          <div className="flex justify-between rounded-lg bg-gray-50 p-2 text-sm font-semibold dark:bg-gray-800">
+            <span>Total</span>
+            <span className="tabular-nums">{`${Object.entries(countForm).reduce((t, [k, v]) => t + Number(k) * (Number(v) || 0), 0).toLocaleString("en-US")} MMK`}</span>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New biller">
         <div className="space-y-3">
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Mytel" />
@@ -626,13 +681,18 @@ export default function BillersPage() {
                 placeholder={String(current)}
               />
             </div>
-            {trading.kind === "SALE" && (
+            {(trading.kind === "SALE" || trading.kind === "TOPUP") && (
               <div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {cardAmounts.map((a) => (
                     <button key={a} type="button" onClick={() => tapCard(a, 1)}
                       className="min-h-9 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
                       {`+${a.toLocaleString("en-US")}`}
+                      {onHand[trading.biller.id]?.[a] !== undefined && (
+                        <span className={cn("ml-1 text-[11px] font-normal", (onHand[trading.biller.id][a] ?? 0) - (trading.kind === "SALE" ? trade.cards[a] ?? 0 : 0) < 0 ? "text-red-600" : "opacity-70")}>
+                          {`(${(onHand[trading.biller.id][a] ?? 0) + (trading.kind === "TOPUP" ? 1 : -1) * (trade.cards[a] ?? 0)})`}
+                        </span>
+                      )}
                     </button>
                   ))}
                   {trade.faceAmount.trim() !== "" && (

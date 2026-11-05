@@ -100,7 +100,7 @@ export const POST = withAuth("biller.trade", async ({ req, user }) => {
       date: body.date && body.date < today ? body.date : undefined,
     }).then(async (record) => {
       // Kept only when the cards make up the amount sold, so the count is never wrong.
-      if (body.kind !== "SALE" || !body.cards || cardsTotal(body.cards) * 100n !== toMinor(body.faceAmount)) return record;
+      if ((body.kind !== "SALE" && body.kind !== "TOPUP") || !body.cards || cardsTotal(body.cards) * 100n !== toMinor(body.faceAmount)) return record;
       return tx.billerTxn.update({ where: { id: record.id }, data: { cards: JSON.stringify(body.cards) } });
     })
   );

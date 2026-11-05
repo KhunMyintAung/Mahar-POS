@@ -49,3 +49,22 @@ export function tallyCards(sales: { billerId: string; billerName: string; cards:
     }))
     .sort((a, b) => a.billerName.localeCompare(b.billerName));
 }
+
+/** Cards a biller has on hand: the last count (if any) plus cards bought, less cards sold,
+ *  since that count. Movements are the trades that recorded cards, voided ones left out. */
+export function cardsOnHand(
+  count: { counts: CardCounts; at: string } | null,
+  movements: { kind: string; cards: CardCounts | null; createdAt: Date }[]
+): CardCounts {
+  const out: CardCounts = { ...(count?.counts ?? {}) };
+  const since = count ? Date.parse(count.at) : -Infinity;
+  for (const m of movements) {
+    if (!m.cards || m.createdAt.getTime() <= since) continue;
+    const sign = m.kind === "TOPUP" ? 1 : m.kind === "SALE" ? -1 : 0;
+    for (const [k, n] of Object.entries(m.cards)) out[k] = (out[k] ?? 0) + sign * n;
+  }
+  for (const k of Object.keys(out)) if (out[k] === 0) delete out[k];
+  return out;
+}
+
+export const cardCountKey = (billerId: string) => `billerCardCount:${billerId}`;

@@ -1501,6 +1501,13 @@ const MM: Record<string, string> = {
   "Cards sold on this day": "ဒီနေ့ ရောင်းခဲ့သော ကတ်များ",
   "Take one back": "တစ်ကတ် ပြန်နုတ်မည်",
   "Tap each card sold; two 5,000 cards make 10,000. Tap a count to take one back.": "ရောင်းသော ကတ်တိုင်းကို နှိပ်ပါ၊ ၅,၀၀၀ နှစ်ကတ်ဆို ၁၀,၀၀၀ ဖြစ်ပါသည်။ အရေအတွက်ကို နှိပ်လျှင် တစ်ကတ် ပြန်နုတ်ပါသည်။",
+  "Cards left:": "ကျန်ကတ်:",
+  "No cards counted": "ကတ် မရေရသေး",
+  "Count": "ရေမည်",
+  "Count cards": "ကတ် ရေမည်",
+  "Cards counted": "ကတ် ရေပြီး",
+  "Type how many of each card you have now. From here on, cards bought are added and cards sold are taken off. Money and the balance are not changed.": "အခု လက်ထဲရှိ ကတ်အရေအတွက်ကို ထည့်ပါ။ ဒီနောက် ဝယ်တဲ့ကတ် ပေါင်းပြီး ရောင်းတဲ့ကတ် နုတ်ပါမည်။ ငွေနှင့် လက်ကျန်ကို မပြောင်းပါ။",
+  "Biller not found": "Biller မတွေ့ပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1598,6 +1605,8 @@ function translate(value: string) {
     [/^Row (\d+): (.+)$/, (n, why) => `အတန်း ${n}: ${why}`],
     [/^Save \((\d+)\)$/, (n) => `သိမ်းမည် (${n})`],
     [/^Typed in: (.+)$/, (amt) => `ကတ်မခွဲ ရိုက်ထည့်: ${amt}`],
+    [/^Count cards · (.+)$/, (b) => `ကတ် ရေမည် · ${b}`],
+    [/^([\d,]+) cards$/, (a) => `${a} တန် ကတ်`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
