@@ -58,7 +58,10 @@ const ExpiryPill = ({ expiresAt }: { expiresAt: string }) => {
   );
 };
 
-interface Meta { categories: { id: string; name: string; parentId?: string | null }[]; units: { id: string; name: string }[] }
+interface Meta {
+  categories: { id: string; name: string; parentId?: string | null; itemCount?: number }[];
+  units: { id: string; name: string; itemCount?: number }[];
+}
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
@@ -128,6 +131,8 @@ export default function ItemsPage() {
   const [openModels, setOpenModels] = useState<Set<string>>(new Set());
   const [form, setForm] = useState(empty);
   const [metaForm, setMetaForm] = useState({ kind: "category", name: "", parentId: "" });
+  // A category or unit being deleted, and where its items go.
+  const [removing, setRemoving] = useState<{ kind: "category" | "unit"; id: string; name: string; count: number; moveTo: string } | null>(null);
   // Stock, merged in from the old Stock page: the movements tab, each item's stock levels,
   // a low-stock filter, and the Adjust and IMEI dialogs.
   const [view, setView] = useState<"items" | "movements">("items");
@@ -223,6 +228,21 @@ export default function ItemsPage() {
       await api("/api/v1/item-meta", { method: "POST", body: { ...rest, ...(rest.kind === "category" && parentId ? { parentId } : {}) } });
       push(`${metaForm.kind === "category" ? "Category" : "Unit"} added`);
       setMetaForm({ ...metaForm, name: "" });
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    }
+  }
+
+  async function removeMeta() {
+    if (!removing) return;
+    try {
+      const r = await api<{ moved: number }>("/api/v1/item-meta", {
+        method: "DELETE",
+        body: { kind: removing.kind, id: removing.id, ...(removing.moveTo ? { moveTo: removing.moveTo } : {}) },
+      });
+      push(r.moved ? `Deleted · ${r.moved} item(s) moved` : "Deleted");
+      setRemoving(null);
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -725,6 +745,38 @@ export default function ItemsPage() {
         </div>
       </Modal>
 
+      <Modal open={Boolean(removing)} onClose={() => setRemoving(null)} title={removing ? `Delete ${removing.name}` : ""}
+        footer={<>
+          <Button variant="secondary" onClick={() => setRemoving(null)}>Cancel</Button>
+          <Button variant="danger" onClick={() => void removeMeta()}>Delete</Button>
+        </>}>
+        {removing && (
+          <div className="space-y-3 text-sm">
+            {removing.kind === "category" && meta.categories.some((x) => x.parentId === removing.id) && (
+              <p>Its sub-categories are deleted with it.</p>
+            )}
+            {removing.count > 0 ? (
+              <>
+                <p>{`${removing.count} item(s) use it. Move them to:`}</p>
+                <Select label="Move items to" value={removing.moveTo} onChange={(e) => setRemoving({ ...removing, moveTo: e.target.value })}>
+                  <option value="">{removing.kind === "category" ? "— (no category)" : "— (no unit)"}</option>
+                  {(removing.kind === "category"
+                    ? meta.categories
+                        .filter((c) => c.id !== removing.id && c.parentId !== removing.id)
+                        .map((c) => ({ id: c.id, label: catLabel(c.id, c.name) ?? c.name }))
+                        .sort((a, b) => a.label.localeCompare(b.label))
+                    : meta.units.filter((u) => u.id !== removing.id).map((u) => ({ id: u.id, label: u.name }))
+                  ).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </Select>
+                <p className="text-xs text-gray-500">The same thing spelt twice? Move its items to the right one, then this one is gone.</p>
+              </>
+            ) : (
+              <p>No item uses it.</p>
+            )}
+            <p className="text-xs text-gray-500">Old sales and reports stay as they are. Adding the same name again brings it back.</p>
+          </div>
+        )}
+      </Modal>
       <Modal open={showMeta} onClose={() => setShowMeta(false)} title="Categories & Units">
         <div className="space-y-4">
           <div className="flex items-end gap-2">
@@ -753,25 +805,52 @@ export default function ItemsPage() {
             <div>
               <h4 className="mb-1 font-semibold">Categories</h4>
               <ul className="space-y-0.5">
-                {meta.categories.filter((c) => !c.parentId).map((c) => (
-                  <li key={c.id}>
-                    {c.name}
-                    {meta.categories.some((x) => x.parentId === c.id) && (
-                      <ul className="ml-3 text-xs text-gray-500 dark:text-gray-400">
-                        {meta.categories.filter((x) => x.parentId === c.id).map((x) => <li key={x.id}>{`› ${x.name}`}</li>)}
-                      </ul>
-                    )}
-                  </li>
-                ))}
+                {meta.categories.filter((c) => !c.parentId).map((c) => {
+                  const subs = meta.categories.filter((x) => x.parentId === c.id);
+                  const count = (c.itemCount ?? 0) + subs.reduce((n, x) => n + (x.itemCount ?? 0), 0);
+                  return (
+                    <li key={c.id}>
+                      <MetaRow name={c.name} count={c.itemCount ?? 0} onDelete={() => setRemoving({ kind: "category", id: c.id, name: c.name, count, moveTo: "" })} />
+                      {subs.length > 0 && (
+                        <ul className="ml-3 text-xs text-gray-500 dark:text-gray-400">
+                          {subs.map((x) => (
+                            <li key={x.id}>
+                              <MetaRow name={`› ${x.name}`} count={x.itemCount ?? 0}
+                                onDelete={() => setRemoving({ kind: "category", id: x.id, name: catLabel(x.id, x.name) ?? x.name, count: x.itemCount ?? 0, moveTo: "" })} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
             <div>
               <h4 className="mb-1 font-semibold">Units</h4>
-              <ul className="space-y-0.5">{meta.units.map((u) => <li key={u.id}>{u.name}</li>)}</ul>
+              <ul className="space-y-0.5">
+                {meta.units.map((u) => (
+                  <li key={u.id}>
+                    <MetaRow name={u.name} count={u.itemCount ?? 0} onDelete={() => setRemoving({ kind: "unit", id: u.id, name: u.name, count: u.itemCount ?? 0, moveTo: "" })} />
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** One category or unit in the list, with how many items use it and a delete button. */
+function MetaRow({ name, count, onDelete }: { name: string; count: number; onDelete: () => void }) {
+  return (
+    <span className="group flex items-center gap-1">
+      <span className="min-w-0 flex-1 truncate">{name}</span>
+      {count > 0 && <span className="text-xs text-gray-400">{count}</span>}
+      <button type="button" onClick={onDelete} aria-label={`Delete ${name}`} title="Delete"
+        className="rounded px-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">✕</button>
+    </span>
   );
 }

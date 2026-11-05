@@ -100,9 +100,9 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   // Categories: the shop's own, matched forgivingly (case, spaces, plurals, a slipped
   // letter), so "Accesory" in a file is the shop's "Accessory" and not a second one beside
   // it. Made only when nothing is close; one made here is matched by the rows after it too.
-  const cats: CategoryLike[] = await prisma.itemCategory.findMany({
+  const cats: (CategoryLike & { active: boolean })[] = await prisma.itemCategory.findMany({
     where: { businessId: user.businessId },
-    select: { id: true, name: true, parentId: true },
+    select: { id: true, name: true, parentId: true, active: true },
   });
   const newIds = new Set<string>();
   const notes = new Map<string, { file: string; to: string; isNew: boolean }>();
@@ -111,15 +111,22 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
     return parent ? `${parent.name}${CATEGORY_SEP}${c.name}` : c.name;
   };
   async function pick(name: string, parentId: string | null, anyLevel: boolean, write: boolean): Promise<CategoryLike> {
-    const found =
-      matchCategory(name, cats.filter((c) => c.parentId === parentId)) ??
+    const find = (list: typeof cats) =>
+      matchCategory(name, list.filter((c) => c.parentId === parentId)) ??
       // A row with no sub-category may name one the shop has, as files from before did.
-      (anyLevel ? matchCategory(name, cats) : null);
+      (anyLevel ? matchCategory(name, list) : null);
+    // The shop's list first; one it deleted comes back only when nothing on the list fits.
+    const found = find(cats.filter((c) => c.active)) ?? find(cats.filter((c) => !c.active));
+    if (found && !found.active) {
+      if (write) await prisma.itemCategory.update({ where: { id: found.id }, data: { active: true } });
+      found.active = true;
+      newIds.add(found.id);
+    }
     if (found) return found;
     const id = write
       ? (await prisma.itemCategory.create({ data: { businessId: user.businessId, name, parentId }, select: { id: true } })).id
       : `new:${cats.length}`;
-    const made = { id, name, parentId };
+    const made = { id, name, parentId, active: true };
     cats.push(made);
     newIds.add(id);
     return made;

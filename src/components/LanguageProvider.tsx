@@ -1559,6 +1559,17 @@ const MM: Record<string, string> = {
   "Reports access needed": "Reports ကြည့်ခွင့် လိုသည်",
   "More than the deposit held": "အာမခံငွေ လက်ကျန်ထက် များနေသည်",
   "Bonus not found": "ဆုကြေး မတွေ့ပါ",
+  "Its sub-categories are deleted with it.": "အောက်က အမျိုးအစားခွဲများလည်း အတူ ဖျက်မည်။",
+  "Move items to": "ပစ္စည်းများ ရွှေ့မည့်နေရာ",
+  "— (no category)": "— (အမျိုးအစား မရှိ)",
+  "— (no unit)": "— (ယူနစ် မရှိ)",
+  "The same thing spelt twice? Move its items to the right one, then this one is gone.": "စာလုံးပေါင်းမှားပြီး နှစ်ခု ဖြစ်နေလား? ပစ္စည်းတွေကို မှန်တဲ့တစ်ခုထဲ ရွှေ့ပြီး ဒါကို ဖျက်လိုက်ပါ။",
+  "No item uses it.": "ဒါကို သုံးထားတဲ့ ပစ္စည်း မရှိပါ။",
+  "Old sales and reports stay as they are. Adding the same name again brings it back.": "အရင် အရောင်းနှင့် Report များ မပြောင်းပါ။ နာမည်တူ ပြန်ထည့်ရင် ပြန်ပေါ်လာမည်။",
+  "Pick another one to move the items to": "ပစ္စည်းရွှေ့ရန် တခြားတစ်ခု ရွေးပါ",
+  "Unit not found": "ယူနစ် မတွေ့ပါ",
+  "Category not found": "အမျိုးအစား မတွေ့ပါ",
+  "Deleted": "ဖျက်ပြီး",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1676,6 +1687,10 @@ function translate(value: string) {
     [/^Total (\d+(?:\.\d+)?)% — must be 100%, or all 0 for equal shares$/, (t) => `စုစုပေါင်း ${t}% — 100% ဖြစ်ရမည် (သို့) အားလုံး 0 ဆို တန်းတူခွဲ`],
     [/^(.+) · (\d{4}) by month$/, (who, y) => `${who} · ${y} လအလိုက်`],
     [/^Only (\d+) month\(s\) of deposit kept; it can be paid back after (\d+)$/, (n, m) => `အာမခံငွေ ${n} လသာ ဖြတ်ရသေး၊ ${m} လ ပြည့်မှ ပြန်ပေးနိုင်သည်`],
+    // Deleting a category or unit.
+    [/^Delete (.+)$/, (n) => `${n} ကို ဖျက်မည်`],
+    [/^Deleted · (d+) item(s) moved$/, (n) => `ဖျက်ပြီး · ပစ္စည်း ${n} ခု ရွှေ့ပြီး`],
+    [/^(d+) item(s) use it. Move them to:$/, (n) => `ပစ္စည်း ${n} ခု သုံးထားသည်။ ဘယ်ကို ရွှေ့မလဲ:`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
