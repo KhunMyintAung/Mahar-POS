@@ -64,7 +64,6 @@ interface Meta { categories: MetaCategory[]; units: MetaUnit[] }
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [meta, setMeta] = useState<Meta>({ categories: [], units: [] });
-  const [missingPresets, setMissingPresets] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useNewModal();
   const [editItem, setEditItem] = useState<Item | null>(null);
@@ -154,20 +153,8 @@ export default function ItemsPage() {
       .catch((e) => push(e.message, "error"));
     api<Meta>("/api/v1/item-meta").then(setMeta).catch(() => {});
     if (canStock) api<StockLevel[]>("/api/v1/stock").then((ls) => setLevels(new Map(ls.map((l) => [l.itemId, l])))).catch(() => {});
-    api<{ missing: string[] }>("/api/v1/item-meta/presets").then((d) => setMissingPresets(d.missing)).catch(() => {});
   }, [q, push, canStock]);
 
-  /** Add the ready-made categories for this kind of shop (a phone shop's Phone New, Glass,
-   *  Spare Parts…; a mini mart's Drinks, Snacks, Grocery…) that it does not have yet. */
-  async function addPresets() {
-    try {
-      const r = await api<{ added: number }>("/api/v1/item-meta/presets", { method: "POST" });
-      push(`${r.added} categories added`);
-      load();
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    }
-  }
   useEffect(() => {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
@@ -596,11 +583,6 @@ export default function ItemsPage() {
                   .sort((a, b) => a.label.localeCompare(b.label))
                   .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </Select>
-              {missingPresets.length > 0 && hasPerm("item.manage") && (
-                <button type="button" onClick={addPresets} className="mt-1 text-xs font-medium text-blue-600 hover:underline">
-                  {`+ Add ready-made categories (${missingPresets.length})`}
-                </button>
-              )}
             </div>
             <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
               <option value="">—</option>
@@ -743,8 +725,7 @@ export default function ItemsPage() {
         </div>
       </Modal>
 
-      <CategoryManager open={showMeta} onClose={() => setShowMeta(false)} categories={meta.categories} units={meta.units}
-        missingPresets={missingPresets} onAddPresets={addPresets} onChanged={load} />
+      <CategoryManager open={showMeta} onClose={() => setShowMeta(false)} categories={meta.categories} units={meta.units} onChanged={load} />
     </div>
   );
 }

@@ -1585,6 +1585,7 @@ const MM: Record<string, string> = {
   "No categories yet": "အမျိုးအစား မရှိသေးပါ",
   "No units yet": "ယူနစ် မရှိသေးပါ",
   "That name is taken. To join the two, delete this one and move its items there.": "ဒီနာမည် ရှိပြီးသားပါ။ နှစ်ခု ပေါင်းချင်ရင် ဒါကို ဖျက်ပြီး ပစ္စည်းတွေကို အဲဒီကို ရွှေ့ပါ။",
+  "Main category": "အမျိုးအစား အကြီး",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1715,6 +1716,7 @@ function translate(value: string) {
     [/^Units \((\d+)\)$/, (n) => `ယူနစ် (${n})`],
     [/^Its (\d+) item\(s\) go to$/, (n) => `ပစ္စည်း ${n} ခုကို ရွှေ့မည့်နေရာ`],
     [/^Delete (.+)\?$/, (n) => `${n} ကို ဖျက်မှာ သေချာလား?`],
+    [/^Under (.+)$/, (n) => `${n} အောက်မှာ`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
