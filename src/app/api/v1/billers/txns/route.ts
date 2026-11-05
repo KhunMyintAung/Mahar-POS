@@ -45,9 +45,10 @@ export const GET = withAuth("biller.view", async ({ req, user }) => {
   // Sales typed in by amount, not by card, are summed apart.
   const sold = await prisma.billerTxn.findMany({
     where: { ...where, voidedAt: null, kind: "SALE" },
-    select: { billerId: true, cards: true, faceAmount: true, biller: { select: { name: true } } },
+    select: { billerId: true, cards: true, faceAmount: true, biller: { select: { name: true, type: true } } },
   });
-  const cards = tallyCards(sold.map((t) => ({ billerId: t.billerId, billerName: t.biller.name, cards: parseCards(t.cards), faceAmount: t.faceAmount })));
+  // Top-up card billers only: an e-load sale has no cards.
+  const cards = tallyCards(sold.filter((t) => t.biller.type === "TOPUP_CARD").map((t) => ({ billerId: t.billerId, billerName: t.biller.name, cards: parseCards(t.cards), faceAmount: t.faceAmount })));
 
   const [txns, total] = await Promise.all([
     prisma.billerTxn.findMany({
@@ -101,6 +102,8 @@ export const POST = withAuth("biller.trade", async ({ req, user }) => {
     }).then(async (record) => {
       // Kept only when the cards make up the amount sold, so the count is never wrong.
       if ((body.kind !== "SALE" && body.kind !== "TOPUP") || !body.cards || cardsTotal(body.cards) * 100n !== toMinor(body.faceAmount)) return record;
+      const biller = await tx.biller.findUnique({ where: { id: record.billerId }, select: { type: true } });
+      if (biller?.type !== "TOPUP_CARD") return record;
       return tx.billerTxn.update({ where: { id: record.id }, data: { cards: JSON.stringify(body.cards) } });
     })
   );

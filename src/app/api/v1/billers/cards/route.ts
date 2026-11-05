@@ -26,7 +26,7 @@ export const GET = withAuth("biller.view", async ({ user }) => {
     read(businessId),
     prisma.systemSetting.findMany({ where: { businessId, key: { startsWith: "billerCardCount:" } } }),
     prisma.billerTxn.findMany({
-      where: { businessId, voidedAt: null, cards: { not: null }, kind: { in: ["SALE", "TOPUP"] } },
+      where: { businessId, voidedAt: null, cards: { not: null }, kind: { in: ["SALE", "TOPUP"] }, biller: { type: "TOPUP_CARD" } },
       select: { billerId: true, kind: true, cards: true, createdAt: true },
     }),
   ]);

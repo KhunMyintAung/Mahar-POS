@@ -300,7 +300,7 @@ export default function BillersPage() {
           note: trade.note || undefined,
           date: otherDayOk && trade.date && trade.date !== todayDate() ? trade.date : undefined,
           // The cards tapped, when they still make up the amount (the amount may have been typed over).
-          cards: (trading.kind === "SALE" || trading.kind === "TOPUP") && Object.keys(trade.cards).length > 0
+          cards: trading.biller.type === "TOPUP_CARD" && (trading.kind === "SALE" || trading.kind === "TOPUP") && Object.keys(trade.cards).length > 0
             && Object.entries(trade.cards).reduce((a, [k, n]) => a + Number(k) * n, 0) === face ? trade.cards : undefined,
         },
       });
@@ -492,12 +492,12 @@ export default function BillersPage() {
               <div className={`text-base font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
-              {(onHand[b.id] || hasPerm("biller.manage")) && cardsOpen !== b.id && (
+              {b.type === "TOPUP_CARD" && (onHand[b.id] || hasPerm("biller.manage")) && cardsOpen !== b.id && (
                 <button type="button" onClick={() => setCardsOpen(b.id)} className="text-[11px] text-gray-500 hover:text-blue-600">
                   {`Cards${onHand[b.id] ? ` · ${Object.values(onHand[b.id]).reduce((a, n) => a + n, 0)}` : ""} ▾`}
                 </button>
               )}
-              {(onHand[b.id] || hasPerm("biller.manage")) && cardsOpen === b.id && (
+              {b.type === "TOPUP_CARD" && (onHand[b.id] || hasPerm("biller.manage")) && cardsOpen === b.id && (
                 <div className="flex items-start gap-1 text-[11px] leading-snug" onClick={() => setCardsOpen(null)}>
                   <div className={cn("min-w-0 flex-1", onHand[b.id] && Object.values(onHand[b.id]).some((n) => n < 0) && "text-red-600")}>
                     {onHand[b.id] && Object.keys(onHand[b.id]).length > 0
@@ -695,7 +695,7 @@ export default function BillersPage() {
                 placeholder={String(current)}
               />
             </div>
-            {(trading.kind === "SALE" || trading.kind === "TOPUP") && (
+            {trading.biller.type === "TOPUP_CARD" && (trading.kind === "SALE" || trading.kind === "TOPUP") && (
               <div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {cardAmounts.map((a) => (
