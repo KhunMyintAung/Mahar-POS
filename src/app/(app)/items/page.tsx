@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { BarcodeInput } from "@/components/BarcodeScanner";
 import { ProductImport } from "@/components/ProductImport";
+import { CategoryManager, type MetaCategory, type MetaUnit } from "@/components/CategoryManager";
 import { repriced, validRule, type RepriceDirection, type RepriceMode, type RepriceRule } from "@/lib/reprice";
 import { PageHeader } from "@/components/PageHeader";
 import { groupByModel, variantLabel, variantName } from "@/lib/variants";
@@ -58,10 +59,7 @@ const ExpiryPill = ({ expiresAt }: { expiresAt: string }) => {
   );
 };
 
-interface Meta {
-  categories: { id: string; name: string; parentId?: string | null; itemCount?: number }[];
-  units: { id: string; name: string; itemCount?: number }[];
-}
+interface Meta { categories: MetaCategory[]; units: MetaUnit[] }
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
@@ -130,9 +128,6 @@ export default function ItemsPage() {
   // Models whose variants are shown in the list (closed by default).
   const [openModels, setOpenModels] = useState<Set<string>>(new Set());
   const [form, setForm] = useState(empty);
-  const [metaForm, setMetaForm] = useState({ kind: "category", name: "", parentId: "" });
-  // A category or unit being deleted, and where its items go.
-  const [removing, setRemoving] = useState<{ kind: "category" | "unit"; id: string; name: string; count: number; moveTo: string } | null>(null);
   // Stock, merged in from the old Stock page: the movements tab, each item's stock levels,
   // a low-stock filter, and the Adjust and IMEI dialogs.
   const [view, setView] = useState<"items" | "movements">("items");
@@ -219,33 +214,6 @@ export default function ItemsPage() {
       push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function addMeta() {
-    try {
-      const { parentId, ...rest } = metaForm;
-      await api("/api/v1/item-meta", { method: "POST", body: { ...rest, ...(rest.kind === "category" && parentId ? { parentId } : {}) } });
-      push(`${metaForm.kind === "category" ? "Category" : "Unit"} added`);
-      setMetaForm({ ...metaForm, name: "" });
-      load();
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    }
-  }
-
-  async function removeMeta() {
-    if (!removing) return;
-    try {
-      const r = await api<{ moved: number }>("/api/v1/item-meta", {
-        method: "DELETE",
-        body: { kind: removing.kind, id: removing.id, ...(removing.moveTo ? { moveTo: removing.moveTo } : {}) },
-      });
-      push(r.moved ? `Deleted · ${r.moved} item(s) moved` : "Deleted");
-      setRemoving(null);
-      load();
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
     }
   }
 
@@ -775,112 +743,8 @@ export default function ItemsPage() {
         </div>
       </Modal>
 
-      <Modal open={Boolean(removing)} onClose={() => setRemoving(null)} title={removing ? `Delete ${removing.name}` : ""}
-        footer={<>
-          <Button variant="secondary" onClick={() => setRemoving(null)}>Cancel</Button>
-          <Button variant="danger" onClick={() => void removeMeta()}>Delete</Button>
-        </>}>
-        {removing && (
-          <div className="space-y-3 text-sm">
-            {removing.kind === "category" && meta.categories.some((x) => x.parentId === removing.id) && (
-              <p>Its sub-categories are deleted with it.</p>
-            )}
-            {removing.count > 0 ? (
-              <>
-                <p>{`${removing.count} item(s) use it. Move them to:`}</p>
-                <Select label="Move items to" value={removing.moveTo} onChange={(e) => setRemoving({ ...removing, moveTo: e.target.value })}>
-                  <option value="">{removing.kind === "category" ? "— (no category)" : "— (no unit)"}</option>
-                  {(removing.kind === "category"
-                    ? meta.categories
-                        .filter((c) => c.id !== removing.id && c.parentId !== removing.id)
-                        .map((c) => ({ id: c.id, label: catLabel(c.id, c.name) ?? c.name }))
-                        .sort((a, b) => a.label.localeCompare(b.label))
-                    : meta.units.filter((u) => u.id !== removing.id).map((u) => ({ id: u.id, label: u.name }))
-                  ).map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-                </Select>
-                <p className="text-xs text-gray-500">The same thing spelt twice? Move its items to the right one, then this one is gone.</p>
-              </>
-            ) : (
-              <p>No item uses it.</p>
-            )}
-            <p className="text-xs text-gray-500">Old sales and reports stay as they are. Adding the same name again brings it back.</p>
-          </div>
-        )}
-      </Modal>
-      <Modal open={showMeta} onClose={() => setShowMeta(false)} title="Categories & Units">
-        <div className="space-y-4">
-          <div className="flex items-end gap-2">
-            <Select label="Type" value={metaForm.kind} onChange={(e) => setMetaForm({ ...metaForm, kind: e.target.value })}>
-              <option value="category">Category</option>
-              <option value="unit">Unit</option>
-            </Select>
-            <div className="flex-1"><Input label="Name" value={metaForm.name} onChange={(e) => setMetaForm({ ...metaForm, name: e.target.value })} /></div>
-            <Button onClick={addMeta} disabled={!metaForm.name}>Add</Button>
-          </div>
-          {metaForm.kind === "category" && (
-            // Empty: a category of its own. A category picked: a sub-category under it (Accessory › Earphone).
-            <Select label="Under (for a sub-category)" value={metaForm.parentId} onChange={(e) => setMetaForm({ ...metaForm, parentId: e.target.value })}>
-              <option value="">— (main category)</option>
-              {meta.categories.filter((c) => !c.parentId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          )}
-          {missingPresets.length > 0 && (
-            <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm dark:bg-blue-900/30">
-              <p className="text-gray-700 dark:text-gray-200">Ready-made categories you do not have yet:</p>
-              <p className="mt-1 text-xs text-gray-500">{missingPresets.join(" · ")}</p>
-              <Button size="sm" className="mt-2" onClick={addPresets}>Add these categories</Button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <h4 className="mb-1 font-semibold">Categories</h4>
-              <ul className="space-y-0.5">
-                {meta.categories.filter((c) => !c.parentId).map((c) => {
-                  const subs = meta.categories.filter((x) => x.parentId === c.id);
-                  const count = (c.itemCount ?? 0) + subs.reduce((n, x) => n + (x.itemCount ?? 0), 0);
-                  return (
-                    <li key={c.id}>
-                      <MetaRow name={c.name} count={c.itemCount ?? 0} onDelete={() => setRemoving({ kind: "category", id: c.id, name: c.name, count, moveTo: "" })} />
-                      {subs.length > 0 && (
-                        <ul className="ml-3 text-xs text-gray-500 dark:text-gray-400">
-                          {subs.map((x) => (
-                            <li key={x.id}>
-                              <MetaRow name={`› ${x.name}`} count={x.itemCount ?? 0}
-                                onDelete={() => setRemoving({ kind: "category", id: x.id, name: catLabel(x.id, x.name) ?? x.name, count: x.itemCount ?? 0, moveTo: "" })} />
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <div>
-              <h4 className="mb-1 font-semibold">Units</h4>
-              <ul className="space-y-0.5">
-                {meta.units.map((u) => (
-                  <li key={u.id}>
-                    <MetaRow name={u.name} count={u.itemCount ?? 0} onDelete={() => setRemoving({ kind: "unit", id: u.id, name: u.name, count: u.itemCount ?? 0, moveTo: "" })} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </Modal>
+      <CategoryManager open={showMeta} onClose={() => setShowMeta(false)} categories={meta.categories} units={meta.units}
+        missingPresets={missingPresets} onAddPresets={addPresets} onChanged={load} />
     </div>
-  );
-}
-
-/** One category or unit in the list, with how many items use it and a delete button. */
-function MetaRow({ name, count, onDelete }: { name: string; count: number; onDelete: () => void }) {
-  return (
-    <span className="group flex items-center gap-1">
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      {count > 0 && <span className="text-xs text-gray-400">{count}</span>}
-      <button type="button" onClick={onDelete} aria-label={`Delete ${name}`} title="Delete"
-        className="rounded px-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">✕</button>
-    </span>
   );
 }

@@ -53,6 +53,42 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   return json(unit, { status: 201 });
 });
 
+const renameSchema = z.object({
+  kind: z.enum(["category", "unit"]),
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(60),
+});
+
+/** Renames a category or unit; its items follow, being linked by id. */
+export const PATCH = withAuth("item.manage", async ({ req, user }) => {
+  const body = await parseBody(req, renameSchema);
+  const businessId = user.businessId;
+  if (body.kind === "unit") {
+    const unit = await prisma.unit.findFirst({ where: { id: body.id, businessId, active: true }, select: { id: true } });
+    if (!unit) throw new ApiError(404, "Unit not found");
+    const clash = await prisma.unit.findFirst({ where: { businessId, name: { equals: body.name, mode: "insensitive" }, id: { not: unit.id } }, select: { id: true, active: true } });
+    if (clash?.active) throw new ApiError(422, "That name is taken. To join the two, delete this one and move its items there.");
+    if (clash) await prisma.unit.update({ where: { id: clash.id }, data: { name: `${body.name} (deleted ${clash.id.slice(0, 6)})` } });
+    const updated = await prisma.unit.update({ where: { id: unit.id }, data: { name: body.name } }).catch(() => {
+      throw new ApiError(422, "That name is taken. To join the two, delete this one and move its items there.");
+    });
+    return json(updated);
+  }
+  const cat = await prisma.itemCategory.findFirst({ where: { id: body.id, businessId, active: true }, select: { id: true, parentId: true } });
+  if (!cat) throw new ApiError(404, "Category not found");
+  const clash = await prisma.itemCategory.findFirst({
+    where: { businessId, parentId: cat.parentId, name: { equals: body.name, mode: "insensitive" }, id: { not: cat.id } },
+    select: { id: true, active: true },
+  });
+  if (clash?.active) throw new ApiError(422, "That name is taken. To join the two, delete this one and move its items there.");
+  // A deleted one holding the name gives it up, so the rename is not blocked by something not shown.
+  if (clash) await prisma.itemCategory.update({ where: { id: clash.id }, data: { name: `${body.name} (deleted ${clash.id.slice(0, 6)})` } });
+  const updated = await prisma.itemCategory.update({ where: { id: cat.id }, data: { name: body.name } }).catch(() => {
+    throw new ApiError(422, "That name is taken. To join the two, delete this one and move its items there.");
+  });
+  return json(updated);
+});
+
 const removeSchema = z.object({
   kind: z.enum(["category", "unit"]),
   id: z.string().min(1),
