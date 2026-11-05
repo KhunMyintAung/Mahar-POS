@@ -12,6 +12,7 @@ import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
+import type { CardTally } from "@/lib/billerCards";
 
 interface Biller {
   id: string; name: string; type: string; currency: string;
@@ -25,6 +26,8 @@ interface Txn {
   id: string; txnNo: string; kind: string; billerId: string;
   faceAmount: string; cashAmount: string; profit: string; balanceAfter: string;
   customerPhone?: string; note?: string; createdAt: string;
+  /** JSON {"1000": 2} when the sale was made by tapping cards. */
+  cards?: string | null;
   voidedAt?: string | null; voidReason?: string | null;
   biller: { name: string; type: string; deletedAt?: string | null };
 }
@@ -40,6 +43,17 @@ const num = (v: string) => Number(v.replace(/,/g, "")) || 0;
 interface Summary {
   soldFace: string; soldCash: string; soldCount: number;
   refillFace: string; refillCash: string; refillCount: number; profit: string;
+  cards?: CardTally[];
+}
+
+/** "1,000 × 2 · 5,000 × 1" */
+function cardsLabel(cards: Record<string, number>): string {
+  return Object.entries(cards).sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([amount, n]) => `${Number(amount).toLocaleString("en-US")} × ${n}`).join(" · ");
+}
+function readCards(json?: string | null): Record<string, number> | null {
+  if (!json) return null;
+  try { return JSON.parse(json) as Record<string, number>; } catch { return null; }
 }
 
 /** Today in the shop's own time zone, as YYYY-MM-DD for the date picker. */
@@ -96,7 +110,7 @@ export default function BillersPage() {
   // way until Edit at the top is pressed.
   const [editMode, setEditMode] = useState(false);
   const [trading, setTrading] = useState<{ biller: Biller; kind: string } | null>(null);
-  const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "", date: "" });
+  const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "", date: "", cards: {} as Record<string, number> });
   // A day's trades added up and entered afterwards: the owner or an admin picks the day.
   const [askDate, setAskDate] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
@@ -189,6 +203,17 @@ export default function BillersPage() {
   const amountOk = trading?.kind === "ADJUST" ? face !== 0 : face > 0;
   const round2 = (n: number) => String(Math.round(n * 100) / 100);
 
+  /** Taps a card (or takes one back, step -1): the amount follows the cards. */
+  function tapCard(amount: number, step: 1 | -1) {
+    const n = (trade.cards[amount] ?? 0) + step;
+    if (n < 0) return;
+    const next: Record<string, number> = { ...trade.cards, [amount]: n };
+    if (n === 0) delete next[amount];
+    const value = String(Math.max(0, num(trade.faceAmount) + step * amount));
+    const v = num(value);
+    setTrade({ ...trade, cards: next, faceAmount: value === "0" ? "" : value, leftAmount: value !== "0" ? round2(current + moveFor(v)) : "" });
+  }
+
   function onAmount(value: string) {
     const v = num(value);
     setTrade({ ...trade, faceAmount: value, leftAmount: value.trim() ? round2(current + moveFor(v)) : "" });
@@ -223,6 +248,7 @@ export default function BillersPage() {
       customerPhone: "",
       note: "",
       date: "",
+      cards: {},
     });
   }
 
@@ -248,6 +274,9 @@ export default function BillersPage() {
           walletId: trading.kind === "ADJUST" ? undefined : (trade.walletId || undefined),
           note: trade.note || undefined,
           date: otherDayOk && trade.date && trade.date !== todayDate() ? trade.date : undefined,
+          // The cards tapped, when they still make up the amount (the amount may have been typed over).
+          cards: trading.kind === "SALE" && Object.keys(trade.cards).length > 0
+            && Object.entries(trade.cards).reduce((a, [k, n]) => a + Number(k) * n, 0) === face ? trade.cards : undefined,
         },
       });
       push(KIND_LABEL[trading.kind] ?? "Saved");
@@ -472,6 +501,23 @@ export default function BillersPage() {
           );
         })}
       </div>
+      {historyKind === "SALE" && summary?.cards && summary.cards.length > 0 && (
+        <Card className="p-3">
+          <div className="mb-1.5 text-sm font-semibold">Cards sold on this day</div>
+          <div className="space-y-1 text-sm">
+            {summary.cards.map((b) => (
+              <div key={b.billerId} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <span className="min-w-24 font-medium">{b.billerName}</span>
+                {b.cards.map((c) => (
+                  <span key={c.amount} className="tabular-nums">{`${c.amount.toLocaleString("en-US")} × ${c.count}`}</span>
+                ))}
+                {BigInt(b.typed) > 0n && <span className="text-xs text-gray-500">{`Typed in: ${fmtMoney(b.typed)}`}</span>}
+                <span className="ml-auto text-xs tabular-nums text-gray-500">{fmtMoney(b.total)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       {(() => {
         const rows = historyKind === "ALL" ? txns : txns.filter((t) => t.kind === historyKind);
         const all = historyKind === "ALL";
@@ -506,7 +552,10 @@ export default function BillersPage() {
                   {t.voidedAt && <div className="inline-block text-xs font-semibold text-red-600" title={t.voidReason ?? ""}>&nbsp;Voided</div>}
                 </td>
               ) : null}
-              <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.faceAmount)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">
+                {fmtMoney(t.faceAmount)}
+                {readCards(t.cards) && <div className="text-xs text-gray-500">{cardsLabel(readCards(t.cards)!)}</div>}
+              </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{fmtMoney(t.cashAmount)}</td>
               <td className={`px-3 py-2.5 text-right tabular-nums ${Number(t.profit) < 0 ? "text-red-600" : Number(t.profit) > 0 ? "text-green-600" : "text-gray-400"}`}>
                 {fmtMoney(t.profit)}
@@ -581,13 +630,13 @@ export default function BillersPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {cardAmounts.map((a) => (
-                    <button key={a} type="button" onClick={() => onAmount(String(num(trade.faceAmount) + a))}
+                    <button key={a} type="button" onClick={() => tapCard(a, 1)}
                       className="min-h-9 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
                       {`+${a.toLocaleString("en-US")}`}
                     </button>
                   ))}
                   {trade.faceAmount.trim() !== "" && (
-                    <button type="button" onClick={() => onAmount("")} className="min-h-9 px-2 text-xs text-gray-500 hover:text-red-600">Clear</button>
+                    <button type="button" onClick={() => { onAmount(""); setTrade((t) => ({ ...t, cards: {} })); }} className="min-h-9 px-2 text-xs text-gray-500 hover:text-red-600">Clear</button>
                   )}
                   {hasPerm("biller.manage") && cardsText === null && (
                     <button type="button" onClick={() => setCardsText(cardAmounts.join(", "))} className="ml-auto text-xs text-blue-600">Edit cards</button>
@@ -602,7 +651,17 @@ export default function BillersPage() {
                     <Button onClick={() => void saveCards()}>Save</Button>
                   </div>
                 )}
-                <p className="mt-1 text-xs text-gray-500">Tap each card sold; two 5,000 cards make 10,000.</p>
+                {Object.keys(trade.cards).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {Object.entries(trade.cards).sort((x, y) => Number(x[0]) - Number(y[0])).map(([amount, n]) => (
+                      <button key={amount} type="button" onClick={() => tapCard(Number(amount), -1)} title="Take one back"
+                        className="rounded-full bg-gold-400/20 px-2.5 py-1 text-xs font-semibold tabular-nums text-amber-800 dark:text-gold-300">
+                        {`${Number(amount).toLocaleString("en-US")} × ${n}`} <span className="opacity-60">−</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500">Tap each card sold; two 5,000 cards make 10,000. Tap a count to take one back.</p>
               </div>
             )}
             <p className="text-xs text-gray-500">

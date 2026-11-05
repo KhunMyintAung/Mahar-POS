@@ -296,6 +296,8 @@ model BillerTxn {
   balanceAfter  BigInt   @default(0)
   customerPhone String?
   note          String?
+  /// On a sale made by tapping top-up cards: how many of each, as JSON {"1000": 2, "5000": 1}.
+  cards         String?
   createdById   String?
   createdAt     DateTime @default(now())
   /// A voided movement has had its float and cash put back; it stays listed, crossed out.

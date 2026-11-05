@@ -1498,6 +1498,9 @@ const MM: Record<string, string> = {
   "Import failed": "သွင်း၍ မရပါ",
   "Name is empty": "အမည် မပါပါ",
   "No Name column": "Name ကော်လံ မပါပါ",
+  "Cards sold on this day": "ဒီနေ့ ရောင်းခဲ့သော ကတ်များ",
+  "Take one back": "တစ်ကတ် ပြန်နုတ်မည်",
+  "Tap each card sold; two 5,000 cards make 10,000. Tap a count to take one back.": "ရောင်းသော ကတ်တိုင်းကို နှိပ်ပါ၊ ၅,၀၀၀ နှစ်ကတ်ဆို ၁၀,၀၀၀ ဖြစ်ပါသည်။ အရေအတွက်ကို နှိပ်လျှင် တစ်ကတ် ပြန်နုတ်ပါသည်။",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1594,6 +1597,7 @@ function translate(value: string) {
     [/^Imported — (\d+) new, (\d+) updated$/, (a, b) => `သွင်းပြီး — အသစ် ${a}၊ ပြင် ${b}`],
     [/^Row (\d+): (.+)$/, (n, why) => `အတန်း ${n}: ${why}`],
     [/^Save \((\d+)\)$/, (n) => `သိမ်းမည် (${n})`],
+    [/^Typed in: (.+)$/, (amt) => `ကတ်မခွဲ ရိုက်ထည့်: ${amt}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

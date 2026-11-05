@@ -6,6 +6,7 @@ import { toMinor } from "@/lib/money";
 import { dateRangeUtc, isValidBusinessDate, todayBusinessDate } from "@/lib/dates";
 import { otherDayProblem } from "@/lib/backdate";
 import { BILLER_TXN_KINDS, recordBillerTxn } from "@/services/billerService";
+import { cardsTotal, parseCards, tallyCards } from "@/lib/billerCards";
 
 export const GET = withAuth("biller.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -40,6 +41,14 @@ export const GET = withAuth("biller.view", async ({ req, user }) => {
     profit: sums.reduce((a, s) => a + (s._sum.profit ?? 0n), 0n).toString(),
   };
 
+  // The day's sales by card, per biller, for counting the cards left: "Mytel 1,000 × 12".
+  // Sales typed in by amount, not by card, are summed apart.
+  const sold = await prisma.billerTxn.findMany({
+    where: { ...where, voidedAt: null, kind: "SALE" },
+    select: { billerId: true, cards: true, faceAmount: true, biller: { select: { name: true } } },
+  });
+  const cards = tallyCards(sold.map((t) => ({ billerId: t.billerId, billerName: t.biller.name, cards: parseCards(t.cards), faceAmount: t.faceAmount })));
+
   const [txns, total] = await Promise.all([
     prisma.billerTxn.findMany({
       where,
@@ -51,7 +60,7 @@ export const GET = withAuth("biller.view", async ({ req, user }) => {
     prisma.billerTxn.count({ where }),
   ]);
 
-  return json({ txns, total, page, pageSize, summary });
+  return json({ txns, total, page, pageSize, summary: { ...summary, cards } });
 });
 
 const createSchema = z.object({
@@ -66,6 +75,8 @@ const createSchema = z.object({
   note: z.string().trim().max(300).optional(),
   // A day before today, for the owner or an admin entering a day's trades afterwards.
   date: z.string().refine(isValidBusinessDate).optional(),
+  /** A sale made by tapping cards: how many of each card amount (in kyat). */
+  cards: z.record(z.string().regex(/^\d+$/), z.number().int().min(1).max(10000)).optional(),
 });
 
 export const POST = withAuth("biller.trade", async ({ req, user }) => {
@@ -87,6 +98,10 @@ export const POST = withAuth("biller.trade", async ({ req, user }) => {
       customerPhone: body.customerPhone,
       note: body.note,
       date: body.date && body.date < today ? body.date : undefined,
+    }).then(async (record) => {
+      // Kept only when the cards make up the amount sold, so the count is never wrong.
+      if (body.kind !== "SALE" || !body.cards || cardsTotal(body.cards) * 100n !== toMinor(body.faceAmount)) return record;
+      return tx.billerTxn.update({ where: { id: record.id }, data: { cards: JSON.stringify(body.cards) } });
     })
   );
 
