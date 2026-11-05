@@ -13,10 +13,13 @@ import { SupplierPayments } from "@/components/SupplierPayments";
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import { OtherDayConfirm } from "@/components/OtherDayConfirm";
 import { canRecordOtherDay, canCancelEntry } from "@/lib/backdate";
+import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
 
 interface Item {
   id: string; txnNo: string; type: string; categoryName?: string; amount: string;
   currency: string; date: string; description?: string; status: string; supplierName?: string;
+  /** Set on the expense a stock purchase wrote: its line opens that purchase's voucher. */
+  purchaseId?: string | null;
   /** Cancelled entries only: when, by whom and why. */
   cancelledAt?: string; cancelledBy?: string; cancelReason?: string;
 }
@@ -63,6 +66,8 @@ export default function IncomeExpensePage() {
   const [newSupplier, setNewSupplier] = useState(false);
   const [showBySupplier, setShowBySupplier] = useState(false);
 
+  // The stock purchase whose voucher is open (from its "Stock purchase PUR-…" line).
+  const [voucherFor, setVoucherFor] = useState<string | null>(null);
   const [form, setForm] = useState({ type: "EXPENSE", categoryName: "", amount: "", walletId: "", date: "", description: "", reference: "", supplierId: "" });
 
   const load = useCallback(() => {
@@ -293,7 +298,9 @@ export default function IncomeExpensePage() {
               <td className="px-3 py-2 text-xs">
                 {it.supplierName && <span className="font-semibold text-gray-700 dark:text-gray-200">{it.supplierName}</span>}
                 {it.supplierName && it.description && " · "}
-                {it.description ?? (it.supplierName ? "" : "—")}
+                {it.purchaseId && hasPerm("purchase.view")
+                  ? <button type="button" className="text-left text-blue-600 hover:underline" onClick={() => setVoucherFor(it.purchaseId!)}>{it.description ?? "Purchase voucher"}</button>
+                  : it.description ?? (it.supplierName ? "" : "—")}
               </td>
               <td className={`px-3 py-2 text-right font-medium tabular-nums ${it.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>
                 {it.type === "INCOME" ? "+" : "-"}{fmtMoney(it.amount)} {it.currency}
@@ -308,6 +315,8 @@ export default function IncomeExpensePage() {
         </Table>
       )}
       </>)}
+
+      <PurchaseVoucherDialog purchaseId={voucherFor} onClose={() => setVoucherFor(null)} />
 
       <Modal open={showCategories} onClose={() => setShowCategories(false)} title="Categories">
         <div className="space-y-4">

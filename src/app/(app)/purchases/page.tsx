@@ -12,6 +12,7 @@ import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 import { PageHeader } from "@/components/PageHeader";
 import { NewSupplierModal, SupplierList, type Supplier, type SupplierTotals } from "@/components/SupplierList";
 import { DayPicker, todayDate } from "@/components/DayPicker";
+import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -34,6 +35,8 @@ const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<Purchase[] | null>(null);
+  // The purchase whose voucher is open.
+  const [voucherFor, setVoucherFor] = useState<string | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -311,7 +314,9 @@ export default function PurchasesPage() {
         <Table headers={["Txn", "Date", "Supplier", "Items", "Total", "Paid", "Status", ""]} rightAlign={[4, 5]}>
           {pageRows.map((p) => (
             <tr key={p.id} className={p.status === "CANCELLED" ? "opacity-50" : ""}>
-              <td className="px-3 py-2 text-xs">{p.txnNo}</td>
+              <td className="px-3 py-2 text-xs">
+                <button type="button" className="font-medium text-blue-600 hover:underline" onClick={() => setVoucherFor(p.id)}>{p.txnNo}</button>
+              </td>
               <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
               <td className="px-3 py-2">
                 {p.supplierId && p.supplierName ? (
@@ -340,9 +345,12 @@ export default function PurchasesPage() {
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(p.paidAmount)}</td>
               <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
               <td className="px-3 py-2">
-                {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
-                  <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
-                )}
+                <div className="flex justify-end gap-1">
+                  <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
+                  {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
+                    <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -350,6 +358,8 @@ export default function PurchasesPage() {
         )}</Paginated>
       )}
       </>)}
+
+      <PurchaseVoucherDialog purchaseId={voucherFor} onClose={() => setVoucherFor(null)} />
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New purchase" wide>
         <div className="space-y-4">

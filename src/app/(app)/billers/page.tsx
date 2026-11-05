@@ -102,6 +102,23 @@ export default function BillersPage() {
   const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
   const { push } = useToast();
   const { hasPerm, me } = useAuth();
+  // Top-up card amounts the shop sells: tapped to make up the sold amount. Editable by
+  // whoever manages billers ("1000, 3000, 5000, 10000").
+  const [cardAmounts, setCardAmounts] = useState<number[]>([]);
+  const [cardsText, setCardsText] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ amounts: number[] }>("/api/v1/billers/cards").then((d) => setCardAmounts(d.amounts)).catch(() => {});
+  }, []);
+  async function saveCards() {
+    const amounts = (cardsText ?? "").split(/[,\s]+/).map((v) => parseInt(v.replace(/[^\d]/g, ""), 10)).filter((n) => n > 0);
+    try {
+      const d = await api<{ amounts: number[] }>("/api/v1/billers/cards", { method: "PUT", body: { amounts } });
+      setCardAmounts(d.amounts);
+      setCardsText(null);
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    }
+  }
   const otherDayOk = canRecordOtherDay(me?.user.roleName);
 
   const load = useCallback(() => {
@@ -560,6 +577,34 @@ export default function BillersPage() {
                 placeholder={String(current)}
               />
             </div>
+            {trading.kind === "SALE" && (
+              <div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {cardAmounts.map((a) => (
+                    <button key={a} type="button" onClick={() => onAmount(String(num(trade.faceAmount) + a))}
+                      className="min-h-9 rounded-lg border border-blue-300 bg-blue-50 px-3 text-sm font-semibold tabular-nums text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                      {`+${a.toLocaleString("en-US")}`}
+                    </button>
+                  ))}
+                  {trade.faceAmount.trim() !== "" && (
+                    <button type="button" onClick={() => onAmount("")} className="min-h-9 px-2 text-xs text-gray-500 hover:text-red-600">Clear</button>
+                  )}
+                  {hasPerm("biller.manage") && cardsText === null && (
+                    <button type="button" onClick={() => setCardsText(cardAmounts.join(", "))} className="ml-auto text-xs text-blue-600">Edit cards</button>
+                  )}
+                </div>
+                {cardsText !== null && (
+                  <div className="mt-2 flex items-end gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Input label="Card amounts (comma between)" value={cardsText} onChange={(e) => setCardsText(e.target.value)} placeholder="1000, 3000, 5000, 10000" />
+                    </div>
+                    <Button variant="secondary" onClick={() => setCardsText(null)}>Cancel</Button>
+                    <Button onClick={() => void saveCards()}>Save</Button>
+                  </div>
+                )}
+                <p className="mt-1 text-xs text-gray-500">Tap each card sold; two 5,000 cards make 10,000.</p>
+              </div>
+            )}
             <p className="text-xs text-gray-500">
               {trading.kind === "ADJUST" ? "Type the balance the operator shows; the difference is worked out." : "Type either one; the other is worked out."}
             </p>

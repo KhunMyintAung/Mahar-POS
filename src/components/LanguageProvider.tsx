@@ -1432,6 +1432,13 @@ const MM: Record<string, string> = {
   "Home page": "ပင်မစာမျက်နှာ",
   "User manual": "အသုံးပြုနည်း လမ်းညွှန်",
   "Back from repair job (optional, takes the part cost off it)": "ဘယ်ပြင်ဆင်မှုကနေ ပြန်လာတာလဲ (မထည့်လည်းရ၊ အပိုပစ္စည်းဖိုးကို အဲဒီ job ကနေ နုတ်ပေးမယ်)",
+  "Purchase voucher": "အဝယ် ဘောက်ချာ",
+  "Voucher no": "ဘောက်ချာ နံပါတ်",
+  "Recorded by": "မှတ်သူ",
+  "Still owed": "ပေးရန် ကျန်",
+  "Edit cards": "ကတ်ပမာဏ ပြင်မည်",
+  "Card amounts (comma between)": "ကတ်ပမာဏများ (ကော်မာ ခြား)",
+  "Tap each card sold; two 5,000 cards make 10,000.": "ရောင်းတဲ့ ကတ်တစ်ခုချင်း နှိပ်ပါ။ 5,000 ကတ် နှစ်ခါ နှိပ်ရင် 10,000 ဖြစ်ပါတယ်။",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1518,6 +1525,7 @@ function translate(value: string) {
     [/^Service · (.+)$/, (p) => `ဝန်ဆောင်မှု · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^(.+) · Deposit( (refund))?$/, (who, refund) => `${who} · စရန်ငွေ${refund ? " (ပြန်အမ်း)" : ""}`],
     [/^(.+) · Payment( (refund))?$/, (who, refund) => `${who} · ပြင်ခ ပေးချေ${refund ? " (ပြန်အမ်း)" : ""}`],
+    [/^Purchase voucher · (.+)$/, (no) => `အဝယ် ဘောက်ချာ · ${no}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
