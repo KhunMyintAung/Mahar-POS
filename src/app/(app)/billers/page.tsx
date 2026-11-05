@@ -122,6 +122,10 @@ export default function BillersPage() {
   // Cards each biller has on hand: the last count plus cards bought, less cards sold since.
   const [onHand, setOnHand] = useState<Record<string, Record<string, number>>>({});
   const [counting, setCounting] = useState<Biller | null>(null);
+  // Card details stay folded away until tapped: the biller whose cards are open, and the
+  // day's cards sold.
+  const [cardsOpen, setCardsOpen] = useState<string | null>(null);
+  const [soldCardsOpen, setSoldCardsOpen] = useState(false);
   const [countForm, setCountForm] = useState<Record<string, string>>({});
   const [cardsText, setCardsText] = useState<string | null>(null);
   useEffect(() => {
@@ -488,8 +492,13 @@ export default function BillersPage() {
               <div className={`text-base font-bold tabular-nums ${Number(b.currentBalance) < 0 ? "text-red-600" : ""}`}>
                 {fmtMoney(b.currentBalance)}
               </div>
-              {(onHand[b.id] || hasPerm("biller.manage")) && (
-                <div className="flex items-start gap-1 text-[11px] leading-snug">
+              {(onHand[b.id] || hasPerm("biller.manage")) && cardsOpen !== b.id && (
+                <button type="button" onClick={() => setCardsOpen(b.id)} className="text-[11px] text-gray-500 hover:text-blue-600">
+                  {`Cards${onHand[b.id] ? ` · ${Object.values(onHand[b.id]).reduce((a, n) => a + n, 0)}` : ""} ▾`}
+                </button>
+              )}
+              {(onHand[b.id] || hasPerm("biller.manage")) && cardsOpen === b.id && (
+                <div className="flex items-start gap-1 text-[11px] leading-snug" onClick={() => setCardsOpen(null)}>
                   <div className={cn("min-w-0 flex-1", onHand[b.id] && Object.values(onHand[b.id]).some((n) => n < 0) && "text-red-600")}>
                     {onHand[b.id] && Object.keys(onHand[b.id]).length > 0
                       ? <><span className="text-gray-500">Cards left: </span><span className="font-semibold tabular-nums">{cardsLabel(onHand[b.id])}</span>
@@ -498,7 +507,7 @@ export default function BillersPage() {
                   </div>
                   {hasPerm("biller.manage") && (
                     <button type="button" className="shrink-0 text-blue-600 hover:underline"
-                      onClick={() => { setCounting(b); setCountForm(Object.fromEntries(cardAmounts.map((a) => [String(a), String(Math.max(0, onHand[b.id]?.[a] ?? 0) || "")]))); }}>Count</button>
+                      onClick={(e) => { e.stopPropagation(); setCounting(b); setCountForm(Object.fromEntries(cardAmounts.map((a) => [String(a), String(Math.max(0, onHand[b.id]?.[a] ?? 0) || "")]))); }}>Count</button>
                   )}
                 </div>
               )}
@@ -536,9 +545,14 @@ export default function BillersPage() {
           );
         })}
       </div>
-      {historyKind === "SALE" && summary?.cards && summary.cards.length > 0 && (
+      {historyKind === "SALE" && summary?.cards && summary.cards.length > 0 && !soldCardsOpen && (
+        <button type="button" onClick={() => setSoldCardsOpen(true)} className="text-sm text-blue-600 hover:underline">
+          {`Cards sold on this day · ${summary.cards.reduce((a, b) => a + b.cards.reduce((x, c) => x + c.count, 0), 0)} ▾`}
+        </button>
+      )}
+      {historyKind === "SALE" && summary?.cards && summary.cards.length > 0 && soldCardsOpen && (
         <Card className="p-3">
-          <div className="mb-1.5 text-sm font-semibold">Cards sold on this day</div>
+          <button type="button" onClick={() => setSoldCardsOpen(false)} className="mb-1.5 text-sm font-semibold">Cards sold on this day ▴</button>
           <div className="space-y-1 text-sm">
             {summary.cards.map((b) => (
               <div key={b.billerId} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
