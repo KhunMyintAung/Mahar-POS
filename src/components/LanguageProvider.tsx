@@ -1623,6 +1623,8 @@ function translate(value: string) {
     [/^Cards sold on this day · (\d+) ▾$/, (n) => `ဒီနေ့ ရောင်းခဲ့သော ကတ် · ${n} ▾`],
     [/^Cards sold on this day ▴$/, () => "ဒီနေ့ ရောင်းခဲ့သော ကတ်များ ▴"],
     [/^Card report · (.+)$/, (d) => `ကတ် စာရင်းချုပ် · ${d}`],
+    [/^From Users & Roles, not on this list yet: (.+)$/, (n) => `Users & Roles တွင် ရှိပြီး ဒီစာရင်းတွင် မပါသေးသူ: ${n}`],
+    [/^Add them \((\d+)\)$/, (n) => `ထည့်မည် (${n})`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

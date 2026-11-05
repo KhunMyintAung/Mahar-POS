@@ -83,6 +83,23 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
+  // Users from Users & Roles not yet on this list, so they need not be typed in again.
+  const [fromUsers, setFromUsers] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    api<{ id: string; name: string }[]>("/api/v1/staff/from-users").then(setFromUsers).catch(() => {});
+  }, [staff]);
+  async function addUsers() {
+    setBusy(true);
+    try {
+      const r = await api<{ added: number }>("/api/v1/staff/from-users", { method: "POST" });
+      push(`${r.added} added`);
+      reload();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function open(s: Staff | "new") {
     setEditing(s);
@@ -115,12 +132,24 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
         <span className="text-sm text-gray-600 dark:text-gray-300">Monthly salaries: <b className="tabular-nums">{fmtMoney(total.toString(), "MMK")}</b></span>
         <Button onClick={() => open("new")}><Plus size={16} className="mr-1 inline" />New staff</Button>
       </div>
+      {fromUsers.length > 0 && (
+        <Card className="flex flex-wrap items-center gap-2 p-3">
+          <span className="min-w-0 flex-1 text-sm">
+            {`From Users & Roles, not on this list yet: ${fromUsers.map((u) => u.name).join(", ")}`}
+          </span>
+          <Button disabled={busy} onClick={() => void addUsers()}>{`Add them (${fromUsers.length})`}</Button>
+        </Card>
+      )}
       <Card>
         {staff.length === 0 ? <Empty message="No staff yet" /> : (
           <Table headers={["Name", "Position", "Phone", "Start date", "Salary", "Status", ""]} rightAlign={[4]}>
             {staff.map((s) => (
               <tr key={s.id} className={cn(!s.active && "opacity-60")}>
-                <td className="px-3 py-2 font-medium">{s.name}{s.userId && <span className="ml-1 text-xs text-gray-500">· {users.find((u) => u.id === s.userId)?.name ?? ""}</span>}</td>
+                <td className="px-3 py-2 font-medium">{s.name}{(() => {
+                  // The login's name only when it differs from the staff name.
+                  const login = s.userId ? users.find((u) => u.id === s.userId)?.name : undefined;
+                  return login && login !== s.name ? <span className="ml-1 text-xs text-gray-500">{`· ${login}`}</span> : null;
+                })()}</td>
                 <td className="px-3 py-2 text-sm">{s.position ?? "—"}</td>
                 <td className="px-3 py-2 text-sm">{s.phone ?? "—"}</td>
                 <td className="px-3 py-2 text-sm">{s.startDate ?? "—"}</td>
