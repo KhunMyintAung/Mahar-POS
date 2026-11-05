@@ -44,8 +44,8 @@ function DayLines({ title, total, lines, tone, empty }: {
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300">
-          <span aria-hidden className={tone === "green" ? "h-1.5 w-1.5 rounded-full bg-emerald-500/70" : "h-1.5 w-1.5 rounded-full bg-gray-400"} />
+        <span className={tone === "green" ? "inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700/85 dark:text-emerald-300/80" : "inline-flex items-center gap-1.5 text-sm font-medium text-red-700/85 dark:text-red-300/80"}>
+          <span aria-hidden className={tone === "green" ? "h-1.5 w-1.5 rounded-full bg-emerald-500/60" : "h-1.5 w-1.5 rounded-full bg-red-500/60"} />
           {title}
         </span>
         <span className="text-lg font-bold tabular-nums">{fmtMoney(total, "MMK")}</span>
@@ -182,7 +182,7 @@ export default function DashboardPage() {
         </>}
         {featureEnabled("incomeExpense") && <>
         <StatCard label="Today's Income" value={fmtMoney(s.general.otherIncome, "MMK")} tone="green" onClick={() => router.push("/income-expense")} />
-        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, "MMK")} onClick={() => router.push("/income-expense")} />
+        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, "MMK")} tone="red" onClick={() => router.push("/income-expense")} />
         <StatCard label="Net Cash Movement" value={fmtMoney(s.general.netCashMovement, "MMK")} tone={BigInt(s.general.netCashMovement) >= 0n ? "green" : "red"} />
         </>}
         {featureEnabled("credit") && <>
