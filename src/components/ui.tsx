@@ -177,8 +177,11 @@ function tableToCsv(table: HTMLTableElement, skipLast: boolean): string {
   return "﻿" + [head, ...rows].join("\r\n") + "\r\n";
 }
 
-export function Table({ headers, children, rightAlign, csv }: {
+export function Table({ headers, children, rightAlign, csv, grid }: {
   headers: string[]; children: ReactNode; rightAlign?: number[];
+  /** Rows and columns on a phone too (like Excel, scrolling sideways), instead of a card
+   *  per row. */
+  grid?: boolean;
   /** An Export CSV link under the table, saving the rows as shown; the file is named after
    *  the page unless a name is given. False for tables that are not a list worth saving. */
   csv?: string | false;
@@ -224,8 +227,8 @@ export function Table({ headers, children, rightAlign, csv }: {
   }
   return (
     <div className="min-w-0">
-    <div className="rtable-wrap max-w-full overscroll-x-contain overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-800">
-      <table ref={ref} className={cn("rtable w-full text-sm", actions && "has-actions")}>
+    <div className={cn(!grid && "rtable-wrap", "max-w-full overscroll-x-contain overflow-x-auto rounded-xl border border-gray-200/80 dark:border-gray-800")}>
+      <table ref={ref} className={cn(grid ? "grid-table whitespace-nowrap" : "rtable", "w-full text-sm", actions && "has-actions")}>
         <thead>
           <tr className="border-b border-gray-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-gray-800 dark:bg-navy-900/60 dark:text-gray-400">
             {headers.map((h, i) => (

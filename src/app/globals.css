@@ -177,3 +177,10 @@ body {
   .rtable tbody > tr > td { padding-top: 0.4rem; padding-bottom: 0.4rem; }
   .rtable.has-actions tbody > tr > td:last-child :is(button, a) { min-height: 1.875rem; padding-top: 0; padding-bottom: 0; }
 }
+
+/* A table kept as rows and columns on a phone (Table grid): cell lines like a spreadsheet. */
+.grid-table th, .grid-table td { border-right: 1px solid var(--color-gray-200); }
+.grid-table th:last-child, .grid-table td:last-child { border-right: 0; }
+.dark .grid-table th, .dark .grid-table td { border-color: var(--color-gray-800); }
+.grid-table tbody > tr:nth-child(even) { background: color-mix(in srgb, var(--color-gray-100) 55%, transparent); }
+.dark .grid-table tbody > tr:nth-child(even) { background: color-mix(in srgb, var(--color-gray-800) 35%, transparent); }

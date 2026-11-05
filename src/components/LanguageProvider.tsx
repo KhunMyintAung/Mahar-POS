@@ -1511,6 +1511,10 @@ const MM: Record<string, string> = {
   "Commission & notes ▾": "ကော်မရှင်နှင့် မှတ်ချက် ▾",
   "Commission & notes ▴": "ကော်မရှင်နှင့် မှတ်ချက် ▴",
   "Float held now is what the operator is holding for this shop today. A minus figure is fine if the shop has sold ahead of paying.": "လက်ကျန် Float ဆိုသည်မှာ ဒီနေ့ Operator ထံ ဆိုင်အတွက် ရှိနေသော ငွေ ဖြစ်သည်။ ငွေမပေးရသေးဘဲ ကြိုရောင်းထားလျှင် အနုတ် ထည့်နိုင်သည်။",
+  "Cards view": "ကတ်ပုံစံ",
+  "Table view": "ဇယားပုံစံ",
+  "Deal": "အပေးအယူ",
+  "Cards left": "ကျန်ကတ်",
 };
 
 const originalText = new WeakMap<Node, string>();

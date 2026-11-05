@@ -128,6 +128,18 @@ export default function BillersPage() {
   const [soldCardsOpen, setSoldCardsOpen] = useState(false);
   // New biller: commission and notes folded away, so the form is just name, type and float.
   const [newMore, setNewMore] = useState(false);
+  // Billers as cards or as a table (rows and columns, like Excel); remembered on this device.
+  const [billerView, setBillerView] = useState<"cards" | "table">("cards");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { if (localStorage.getItem("mahar.billerView") === "table") setBillerView("table"); } catch { /* private mode */ }
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+  function chooseView(v: "cards" | "table") {
+    setBillerView(v);
+    try { localStorage.setItem("mahar.billerView", v); } catch { /* private mode */ }
+  }
   const [countForm, setCountForm] = useState<Record<string, string>>({});
   const [cardsText, setCardsText] = useState<string | null>(null);
   useEffect(() => {
@@ -468,8 +480,40 @@ export default function BillersPage() {
         </Card>
       </div>
 
+      {billers.length > 0 && (
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 text-xs font-medium dark:border-gray-700">
+            {([["cards", "Cards view"], ["table", "Table view"]] as const).map(([v, label]) => (
+              <button key={v} type="button" onClick={() => chooseView(v)}
+                className={cn("rounded-md px-2.5 py-1", billerView === v ? "bg-navy-800 text-white dark:bg-gold-400 dark:text-navy-950" : "text-gray-600 dark:text-gray-300")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {billers.length === 0 ? (
         <Card><Empty message="No billers yet. Add the operators this shop buys float from." /></Card>
+      ) : billerView === "table" ? (
+        <Table headers={["Biller", "Type", "Deal", "Balance", "Cards left", ""]} rightAlign={[3]} csv="billers" grid>
+          {billers.map((b) => (
+            <tr key={b.id} className={cn(!b.active && "opacity-60")}>
+              <td className="px-3 py-2 font-medium">{b.name}{!b.active && <span className="ml-1 text-xs text-gray-500">off</span>}</td>
+              <td className="px-3 py-2 text-sm">{TYPE_LABEL[b.type] ?? b.type}</td>
+              <td className="px-3 py-2 text-xs text-gray-500">{dealLabel(b).join(" · ") || "—"}</td>
+              <td className={cn("px-3 py-2 text-right font-semibold tabular-nums", Number(b.currentBalance) < 0 && "text-red-600")}>{fmtMoney(b.currentBalance)}</td>
+              <td className="px-3 py-2 text-xs tabular-nums">{b.type === "TOPUP_CARD" && onHand[b.id] && Object.keys(onHand[b.id]).length > 0 ? cardsLabel(onHand[b.id]) : "—"}</td>
+              <td className="px-3 py-2">
+                {hasPerm("biller.trade") && b.active && (
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" onClick={() => startTrade(b, "SALE")}>Sell</Button>
+                    <Button size="sm" variant="secondary" onClick={() => startTrade(b, "TOPUP")}>Buy float</Button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {billers.map((b) => (
