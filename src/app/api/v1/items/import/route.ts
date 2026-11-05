@@ -59,7 +59,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   // exported without codes would get a second copy of everything it owns.
   const existing = await prisma.item.findMany({
     where: { businessId: user.businessId, deletedAt: null },
-    select: { id: true, name: true, sku: true, barcode: true },
+    select: { id: true, name: true, sku: true, barcode: true, costPrice: true, sellingPrice: true, categoryId: true },
   });
   const bySku = new Map(existing.map((it) => [it.sku.toLowerCase(), it]));
   const byBarcode = new Map(existing.filter((it) => it.barcode).map((it) => [it.barcode!.toLowerCase(), it]));
@@ -181,6 +181,16 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
   });
   let created = 0;
   let updated = 0;
+  // What the import did, item by item, for Audit Logs: the shop can see afterwards which
+  // items were new and what a re-import changed (price, cost, stock, category).
+  const LIST_MAX = 500;
+  const newItems: string[] = [];
+  const changed: { name: string; changes: { field: string; from: string; to: string }[] }[] = [];
+  let unchanged = 0;
+  const catName = (id: string | null | undefined) => {
+    const c = id ? cats.find((x) => x.id === id) : undefined;
+    return c ? labelOf(c) : "—";
+  };
 
   for (const product of products) {
     const found = match(product);
@@ -193,6 +203,19 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
     const unitId = product.unit ? await unitIdFor(product.unit) : undefined;
 
     if (found) {
+      const changes: { field: string; from: string; to: string }[] = [];
+      const cost = product.given.costPrice ? toMinor(product.costPrice) : null;
+      const price = product.given.sellingPrice ? toMinor(product.sellingPrice) : null;
+      if (cost !== null && cost !== found.costPrice) changes.push({ field: "cost", from: String(found.costPrice), to: String(cost) });
+      if (price !== null && price !== found.sellingPrice) changes.push({ field: "price", from: String(found.sellingPrice), to: String(price) });
+      if (categoryId && categoryId !== found.categoryId) changes.push({ field: "category", from: catName(found.categoryId), to: catName(categoryId) });
+      const stockBefore = stockNow.get(found.id) ?? 0;
+      if (product.quantity !== null && product.quantity !== stockBefore) changes.push({ field: "stock", from: String(stockBefore), to: String(product.quantity) });
+      if (changes.length === 0) unchanged += 1;
+      else if (changed.length < LIST_MAX) changed.push({ name: found.name, changes });
+      if (cost !== null) found.costPrice = cost;
+      if (price !== null) found.sellingPrice = price;
+      if (categoryId) found.categoryId = categoryId;
       await prisma.item.update({
         where: { id: found.id },
         data: {
@@ -272,6 +295,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       await prisma.stockLevel.create({ data: { itemId: item.id, branchId, quantity: 0 } });
     }
     stockNow.set(item.id, product.quantity ?? 0);
+    if (newItems.length < LIST_MAX) newItems.push(item.name);
     // Kept in the maps so a file that names the same product twice under different codes
     // updates the row it just made rather than making another.
     bySku.set(sku.toLowerCase(), { ...item, barcode: item.barcode });
@@ -286,7 +310,15 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
       action: "IMPORT",
       module: "item",
       resourceType: "Item",
-      after: { created, updated, rejected: rejected.length },
+      after: {
+        created,
+        updated,
+        unchanged,
+        rejected: rejected.length,
+        newItems,
+        changed,
+        newCategories: [...notes.values()].filter((n) => n.isNew).map((n) => n.to),
+      },
     });
   });
 

@@ -1570,6 +1570,11 @@ const MM: Record<string, string> = {
   "Unit not found": "ယူနစ် မတွေ့ပါ",
   "Category not found": "အမျိုးအစား မတွေ့ပါ",
   "Deleted": "ဖျက်ပြီး",
+  "New categories": "အမျိုးအစား အသစ်",
+  "Changed": "ပြောင်းသွားတာ",
+  "New items": "ပစ္စည်း အသစ်",
+  "This import was before item-by-item details were kept, so only the counts are known. Items already on the list are updated, not added again.": "ဒီ Import က အသေးစိတ် မှတ်တမ်း မထည့်ခင်က ဖြစ်လို့ အရေအတွက်ပဲ သိရပါတယ်။ ရှိပြီးသား ပစ္စည်းတွေကို ထပ်မထည့်ဘဲ update သာ လုပ်ပါတယ်။",
+  "The same file again: nothing changed.": "ဖိုင်တူ ထပ်ထည့်တာမို့ ဘာမှ မပြောင်းပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1691,6 +1696,11 @@ function translate(value: string) {
     [/^Delete (.+)$/, (n) => `${n} ကို ဖျက်မည်`],
     [/^Deleted · (d+) item(s) moved$/, (n) => `ဖျက်ပြီး · ပစ္စည်း ${n} ခု ရွှေ့ပြီး`],
     [/^(d+) item(s) use it. Move them to:$/, (n) => `ပစ္စည်း ${n} ခု သုံးထားသည်။ ဘယ်ကို ရွှေ့မလဲ:`],
+    // Item import details in Audit Logs.
+    [/^(d+) new item(s)$/, (n) => `ပစ္စည်းအသစ် ${n} ခု`],
+    [/^(d+) already on the list$/, (n) => `ရှိပြီးသား ${n} ခု`],
+    [/^(d+) not changed$/, (n) => `မပြောင်း ${n} ခု`],
+    [/^(d+) row(s) skipped$/, (n) => `ကျော်သွားသော အတန်း ${n} ခု`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],
