@@ -1059,6 +1059,10 @@ model Staff {
   position    String?
   /// Monthly salary.
   salary      BigInt    @default(0)
+  /// Added to a month's salary when no day was taken off (absent, half day or leave).
+  attendanceBonus BigInt @default(0)
+  /// Kept from each month's salary; paid back after six months.
+  deposit     BigInt    @default(0)
   startDate   String?
   /// The login this person uses, if any: a Service Tech's repair commission comes from it.
   userId      String?
@@ -1083,6 +1087,40 @@ model StaffAttendance {
 
   @@unique([staffId, date])
   @@index([businessId, date])
+}
+
+/// A bonus paid on its own (year end, Thingyan…): a Staff Salary expense.
+model StaffBonus {
+  id          String    @id @default(uuid())
+  businessId  String
+  staffId     String
+  amount      BigInt
+  date        String
+  walletId    String
+  expenseId   String
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  voidedAt    DateTime?
+
+  @@index([businessId, staffId])
+}
+
+/// Deposit kept from salaries, paid back to the staff member: a Staff Salary expense.
+model StaffDepositReturn {
+  id          String    @id @default(uuid())
+  businessId  String
+  staffId     String
+  amount      BigInt
+  date        String
+  walletId    String
+  expenseId   String
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+  voidedAt    DateTime?
+
+  @@index([businessId, staffId])
 }
 
 /// Money given to staff before payday; taken off their next salary.
@@ -1118,7 +1156,11 @@ model StaffSalaryPayment {
   advanceDeduction BigInt    @default(0)
   commission       BigInt    @default(0)
   bonus            BigInt    @default(0)
+  /// For a month with no day off.
+  attendanceBonus  BigInt    @default(0)
   otherDeduction   BigInt    @default(0)
+  /// Kept back as the staff member's deposit (owed to them, paid back later).
+  deposit          BigInt    @default(0)
   net              BigInt
   walletId         String
   /// The Staff Salary expense; none when nothing was left to pay.

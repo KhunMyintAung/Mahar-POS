@@ -9,6 +9,15 @@ export const STAFF_SALARY_CATEGORY = "Staff Salary";
 export const ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "HALF", "LEAVE"] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 
+/** A deposit can be paid back once this many months of it were kept. */
+export const DEPOSIT_MONTHS = 6;
+
+/** The month's attendance bonus: the staff member's amount when no day was taken off
+ *  (absent, half day or leave), nothing otherwise. */
+export function attendanceBonusFor(amount: bigint, statuses: string[]): bigint {
+  return statuses.some((st) => st === "ABSENT" || st === "HALF" || st === "LEAVE") ? 0n : amount;
+}
+
 export function daysInMonth(month: string): number {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -56,6 +65,8 @@ export async function payroll(businessId: string, month: string) {
       const advance = advances.filter((a) => a.staffId === s.id).reduce((n, a) => n + a.amount, 0n);
       const commission = s.userId ? techs.find((t) => t.userId === s.userId)?.commission ?? 0n : 0n;
       const deduction = absentDeduction(s.salary, off, monthDays);
+      const attendanceBonus = attendanceBonusFor(s.attendanceBonus, days.map((d) => d.status));
+      const deposit = s.deposit;
       return {
         staff: s,
         present: days.filter((d) => d.status === "PRESENT").length,
@@ -66,7 +77,9 @@ export async function payroll(businessId: string, month: string) {
         absentDeduction: deduction,
         advance,
         commission,
-        net: s.salary - deduction - advance + commission,
+        attendanceBonus,
+        deposit,
+        net: s.salary - deduction - advance + commission + attendanceBonus - deposit,
         payment: payments.find((p) => p.staffId === s.id) ?? null,
       };
     });
@@ -122,11 +135,17 @@ export async function voidAdvance(tx: Tx, opts: { businessId: string; userId: st
 export async function paySalary(tx: Tx, opts: {
   businessId: string; userId: string; staffId: string; month: string; walletId: string; date: string;
   commission: bigint; bonus: bigint; otherDeduction: bigint; absentDays?: number; note?: string;
+  /** Left out: worked out from attendance (the staff member's amount when no day was off). */
+  attendanceBonus?: bigint;
+  /** Left out: the staff member's monthly deposit. */
+  deposit?: bigint;
 }) {
   const s = await activeStaff(tx, opts.businessId, opts.staffId);
   const paid = await tx.staffSalaryPayment.findFirst({ where: { staffId: s.id, month: opts.month, voidedAt: null } });
   if (paid) throw new ApiError(409, `${s.name} was already paid for ${opts.month}`);
-  if (opts.commission < 0n || opts.bonus < 0n || opts.otherDeduction < 0n) throw new ApiError(422, "Amounts cannot be negative");
+  if (opts.commission < 0n || opts.bonus < 0n || opts.otherDeduction < 0n || (opts.attendanceBonus ?? 0n) < 0n || (opts.deposit ?? 0n) < 0n) {
+    throw new ApiError(422, "Amounts cannot be negative");
+  }
 
   const days = await tx.staffAttendance.findMany({
     where: { staffId: s.id, date: { gte: `${opts.month}-01`, lte: `${opts.month}-31` } },
@@ -137,7 +156,9 @@ export async function paySalary(tx: Tx, opts: {
   const deduction = absentDeduction(s.salary, off, daysInMonth(opts.month));
   const advances = await tx.staffAdvance.findMany({ where: { staffId: s.id, businessId: opts.businessId, voidedAt: null, salaryPaymentId: null } });
   const advance = advances.reduce((n, a) => n + a.amount, 0n);
-  const net = s.salary - deduction - advance + opts.commission + opts.bonus - opts.otherDeduction;
+  const attendanceBonus = opts.attendanceBonus ?? attendanceBonusFor(s.attendanceBonus, days.map((d) => d.status));
+  const deposit = opts.deposit ?? s.deposit;
+  const net = s.salary - deduction - advance + opts.commission + opts.bonus + attendanceBonus - opts.otherDeduction - deposit;
   if (net < 0n) throw new ApiError(422, "Deductions and advances are more than the pay");
 
   const branchId = await walletBranch(tx, opts.businessId, opts.walletId);
@@ -152,7 +173,7 @@ export async function paySalary(tx: Tx, opts: {
     data: {
       businessId: opts.businessId, staffId: s.id, month: opts.month, baseSalary: s.salary,
       absentDays: off, absentDeduction: deduction, advanceDeduction: advance,
-      commission: opts.commission, bonus: opts.bonus, otherDeduction: opts.otherDeduction, net,
+      commission: opts.commission, bonus: opts.bonus, attendanceBonus, otherDeduction: opts.otherDeduction, deposit, net,
       walletId: opts.walletId, expenseId: expense?.id, note: opts.note, createdById: opts.userId,
     },
   });
@@ -178,4 +199,118 @@ export async function voidSalary(tx: Tx, opts: { businessId: string; userId: str
     businessId: opts.businessId, userId: opts.userId, action: "VOID", module: "staff",
     resourceType: "StaffSalaryPayment", resourceId: p.id, reason: opts.reason,
   });
+}
+
+/** A bonus paid on its own (year end, Thingyan…): a Staff Salary expense from the wallet. */
+export async function giveBonus(tx: Tx, opts: {
+  businessId: string; userId: string; staffId: string; amount: bigint; walletId: string; date: string; note?: string;
+}) {
+  if (opts.amount <= 0n) throw new ApiError(422, "Amount must be greater than zero");
+  const s = await activeStaff(tx, opts.businessId, opts.staffId);
+  const branchId = await walletBranch(tx, opts.businessId, opts.walletId);
+  const expense = await createIncomeExpenseEntry(tx, {
+    businessId: opts.businessId, branchId, userId: opts.userId, type: "EXPENSE",
+    categoryName: STAFF_SALARY_CATEGORY, amount: opts.amount, walletId: opts.walletId, date: opts.date,
+    description: `Bonus · ${s.name}${opts.note ? ` · ${opts.note}` : ""}`,
+  });
+  return tx.staffBonus.create({
+    data: {
+      businessId: opts.businessId, staffId: s.id, amount: opts.amount, date: opts.date,
+      walletId: opts.walletId, expenseId: expense.id, note: opts.note, createdById: opts.userId,
+    },
+  });
+}
+
+export async function voidBonus(tx: Tx, opts: { businessId: string; userId: string; id: string; reason: string }) {
+  const b = await tx.staffBonus.findFirst({ where: { id: opts.id, businessId: opts.businessId } });
+  if (!b || b.voidedAt) throw new ApiError(404, "Bonus not found");
+  await reverseIncomeExpense(tx, { id: b.expenseId, reason: opts.reason || "Bonus cancelled", userId: opts.userId, businessId: opts.businessId });
+  await tx.staffBonus.update({ where: { id: b.id }, data: { voidedAt: new Date() } });
+}
+
+/** Each staff member's deposit: kept from salaries, paid back, still held, and the months kept. */
+export async function depositBalances(db: Tx | typeof prisma, businessId: string) {
+  const [kept, back] = await Promise.all([
+    db.staffSalaryPayment.findMany({ where: { businessId, voidedAt: null, deposit: { gt: 0 } }, select: { staffId: true, deposit: true, month: true } }),
+    db.staffDepositReturn.findMany({ where: { businessId, voidedAt: null }, select: { staffId: true, amount: true } }),
+  ]);
+  const out = new Map<string, { kept: bigint; returned: bigint; held: bigint; months: number; firstMonth: string | null }>();
+  const get = (id: string) => out.get(id) ?? (out.set(id, { kept: 0n, returned: 0n, held: 0n, months: 0, firstMonth: null }), out.get(id)!);
+  for (const k of kept) {
+    const r = get(k.staffId);
+    r.kept += k.deposit; r.months += 1;
+    if (!r.firstMonth || k.month < r.firstMonth) r.firstMonth = k.month;
+  }
+  for (const b of back) get(b.staffId).returned += b.amount;
+  for (const r of out.values()) r.held = r.kept - r.returned;
+  return out;
+}
+
+/** Pays deposit back: once ${DEPOSIT_MONTHS} months of it were kept, or earlier when said so
+ *  (someone leaving). A Staff Salary expense, since it is pay that was held back. */
+export async function returnDeposit(tx: Tx, opts: {
+  businessId: string; userId: string; staffId: string; amount: bigint; walletId: string; date: string; note?: string; early?: boolean;
+}) {
+  if (opts.amount <= 0n) throw new ApiError(422, "Amount must be greater than zero");
+  const s = await activeStaff(tx, opts.businessId, opts.staffId);
+  const bal = (await depositBalances(tx, opts.businessId)).get(s.id);
+  if (!bal || opts.amount > bal.held) throw new ApiError(422, "More than the deposit held");
+  if (bal.months < DEPOSIT_MONTHS && !opts.early) {
+    throw new ApiError(422, `Only ${bal.months} month(s) of deposit kept; it can be paid back after ${DEPOSIT_MONTHS}`);
+  }
+  const branchId = await walletBranch(tx, opts.businessId, opts.walletId);
+  const expense = await createIncomeExpenseEntry(tx, {
+    businessId: opts.businessId, branchId, userId: opts.userId, type: "EXPENSE",
+    categoryName: STAFF_SALARY_CATEGORY, amount: opts.amount, walletId: opts.walletId, date: opts.date,
+    description: `Deposit back · ${s.name}${opts.note ? ` · ${opts.note}` : ""}`,
+  });
+  return tx.staffDepositReturn.create({
+    data: {
+      businessId: opts.businessId, staffId: s.id, amount: opts.amount, date: opts.date,
+      walletId: opts.walletId, expenseId: expense.id, note: opts.note, createdById: opts.userId,
+    },
+  });
+}
+
+export async function voidDepositReturn(tx: Tx, opts: { businessId: string; userId: string; id: string; reason: string }) {
+  const d = await tx.staffDepositReturn.findFirst({ where: { id: opts.id, businessId: opts.businessId } });
+  if (!d || d.voidedAt) throw new ApiError(404, "Not found");
+  await reverseIncomeExpense(tx, { id: d.expenseId, reason: opts.reason || "Deposit return cancelled", userId: opts.userId, businessId: opts.businessId });
+  await tx.staffDepositReturn.update({ where: { id: d.id }, data: { voidedAt: new Date() } });
+}
+
+export interface EarnCell { salary: bigint; commission: bigint; bonus: bigint; total: bigint }
+const zeroCell = (): EarnCell => ({ salary: 0n, commission: 0n, bonus: 0n, total: 0n });
+
+/** What each member of staff earned, month by month for a year and in all: salary (less
+ *  days off and other deductions, deposit included since it is theirs), commission, and
+ *  bonuses (in the salary, for no days off, and paid on their own). Advances are not extra:
+ *  they come off a salary. */
+export async function earnings(businessId: string, year: string) {
+  const [staff, payments, bonuses, deposits] = await Promise.all([
+    prisma.staff.findMany({ where: { businessId }, orderBy: [{ active: "desc" }, { name: "asc" }], select: { id: true, name: true, active: true } }),
+    prisma.staffSalaryPayment.findMany({ where: { businessId, voidedAt: null } }),
+    prisma.staffBonus.findMany({ where: { businessId, voidedAt: null } }),
+    depositBalances(prisma, businessId),
+  ]);
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+  const rows = staff.map((st) => {
+    const byMonth: Record<string, EarnCell> = Object.fromEntries(months.map((m) => [m, zeroCell()]));
+    const yearCell = zeroCell();
+    const all = zeroCell();
+    const add = (month: string, part: Partial<EarnCell>) => {
+      const cells = [all, ...(byMonth[month] ? [byMonth[month], yearCell] : [])];
+      for (const c of cells) {
+        c.salary += part.salary ?? 0n; c.commission += part.commission ?? 0n; c.bonus += part.bonus ?? 0n;
+        c.total += (part.salary ?? 0n) + (part.commission ?? 0n) + (part.bonus ?? 0n);
+      }
+    };
+    for (const p of payments.filter((x) => x.staffId === st.id)) {
+      add(p.month, { salary: p.baseSalary - p.absentDeduction - p.otherDeduction, commission: p.commission, bonus: p.bonus + p.attendanceBonus });
+    }
+    for (const b of bonuses.filter((x) => x.staffId === st.id)) add(b.date.slice(0, 7), { bonus: b.amount });
+    const dep = deposits.get(st.id);
+    return { staff: st, months: byMonth, year: yearCell, allTime: all, depositHeld: dep?.held ?? 0n, depositMonths: dep?.months ?? 0 };
+  }).filter((r) => r.staff.active || r.allTime.total !== 0n);
+  return { year, months, rows };
 }

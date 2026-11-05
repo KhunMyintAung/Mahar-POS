@@ -16,6 +16,8 @@ const schema = z.object({
   phone: z.string().trim().max(30).optional(),
   position: z.string().trim().max(60).optional(),
   salary: z.string().default("0"),
+  attendanceBonus: z.string().default("0"),
+  deposit: z.string().default("0"),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   userId: z.string().optional().or(z.literal("")),
   note: z.string().trim().max(280).optional(),
@@ -26,7 +28,7 @@ export const POST = withAuth("staff.manage", async ({ req, user }) => {
   const s = await prisma.staff.create({
     data: {
       businessId: user.businessId, name: body.name, phone: body.phone || null, position: body.position || null,
-      salary: toMinor(body.salary || "0"), startDate: body.startDate || null, userId: body.userId || null, note: body.note || null,
+      salary: toMinor(body.salary || "0"), attendanceBonus: toMinor(body.attendanceBonus || "0"), deposit: toMinor(body.deposit || "0"), startDate: body.startDate || null, userId: body.userId || null, note: body.note || null,
     },
   });
   await audit(prisma, { businessId: user.businessId, userId: user.id, action: "CREATE", module: "staff", resourceType: "Staff", resourceId: s.id, after: { name: s.name, salary: s.salary } });

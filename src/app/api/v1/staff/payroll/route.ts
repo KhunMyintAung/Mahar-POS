@@ -20,6 +20,8 @@ const schema = z.object({
   commission: z.string().default("0"),
   bonus: z.string().default("0"),
   otherDeduction: z.string().default("0"),
+  attendanceBonus: z.string().optional(),
+  deposit: z.string().optional(),
   absentDays: z.number().min(0).max(31).optional(),
   note: z.string().trim().max(280).optional(),
 });
@@ -30,6 +32,8 @@ export const POST = withAuth("staff.manage", async ({ req, user }) => {
     businessId: user.businessId, userId: user.id, staffId: body.staffId, month: body.month, walletId: body.walletId,
     date: body.date || todayBusinessDate(), commission: toMinor(body.commission || "0"), bonus: toMinor(body.bonus || "0"),
     otherDeduction: toMinor(body.otherDeduction || "0"), absentDays: body.absentDays, note: body.note || undefined,
+    attendanceBonus: body.attendanceBonus === undefined ? undefined : toMinor(body.attendanceBonus || "0"),
+    deposit: body.deposit === undefined ? undefined : toMinor(body.deposit || "0"),
   }));
   return json(p, { status: 201 });
 });
