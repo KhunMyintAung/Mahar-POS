@@ -1650,6 +1650,7 @@ const MM: Record<string, string> = {
   "Parts from stock: their cost counted when bought (Service purchase), so Reports do not count it again.": "Stock ထဲမှ အပိုပစ္စည်း — ဝယ်စဉ် (Service purchase) က တွက်ပြီးသားမို့ Reports တွင် ထပ်မတွက်ပါ။",
   "Repair parts (bought per job)": "ပြုပြင်ရေး အပိုပစ္စည်း (Job အလိုက် ဝယ်)",
   "Not allowed to see costs": "ကုန်ကျစရိတ် ကြည့်ခွင့် မရှိပါ",
+  "Service profit": "ဝန်ဆောင်မှု အမြတ်",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1802,6 +1803,7 @@ function translate(value: string) {
     [/^Total (.+) MMK$/, (a) => `စုစုပေါင်း ${a} MMK`],
     [/^The Boss Share for (\d{4}-\d{2}) was already taken$/, (m) => `${m} ၏ Boss Share ယူပြီးပါပြီ`],
     [/^Total (\d+(?:\.\d+)?)% — at most 100% \(all 0 for equal shares\)\. What the partners do not take is left for staff bonus\.$/, (t) => `စုစုပေါင်း ${t}% — 100% ထက် မကျော်ရ (အားလုံး 0 ဆို တန်းတူခွဲ)။ အစုရှင်များ မယူသော ကျန်ငွေကို ဝန်ထမ်းဆုကြေးအတွက် ထားမည်။`],
+    [/^Today's charge · (\d+)$/, (n) => `ဒီနေ့ ဝန်ဆောင်ခ · ${n}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

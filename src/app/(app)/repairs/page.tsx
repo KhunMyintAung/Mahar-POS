@@ -8,6 +8,7 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { RepairPartPicker } from "@/components/RepairPartPicker";
 import { RepairDailyProfit } from "@/components/RepairDailyProfit";
+import { RepairProfitCards } from "@/components/RepairProfitCards";
 import { parseRepairFlow, REPAIR_FLOW_KEY, type RepairParts } from "@/lib/repairFlow";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
@@ -591,6 +592,8 @@ export default function RepairsPage() {
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
       </div>
+      {/* Today's service profit, for whoever may see costs; tap for day by day. */}
+      {canSeeProfit && <RepairProfitCards refresh={jobs} onOpen={() => setShowDaily(true)} />}
       {month && !q.trim() && (
         <div className="flex items-center gap-2 text-sm">
           <span className="rounded-full bg-navy-800 px-3 py-1 text-xs font-semibold text-white dark:bg-gold-400 dark:text-navy-950">
