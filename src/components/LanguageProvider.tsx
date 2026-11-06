@@ -191,7 +191,7 @@ const MM: Record<string, string> = {
   "WITHDRAW": "ငွေထုတ်",
   "CASH": "ငွေသား",
   "PAID": "ပေးချေပြီး",
-  "UNPAID": "မပေးချေရသေး",
+  "UNPAID": "အကြွေး",
   "PARTIAL": "တစ်စိတ်တစ်ပိုင်း",
   "INCOME": "ဝင်ငွေ",
   "EXPENSE": "ထွက်ငွေ",
@@ -1595,6 +1595,7 @@ const MM: Record<string, string> = {
   "Most repaired": "အများဆုံး ပြင်သူ",
   "Part from stock (LCD, battery…)": "Stock ထဲမှ ပစ္စည်း (LCD၊ ဘက်ထရီ…)",
   "Part from stock": "Stock ထဲမှ ပစ္စည်း",
+
 };
 
 const originalText = new WeakMap<Node, string>();

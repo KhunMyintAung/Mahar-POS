@@ -511,17 +511,21 @@ export default function PurchasesPage() {
               <span className="text-lg font-bold tabular-nums">{total.toLocaleString()} MMK</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-200 p-1 text-sm dark:bg-gray-900">
-              {([["full", "Paid in full"], ["part", "Part paid"], ["none", "Pay later"]] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setPayMode(mode)}
-                  className={cn("rounded-md px-2 py-2 font-medium", payMode === mode ? "bg-white shadow dark:bg-gray-700" : "text-gray-600 dark:text-gray-400")}
-                >
-                  {label}
-                </button>
-              ))}
+            {/* Paid or on credit: the first thing asked about the money. */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Payment</p>
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-200 p-1 text-sm dark:bg-gray-900">
+                {([["full", "Paid", "bg-emerald-600 text-white"], ["part", "Part paid", "bg-blue-600 text-white"], ["none", "Credit", "bg-amber-600 text-white"]] as const).map(([mode, label, on]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPayMode(mode)}
+                    className={cn("rounded-md px-2 py-2 font-semibold", payMode === mode ? `${on} shadow` : "text-gray-600 dark:text-gray-400")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
