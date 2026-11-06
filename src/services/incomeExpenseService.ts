@@ -26,6 +26,9 @@ export async function createIncomeExpenseEntry(
     description?: string;
     /** The supplier an expense was paid to. */
     supplierId?: string;
+    /** What leaves the wallet now, when less than the amount: a salary whose advance was
+     *  paid out earlier counts in full as expense but only the rest leaves the wallet. */
+    moneyOut?: bigint;
   }
 ) {
   if (opts.amount <= 0n) throw new ApiError(422, "Amount must be greater than zero");
@@ -72,11 +75,12 @@ export async function createIncomeExpenseEntry(
     },
   });
 
-  await postLedger(tx, {
+  const moved = opts.moneyOut ?? opts.amount;
+  if (moved > 0n) await postLedger(tx, {
     businessId: opts.businessId,
     walletId: wallet.id,
     direction: opts.type === "INCOME" ? "DEBIT" : "CREDIT",
-    amount: opts.amount,
+    amount: moved,
     refType: opts.type,
     refId: it.id,
     description: `${txnNo} ${categoryName}`,

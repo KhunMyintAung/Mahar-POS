@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
@@ -24,12 +24,18 @@ interface PayRow {
   absentDeduction: string; advance: string; commission: string; net: string; payment: Payment | null;
   attendanceBonus: string; deposit: string;
 }
-interface Bonus { id: string; staffId: string; amount: string; date: string; walletId: string; note?: string | null; voidedAt?: string | null }
-interface DepositBal { staffId: string; kept: string; returned: string; held: string; months: number; firstMonth: string | null }
+interface Bonus { id: string; staffId: string; amount: string; date: string; walletId?: string | null; held?: boolean; month?: string | null; note?: string | null; voidedAt?: string | null }
+/** The held balance: deposit, no days off bonus and profit bonus, less withdrawals. free is
+ *  what can come out before the deposit months are up. */
+interface DepositBal { staffId: string; kept: string; bonus: string; profit: string; returned: string; held: string; free: string; months: number; firstMonth: string | null }
 interface DepositReturn { id: string; staffId: string; amount: string; date: string; walletId: string; note?: string | null; voidedAt?: string | null }
 interface EarnCell { salary: string; commission: string; bonus: string; total: string }
 interface EarnRow { staff: { id: string; name: string; active: boolean }; months: Record<string, EarnCell>; year: EarnCell; allTime: EarnCell; depositHeld: string; depositMonths: number }
-interface BossShare { year: string; partners: { name: string; percent: number; total: string }[]; months: { month: string; netProfit: string; reserve: string; shares: string[] }[] }
+interface BossMonth {
+  month: string; netProfit: string; reserve: string; shares: string[]; left: string; done: boolean; bonusGiven: string;
+  taken: { id: string; amount: string; walletId: string; createdAt: string } | null;
+}
+interface BossShare { year: string; partners: { name: string; percent: number; total: string }[]; months: BossMonth[] }
 interface Wallet { id: string; name: string; currency: string; branchId?: string | null; active?: boolean }
 interface UserRow { id: string; name: string; role?: { name: string } }
 
@@ -71,7 +77,7 @@ export default function StaffPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3">
-      <PageHeader title="Staff Management" lead={<span className="text-sm text-gray-600 dark:text-gray-300">Staff, attendance, advances and salaries. Salaries and advances go into Income &amp; Expense as Staff Salary.</span>} />
+      <PageHeader title="Staff Management" lead={<span className="text-sm text-gray-600 dark:text-gray-300">Staff, attendance, advances and salaries. Salaries go into Income &amp; Expense as Staff Salary; an advance is not an expense, it comes off the salary.</span>} />
       <div className="flex gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
         {([["staff", "Staff"], ["attendance", "Attendance"], ["advances", "Advances"], ["payroll", "Salary"], ["bonus", "Bonus & Deposit"], ["earnings", "Earnings"],
           // Boss Share shows the shop's profit: only for someone who can see Reports (the owner, not HR).
@@ -88,7 +94,7 @@ export default function StaffPage() {
       {tab === "payroll" && <PayrollTab wallets={wallets} />}
       {tab === "bonus" && <BonusTab staff={staff} wallets={wallets} />}
       {tab === "earnings" && <EarningsTab />}
-      {tab === "boss" && <BossTab />}
+      {tab === "boss" && <BossTab staff={active} wallets={wallets} />}
     </div>
   );
 }
@@ -308,6 +314,7 @@ function AdvancesTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) 
           </Table>
         )}
       </Card>
+      <p className="text-xs text-gray-500">An advance leaves the wallet but is not an expense: the staff member owes it back. It comes off the next salary, and that salary goes into expense in full.</p>
       <Modal open={show} onClose={() => setShow(false)} title="Give advance"
         footer={<>
           <Button variant="secondary" onClick={() => setShow(false)}>Cancel</Button>
@@ -373,7 +380,7 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
     const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
     const salary = Number(BigInt(paying.staff.salary) / 100n);
     const off = Math.round((salary * num(form.absentDays)) / days / 1) || 0;
-    return salary - off - Number(BigInt(paying.advance) / 100n) + num(form.commission) + num(form.bonus) + num(form.attendanceBonus) - num(form.otherDeduction) - num(form.deposit);
+    return salary - off - Number(BigInt(paying.advance) / 100n) + num(form.commission) + num(form.bonus) - num(form.otherDeduction) - num(form.deposit);
   }, [paying, form, month]);
 
   const totals = (rows ?? []).reduce((t, r) => ({
@@ -436,8 +443,8 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
               <Input label="Days off (unpaid)" inputMode="decimal" value={form.absentDays} onChange={(e) => setForm({ ...form, absentDays: e.target.value })} />
               <Input label="Commission" inputMode="decimal" value={form.commission} onChange={(e) => setForm({ ...form, commission: e.target.value })} />
               <Input label="Bonus" inputMode="decimal" value={form.bonus} onChange={(e) => setForm({ ...form, bonus: e.target.value })} />
-              <Input label="No days off bonus" inputMode="decimal" value={form.attendanceBonus} onChange={(e) => setForm({ ...form, attendanceBonus: e.target.value })} />
-              <Input label="Deposit kept" inputMode="decimal" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} />
+              <Input label="No days off bonus (held)" inputMode="decimal" value={form.attendanceBonus} onChange={(e) => setForm({ ...form, attendanceBonus: e.target.value })} />
+              <Input label="Deposit kept (held)" inputMode="decimal" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} />
               <Input label="Other deduction" inputMode="decimal" value={form.otherDeduction} onChange={(e) => setForm({ ...form, otherDeduction: e.target.value })} />
               <Select label="Paid from" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
                 {wallets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -447,6 +454,9 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
             <div className="flex justify-between rounded-lg bg-gray-50 p-2 text-sm font-semibold dark:bg-gray-800">
               <span>To pay</span><span className={cn("tabular-nums", preview < 0 && "text-red-600")}>{Math.round(preview).toLocaleString("en-US")} MMK</span>
             </div>
+            {num(form.attendanceBonus) + num(form.deposit) > 0 && (
+              <p className="text-xs text-gray-500">{`Into ${paying.staff.name}'s held balance: ${(num(form.attendanceBonus) + num(form.deposit)).toLocaleString("en-US")} MMK (no days off bonus and deposit), until withdrawn.`}</p>
+            )}
           </div>
         )}
       </Modal>
@@ -488,13 +498,14 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
   const bal = (id: string) => dep.balances.find((b) => b.staffId === id);
   const held = dep.balances.reduce((n, b) => n + BigInt(b.held), 0n);
   const picked = form ? bal(form.staffId) : undefined;
-  const tooEarly = form?.kind === "deposit" && (picked?.months ?? 0) < dep.months;
+  // The deposit part comes out only after the months are up (or when said so).
+  const tooEarly = form?.kind === "deposit" && (picked?.months ?? 0) < dep.months && num(form.amount) * 100 > Number(picked?.free ?? 0);
 
   return (
     <>
       <div className="grid gap-2 sm:grid-cols-2">
         <StatCard label="Bonuses this year" value={fmtMoney(bonuses.filter((b) => !b.voidedAt && b.date.startsWith(today().slice(0, 4))).reduce((n, b) => n + BigInt(b.amount), 0n).toString(), "MMK")} tone="green" />
-        <StatCard label="Deposit held for staff" value={fmtMoney(held.toString(), "MMK")} tone="amber" />
+        <StatCard label="Held for staff" value={fmtMoney(held.toString(), "MMK")} tone="amber" />
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -511,7 +522,7 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
                 <td className="px-3 py-2 text-sm">{b.date}</td>
                 <td className="px-3 py-2 font-medium">{name(b.staffId)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(b.amount)}</td>
-                <td className="px-3 py-2 text-sm">{wallet(b.walletId)}</td>
+                <td className="px-3 py-2 text-sm">{b.held ? `Held · ${b.month ?? ""}` : wallet(b.walletId ?? "")}</td>
                 <td className="px-3 py-2 text-sm">{b.note ?? ""}</td>
                 <td className="px-3 py-2">{!b.voidedAt && <Button size="sm" variant="ghost" onClick={() => setVoiding({ kind: "bonus", id: b.id, label: `${name(b.staffId)} · ${fmtMoney(b.amount, "MMK")}` })}>Cancel</Button>}</td>
               </tr>
@@ -520,20 +531,20 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
         )}
       </Card>
 
-      <h3 className="pt-2 text-sm font-semibold">Deposit</h3>
+      <h3 className="pt-2 text-sm font-semibold">Held balance</h3>
       <Card>
-        {dep.balances.length === 0 ? <Empty message="No deposit kept yet. Set the monthly deposit on a staff member, then it is kept from each salary." /> : (
-          <Table headers={["Staff", "Months", "Kept", "Paid back", "Held", ""]} rightAlign={[1, 2, 3, 4]}>
+        {dep.balances.length === 0 ? <Empty message="Nothing held yet. The deposit and the no days off bonus go in at payday, and profit bonuses from Boss Share." /> : (
+          <Table headers={["Staff", "Deposit", "Bonus", "Withdrawn", "Held", ""]} rightAlign={[1, 2, 3, 4]}>
             {dep.balances.map((b) => (
               <tr key={b.staffId}>
                 <td className="px-3 py-2 font-medium">{name(b.staffId)}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{b.months}{b.months < dep.months && <div className="text-xs text-gray-500">{`${dep.months - b.months} more to go`}</div>}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(b.kept)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(b.kept)}<div className="text-xs text-gray-500">{b.months < dep.months ? `${b.months} of ${dep.months} months` : `${b.months} months`}</div></td>
+                <td className="px-3 py-2 text-right tabular-nums">{fmtMoney((BigInt(b.bonus) + BigInt(b.profit)).toString())}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(b.returned)}</td>
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtMoney(b.held)}</td>
                 <td className="px-3 py-2">{BigInt(b.held) > 0n && (
-                  <Button size="sm" variant={b.months >= dep.months ? "primary" : "secondary"}
-                    onClick={() => setForm({ kind: "deposit", staffId: b.staffId, amount: minorToInput(b.held), walletId: wallets[0]?.id ?? "", date: today(), note: "", early: false })}>Pay back</Button>
+                  <Button size="sm" variant="primary"
+                    onClick={() => setForm({ kind: "deposit", staffId: b.staffId, amount: minorToInput(b.months >= dep.months ? b.held : b.free), walletId: wallets[0]?.id ?? "", date: today(), note: "", early: false })}>Withdraw</Button>
                 )}</td>
               </tr>
             ))}
@@ -541,7 +552,7 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
         )}
         {dep.returns.length > 0 && (
           <div className="border-t border-gray-100 p-3 text-sm dark:border-gray-800">
-            <div className="mb-1 text-xs font-semibold text-gray-500">Paid back</div>
+            <div className="mb-1 text-xs font-semibold text-gray-500">Withdrawn</div>
             {dep.returns.map((r) => (
               <div key={r.id} className={cn("flex items-center justify-between gap-2 py-0.5", r.voidedAt && "opacity-50 line-through")}>
                 <span>{`${r.date} · ${name(r.staffId)} · ${wallet(r.walletId)}`}</span>
@@ -553,9 +564,9 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
           </div>
         )}
       </Card>
-      <p className="text-xs text-gray-500">{`The deposit is kept from each salary and can be paid back after ${dep.months} months. Bonuses and paybacks go into Income & Expense as Staff Salary.`}</p>
+      <p className="text-xs text-gray-500">{`Each payday the deposit and the no days off bonus go into the staff member's held balance, and stay there until withdrawn. Bonuses can come out any time; the deposit after ${dep.months} months. Withdrawn bonus and deposit go into Income & Expense as Staff Salary; a profit bonus as a withdrawal, since that profit was already counted.`}</p>
 
-      <Modal open={Boolean(form)} onClose={() => setForm(null)} title={form?.kind === "deposit" ? "Pay back deposit" : "Give bonus"}
+      <Modal open={Boolean(form)} onClose={() => setForm(null)} title={form?.kind === "deposit" ? "Withdraw held balance" : "Give bonus"}
         footer={<>
           <Button variant="secondary" onClick={() => setForm(null)}>Cancel</Button>
           <Button disabled={busy || !form?.staffId || !form?.walletId || num(form?.amount ?? "") <= 0 || (tooEarly && !form?.early)}
@@ -576,12 +587,12 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
             <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
             <div className="sm:col-span-2"><Input label="Note" placeholder={form.kind === "bonus" ? "Year end, Thingyan…" : ""} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
             {form.kind === "deposit" && picked && (
-              <p className="text-sm sm:col-span-2">{`Held ${fmtMoney(picked.held, "MMK")} · ${picked.months} of ${dep.months} months kept`}</p>
+              <p className="text-sm sm:col-span-2">{`Held ${fmtMoney(picked.held, "MMK")} · free to withdraw ${fmtMoney(picked.months >= dep.months ? picked.held : picked.free, "MMK")} · deposit ${picked.months} of ${dep.months} months`}</p>
             )}
             {tooEarly && (
               <label className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 sm:col-span-2">
                 <input type="checkbox" checked={form.early} onChange={(e) => setForm({ ...form, early: e.target.checked })} />
-                {`Pay back before ${dep.months} months (leaving the job…)`}
+                {`Take the deposit out before ${dep.months} months (leaving the job…)`}
               </label>
             )}
           </div>
@@ -624,11 +635,11 @@ function EarningsTab() {
       <div className="grid gap-2 sm:grid-cols-3">
         <StatCard label={`Paid to staff in ${year}`} value={fmtMoney(sum((r) => r.year.total), "MMK")} />
         <StatCard label="Paid to staff, all time" value={fmtMoney(sum((r) => r.allTime.total), "MMK")} />
-        <StatCard label="Deposit held for staff" value={fmtMoney(sum((r) => r.depositHeld), "MMK")} tone="amber" />
+        <StatCard label="Held for staff" value={fmtMoney(sum((r) => r.depositHeld), "MMK")} tone="amber" />
       </div>
       <Card>
         {data.rows.length === 0 ? <Empty message="Nothing paid yet" /> : (
-          <Table grid headers={["Staff", "Salary", "Commission", "Bonus", `Total ${year}`, "All time", "Deposit held"]} rightAlign={[1, 2, 3, 4, 5, 6]} csv={`staff-earnings-${year}`}>
+          <Table grid headers={["Staff", "Salary", "Commission", "Bonus", `Total ${year}`, "All time", "Held balance"]} rightAlign={[1, 2, 3, 4, 5, 6]} csv={`staff-earnings-${year}`}>
             {data.rows.map((r) => (
               <tr key={r.staff.id} className={cn("cursor-pointer", !r.staff.active && "opacity-60")} onClick={() => setOpen(open === r.staff.id ? null : r.staff.id)}>
                 <td className="px-3 py-2 font-medium">{r.staff.name} <span className="text-xs text-gray-400">{open === r.staff.id ? "▴" : "▾"}</span></td>
@@ -672,16 +683,21 @@ function EarningsTab() {
           </Card>
         );
       })()}
-      <p className="text-xs text-gray-500">Salary is after days off and deductions, with the deposit counted (it is theirs). Bonus includes the no days off bonus and bonuses paid on their own. Tap a name for each month.</p>
+      <p className="text-xs text-gray-500">Salary is after days off and deductions, with the deposit counted (it is theirs). Bonus includes the no days off bonus, profit bonuses and bonuses paid on their own. Tap a name for each month.</p>
     </>
   );
 }
 
-/** Boss Share: each month's net profit split among the partners set in Reports. */
-function BossTab() {
+/** Boss Share: each month's net profit split among the partners set in Reports. Once a month
+ *  is over its share is taken out of a wallet first (a withdrawal, not an expense); then what
+ *  the partners leave can be given to staff as a profit bonus, into their held balances. */
+function BossTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
   const [year, setYear] = useState(today().slice(0, 4));
   const [data, setData] = useState<BossShare | null>(null);
   const [editing, setEditing] = useState<{ name: string; percent: string }[] | null>(null);
+  const [taking, setTaking] = useState<{ m: BossMonth; walletId: string } | null>(null);
+  const [giving, setGiving] = useState<{ m: BossMonth; amounts: Record<string, string> } | null>(null);
+  const [undoing, setUndoing] = useState<BossMonth | null>(null);
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
   const { hasPerm } = useAuth();
@@ -706,8 +722,22 @@ function BossTab() {
       setBusy(false);
     }
   }
+  async function run(fn: () => Promise<unknown>, ok: string) {
+    setBusy(true);
+    try { await fn(); push(ok); setTaking(null); setGiving(null); setUndoing(null); load(); }
+    catch (e) { push(e instanceof Error ? e.message : "Failed", "error"); }
+    finally { setBusy(false); }
+  }
+  // The profit left after Boss Share, split evenly among active staff to start with.
+  function openGive(m: BossMonth) {
+    const rest = BigInt(m.left) - BigInt(m.bonusGiven);
+    const each = staff.length ? rest / 100n / BigInt(staff.length) : 0n;
+    setGiving({ m, amounts: Object.fromEntries(staff.map((st) => [st.id, each.toString()])) });
+  }
   const editTotal = (editing ?? []).filter((p) => p.name.trim()).reduce((n, p) => n + num(p.percent), 0);
   if (!data) return <Spinner />;
+  const giveTotal = giving ? Object.values(giving.amounts).reduce((n, v) => n + num(v), 0) : 0;
+  const giveRoom = giving ? Number((BigInt(giving.m.left) - BigInt(giving.m.bonusGiven)) / 100n) : 0;
   const profit = data.months.reduce((n, m) => n + BigInt(m.netProfit), 0n).toString();
 
   return (
@@ -733,30 +763,50 @@ function BossTab() {
             ))}
           </div>
           <Card>
-            <Table grid headers={["Month", "Net profit", "Kept as capital", ...data.partners.map((p) => p.name)]} rightAlign={[1, 2, ...data.partners.map((_, i) => i + 3)]} csv={`boss-share-${year}`}>
-              {data.months.map((m) => (
-                <tr key={m.month}>
-                  <td className="px-3 py-1.5">{monthName(m.month)}</td>
-                  <td className={cn("px-3 py-1.5 text-right tabular-nums", BigInt(m.netProfit) < 0n && "text-red-700/85 dark:text-red-300/80")}>{fmtMoney(m.netProfit)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(m.reserve)}</td>
-                  {m.shares.map((v, i) => <td key={i} className="px-3 py-1.5 text-right font-semibold tabular-nums">{fmtMoney(v)}</td>)}
-                </tr>
-              ))}
+            <Table grid headers={["Month", "Net profit", "Kept as capital", ...data.partners.map((p) => p.name), "Left for staff", ""]} rightAlign={[1, 2, ...data.partners.map((_, i) => i + 3), data.partners.length + 3]} csv={`boss-share-${year}`}>
+              {data.months.map((m) => {
+                const shareTotal = m.shares.reduce((n, v) => n + BigInt(v), 0n);
+                const rest = BigInt(m.left) - BigInt(m.bonusGiven);
+                return (
+                  <tr key={m.month}>
+                    <td className="px-3 py-1.5">{monthName(m.month)}</td>
+                    <td className={cn("px-3 py-1.5 text-right tabular-nums", BigInt(m.netProfit) < 0n && "text-red-700/85 dark:text-red-300/80")}>{fmtMoney(m.netProfit)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(m.reserve)}</td>
+                    {m.shares.map((v, i) => <td key={i} className="px-3 py-1.5 text-right font-semibold tabular-nums">{fmtMoney(v)}</td>)}
+                    <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(m.left)}
+                      {BigInt(m.bonusGiven) > 0n && <div className="text-xs text-gray-500">{`Given ${fmtMoney(m.bonusGiven)}`}</div>}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {m.taken ? (
+                          <button type="button" className="rounded-md border border-emerald-300 px-2 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:text-emerald-300"
+                            title="Taken out of the wallet. Tap to cancel it." onClick={() => setUndoing(m)}>Taken</button>
+                        ) : m.done && shareTotal > 0n ? (
+                          <Button size="sm" onClick={() => setTaking({ m, walletId: wallets[0]?.id ?? "" })}>Take share</Button>
+                        ) : null}
+                        {m.taken && rest > 0n && staff.length > 0 && <Button size="sm" variant="secondary" onClick={() => openGive(m)}>Give bonus</Button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               <tr className="bg-gray-50 font-semibold dark:bg-gray-800/60">
                 <td className="px-3 py-1.5">Total</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(profit)}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(data.months.reduce((n, m) => n + BigInt(m.reserve), 0n).toString())}</td>
                 {data.partners.map((p) => <td key={p.name} className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(p.total)}</td>)}
+                <td className="px-3 py-1.5 text-right tabular-nums">{fmtMoney(data.months.reduce((n, m) => n + BigInt(m.left), 0n).toString())}</td>
+                <td />
               </tr>
             </Table>
           </Card>
-          <p className="text-xs text-gray-500">Net profit is the Reports figure (after expenses and staff salary). A month with a loss shares nothing.</p>
+          <p className="text-xs text-gray-500">Net profit is the Reports figure (after expenses and staff salary). A month with a loss shares nothing. Once a month is over, take its share first (it leaves the wallet as a withdrawal, not an expense); then what the partners leave can go to staff as a profit bonus, into their held balance.</p>
         </>
       )}
       <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Boss & partners"
         footer={<>
           <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-          <Button disabled={busy || (editTotal !== 0 && Math.abs(editTotal - 100) > 0.01)} onClick={() => void savePartners()}>Save</Button>
+          <Button disabled={busy || editTotal > 100.01} onClick={() => void savePartners()}>Save</Button>
         </>}>
         {editing && (
           <div className="space-y-2">
@@ -768,12 +818,60 @@ function BossTab() {
               </div>
             ))}
             {editing.length < 10 && <Button variant="ghost" onClick={() => setEditing([...editing, { name: "", percent: "" }])}>+ Add partner</Button>}
-            <p className={cn("text-sm", editTotal !== 0 && Math.abs(editTotal - 100) > 0.01 ? "text-red-600" : "text-gray-500")}>
-              {`Total ${editTotal}% — must be 100%, or all 0 for equal shares`}
+            <p className={cn("text-sm", editTotal > 100.01 ? "text-red-600" : "text-gray-500")}>
+              {`Total ${editTotal}% — at most 100% (all 0 for equal shares). What the partners do not take is left for staff bonus.`}
             </p>
             <p className="text-xs text-gray-500">The same setting as profit sharing in Reports. Capital kept for next month is set there.</p>
           </div>
         )}
+      </Modal>
+      <Modal open={Boolean(taking)} onClose={() => setTaking(null)} title={taking ? `Take Boss Share · ${monthName(taking.m.month)} ${taking.m.month.slice(0, 4)}` : "Take Boss Share"}
+        footer={<>
+          <Button variant="secondary" onClick={() => setTaking(null)}>Cancel</Button>
+          <Button disabled={busy || !taking?.walletId} onClick={() => taking && void run(() => api("/api/v1/staff/boss-share/take", { method: "POST", body: { month: taking.m.month, walletId: taking.walletId } }), "Boss Share taken")}>Take share</Button>
+        </>}>
+        {taking && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-y-1 text-sm">
+              {data.partners.map((p, i) => (
+                <Fragment key={p.name}><span>{`${p.name} · ${p.percent}%`}</span><span className="text-right font-semibold tabular-nums">{fmtMoney(taking.m.shares[i] ?? "0")}</span></Fragment>
+              ))}
+            </div>
+            <Select label="Taken out of" value={taking.walletId} onChange={(e) => setTaking({ ...taking, walletId: e.target.value })}>
+              {wallets.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </Select>
+            <p className="text-xs text-gray-500">It leaves the wallet as a withdrawal (Boss Share), not an expense, so the profit stays as it is.</p>
+          </div>
+        )}
+      </Modal>
+      <Modal open={Boolean(giving)} onClose={() => setGiving(null)} title={giving ? `Profit bonus · ${monthName(giving.m.month)} ${giving.m.month.slice(0, 4)}` : "Profit bonus"}
+        footer={<>
+          <Button variant="secondary" onClick={() => setGiving(null)}>Cancel</Button>
+          <Button disabled={busy || giveTotal <= 0 || giveTotal > giveRoom} onClick={() => giving && void run(() => api("/api/v1/staff/bonuses/profit", {
+            method: "POST", body: { month: giving.m.month, amounts: Object.entries(giving.amounts).map(([staffId, amount]) => ({ staffId, amount })) },
+          }), "Bonus given")}>Give</Button>
+        </>}>
+        {giving && (
+          <div className="space-y-2">
+            <p className="text-sm">{`Left after Boss Share: ${giveRoom.toLocaleString("en-US")} MMK`}</p>
+            {staff.map((st) => (
+              <div key={st.id} className="flex items-center gap-2">
+                <span className="flex-1 text-sm">{st.name}</span>
+                <div className="w-32"><Input inputMode="decimal" value={giving.amounts[st.id] ?? ""} onChange={(e) => setGiving({ ...giving, amounts: { ...giving.amounts, [st.id]: e.target.value } })} /></div>
+              </div>
+            ))}
+            <p className={cn("text-sm", giveTotal > giveRoom ? "text-red-600" : "text-gray-500")}>{`Total ${giveTotal.toLocaleString("en-US")} MMK`}</p>
+            <p className="text-xs text-gray-500">Goes into each one&apos;s held balance, until withdrawn.</p>
+          </div>
+        )}
+      </Modal>
+      <Modal open={Boolean(undoing)} onClose={() => setUndoing(null)} title="Cancel Boss Share"
+        footer={<>
+          <Button variant="secondary" onClick={() => setUndoing(null)}>Close</Button>
+          <Button variant="danger" disabled={busy} onClick={() => undoing?.taken && void run(() => api(`/api/v1/staff/boss-share/${undoing.taken!.id}/void`, { method: "POST", body: { reason: "Boss Share cancelled" } }), "Cancelled")}>Cancel it</Button>
+        </>}>
+        <p className="text-sm">{undoing?.taken && `${monthName(undoing.month)} ${undoing.month.slice(0, 4)} · ${fmtMoney(undoing.taken.amount, "MMK")}`}</p>
+        <p className="mt-1 text-xs text-gray-500">The money goes back into its wallet.</p>
       </Modal>
     </>
   );

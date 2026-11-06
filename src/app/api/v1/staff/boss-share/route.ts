@@ -1,6 +1,7 @@
 import { withAuth, json, ApiError } from "@/lib/api";
 import { todayBusinessDate } from "@/lib/dates";
 import { buildReport, distribute } from "@/services/reportService";
+import { monthDone, yearTakes } from "@/services/bossShareService";
 
 /** Boss Share for ?year=YYYY: each month's net profit (as Reports work it out), less the
  *  capital kept, split among the partners set in Reports, month by month. It shows the
@@ -16,9 +17,16 @@ export const GET = withAuth("staff.manage", async ({ req, user }) => {
   // Early in the year the report comes by day: added up into months first.
   const byMonth = new Map<string, bigint>();
   for (const r of report.rows) byMonth.set(r.period.slice(0, 7), (byMonth.get(r.period.slice(0, 7)) ?? 0n) + r.netProfit);
+  const { takes, given } = await yearTakes(user.businessId, year);
   const months = [...byMonth].map(([month, netProfit]) => {
     const d = distribute(netProfit, report.settings, 1);
-    return { month, netProfit, reserve: d.reserve, shares: d.partners.map((p) => p.amount) };
+    const take = takes.get(month);
+    return {
+      month, netProfit, reserve: d.reserve, shares: d.partners.map((p) => p.amount), left: d.left,
+      done: monthDone(month),
+      taken: take ? { id: take.id, amount: take.amount, walletId: take.walletId, createdAt: take.createdAt } : null,
+      bonusGiven: given.get(month) ?? 0n,
+    };
   });
   const partners = report.settings.partners.map((p, i) => ({
     name: p.name,

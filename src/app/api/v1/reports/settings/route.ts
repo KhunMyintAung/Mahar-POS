@@ -17,7 +17,7 @@ const schema = z.object({
   generalExpenseTo: z.enum(["sales", "service", "topup", "general"]),
   reserve: z.object({ mode: z.enum(["percent", "amount"]), value: z.number().min(0).max(1e12) }),
   partners: z.array(z.object({ name: z.string().trim().min(1).max(60), percent: z.number().min(0).max(100) })).max(10)
-    .refine((list) => { const t = list.reduce((a, p) => a + p.percent, 0); return t === 0 || Math.abs(t - 100) < 0.01; }, "Partner shares must add up to 100%, or all be 0 for equal shares"),
+    .refine((list) => list.reduce((a, p) => a + p.percent, 0) <= 100.01, "Partner shares can add up to at most 100% (all 0 for equal shares)"),
 }).refine((v) => v.reserve.mode !== "percent" || v.reserve.value <= 100, { message: "Percent can be at most 100", path: ["reserve"] });
 
 export const PUT = withAuth("settings.manage", async ({ req, user }) => {

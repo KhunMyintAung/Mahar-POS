@@ -38,7 +38,8 @@ export interface ReportSettings {
   /** Kept back from net profit as capital for next month: a percent, or an amount (MMK)
    *  per month. */
   reserve: { mode: "percent" | "amount"; value: number };
-  /** Who shares what is left. Percents of 0 for everyone mean equal shares. */
+  /** Who shares what is left. Percents of 0 for everyone mean equal shares; adding up to less
+   *  than 100%, the rest is left over (the staff bonus pool). */
   partners: Partner[];
   /** Item categories listed on the Stock sheet (with their sub-categories), e.g. spare parts. */
   stockCategoryIds: string[];
@@ -123,6 +124,8 @@ export interface Distribution {
   netProfit: bigint;
   reserve: bigint;
   distributable: bigint;
+  /** What the partners did not take (their percents add up to less than 100%). */
+  left: bigint;
   /** Months the reserve amount was counted for. */
   months: number;
   partners: { name: string; percent: number; amount: bigint }[];
@@ -222,11 +225,14 @@ export function distribute(netProfit: bigint, settings: ReportSettings, months: 
   const weights = list.map((p) => BigInt(Math.round((totalPct > 0 ? p.percent : 1) * 100)));
   const weightSum = weights.reduce((a, w) => a + w, 0n);
   const kyats = distributable / 100n;
-  const shares = weights.map((w) => (weightSum > 0n ? (kyats * w) / weightSum : 0n));
+  // Partners adding up to less than 100% take exactly their percents; the rest is left over.
+  const partial = totalPct > 0 && totalPct < 99.995;
+  const shares = weights.map((w) => (partial ? (kyats * w) / 10000n : weightSum > 0n ? (kyats * w) / weightSum : 0n));
+  const sharedKs = partial ? (kyats * weightSum) / 10000n : kyats;
   // The kyats lost to rounding go to the first partner, so the shares add up.
-  if (shares.length) shares[0] += kyats - shares.reduce((a, x) => a + x, 0n);
+  if (shares.length) shares[0] += sharedKs - shares.reduce((a, x) => a + x, 0n);
   return {
-    netProfit, reserve, distributable, months,
+    netProfit, reserve, distributable, months, left: (kyats - (shares.length ? sharedKs : 0n)) * 100n,
     partners: list.map((p, i) => ({ name: p.name, percent: totalPct > 0 ? p.percent : Math.round(10000 / list.length) / 100, amount: shares[i] * 100n })),
   };
 }

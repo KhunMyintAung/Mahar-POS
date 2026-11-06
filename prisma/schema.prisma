@@ -1096,15 +1096,20 @@ model StaffAttendance {
   @@index([businessId, date])
 }
 
-/// A bonus paid on its own (year end, Thingyan…): a Staff Salary expense.
+/// A bonus paid on its own (year end, Thingyan…): a Staff Salary expense. Or, held: a share of
+/// a month's profit left after Boss Share, kept in the staff member's balance until withdrawn.
 model StaffBonus {
   id          String    @id @default(uuid())
   businessId  String
   staffId     String
   amount      BigInt
   date        String
-  walletId    String
-  expenseId   String
+  walletId    String?
+  expenseId   String?
+  /// Kept in the held balance (from the profit left after Boss Share), not paid out now.
+  held        Boolean   @default(false)
+  /// The profit month a held bonus came from (YYYY-MM).
+  month       String?
   note        String?
   createdById String
   createdAt   DateTime  @default(now())
@@ -1113,16 +1118,21 @@ model StaffBonus {
   @@index([businessId, staffId])
 }
 
-/// Deposit kept from salaries, paid back to the staff member: a Staff Salary expense.
+/// Money withdrawn from a staff member's held balance (deposit, no days off bonus, profit
+/// bonus). The deposit and no days off bonus part is a Staff Salary expense; the profit bonus
+/// part is a withdrawal, since that profit was already counted.
 model StaffDepositReturn {
-  id          String    @id @default(uuid())
-  businessId  String
-  staffId     String
-  amount      BigInt
-  date        String
-  walletId    String
-  expenseId   String
-  note        String?
+  id           String    @id @default(uuid())
+  businessId   String
+  staffId      String
+  amount       BigInt
+  /// Of the amount, what came from profit bonuses (the withdrawal); the rest is the expense.
+  profitAmount BigInt    @default(0)
+  date         String
+  walletId     String
+  expenseId    String?
+  withdrawId   String?
+  note         String?
   createdById String
   createdAt   DateTime  @default(now())
   voidedAt    DateTime?
@@ -1138,8 +1148,9 @@ model StaffAdvance {
   amount          BigInt
   date            String
   walletId        String
-  /// The Staff Salary expense that took the money out of the wallet.
-  expenseId       String
+  /// Older advances only: the Staff Salary expense that took the money out. An advance now
+  /// is money owed back by the staff member, not an expense; the salary it comes off is.
+  expenseId       String?
   /// The salary payment it was taken off, once paid.
   salaryPaymentId String?
   note            String?
@@ -1168,6 +1179,8 @@ model StaffSalaryPayment {
   otherDeduction   BigInt    @default(0)
   /// Kept back as the staff member's deposit (owed to them, paid back later).
   deposit          BigInt    @default(0)
+  /// The no days off bonus put into the held balance instead of paid (the whole of it).
+  bonusHeld        BigInt    @default(0)
   net              BigInt
   walletId         String
   /// The Staff Salary expense; none when nothing was left to pay.
@@ -1179,4 +1192,23 @@ model StaffSalaryPayment {
 
   @@index([businessId, month])
   @@index([staffId, month])
+}
+
+/// A month's Boss Share taken out of a wallet: each partner's share, as one withdrawal (not an
+/// expense, so the profit stays as it was). One per month unless cancelled.
+model BossShareTake {
+  id          String    @id @default(uuid())
+  businessId  String
+  /// YYYY-MM
+  month       String
+  amount      BigInt
+  /// [{ name, percent, amount }] as taken.
+  shares      Json
+  walletId    String
+  withdrawId  String
+  createdById String
+  createdAt   DateTime  @default(now())
+  voidedAt    DateTime?
+
+  @@index([businessId, month])
 }
