@@ -15,12 +15,16 @@ const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY, ONLINE_SHOP_COVER_KEY];
 
 export const GET = withAuth(null, async ({ req, user }) => {
   const key = req.nextUrl.searchParams.get("key");
-  const business = await prisma.business.findUnique({ where: { id: user.businessId } });
-  const settings = await prisma.systemSetting.findMany({
-    where: { businessId: user.businessId, key: key ? { equals: key, notIn: PRIVATE_KEYS } : { notIn: PRIVATE_KEYS } },
-  });
+  // One key asked for (?key=): just that setting, without the shop's profile and logo, which
+  // only the full read needs; it kept a small read at 40KB.
+  const [business, settings] = await Promise.all([
+    key ? null : prisma.business.findUnique({ where: { id: user.businessId } }),
+    prisma.systemSetting.findMany({
+      where: { businessId: user.businessId, key: key ? { equals: key, notIn: PRIVATE_KEYS } : { notIn: PRIVATE_KEYS } },
+    }),
+  ]);
   return json({
-    business,
+    ...(business ? { business } : {}),
     settings: Object.fromEntries(
       settings.map((setting) => [setting.key, JSON.parse(setting.value)])
     ),
