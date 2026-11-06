@@ -1,3 +1,5 @@
+import { canSeeCost } from "@/lib/permissions";
+import { paidTotals } from "@/services/repairProfitService";
 import { z } from "zod";
 import { withAuth, json, parseBody, pagination, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
@@ -58,7 +60,9 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       : {}),
   };
 
-  const [jobs, total, byStatus] = await Promise.all([
+  // Today's service profit rides along with the list (not with a search), for whoever may see costs.
+  const wantToday = !q && canSeeCost(user.permissions);
+  const [jobs, total, byStatus, today] = await Promise.all([
     prisma.repairJob.findMany({ where, orderBy: { receivedAt: "desc" }, skip, take }),
     prisma.repairJob.count({ where }),
     prisma.repairJob.groupBy({
@@ -66,6 +70,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       where: { ...scope, receivedAt: monthRangeUtc(month) },
       _count: { _all: true },
     }),
+    wantToday ? paidTotals(user.businessId, todayBusinessDate()) : null,
   ]);
 
   const count = (statuses: string[]) =>
@@ -81,6 +86,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
     jobs: await withVoucherFields(user.businessId, jobs),
     total, page, pageSize,
     summary: { ...summary, month },
+    ...(today ? { today } : {}),
   });
 });
 

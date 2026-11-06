@@ -8,13 +8,23 @@ export async function loadRepairFlow(businessId: string): Promise<RepairFlow> {
   try { return parseRepairFlow(JSON.parse(row.value)); } catch { return DEFAULT_REPAIR_FLOW; }
 }
 
+/** Today's totals of repairs paid: how many, their charge, parts cost and profit. */
+export async function paidTotals(businessId: string, date: string, branchIds?: string[]) {
+  const jobs = await jobsPaidBetween(businessId, date, date, branchIds);
+  return jobs.reduce(
+    (t, j) => ({ count: t.count + 1, charge: t.charge + j.finalCost, parts: t.parts + j.partsCost, profit: t.profit + j.profit }),
+    { count: 0, charge: 0n, parts: 0n, profit: 0n },
+  );
+}
+
 /** Repair jobs settled in a date range: the day of each job's last payment (Mark as paid)
  *  falls in it. A job is counted once, on that day, however many payments it had. */
 export async function jobsPaidBetween(businessId: string, from: string, to: string, branchIds?: string[]) {
   const range = { gte: dateRangeUtc(from).gte, lt: dateRangeUtc(to).lt };
   const last = await prisma.walletLedgerEntry.groupBy({
     by: ["refId"],
-    where: { businessId, refType: "REPAIR_PAYMENT", direction: "DEBIT", refId: { not: null } },
+    // Only payments from the range's start on: a job's last payment, if in the range, is among them.
+    where: { businessId, refType: "REPAIR_PAYMENT", direction: "DEBIT", refId: { not: null }, createdAt: { gte: range.gte } },
     _max: { createdAt: true },
     having: { createdAt: { _max: { gte: range.gte, lt: range.lt } } },
   });

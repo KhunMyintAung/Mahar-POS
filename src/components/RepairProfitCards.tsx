@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { cn } from "@/components/ui";
 
-interface Totals { count: number; charge: string; parts: string; profit: string }
+export interface ProfitTotals { count: number; charge: string; parts: string; profit: string }
 
 /** Today's service profit, one slim chip beside the Repairs tabs: repairs paid today, their
- *  charge, parts cost and profit. Tapping opens the day by day view. refresh: changes when the
- *  jobs reload. */
-export function RepairProfitCards({ refresh, onOpen, className }: { refresh: unknown; onOpen: () => void; className?: string }) {
-  const [t, setT] = useState<Totals | null>(null);
-  useEffect(() => {
-    let live = true;
-    api<{ total: Totals }>("/api/v1/repairs/daily").then((d) => { if (live) setT(d.total); }).catch(() => {});
-    return () => { live = false; };
-  }, [refresh]);
-  if (!t) return null;
+ *  charge, parts cost and profit. Tapping opens the day by day view. The totals come with the
+ *  Repairs list, so the chip costs no request of its own. */
+export function RepairProfitCards({ totals: t, onOpen, className }: { totals: ProfitTotals; onOpen: () => void; className?: string }) {
   const items = [
     { label: "Charge", value: t.charge, tone: "text-blue-600 dark:text-blue-400" },
     { label: "Parts cost", value: t.parts, tone: "text-amber-600 dark:text-amber-400" },
