@@ -1599,6 +1599,8 @@ const MM: Record<string, string> = {
   "Condition": "အခြေအနေ",
   "Battery health (%)": "ဘက်ထရီ (%)",
   "Like new, small scratches…": "Like new၊ အစင်းရာ နည်းနည်း…",
+  "Bought for": "ဘာအတွက် ဝယ်တာလဲ",
+  "Choose Sale or Service": "အရောင်း (Sale) လား ဝန်ဆောင်မှု (Service) လား ရွေးပါ",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1649,7 +1651,8 @@ function translate(value: string) {
     [/^This wallet still holds (.+)\. Transfer or adjust it to zero first, so the money is not simply hidden\.$/, (amount) => `ဒီ Wallet ထဲ ${amount} ကျန်သေးသည်။ ငွေ မပျောက်သွားစေရန် အရင် လွှဲပါ သို့ 0 ညှိပါ။`],
     [/^Remove (.+)\? It will stop appearing when you record income or expense\. Entries already filed under it are not changed\.$/, (name) => `${name} ကို ဖယ်မလား? ဝင်ငွေ/ထွက်ငွေ မှတ်ရာတွင် မပေါ်တော့ပါ။ ယခင်မှတ်ထားသည်များ မပြောင်းပါ။`],
     [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
-    [/^Add (.+) for purchase (.+) to expense as Daily Sale Expense\?$/, (amount, txn) => `အဝယ် ${txn} ၏ ${amount} ကို Daily Sale Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^Add (.+) for purchase (.+) to expense as (Daily Sale Expense|Daily Service Expense)\?$/, (amount, txn, cat) => `အဝယ် ${txn} ၏ ${amount} ကို ${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^In expense as (Daily Sale Expense|Daily Service Expense)\. Tap to move it to (Sale|Service)\.$/, (cat, to) => `${cat === "Daily Service Expense" ? "ဝန်ဆောင်မှု" : "အရောင်း"} ထွက်ငွေထဲမှာ ရှိသည်။ ${to === "Service" ? "ဝန်ဆောင်မှု" : "အရောင်း"} ဘက် ရွှေ့ရန် နှိပ်ပါ။`],
     [/^(\d+) repaired$/, (n) => `${n} ခု ပြင်ပြီး`],
     [/^(\d+) low stock$/, (n) => `လက်ကျန်နည်း ${n} ခု`],
     [/^(\d+) expiring$/, (n) => `သက်တမ်းကုန်ခါနီး ${n} ခု`],

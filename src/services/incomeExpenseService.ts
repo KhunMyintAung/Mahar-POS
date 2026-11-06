@@ -170,19 +170,33 @@ export async function recordFloatExpense(tx: Tx, opts: { businessId: string; use
   return it;
 }
 
-/** Records a stock purchase as an expense (Daily Sale Expense), on the owner's say-so after
- *  saving it. Like the float record it moves no money — the purchase paid (or owes) the
- *  supplier — and in Reports it stands in for the cost of goods sold. One per purchase. */
-export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; userId: string; purchaseId: string }) {
+/** Records a stock purchase as an expense — Daily Sale Expense for goods to sell, Daily
+ *  Service Expense for parts used in repairs — on the owner's say-so after saving it. Like
+ *  the float record it moves no money — the purchase paid (or owes) the supplier — and in
+ *  Reports it stands in for that side's cost. One per purchase; asking again with the other
+ *  side moves the record there. */
+export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; userId: string; purchaseId: string; line?: "SALE" | "SERVICE" }) {
+  const line = opts.line ?? "SALE";
   const purchase = await tx.purchase.findFirst({ where: { id: opts.purchaseId, businessId: opts.businessId, deletedAt: null } });
   if (!purchase) throw new ApiError(404, "Purchase not found");
   if (purchase.status !== "COMPLETED") throw new ApiError(422, `${purchase.txnNo} is cancelled`);
   if (purchase.total <= 0n) throw new ApiError(422, "This purchase has nothing to record (all FOC)");
   const existing = await tx.incomeExpense.findUnique({ where: { purchaseId: purchase.id } });
-  if (existing && existing.status !== "REVERSED") return existing;
 
   await ensureStandardCategories(tx, opts.businessId);
-  const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: "DAILY_SALE" } });
+  const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: line === "SERVICE" ? "DAILY_SERVICE" : "DAILY_SALE" } });
+  const fallbackName = line === "SERVICE" ? "Daily Service Expense" : "Daily Sale Expense";
+  if (existing && existing.status !== "REVERSED") {
+    if (!category || existing.categoryId === category.id) return existing;
+    // Filed under the other side: move it (no money moves, so nothing else changes).
+    const moved = await tx.incomeExpense.update({ where: { id: existing.id }, data: { categoryId: category.id, categoryName: category.name } });
+    await audit(tx, {
+      businessId: opts.businessId, userId: opts.userId, branchId: purchase.branchId,
+      action: "UPDATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: existing.id,
+      before: { category: existing.categoryName }, after: { category: category.name, purchase: purchase.txnNo },
+    });
+    return moved;
+  }
   // The wallet that paid, or for a purchase on credit the branch's first MMK wallet.
   const wallet = purchase.walletId
     ? await tx.wallet.findUnique({ where: { id: purchase.walletId } })
@@ -190,11 +204,11 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
       ?? await tx.wallet.findFirst({ where: { businessId: opts.businessId, deletedAt: null }, orderBy: { createdAt: "asc" } });
   if (!wallet) throw new ApiError(422, "Add a wallet first");
   const supplier = purchase.supplierId ? await tx.contact.findUnique({ where: { id: purchase.supplierId }, select: { name: true } }) : null;
-  const categoryName = category?.name ?? "Daily Sale Expense";
+  const categoryName = category?.name ?? fallbackName;
   const description = `Stock purchase ${purchase.txnNo}${supplier ? ` · ${supplier.name}` : ""}`;
 
   const it = existing
-    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: purchase.total, categoryName, description } })
+    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: purchase.total, categoryId: category?.id, categoryName, description } })
     : await tx.incomeExpense.create({
         data: {
           txnNo: await nextNumber(tx, opts.businessId, "EXPENSE"),

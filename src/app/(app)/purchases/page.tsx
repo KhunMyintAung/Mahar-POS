@@ -21,6 +21,8 @@ const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
 interface Purchase {
   id: string; txnNo: string; date: string; total: string; paidAmount: string;
   paymentStatus: string; status: string; supplierId?: string | null; supplierName?: string; createdAt: string;
+  /** The expense it was recorded as, if any: goods to sell or repair parts. */
+  expenseLine?: "SALE" | "SERVICE" | null;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
 interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean }
@@ -30,6 +32,9 @@ interface Wallet { id: string; name: string; currency: string; currentBalance: s
 /** expiresAt: the best-before printed on this delivery (a mini mart); it becomes the item's. */
 interface Line { itemId: string; quantity: number; unitPrice: string; imeiText?: string; foc?: boolean; paidPrice?: string; expiresAt?: string }
 type PayMode = "full" | "none" | "part";
+/** What the purchase is for: goods to sell (Daily Sale Expense) or repair parts (Daily Service Expense). */
+type ExpenseLine = "SALE" | "SERVICE";
+const LINE_EXPENSE: Record<ExpenseLine, string> = { SALE: "Daily Sale Expense", SERVICE: "Daily Service Expense" };
 
 const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
@@ -66,6 +71,7 @@ export default function PurchasesPage() {
   const [lines, setLines] = useState<Line[]>([]);
   const [form, setForm] = useState(blankForm);
   const [payMode, setPayMode] = useState<PayMode>("full");
+  const [forLine, setForLine] = useState<ExpenseLine | "">("");
   const [query, setQuery] = useState("");
 
   const load = useCallback(() => {
@@ -137,7 +143,7 @@ export default function PurchasesPage() {
   const unpaid = total - paid;
 
   function openNew(supplier?: Supplier) {
-    setLines([]); setForm({ ...blankForm, supplierId: supplier?.id ?? "" }); setPayMode("full"); setQuery("");
+    setLines([]); setForm({ ...blankForm, supplierId: supplier?.id ?? "" }); setPayMode("full"); setForLine(""); setQuery("");
     setShowNew(true);
   }
 
@@ -175,21 +181,23 @@ export default function PurchasesPage() {
     : lines.some((l) => !l.foc && !num(l.unitPrice)) ? "Enter a cost for every item, or tick FOC"
     : paid > 0 && !walletId ? "Choose the wallet you paid from"
     : unpaid > 0 && !form.supplierId ? "Choose a supplier for the unpaid amount"
+    : !forLine ? "Choose Sale or Service"
     : "";
 
   // Purchases whose full item list is opened in the table.
   const [openLines, setOpenLines] = useState<Set<string>>(new Set());
   // After a purchase: ask whether its cost goes into expense. "always" skips the question.
-  const [expenseAsk, setExpenseAsk] = useState<{ id: string; txnNo: string; total: string } | null>(null);
+  const [expenseAsk, setExpenseAsk] = useState<{ id: string; txnNo: string; total: string; line: ExpenseLine } | null>(null);
   const [expenseAlways, setExpenseAlways] = useState(() => {
     try { return typeof window !== "undefined" && localStorage.getItem(PURCHASE_EXPENSE_KEY) === "always"; } catch { return false; }
   });
   const [rememberExpense, setRememberExpense] = useState(false);
 
-  async function addPurchaseExpense(ask: { id: string; total: string }, auto = false) {
+  async function addPurchaseExpense(ask: { id: string; total: string; line: ExpenseLine }, auto = false) {
     try {
-      await api(`/api/v1/purchases/${ask.id}/expense`, { method: "POST" });
+      await api(`/api/v1/purchases/${ask.id}/expense`, { method: "POST", body: { line: ask.line } });
       push(`${fmtMoney(ask.total)} added to expense${auto ? " (auto)" : ""}`);
+      load();
       if (rememberExpense) {
         try { localStorage.setItem(PURCHASE_EXPENSE_KEY, "always"); } catch { /* private mode */ }
         setExpenseAlways(true);
@@ -222,7 +230,7 @@ export default function PurchasesPage() {
       });
       push("Purchase recorded — stock updated");
       if (BigInt(saved.total) > 0n) {
-        const ask = { id: saved.id, txnNo: saved.txnNo, total: saved.total };
+        const ask = { id: saved.id, txnNo: saved.txnNo, total: saved.total, line: forLine || "SALE" };
         if (expenseAlways) addPurchaseExpense(ask, true);
         else { setRememberExpense(false); setExpenseAsk(ask); }
       }
@@ -348,6 +356,17 @@ export default function PurchasesPage() {
               <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
+                  {p.expenseLine && p.status === "COMPLETED" && (
+                    <button
+                      type="button"
+                      title={`In expense as ${LINE_EXPENSE[p.expenseLine]}. Tap to move it to ${p.expenseLine === "SALE" ? "Service" : "Sale"}.`}
+                      onClick={() => addPurchaseExpense({ id: p.id, total: p.total, line: p.expenseLine === "SALE" ? "SERVICE" : "SALE" })}
+                      className={cn("rounded-md border px-2 text-xs font-medium",
+                        p.expenseLine === "SERVICE" ? "border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-300" : "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300")}
+                    >
+                      {p.expenseLine === "SERVICE" ? "Service" : "Sale"}
+                    </button>
+                  )}
                   <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
                   {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
                     <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
@@ -511,6 +530,23 @@ export default function PurchasesPage() {
               <span className="text-lg font-bold tabular-nums">{total.toLocaleString()} MMK</span>
             </div>
 
+            {/* What it was bought for: decides which expense it goes into. */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Bought for</p>
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-200 p-1 text-sm dark:bg-gray-900">
+                {([["SALE", "Sale"], ["SERVICE", "Service"]] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForLine(v)}
+                    className={cn("rounded-md px-2 py-2 font-semibold", forLine === v ? "bg-blue-600 text-white shadow" : "text-gray-600 dark:text-gray-400")}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Paid or on credit: the first thing asked about the money. */}
             <div className="space-y-1">
               <p className="text-xs font-medium text-gray-600 dark:text-gray-300">Payment</p>
@@ -568,7 +604,7 @@ export default function PurchasesPage() {
       <Modal open={Boolean(expenseAsk)} onClose={() => setExpenseAsk(null)} title="Add to expense?">
         {expenseAsk && (
           <div className="space-y-3">
-            <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} for purchase ${expenseAsk.txnNo} to expense as Daily Sale Expense?`}</p>
+            <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} for purchase ${expenseAsk.txnNo} to expense as ${LINE_EXPENSE[expenseAsk.line]}?`}</p>
             <p className="text-xs text-gray-500">The purchase already paid (or owes) the supplier; this only records it as an expense, so money is not taken out twice. Reports then count sales cost from what you bought.</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={rememberExpense} onChange={(e) => setRememberExpense(e.target.checked)} />

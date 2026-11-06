@@ -35,8 +35,17 @@ export const GET = withAuth("purchase.view", async ({ req, user }) => {
     select: { id: true, name: true },
   });
   const byId = new Map(suppliers.map((s) => [s.id, s.name]));
+  // The expense each purchase was recorded as: Sale or Service.
+  const [expenses, serviceCat] = await Promise.all([
+    prisma.incomeExpense.findMany({
+      where: { businessId: user.businessId, status: "COMPLETED", purchaseId: { in: purchases.map((p) => p.id) } },
+      select: { purchaseId: true, categoryId: true },
+    }),
+    prisma.category.findFirst({ where: { businessId: user.businessId, type: "EXPENSE", systemKey: "DAILY_SERVICE" }, select: { id: true } }),
+  ]);
+  const lineOf = new Map(expenses.map((e) => [e.purchaseId, serviceCat && e.categoryId === serviceCat.id ? "SERVICE" : "SALE"]));
   return json({
-    purchases: purchases.map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined })),
+    purchases: purchases.map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined, expenseLine: lineOf.get(p.id) ?? null })),
     total, page, pageSize,
     totalAmount: agg._sum.total ?? 0n,
   });
