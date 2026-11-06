@@ -70,6 +70,9 @@ interface Meta { categories: MetaCategory[]; units: MetaUnit[] }
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [meta, setMeta] = useState<Meta>({ categories: [], units: [] });
+  /** Adding a category from the item form: a main one, or a sub-category under the main picked. */
+  const [newCat, setNewCat] = useState<{ parentId: string | null; name: string } | null>(null);
+  const [addingCat, setAddingCat] = useState(false);
   const [q, setQ] = useState("");
   const [showNew, setShowNew] = useNewModal();
   const [editItem, setEditItem] = useState<Item | null>(null);
@@ -544,7 +547,7 @@ export default function ItemsPage() {
         />
       )}
 
-      <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
+      <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); setNewCat(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
         <div className="space-y-3">
           {/* Category, then one of its sub-categories (Spare Parts › LCD) when it has any, and the unit. */}
           {(() => {
@@ -555,17 +558,50 @@ export default function ItemsPage() {
               const name = catLabel(id);
               setForm({ ...form, categoryId: id, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
             };
+            const canAdd = hasPerm("item.manage");
+            // The sub-category picker shows once a main is picked: to choose one, or add the first.
+            const showSubs = subs.length > 0 || (canAdd && Boolean(mainId));
+            const saveNew = async () => {
+              if (!newCat?.name.trim()) return;
+              setAddingCat(true);
+              try {
+                const made = await api<{ id: string; name: string; parentId?: string | null }>("/api/v1/item-meta", {
+                  method: "POST", body: { kind: "category", name: newCat.name.trim(), ...(newCat.parentId ? { parentId: newCat.parentId } : {}) },
+                });
+                const fresh = await api<Meta>("/api/v1/item-meta");
+                setMeta(fresh);
+                const name = [newCat.parentId ? fresh.categories.find((c) => c.id === newCat.parentId)?.name : "", made.name].filter(Boolean).join(" ");
+                setForm((f) => ({ ...f, categoryId: made.id, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) }));
+                push(newCat.parentId ? "Sub-category added" : "Category added");
+                setNewCat(null);
+              } catch (e) {
+                push(e instanceof Error ? e.message : "Failed", "error");
+              } finally {
+                setAddingCat(false);
+              }
+            };
             return (
-              <div className={cn("grid items-end gap-3", subs.length > 0 ? "grid-cols-3" : "grid-cols-2")}>
-                <Select label="Category" value={mainId} onChange={(e) => choose(e.target.value)}>
+              <>
+              <div className={cn("grid items-end gap-3", showSubs ? "grid-cols-3" : "grid-cols-2")}>
+                <Select label="Category" value={mainId} onChange={(e) => {
+                  if (e.target.value === "__new__") { setNewCat({ parentId: null, name: "" }); return; }
+                  setNewCat(null);
+                  choose(e.target.value);
+                }}>
                   <option value="">—</option>
                   {meta.categories.filter((c) => !c.parentId).sort((a, b) => a.name.localeCompare(b.name))
                     .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {canAdd && <option value="__new__">+ New category</option>}
                 </Select>
-                {subs.length > 0 && (
-                  <Select label="Sub-category" value={picked?.parentId ? picked.id : ""} onChange={(e) => choose(e.target.value || mainId)}>
+                {showSubs && (
+                  <Select label="Sub-category" value={picked?.parentId ? picked.id : ""} onChange={(e) => {
+                    if (e.target.value === "__new__") { setNewCat({ parentId: mainId, name: "" }); return; }
+                    setNewCat(null);
+                    choose(e.target.value || mainId);
+                  }}>
                     <option value="">—</option>
                     {subs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {canAdd && <option value="__new__">+ New sub-category</option>}
                   </Select>
                 )}
                 <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
@@ -573,6 +609,22 @@ export default function ItemsPage() {
                   {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </Select>
               </div>
+              {newCat && (
+                <div className="flex items-end gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-2 dark:border-blue-900 dark:bg-blue-900/10">
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      autoFocus
+                      label={newCat.parentId ? `New sub-category under ${catLabel(newCat.parentId)}` : "New main category"}
+                      value={newCat.name}
+                      onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void saveNew(); } if (e.key === "Escape") setNewCat(null); }}
+                    />
+                  </div>
+                  <Button variant="secondary" onClick={() => setNewCat(null)}>Cancel</Button>
+                  <Button onClick={() => void saveNew()} disabled={addingCat || !newCat.name.trim()}>Add</Button>
+                </div>
+              )}
+              </>
             );
           })()}
           {/* Model and variant come after the category: in a phone shop for phones only. */}

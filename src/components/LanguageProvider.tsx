@@ -1675,6 +1675,12 @@ const MM: Record<string, string> = {
   "Clearing": "ရှင်းလင်းရန်",
   "Made from the name": "အမည်မှ အလိုအလျောက်",
   "Optional": "မထည့်လည်း ရ",
+  "New main category": "အမျိုးအစား အကြီး အသစ်",
+  "Sub-category added": "အမျိုးအစားခွဲ ထည့်ပြီး",
+  "Category added": "အမျိုးအစား ထည့်ပြီး",
+  "+ New category": "+ အမျိုးအစား အသစ်",
+  "+ New sub-category": "+ အမျိုးအစားခွဲ အသစ်",
+  "Add a main category first, then its sub-categories under it. Tap one to rename or delete it; the number is how many items use it.": "အမျိုးအစား အကြီး အရင်ထည့်ပြီးမှ ၎င်းအောက်တွင် အမျိုးအစားခွဲ ထည့်ပါ။ နာမည်ပြောင်း (သို့) ဖျက်ရန် နှိပ်ပါ။ ဂဏန်းက သုံးထားတဲ့ ပစ္စည်း အရေအတွက်ပါ။",
   "Sub-category": "အမျိုးအစားခွဲ",
 };
 
@@ -1726,6 +1732,9 @@ function translate(value: string) {
     [/^This wallet still holds (.+)\. Transfer or adjust it to zero first, so the money is not simply hidden\.$/, (amount) => `ဒီ Wallet ထဲ ${amount} ကျန်သေးသည်။ ငွေ မပျောက်သွားစေရန် အရင် လွှဲပါ သို့ 0 ညှိပါ။`],
     [/^Remove (.+)\? It will stop appearing when you record income or expense\. Entries already filed under it are not changed\.$/, (name) => `${name} ကို ဖယ်မလား? ဝင်ငွေ/ထွက်ငွေ မှတ်ရာတွင် မပေါ်တော့ပါ။ ယခင်မှတ်ထားသည်များ မပြောင်းပါ။`],
     [/^Add (.+) paid for (.+) float \((.+)\) to expense as Daily Bill Expense\?$/, (amount, biller, txn) => `${biller} Float (${txn}) အတွက် ပေးခဲ့သော ${amount} ကို Daily Bill Expense အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
+    [/^Sub-category under (.+)$/, (name) => `${name} အောက်တွင် အမျိုးအစားခွဲ ထည့်ရန်`],
+    [/^Sub-category of (.+)$/, (name) => `${name} ၏ အမျိုးအစားခွဲ`],
+    [/^New sub-category under (.+)$/, (name) => `${name} အောက်က အမျိုးအစားခွဲ အသစ်`],
     [/^Supplier paid for (.+)$/, (txn) => `${txn} အတွက် Supplier ကို ပေးငွေ`],
     [/^Add (.+) paid for purchase (.+) to expense as (Daily Sale Expense|Daily Service Expense)\?$/, (amount, txn, cat) => `အဝယ် ${txn} အတွက် ပေးခဲ့သော ${amount} ကို ${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^In expense as (Daily Sale Expense|Daily Service Expense)\. Tap to move it to (Sale|Service)\.$/, (cat, to) => `${cat === "Daily Service Expense" ? "ဝန်ဆောင်မှု" : "အရောင်း"} ထွက်ငွေထဲ ရှိသည်။ ${to === "Service" ? "ဝန်ဆောင်မှု" : "အရောင်း"} သို့ ရွှေ့ရန် နှိပ်ပါ။`],

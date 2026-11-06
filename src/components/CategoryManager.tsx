@@ -25,7 +25,8 @@ export function CategoryManager({ open, onClose, categories, units, onChanged }:
 }) {
   const [tab, setTab] = useState<Kind>("category");
   const [name, setName] = useState("");
-  const [parentId, setParentId] = useState("");
+  /** The main category a sub-category is being added under, and its name. */
+  const [subFor, setSubFor] = useState<{ id: string; name: string } | null>(null);
   const [editing, setEditing] = useState<Open | null>(null);
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
@@ -48,10 +49,18 @@ export function CategoryManager({ open, onClose, categories, units, onChanged }:
     }
   }
 
+  // The row at the top adds a main category (or a unit); sub-categories are added under their main.
   const add = () => run(async () => {
-    await api("/api/v1/item-meta", { method: "POST", body: { kind: tab, name: name.trim(), ...(tab === "category" && parentId ? { parentId } : {}) } });
+    await api("/api/v1/item-meta", { method: "POST", body: { kind: tab, name: name.trim() } });
     push(tab === "category" ? "Category added" : "Unit added");
     setName("");
+    onChanged();
+  });
+
+  const addSub = (s: { id: string; name: string }) => run(async () => {
+    await api("/api/v1/item-meta", { method: "POST", body: { kind: "category", name: s.name.trim(), parentId: s.id } });
+    push("Sub-category added");
+    setSubFor(null);
     onChanged();
   });
 
@@ -154,26 +163,22 @@ export function CategoryManager({ open, onClose, categories, units, onChanged }:
           ))}
         </div>
 
-        {/* One small row: name, (for a category) what it goes under, and Add. */}
+        {/* One small row: a new main category (or unit) and Add. */}
         <div className="flex flex-wrap items-center gap-1.5">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) void add(); }}
-            placeholder={tab === "category" ? "New category" : "New unit"}
-            aria-label={tab === "category" ? "New category" : "New unit"}
+            placeholder={tab === "category" ? "New main category" : "New unit"}
+            aria-label={tab === "category" ? "New main category" : "New unit"}
             className={smallField + " min-w-0 flex-1"}
           />
-          {tab === "category" && (
-            <select value={parentId} onChange={(e) => setParentId(e.target.value)} aria-label="Under (for a sub-category)" className={smallField + " max-w-[45%]"}>
-              <option value="">Main category</option>
-              {mains.map((c) => <option key={c.id} value={c.id}>{`Under ${c.name}`}</option>)}
-            </select>
-          )}
           <Button size="sm" onClick={() => void add()} disabled={busy || !name.trim()}><Plus size={14} className="mr-0.5 inline" />Add</Button>
         </div>
 
-        <p className="text-xs text-gray-500">Tap one to rename or delete it. The number is how many items use it.</p>
+        <p className="text-xs text-gray-500">{tab === "category"
+          ? "Add a main category first, then its sub-categories under it. Tap one to rename or delete it; the number is how many items use it."
+          : "Tap one to rename or delete it. The number is how many items use it."}</p>
 
         {tab === "category" ? (
           <div className="space-y-1.5">
@@ -184,11 +189,29 @@ export function CategoryManager({ open, onClose, categories, units, onChanged }:
               return (
                 <div key={c.id} className="space-y-0.5">
                   {row("category", c, total, { hasSubs: subs.length > 0 })}
-                  {subs.length > 0 && (
-                    <div className="ml-3 space-y-0.5 border-l-2 border-gray-200 pl-2 dark:border-gray-700">
-                      {subs.map((x) => row("category", x, x.itemCount ?? 0, { sub: true }))}
-                    </div>
-                  )}
+                  <div className="ml-3 space-y-0.5 border-l-2 border-gray-200 pl-2 dark:border-gray-700">
+                    {subs.map((x) => row("category", x, x.itemCount ?? 0, { sub: true }))}
+                    {subFor?.id === c.id ? (
+                      <div className="flex items-center gap-1.5 py-0.5">
+                        <input
+                          autoFocus
+                          value={subFor.name}
+                          onChange={(e) => setSubFor({ id: c.id, name: e.target.value })}
+                          onKeyDown={(e) => { if (e.key === "Enter" && subFor.name.trim()) void addSub(subFor); if (e.key === "Escape") setSubFor(null); }}
+                          placeholder={`Sub-category of ${c.name}`}
+                          aria-label={`Sub-category of ${c.name}`}
+                          className={smallField + " min-w-0 flex-1"}
+                        />
+                        <Button variant="secondary" size="sm" onClick={() => setSubFor(null)}>Cancel</Button>
+                        <Button size="sm" disabled={busy || !subFor.name.trim()} onClick={() => void addSub(subFor)}>Add</Button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => { setSubFor({ id: c.id, name: "" }); setEditing(null); }}
+                        className="flex items-center gap-1 py-0.5 text-xs text-blue-600 hover:underline dark:text-blue-400">
+                        <Plus size={12} />{`Sub-category under ${c.name}`}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
