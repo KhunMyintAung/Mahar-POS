@@ -1681,6 +1681,10 @@ const MM: Record<string, string> = {
   "+ New category": "+ အမျိုးအစား အသစ်",
   "+ New sub-category": "+ အမျိုးအစားခွဲ အသစ်",
   "Add a main category first, then its sub-categories under it. Tap one to rename or delete it; the number is how many items use it.": "အမျိုးအစား အကြီး အရင်ထည့်ပြီးမှ ၎င်းအောက်တွင် အမျိုးအစားခွဲ ထည့်ပါ။ နာမည်ပြောင်း (သို့) ဖျက်ရန် နှိပ်ပါ။ ဂဏန်းက သုံးထားတဲ့ ပစ္စည်း အရေအတွက်ပါ။",
+  "Danger zone": "အန္တရာယ်ရှိ",
+  "Don't move": "မရွှေ့တော့ပါ",
+  "Yes, move to Service": "ဟုတ်ကဲ့၊ ဝန်ဆောင်မှု သို့ ရွှေ့မည်",
+  "Yes, move to Sale": "ဟုတ်ကဲ့၊ အရောင်း သို့ ရွှေ့မည်",
   "Sub-category": "အမျိုးအစားခွဲ",
 };
 
@@ -1735,6 +1739,10 @@ function translate(value: string) {
     [/^Sub-category under (.+)$/, (name) => `${name} အောက်တွင် အမျိုးအစားခွဲ ထည့်ရန်`],
     [/^Sub-category of (.+)$/, (name) => `${name} ၏ အမျိုးအစားခွဲ`],
     [/^New sub-category under (.+)$/, (name) => `${name} အောက်က အမျိုးအစားခွဲ အသစ်`],
+    [/^In expense as (Daily Sale Expense|Daily Service Expense)\.?$/, (cat) => `${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} ထဲ ရှိသည်။`],
+    [/^Goes into (Daily Sale Expense|Daily Service Expense) as the supplier is paid\.?$/, (cat) => `Supplier ကို ပေးချိန်မှ ${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} ထဲ ဝင်မည်။`],
+    [/^Moving it to (Daily Sale Expense|Daily Service Expense) changes the expense of this purchase and of every payment made for it, and the Sale and Service profit in reports\. No money moves\. Logged in the audit trail\.$/, (cat) => `${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} သို့ ရွှေ့လျှင် ဒီအဝယ်နှင့် ၎င်းအတွက် ပေးခဲ့သမျှ ထွက်ငွေ အားလုံး ပြောင်းသွားပြီး Report ထဲက အရောင်း နှင့် ဝန်ဆောင်မှု အမြတ်လည်း ပြောင်းပါမည်။ ငွေ မရွေ့ပါ။ Audit မှတ်တမ်းတွင် မှတ်ထားမည်။`],
+    [/^(PUR-\d+) · (Sale|Service)$/, (txn, side) => `${txn} · ${side === "Service" ? "ဝန်ဆောင်မှု" : "အရောင်း"}`],
     [/^Supplier paid for (.+)$/, (txn) => `${txn} အတွက် Supplier ကို ပေးငွေ`],
     [/^Add (.+) paid for purchase (.+) to expense as (Daily Sale Expense|Daily Service Expense)\?$/, (amount, txn, cat) => `အဝယ် ${txn} အတွက် ပေးခဲ့သော ${amount} ကို ${cat === "Daily Service Expense" ? "နေ့စဉ် ဝန်ဆောင်မှု ထွက်ငွေ" : "နေ့စဉ် အရောင်း ထွက်ငွေ"} အဖြစ် ထွက်ငွေထဲ ထည့်မလား?`],
     [/^In expense as (Daily Sale Expense|Daily Service Expense)\. Tap to move it to (Sale|Service)\.$/, (cat, to) => `${cat === "Daily Service Expense" ? "ဝန်ဆောင်မှု" : "အရောင်း"} ထွက်ငွေထဲ ရှိသည်။ ${to === "Service" ? "ဝန်ဆောင်မှု" : "အရောင်း"} သို့ ရွှေ့ရန် နှိပ်ပါ။`],
