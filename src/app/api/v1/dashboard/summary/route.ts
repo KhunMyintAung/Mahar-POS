@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { computeDayExpense, computeDayIncome, computeDaySummary } from "@/services/summaryService";
 import { todayBusinessDate } from "@/lib/dates";
 import { EXPIRY_WARN_DAYS } from "@/lib/expiry";
+import { paidTotals } from "@/services/repairProfitService";
+import { loadModuleAccess } from "@/lib/moduleAccess";
 
 export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -108,7 +110,13 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   ]);
   const income = { sales: raw.sales, service: raw.service, topup: raw.topup, other: raw.other, total: raw.total, lines: raw.lines };
 
+  // Repairs paid that day: their charge, parts cost and profit, for those who may see costs.
+  const service = canSeeCost(user.permissions) && (await loadModuleAccess(user.businessId)).features.repair
+    ? await paidTotals(user.businessId, date, branchIds)
+    : null;
+
   return json({
     date, summary, pos, income, expense,
+    ...(service ? { service: { charge: service.charge, parts: service.parts, profit: service.profit } } : {}),
   });
 });

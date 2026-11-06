@@ -8,7 +8,6 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { RepairPartPicker } from "@/components/RepairPartPicker";
 import { RepairDailyProfit } from "@/components/RepairDailyProfit";
-import { RepairProfitCards, type ProfitTotals } from "@/components/RepairProfitCards";
 import { parseRepairFlow, REPAIR_FLOW_KEY, type RepairParts } from "@/lib/repairFlow";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
@@ -186,7 +185,6 @@ function correctedDevice(f: { deviceBrand: string; deviceModel: string }) {
 
 export default function RepairsPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
-  const [today, setToday] = useState<ProfitTotals | null>(null);
   const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
   // Empty means "this month", which the server works out in the shop's own timezone.
   const [month, setMonth] = useState("");
@@ -279,8 +277,8 @@ export default function RepairsPage() {
     // A month picked: the list shows that month's devices too. A search looks through every
     // month, so a customer's old job is still found.
     if (month && !q.trim()) params.set("listMonth", "1");
-    api<{ jobs: Job[]; summary: Summary; today?: ProfitTotals }>(`/api/v1/repairs?${params}`)
-      .then((d) => { setJobs(d.jobs); setSummary(d.summary); if (d.today) setToday(d.today); })
+    api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
+      .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(e.message, "error"));
     if (canTakeMoney) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
   }, [push, q, status, month, canTakeMoney]);
@@ -540,13 +538,7 @@ export default function RepairsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            <RepairTabs />
-            {/* Today's service profit beside the tabs, where it takes no row of its own. */}
-            {canSeeProfit && today && <RepairProfitCards totals={today} onOpen={() => setShowDaily(true)} className="hidden lg:inline-flex" />}
-          </span>
-        }
+        title={<RepairTabs />}
         lead={
           <>
             <label className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
@@ -561,7 +553,7 @@ export default function RepairsPage() {
           </>
         }
       >
-        {canSeeProfit && <span className="lg:hidden"><Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button></span>}
+        {canSeeProfit && <Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button>}
         {hasPerm("repair.create") && (
           // A phone has the floating + for this, so the search gets the whole row there.
           <span className="hidden sm:contents"><Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button></span>
