@@ -11,7 +11,7 @@ export const GET = withAuth("report.export", async ({ req, user }) => {
   const branchId = sp.get("branchId");
   const branchIds = branchId ? [branchId] : user.allBranches ? undefined : user.branchIds;
   const report = await buildReport(user.businessId, p.from, p.to, branchIds);
-  const file = buildXlsx(reportSheets(report));
+  const file = buildXlsx(reportSheets(report, "download"));
   return new NextResponse(new Uint8Array(file), {
     headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

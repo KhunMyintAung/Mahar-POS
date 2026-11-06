@@ -1651,6 +1651,15 @@ const MM: Record<string, string> = {
   "Repair parts (bought per job)": "ပြုပြင်ရေး အပိုပစ္စည်း (Job အလိုက် ဝယ်)",
   "Not allowed to see costs": "ကုန်ကျစရိတ် ကြည့်ခွင့် မရှိပါ",
   "Service profit": "ဝန်ဆောင်မှု အမြတ်",
+  "Current stock of the item categories ticked below, as a sheet of its own in the files. Not shown on this page.": "အောက်တွင် အမှန်ခြစ်ထားသော ပစ္စည်းအမျိုးအစားများ၏ လက်ရှိ Stock ကို file ထဲတွင် Sheet သီးသန့်အဖြစ် ထည့်မည်။ ဒီစာမျက်နှာတွင် မပြပါ။",
+  "Goes in": "ထည့်မည့်နေရာ",
+  "Download (CSV / Excel)": "Download (CSV / Excel)",
+  "Columns": "ကော်လံများ",
+  "Automatic (phone shop: by brand)": "အလိုအလျောက် (ဖုန်းဆိုင်ဆိုလျှင် Brand အလိုက်)",
+  "By phone brand, read from the item name": "ဖုန်း Brand အလိုက် (ပစ္စည်းအမည်မှ ဖတ်သည်)",
+  "By sub-category": "Sub-category အလိုက်",
+  "Item categories (sub-categories come with them)": "ပစ္စည်းအမျိုးအစားများ (Sub-category များ ပါဝင်သည်)",
+  "Daily General Expense and your own expense categories (rent, electricity…).": "နေ့စဉ် အထွေထွေ ထွက်ငွေ နှင့် ကိုယ်ပိုင် ထွက်ငွေ အမျိုးအစားများ (ဆိုင်ခန်းခ၊ မီးဖိုး…)။",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -70,7 +70,7 @@ export async function saveGsheet(businessId: string, cfg: GsheetBackup) {
 async function periodSheets(businessId: string, kind: "month" | "year" | "day" | "range", value: string | null, from?: string | null, to?: string | null): Promise<Sheet[]> {
   const p = resolvePeriod(kind, value, from, to);
   const report = await buildReport(businessId, p.from, p.to);
-  const sheets = reportSheets(report);
+  const sheets = reportSheets(report, "sheet");
   return sheets.map((s) => (s.name === "Stock" ? s : { ...s, name: `${p.label} ${s.name}`.slice(0, 31) }));
 }
 

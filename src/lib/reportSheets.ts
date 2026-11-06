@@ -34,7 +34,8 @@ export function resolvePeriod(kind: string | null, value: string | null, from?: 
 
 const n = (minor: bigint) => Number(minor) / 100;
 
-export function reportSheets(r: Report): Sheet[] {
+/** for: which file the sheets go in; the shop picks whether each carries the Stock sheet. */
+export function reportSheets(r: Report, forFile: "download" | "sheet"): Sheet[] {
   const t = r.totals;
   const sh = r.shown;
   // Columns for the parts this shop runs; Other is always there.
@@ -60,17 +61,17 @@ export function reportSheets(r: Report): Sheet[] {
   const sheets: Sheet[] = [
     { name: r.groupBy === "day" ? "Daily summary" : "Monthly summary", rows: daily, boldRows: [1, daily.length - 1] },
   ];
-  if (r.settings.stockCategoryIds.length) sheets.push(stockSheet(r.stock, r.phoneShop));
+  if (r.settings.stockCategoryIds.length && r.settings.stockIn[forFile]) sheets.push(stockSheet(r.stock, r.stockByBrand));
   return sheets;
 }
 
 /** Stock laid out the way the shop keeps it: each brand (or category) side by side as a Name /
  *  QTY pair, and on the right a summary of each (items, units, and items at zero). */
-function stockSheet(stock: Report["stock"], phoneShop: boolean): Sheet {
-  // A phone shop: every brand always has its pair of columns, in the same order, even with no
+function stockSheet(stock: Report["stock"], byBrand: boolean): Sheet {
+  // By brand: every brand always has its pair of columns, in the same order, even with no
   // items yet; the sync rewrites values only, so columns that came and went would move the
-  // owner's formatting onto the wrong brand. Any other shop: one pair per category, A to Z.
-  const names = phoneShop
+  // owner's formatting onto the wrong brand. By category: one pair per category, A to Z.
+  const names = byBrand
     ? [...STOCK_BRANDS.map((b) => b.name), "Other"]
     : [...new Set(stock.map((i) => i.group))].sort((a, b) => (a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b)));
   const groups = new Map<string, Report["stock"]>(names.map((g) => [g, []]));

@@ -46,10 +46,16 @@ export interface ReportSettings {
   partners: Partner[];
   /** Item categories listed on the Stock sheet (with their sub-categories), e.g. spare parts. */
   stockCategoryIds: string[];
+  /** Which files carry the Stock sheet: the CSV / Excel download, the Google Sheet sync. */
+  stockIn: { download: boolean; sheet: boolean };
+  /** The Stock sheet's columns: phone brands read from the item name (Redmi, Oppo…), or one
+   *  per sub-category (or category). "auto": brands in a phone shop, categories elsewhere. */
+  stockColumns: "auto" | "brand" | "category";
 }
 
 export const DEFAULT_REPORT_SETTINGS: ReportSettings = {
   salaryCategories: [], showShares: true, generalExpenseTo: "service", reserve: { mode: "percent", value: 0 }, partners: [], stockCategoryIds: [],
+  stockIn: { download: false, sheet: true }, stockColumns: "auto",
 };
 
 export function parseReportSettings(raw: unknown): ReportSettings {
@@ -70,6 +76,11 @@ export function parseReportSettings(raw: unknown): ReportSettings {
           .slice(0, 10)
       : [],
     stockCategoryIds: Array.isArray(v.stockCategoryIds) ? v.stockCategoryIds.filter((x): x is string => typeof x === "string").slice(0, 50) : [],
+    stockIn: {
+      download: v.stockIn?.download === true,
+      sheet: v.stockIn?.sheet !== false,
+    },
+    stockColumns: v.stockColumns === "brand" || v.stockColumns === "category" ? v.stockColumns : "auto",
   };
 }
 
@@ -162,6 +173,8 @@ export interface Report {
   shown: ReportSections;
   /** A phone shop's Stock sheet is laid out by phone brand; any other shop's by category. */
   phoneShop: boolean;
+  /** The Stock sheet's columns are the fixed phone brands (else one per category). */
+  stockByBrand: boolean;
   rows: (PeriodRow & Finished)[];
   /** What makes up Other income, per period and for "Total": tapped open in the Daily summary. */
   otherIncomeBy: Record<string, { label: string; amount: bigint }[]>;
@@ -450,8 +463,9 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const afterFlat = after.map((a) => ({ walletId: a.walletId, direction: a.direction, amount: a._sum.amount ?? 0n }));
 
   const totals = finish(sum);
+  const stockByBrand = settings.stockColumns === "auto" ? phoneShop : settings.stockColumns === "brand";
   return {
-    from, to, groupBy, settings, shown, phoneShop,
+    from, to, groupBy, settings, shown, phoneShop, stockByBrand,
     sections: sectionsOf(sum),
     distribution: distribute(totals.netProfit, settings, periodKeys(from, to, "month").length),
     rows: ordered,
@@ -470,7 +484,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       return { name: w.name, currency: w.currency, opening: closing - moneyIn + moneyOut, moneyIn, moneyOut, closing };
     }),
     purchases: { count: purchases._count, total: purchases._sum.total ?? 0n },
-    stock: await stockOf(businessId, settings.stockCategoryIds, phoneShop, branchIds),
+    stock: await stockOf(businessId, settings.stockCategoryIds, stockByBrand, branchIds),
   };
 }
 
@@ -499,7 +513,7 @@ export function brandOf(name: string): string {
 }
 
 /** Items in the chosen categories (and their sub-categories) with the stock on hand now. */
-async function stockOf(businessId: string, categoryIds: string[], phoneShop: boolean, branchIds?: string[]) {
+async function stockOf(businessId: string, categoryIds: string[], byBrand: boolean, branchIds?: string[]) {
   if (!categoryIds.length) return [];
   const children = await prisma.itemCategory.findMany({ where: { businessId, parentId: { in: categoryIds } }, select: { id: true } });
   const items = await prisma.item.findMany({
@@ -509,9 +523,12 @@ async function stockOf(businessId: string, categoryIds: string[], phoneShop: boo
   });
   return items.map((i) => {
     const quantity = i.stockLevels.reduce((a, l) => a + l.quantity, 0);
-    // In a phone shop a sub-category (Spare Parts › Redmi) is the brand, otherwise the brand is
-    // read from the name. Anywhere else (a mini mart) items are grouped by their category.
-    const group = !phoneShop ? i.category?.name ?? "Other" : i.category?.parentId ? i.category.name : brandOf(i.name);
+    // By brand: a sub-category named after a brand (Spare Parts › Redmi) is that brand, else the
+    // brand is read from the name (a sub-category such as LCD is a kind of part, not a brand).
+    // By category: the item's sub-category (or category).
+    const sub = i.category?.parentId ? i.category.name : null;
+    const named = sub ? STOCK_BRANDS.find((b) => b.name.toLowerCase() === sub.trim().toLowerCase())?.name : undefined;
+    const group = !byBrand ? i.category?.name ?? "Other" : named ?? brandOf(i.name);
     return { name: i.name, category: i.category?.name ?? "", group, quantity, cost: i.costPrice, value: i.costPrice * BigInt(quantity) };
   });
 }

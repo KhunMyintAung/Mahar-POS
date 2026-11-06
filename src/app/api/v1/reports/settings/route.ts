@@ -14,6 +14,8 @@ const schema = z.object({
   salaryCategories: z.array(z.string().trim().min(1).max(80)).max(20),
   showShares: z.boolean(),
   stockCategoryIds: z.array(z.string().min(1)).max(50).default([]),
+  stockIn: z.object({ download: z.boolean(), sheet: z.boolean() }).default({ download: false, sheet: true }),
+  stockColumns: z.enum(["auto", "brand", "category"]).default("auto"),
   generalExpenseTo: z.enum(["sales", "service", "topup", "general"]),
   reserve: z.object({ mode: z.enum(["percent", "amount"]), value: z.number().min(0).max(1e12) }),
   partners: z.array(z.object({ name: z.string().trim().min(1).max(60), percent: z.number().min(0).max(100) })).max(10)

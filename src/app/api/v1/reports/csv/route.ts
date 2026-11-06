@@ -11,7 +11,7 @@ export const GET = withAuth("report.export", async ({ req, user }) => {
   const branchId = sp.get("branchId");
   const branchIds = branchId ? [branchId] : user.allBranches ? undefined : user.branchIds;
   const report = await buildReport(user.businessId, p.from, p.to, branchIds);
-  return new NextResponse(buildCsv(reportSheets(report)), {
+  return new NextResponse(buildCsv(reportSheets(report, "download")), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
       "content-disposition": `attachment; filename="report-${p.label.replace(/[^0-9A-Za-z-]+/g, "_")}.csv"`,

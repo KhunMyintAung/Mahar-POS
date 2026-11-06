@@ -23,6 +23,8 @@ interface Settings {
   salaryCategories: string[]; showShares: boolean; generalExpenseTo: Sec;
   reserve: { mode: "percent" | "amount"; value: number }; partners: { name: string; percent: number }[];
   stockCategoryIds: string[];
+  stockIn: { download: boolean; sheet: boolean };
+  stockColumns: "auto" | "brand" | "category";
 }
 interface Report {
   from: string; to: string; groupBy: "day" | "month";
@@ -292,9 +294,31 @@ function ReportSettingsModal({ open, onClose, onSaved, shown }: { open: boolean;
             </select>
           </section>
 
-          <section>
-            <div className="mb-1 text-sm font-semibold">2. Stock sheet</div>
-            <p className="mb-2 text-xs text-gray-500">Only in CSV and Google Sheet, not on this page. Only the item categories ticked here are listed (for example Spare Parts); sub-categories come with them.</p>
+          <section className="space-y-2">
+            <div className="text-sm font-semibold">2. Stock sheet</div>
+            <p className="text-xs text-gray-500">Current stock of the item categories ticked below, as a sheet of its own in the files. Not shown on this page.</p>
+            <div>
+              <div className="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">Goes in</div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1">
+                <label className="flex min-h-9 items-center gap-2 text-sm">
+                  <input type="checkbox" checked={cfg.stockIn.download} onChange={(e) => setCfg({ ...cfg, stockIn: { ...cfg.stockIn, download: e.target.checked } })} />
+                  Download (CSV / Excel)
+                </label>
+                <label className="flex min-h-9 items-center gap-2 text-sm">
+                  <input type="checkbox" checked={cfg.stockIn.sheet} onChange={(e) => setCfg({ ...cfg, stockIn: { ...cfg.stockIn, sheet: e.target.checked } })} />
+                  Google Sheet
+                </label>
+              </div>
+            </div>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Columns</span>
+              <select value={cfg.stockColumns} onChange={(e) => setCfg({ ...cfg, stockColumns: e.target.value as Settings["stockColumns"] })} className={cn(field, "w-full")}>
+                <option value="auto">Automatic (phone shop: by brand)</option>
+                <option value="brand">By phone brand, read from the item name</option>
+                <option value="category">By sub-category</option>
+              </select>
+            </label>
+            <div className="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">Item categories (sub-categories come with them)</div>
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
               {topCats.length === 0 && <p className="text-xs text-gray-400">No item categories yet</p>}
               {topCats.map((c) => (
