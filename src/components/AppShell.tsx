@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, IdCard, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
-  Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight, ChevronDown, ChevronRight,
+  Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight, ChevronDown, ClipboardList, Award,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn, useToast } from "./ui";
@@ -132,21 +132,31 @@ interface NavItem {
   section: NavSection;
   /** Shown indented under this entry (its href) in the sidebar, which can fold it away. */
   parent?: string;
+  /** Pages of its own listed under it in the sidebar (the page also has them as tabs). */
+  subs?: NavTab[];
+  /** The sidebar name of the group it heads, when it has pages under it ("Sales", "Stock"). */
+  group?: string;
 }
 
 type NavSection = "Workspace" | "Money" | "Online" | "Setup";
 const SECTIONS: NavSection[] = ["Workspace", "Money", "Online", "Setup"];
-const FOLDED_KEY = "sidebar-folded-groups";
+
+/** Repair Jobs' own pages, listed under it in the sidebar. */
+const REPAIR_SUBS: NavTab[] = [
+  { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair" },
+  { href: "/repairs/orders", label: "Order list", icon: ClipboardList, perm: "repair.view", feature: "repair" },
+  { href: "/repairs/technicians", label: "Technicians", icon: Award, perm: "repair.view", feature: "repair" },
+];
 
 // The order here is the order of the phone's bottom bar (its first four) too.
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view", section: "Workspace" },
-  { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos", section: "Workspace" },
+  { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos", section: "Workspace", group: "Sales" },
   { href: "/sales", label: "Sale History", short: "History", icon: History, perm: "sale.view", feature: "pos", section: "Workspace", parent: "/pos" },
-  { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair", section: "Workspace" },
-  { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items", section: "Workspace" },
+  { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair", section: "Workspace", subs: REPAIR_SUBS, group: "Repairs" },
+  { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items", section: "Workspace", group: "Stock" },
   { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases", section: "Workspace", parent: "/items" },
-  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers", section: "Workspace" },
+  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers", section: "Workspace", group: "Customers" },
   { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit", section: "Workspace", parent: "/customers" },
   { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS, section: "Money" },
   { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense", section: "Money" },
@@ -170,21 +180,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
-  // Sidebar entries whose sub-pages are folded away (by href), remembered on this device.
-  // Read at first render: the menu itself only shows once the user has loaded, in the browser.
-  const [folded, setFolded] = useState<string[]>(() => {
-    try {
-      const saved: unknown = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? "[]");
-      return Array.isArray(saved) ? saved.filter((x): x is string => typeof x === "string") : [];
-    } catch {
-      return []; // on the server, or private mode
-    }
-  });
-  const toggleFold = (href: string) => setFolded((list) => {
-    const next = list.includes(href) ? list.filter((x) => x !== href) : [...list, href];
-    try { localStorage.setItem(FOLDED_KEY, JSON.stringify(next)); } catch { /* private mode */ }
-    return next;
-  });
+  // Sidebar groups opened or closed by hand (by label); otherwise a group is open while
+  // one of its pages is the one shown.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   // The desktop sidebar folds away on the pages that want the width (FOLDED_SIDEBAR)
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
@@ -272,39 +270,66 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? matchedCreate
       : null;
 
-  // Sidebar: headings (Workspace, Money…), each entry with its sub-pages indented under it.
+  // Sidebar: headings (Workspace, Money…), each entry with its sub-pages under it. Tapping
+  // the entry opens them (and goes to its page); tapping it again on its page closes them.
   // An entry whose parent this user cannot open stands on its own.
   const shownHrefs = new Set(NAV.filter((n) => visibleNav.some((v) => v.label === n.label)).map((n) => n.href));
-  const childrenOf = (href: string) => visibleNav.filter((n) => n.parent === href);
-  const navLink = (n: NavItem, sub: boolean) => {
-    const active = isActive(n);
-    const kids = sub ? [] : childrenOf(NAV.find((x) => x.label === n.label)?.href ?? n.href);
-    const open = kids.length > 0 && (!folded.includes(n.label) || kids.some(isActive));
+  type Sub = { href: string; label: string; icon: typeof LayoutDashboard };
+  const subsOf = (n: NavItem): Sub[] => {
+    const own = NAV.find((x) => x.label === n.label);
+    return [
+      ...(own?.subs ?? []).filter(tabAllowed),
+      ...(n.tabs && n.tabs.length > 1 ? n.tabs : []),
+      ...visibleNav.filter((x) => x.parent && x.parent === own?.href),
+    ];
+  };
+  // A page's own entry is lit only on that exact page; one under it lights for its sub-pages.
+  const subActive = (k: Sub, group: NavItem) =>
+    k.href === group.href || k.href === "/repairs" || k.href === "/wallets" ? pathname === k.href : pathname.startsWith(k.href);
+  const linkClass = (active: boolean, sub: boolean) => cn(
+    "flex items-center gap-2.5 rounded-md transition-colors",
+    sub ? "px-3 py-1.5 text-[13px]" : "px-3 py-2 text-sm font-medium",
+    active
+      ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-gold-400)] [&>svg]:text-gold-400"
+      : sub ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
+  );
+  const navLink = (n: NavItem) => {
+    const extra = subsOf(n);
+    if (extra.length === 0) {
+      return (
+        <Link key={n.label} href={n.href} onClick={() => setDrawer(false)} className={linkClass(isActive(n), false)}>
+          <n.icon size={17} />
+          {n.label}
+        </Link>
+      );
+    }
+    // A group: its name only opens and closes it; its pages, the entry's own first, sit under it.
+    const own = NAV.find((x) => x.label === n.label);
+    const kids: Sub[] = [{ href: n.href, label: n.label, icon: n.icon }, ...extra].filter((k, i, all) => all.findIndex((x) => x.href === k.href) === i);
+    const inGroup = kids.some((k) => subActive(k, n));
+    const open = openGroups[n.label] ?? inGroup;
     return (
       <div key={n.label}>
-        <div className="group relative flex items-center">
-          <Link
-            href={n.href}
-            onClick={() => setDrawer(false)}
-            className={cn(
-              "flex flex-1 items-center gap-3 rounded-lg transition",
-              sub ? "py-1.5 pl-9 pr-3 text-[13px]" : "px-3 py-2 text-sm font-medium",
-              active
-                ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-gold-400)] [&>svg]:text-gold-400"
-                : sub ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
-            )}
-          >
-            <n.icon size={sub ? 16 : 18} />
-            {n.label}
-          </Link>
-          {kids.length > 0 && (
-            <button type="button" onClick={() => toggleFold(n.label)} aria-label={open ? "Fold" : "Unfold"}
-              className="absolute right-1 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-white">
-              {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            </button>
-          )}
-        </div>
-        {open && kids.map((k) => navLink(k, true))}
+        <button
+          type="button"
+          onClick={() => setOpenGroups((g) => ({ ...g, [n.label]: !open }))}
+          aria-expanded={open}
+          className={cn(linkClass(false, false), "w-full text-left", inGroup && !open && "text-white")}
+        >
+          <n.icon size={17} className={inGroup ? "text-gold-400" : undefined} />
+          <span className="flex-1">{own?.group ?? n.label}</span>
+          <ChevronDown size={14} className={cn("text-slate-500 transition-transform", open && "rotate-180")} />
+        </button>
+        {open && (
+          <div className="mt-0.5 space-y-0.5 pl-7">
+            {kids.map((k) => (
+              <Link key={k.href} href={k.href} onClick={() => setDrawer(false)} className={linkClass(subActive(k, n), true)}>
+                <k.icon size={15} />
+                {k.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -316,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         return (
           <div key={section} className="mb-2">
             <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{section}</p>
-            {top.map((n) => navLink(n, false))}
+            {top.map((n) => navLink(n))}
           </div>
         );
       })}
