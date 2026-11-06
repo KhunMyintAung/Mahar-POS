@@ -28,13 +28,13 @@ export function RepairProfitCards({ refresh, onOpen, className }: { refresh: unk
       type="button"
       onClick={onOpen}
       title="Daily repair profit"
-      className={cn("items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-normal hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800", className)}
+      className={cn("items-center gap-3 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm font-normal hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800", className)}
     >
-      <span className="inline-flex items-baseline gap-1"><span className="text-gray-500">Today</span><b className="tabular-nums">{t.count}</b></span>
+      <span className="inline-flex items-baseline gap-1"><span className="text-gray-500">Today</span><b className="text-base tabular-nums">{t.count}</b></span>
       {items.map((c) => (
         <span key={c.label} className="inline-flex items-baseline gap-1">
           <span className="text-gray-500">{c.label}</span>
-          <b className={cn("tabular-nums", c.tone)}>{fmtMoney(c.value)}</b>
+          <b className={cn("text-base tabular-nums", c.tone)}>{fmtMoney(c.value)}</b>
         </span>
       ))}
     </button>
