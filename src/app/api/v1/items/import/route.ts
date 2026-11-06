@@ -1,3 +1,6 @@
+import { correctProductName } from "@/lib/autoCorrect";
+import { loadModuleAccess } from "@/lib/moduleAccess";
+import { isPhoneShop } from "@/lib/modules";
 import { z } from "zod";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
@@ -40,6 +43,9 @@ interface Planned {
 export const POST = withAuth("item.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const { products, rejected, unknownColumns } = parseProductCsv(body.csv);
+  // Names put right on the way in, as when typed in ("samsng a15" → "Samsung A15").
+  const phoneShop = isPhoneShop(await loadModuleAccess(user.businessId));
+  for (const p of products) p.name = correctProductName(p.name, phoneShop);
 
   let branchId = body.branchId;
   if (branchId) {

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { correctProductName } from "@/lib/autoCorrect";
-import { TidyNames } from "@/components/TidyNames";
 import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
@@ -267,7 +266,7 @@ export default function ItemsPage() {
               </div>
             )}
             {view === "items" && (
-              <input placeholder={phoneShop ? "Search name, SKU, IMEI or barcode…" : "Search name, SKU or barcode…"} value={q} onChange={(e) => setQ(e.target.value)} className="min-h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:max-w-sm sm:flex-1 sm:basis-auto sm:text-sm" />
+              <input placeholder={phoneShop ? "Search name, SKU, IMEI or barcode…" : "Search name, SKU or barcode…"} value={q} onChange={(e) => setQ(e.target.value)} className="h-9 w-full min-w-0 basis-full rounded-lg border border-gray-300 bg-white px-3 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:min-w-[20rem] sm:flex-1 sm:basis-auto sm:text-sm" />
             )}
             {view === "items" && canStock && showCost && (
               <span className="whitespace-nowrap text-sm text-gray-500">
@@ -299,7 +298,6 @@ export default function ItemsPage() {
             <>
               <Button variant="secondary" onClick={() => setShowMeta(true)}>Categories & Units</Button>
               <ProductImport onDone={load} />
-              <TidyNames onDone={load} />
               <Button onClick={() => { setForm(empty); setEditItem(null); setShowNew(true); }}>
                 <Plus size={16} className="mr-1 inline" />New item
               </Button>
