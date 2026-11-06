@@ -1,5 +1,5 @@
 import {
-  BatteryCharging, Cable, Camera, Gamepad2, HardDrive, Headphones, Laptop, Mouse, Package,
+  Battery, BatteryCharging, Cable, Camera, Gamepad2, HardDrive, Headphones, Laptop, Mouse, Package,
   PlugZap, Shield, ShoppingBag, Smartphone, Speaker, Tablet, Watch, Wrench, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/components/ui";
@@ -11,7 +11,8 @@ const LOOK: Record<ProductKind, { Icon: LucideIcon; label: string; tone: string 
   earphone: { Icon: Headphones, label: "Earphone", tone: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
   charger: { Icon: PlugZap, label: "Charger", tone: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
   cable: { Icon: Cable, label: "Cable", tone: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
-  battery: { Icon: BatteryCharging, label: "Battery", tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  batteryCharger: { Icon: BatteryCharging, label: "Battery charger", tone: "bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-300" },
+  battery: { Icon: Battery, label: "Battery", tone: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   cover: { Icon: Shield, label: "Cover / Glass", tone: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300" },
   speaker: { Icon: Speaker, label: "Speaker", tone: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
   watch: { Icon: Watch, label: "Watch", tone: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300" },
