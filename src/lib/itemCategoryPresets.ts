@@ -1,23 +1,12 @@
 import type { Tx } from "@/lib/prisma";
 
-/** The item categories a phone shop starts with.
- *
- *  Named so the rest of the app reads them right: "Phone New" and "Phone Second" pick the
- *  warranty lists at the till, and the accessory names match the POS icons.
- */
+/** The item categories a phone shop starts with: the three every phone shop has. The shop
+ *  adds its own and their sub-categories (Spare Parts › LCD, Phone › Second) from there. A
+ *  phone is sold with the new-phone warranty unless its category or name says second-hand. */
 export const PHONE_SHOP_ITEM_CATEGORIES = [
-  "Phone New",
-  "Phone Second",
-  "Tablet",
-  "Smart Watch",
-  "Audio",
-  "Chargers & Cables",
-  "Power Bank",
-  "Cases",
-  "Glass",
-  "Memory & Storage",
-  "Spare Parts",
+  "Phone",
   "Accessories",
+  "Spare Parts",
 ] as const;
 
 /** The item categories a mini mart starts with: the shelves of a corner shop, and nothing

@@ -80,6 +80,8 @@ export function phoneCondition(item: { name: string; category?: { name: string }
   if (productKind(item) !== "phone" && !category.includes("phone") && !category.includes("ဖုန်း")) return null;
   if (SECOND_WORDS.some((w) => text.includes(w))) return "SECOND";
   if (NEW_WORDS.some((w) => text.includes(w))) return "NEW";
+  // A plain "Phone" category: new unless its category or name says second-hand.
+  if (/\bphone\b|ဖုန်း/.test(category)) return "NEW";
   return null;
 }
 

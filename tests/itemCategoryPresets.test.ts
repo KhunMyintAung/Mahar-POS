@@ -19,4 +19,11 @@ describe("item category presets", () => {
     expect(phoneCondition({ name: "iPhone 11", category: { name: "Phone Second" } })).toBe("SECOND");
     expect(phoneCondition({ name: "Type-C Cable", category: { name: "Chargers & Cables" } })).toBeNull();
   });
+
+  it("starts a phone shop with Phone, Accessories and Spare Parts; a plain Phone is sold as new", () => {
+    expect([...PHONE_SHOP_ITEM_CATEGORIES]).toEqual(["Phone", "Accessories", "Spare Parts"]);
+    expect(phoneCondition({ name: "Vivo Y28", category: { name: "Phone" } })).toBe("NEW");
+    expect(phoneCondition({ name: "Used iPhone 11", category: { name: "Phone" } })).toBe("SECOND");
+    expect(phoneCondition({ name: "Type-C Cable", category: { name: "Accessories" } })).toBeNull();
+  });
 });

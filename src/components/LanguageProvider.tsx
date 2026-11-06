@@ -1669,6 +1669,7 @@ const MM: Record<string, string> = {
   "Mobile money": "Mobile Money",
   "Agent": "Agent",
   "Clearing": "ရှင်းလင်းရန်",
+  "Sub-category": "Sub-category (အမျိုးအစားခွဲ)",
 };
 
 const originalText = new WeakMap<Node, string>();

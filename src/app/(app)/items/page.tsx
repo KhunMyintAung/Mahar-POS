@@ -587,16 +587,31 @@ export default function ItemsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Select label="Category" value={form.categoryId} onChange={(e) => {
-                const name = catLabel(e.target.value);
-                setForm({ ...form, categoryId: e.target.value, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
-              }}>
-                <option value="">—</option>
-                {meta.categories
-                  .map((c) => ({ id: c.id, label: catLabel(c.id) ?? c.name }))
-                  .sort((a, b) => a.label.localeCompare(b.label))
-                  .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-              </Select>
+              {/* Category, then one of its sub-categories (Spare Parts › LCD) when it has any. */}
+              {(() => {
+                const picked = meta.categories.find((c) => c.id === form.categoryId);
+                const mainId = picked?.parentId ?? picked?.id ?? "";
+                const subs = meta.categories.filter((c) => c.parentId && c.parentId === mainId).sort((a, b) => a.name.localeCompare(b.name));
+                const choose = (id: string) => {
+                  const name = catLabel(id);
+                  setForm({ ...form, categoryId: id, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
+                };
+                return (
+                  <div className={cn("grid gap-2", subs.length > 0 && "grid-cols-2")}>
+                    <Select label="Category" value={mainId} onChange={(e) => choose(e.target.value)}>
+                      <option value="">—</option>
+                      {meta.categories.filter((c) => !c.parentId).sort((a, b) => a.name.localeCompare(b.name))
+                        .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Select>
+                    {subs.length > 0 && (
+                      <Select label="Sub-category" value={picked?.parentId ? picked.id : ""} onChange={(e) => choose(e.target.value || mainId)}>
+                        <option value="">—</option>
+                        {subs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </Select>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
               <option value="">—</option>
