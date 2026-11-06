@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
   Users, UserCog, IdCard, Settings, ScrollText, Info, Menu, X, LogOut,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
-  Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight,
+  Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight, ChevronDown, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { ToastProvider, cn, useToast } from "./ui";
@@ -128,29 +128,38 @@ interface NavItem {
   feature?: FeatureKey;
   /** Pages grouped under this entry; it shows when any of them is allowed. */
   tabs?: NavTab[];
+  /** The sidebar heading it sits under. */
+  section: NavSection;
+  /** Shown indented under this entry (its href) in the sidebar, which can fold it away. */
+  parent?: string;
 }
 
+type NavSection = "Workspace" | "Money" | "Online" | "Setup";
+const SECTIONS: NavSection[] = ["Workspace", "Money", "Online", "Setup"];
+const FOLDED_KEY = "sidebar-folded-groups";
+
+// The order here is the order of the phone's bottom bar (its first four) too.
 const NAV: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view" },
-  { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos" },
-  { href: "/sales", label: "Sale History", short: "History", icon: History, perm: "sale.view", feature: "pos" },
-  { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair" },
-  { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases" },
-  { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items" },
-  { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit" },
-  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers" },
-  { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users" },
-  { href: "/staff", label: "Staff Management", short: "Staff", icon: IdCard, perm: "staff.manage", feature: "staff" },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, perm: "dashboard.view", section: "Workspace" },
+  { href: "/pos", label: "Sales & POS", icon: ShoppingCart, perm: "sale.create", feature: "pos", section: "Workspace" },
+  { href: "/sales", label: "Sale History", short: "History", icon: History, perm: "sale.view", feature: "pos", section: "Workspace", parent: "/pos" },
+  { href: "/repairs", label: "Repair Jobs", icon: Wrench, perm: "repair.view", feature: "repair", section: "Workspace" },
+  { href: "/items", label: "Items", icon: Package, perm: "item.view", feature: "items", section: "Workspace" },
+  { href: "/purchases", label: "Purchases", icon: Truck, perm: "purchase.view", feature: "purchases", section: "Workspace", parent: "/items" },
+  { href: "/customers", label: "Customers", icon: Users, perm: "customer.view", feature: "customers", section: "Workspace" },
+  { href: "/credit", label: "Credit & Payable", icon: HandCoins, perm: "credit.view", feature: "credit", section: "Workspace", parent: "/customers" },
+  { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS, section: "Money" },
+  { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense", section: "Money" },
+  { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller", section: "Money" },
+  { href: "/reports", label: "Reports", icon: FileBarChart, perm: "report.view", feature: "reports", section: "Money" },
   // Running the online shop (its orders, prices and photos), not just seeing the items in it.
-  { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.manage", feature: "onlineShop" },
-  { href: "/billers", label: "Top-up Billers", icon: Smartphone, perm: "biller.view", feature: "biller" },
-  { href: "/wallets", label: "Wallets", icon: Wallet, perm: null, tabs: WALLET_TABS },
-  { href: "/income-expense", label: "Income & Expense", icon: Receipt, perm: "income_expense.view", feature: "incomeExpense" },
-  { href: "/reports", label: "Reports", icon: FileBarChart, perm: "report.view", feature: "reports" },
-  { href: "/settings", label: "Settings", icon: Settings, perm: "settings.manage" },
-  { href: "/audit", label: "Audit Logs", icon: ScrollText, perm: "audit.view", feature: "audit" },
-  { href: "/telegram", label: "Telegram", icon: MessageCircle, perm: null, feature: "telegram" },
-  { href: "/about", label: "About Us", icon: Info, perm: null, feature: "about" },
+  { href: "/online-shop", label: "Online Shop", icon: Store, perm: "item.manage", feature: "onlineShop", section: "Online" },
+  { href: "/telegram", label: "Telegram", icon: MessageCircle, perm: null, feature: "telegram", section: "Online" },
+  { href: "/staff", label: "Staff Management", short: "Staff", icon: IdCard, perm: "staff.manage", feature: "staff", section: "Setup" },
+  { href: "/users", label: "Users & Roles", icon: UserCog, perm: "users.manage", feature: "users", section: "Setup" },
+  { href: "/settings", label: "Settings", icon: Settings, perm: "settings.manage", section: "Setup" },
+  { href: "/audit", label: "Audit Logs", icon: ScrollText, perm: "audit.view", feature: "audit", section: "Setup" },
+  { href: "/about", label: "About Us", icon: Info, perm: null, feature: "about", section: "Setup" },
 ];
 
 /** Pages that want the whole width (the till, the repair list): the
@@ -161,6 +170,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
+  // Sidebar entries whose sub-pages are folded away (by href), remembered on this device.
+  // Read at first render: the menu itself only shows once the user has loaded, in the browser.
+  const [folded, setFolded] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? "[]");
+      return Array.isArray(saved) ? saved.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return []; // on the server, or private mode
+    }
+  });
+  const toggleFold = (href: string) => setFolded((list) => {
+    const next = list.includes(href) ? list.filter((x) => x !== href) : [...list, href];
+    try { localStorage.setItem(FOLDED_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+    return next;
+  });
   // The desktop sidebar folds away on the pages that want the width (FOLDED_SIDEBAR)
   // and stays open elsewhere. The header button overrides that for the page you are on.
   const [sidebarPref, setSidebarPref] = useState<{ path: string; hidden: boolean } | null>(null);
@@ -248,25 +272,52 @@ export function AppShell({ children }: { children: ReactNode }) {
       ? matchedCreate
       : null;
 
-  const sidebar = (
-    <nav className="flex flex-col gap-0.5 p-3">
-      {visibleNav.map((n) => {
-        const active = isActive(n);
-        return (
+  // Sidebar: headings (Workspace, Money…), each entry with its sub-pages indented under it.
+  // An entry whose parent this user cannot open stands on its own.
+  const shownHrefs = new Set(NAV.filter((n) => visibleNav.some((v) => v.label === n.label)).map((n) => n.href));
+  const childrenOf = (href: string) => visibleNav.filter((n) => n.parent === href);
+  const navLink = (n: NavItem, sub: boolean) => {
+    const active = isActive(n);
+    const kids = sub ? [] : childrenOf(NAV.find((x) => x.label === n.label)?.href ?? n.href);
+    const open = kids.length > 0 && (!folded.includes(n.label) || kids.some(isActive));
+    return (
+      <div key={n.label}>
+        <div className="group relative flex items-center">
           <Link
-            key={n.href}
             href={n.href}
             onClick={() => setDrawer(false)}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
+              "flex flex-1 items-center gap-3 rounded-lg transition",
+              sub ? "py-1.5 pl-9 pr-3 text-[13px]" : "px-3 py-2 text-sm font-medium",
               active
                 ? "bg-white/10 text-white shadow-[inset_3px_0_0_var(--color-gold-400)] [&>svg]:text-gold-400"
-                : "text-slate-300 hover:bg-white/5 hover:text-white"
+                : sub ? "text-slate-400 hover:bg-white/5 hover:text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
             )}
           >
-            <n.icon size={18} />
+            <n.icon size={sub ? 16 : 18} />
             {n.label}
           </Link>
+          {kids.length > 0 && (
+            <button type="button" onClick={() => toggleFold(n.label)} aria-label={open ? "Fold" : "Unfold"}
+              className="absolute right-1 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-white">
+              {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          )}
+        </div>
+        {open && kids.map((k) => navLink(k, true))}
+      </div>
+    );
+  };
+  const sidebar = (
+    <nav className="flex flex-col gap-0.5 p-3">
+      {SECTIONS.map((section) => {
+        const top = visibleNav.filter((n) => n.section === section && !(n.parent && shownHrefs.has(n.parent)));
+        if (top.length === 0) return null;
+        return (
+          <div key={section} className="mb-2">
+            <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{section}</p>
+            {top.map((n) => navLink(n, false))}
+          </div>
         );
       })}
       <button

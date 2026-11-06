@@ -203,7 +203,7 @@ export default function RepairsPage() {
   const [move, setMove] = useState({ status: "", finalCost: "", partsCost: "", walletId: "", notes: "" });
   const [form, setForm] = useState(blankForm);
   const [paying, setPaying] = useState<Job | null>(null);
-  const [pay, setPay] = useState({ finalCost: "", walletId: "" });
+  const [pay, setPay] = useState({ finalCost: "", partsCost: "", walletId: "" });
   const [editing, setEditing] = useState<Job | null>(null);
   // The repair the owner is about to delete, and why.
   const [deleting, setDeleting] = useState<Job | null>(null);
@@ -345,6 +345,7 @@ export default function RepairsPage() {
     setPaying(job);
     setPay({
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
+      partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
       walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
     });
   }
@@ -355,7 +356,7 @@ export default function RepairsPage() {
     try {
       const paid = await api<Job>(`/api/v1/repairs/${paying.id}/pay`, {
         method: "POST",
-        body: { finalCost: pay.finalCost || undefined, walletId: pay.walletId || undefined },
+        body: { finalCost: pay.finalCost || undefined, partsCost: pay.partsCost || undefined, walletId: pay.walletId || undefined },
       });
       setPaying(null);
       // Straight to the voucher, which now reads ရှင်းပြီး, ready to print.
@@ -740,14 +741,26 @@ export default function RepairsPage() {
         {paying && (() => {
           const charge = Math.round(Number(pay.finalCost || 0) * 100);
           const toCollect = Math.max(0, charge - Number(paying.paidAmount));
+          const cost = Math.round(Number(pay.partsCost || 0) * 100);
           return (
             <div className="space-y-3">
-              <Input
-                label="Final charge"
-                value={pay.finalCost}
-                disabled={paying.status === "DELIVERED"}
-                onChange={(e) => setPay({ ...pay, finalCost: e.target.value })}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="Final charge"
+                  value={pay.finalCost}
+                  inputMode="decimal"
+                  disabled={paying.status === "DELIVERED"}
+                  onChange={(e) => setPay({ ...pay, finalCost: e.target.value })}
+                />
+                {/* What the repair cost the shop (parts bought for it…), so the profit is known. */}
+                <Input label="Cost (parts)" value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />
+              </div>
+              {charge > 0 && (
+                <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
+                  <span>Profit</span>
+                  <b className={cn("tabular-nums", charge - cost < 0 ? "text-red-600" : "text-emerald-700 dark:text-emerald-300")}>{fmtMoney(String(charge - cost))}</b>
+                </div>
+              )}
               <Card className="space-y-1 bg-gray-50 text-sm dark:bg-gray-800/50">
                 <div className="flex justify-between"><span>Already paid (deposit)</span><b className="tabular-nums">{fmtMoney(paying.paidAmount)}</b></div>
                 <div className="flex justify-between border-t border-gray-200 pt-1 dark:border-gray-700">

@@ -1586,6 +1586,12 @@ const MM: Record<string, string> = {
   "No units yet": "ယူနစ် မရှိသေးပါ",
   "That name is taken. To join the two, delete this one and move its items there.": "ဒီနာမည် ရှိပြီးသားပါ။ နှစ်ခု ပေါင်းချင်ရင် ဒါကို ဖျက်ပြီး ပစ္စည်းတွေကို အဲဒီကို ရွှေ့ပါ။",
   "Main category": "အမျိုးအစား အကြီး",
+  "Workspace": "လုပ်ငန်း",
+  "Online": "Online",
+  "Setup": "စီမံခန့်ခွဲမှု",
+  "Fold": "ခေါက်မည်",
+  "Unfold": "ဖြန့်မည်",
+  "Cost (parts)": "အရင်း (ပစ္စည်းဖိုး)",
 };
 
 const originalText = new WeakMap<Node, string>();

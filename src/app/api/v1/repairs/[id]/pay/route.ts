@@ -9,6 +9,8 @@ import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 
 const schema = z.object({
   finalCost: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+  /** What the repair cost the shop (parts…), so its profit shows. */
+  partsCost: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   walletId: z.string().optional(),
 });
 
@@ -23,6 +25,7 @@ export const POST = withAuth("repair.update", async ({ req, user, params }) => {
       userId: user.id,
       jobId: params.id,
       finalCost: body.finalCost === undefined ? undefined : toMinor(body.finalCost),
+      partsCost: body.partsCost === undefined ? undefined : toMinor(body.partsCost),
       walletId: body.walletId,
     })
   );

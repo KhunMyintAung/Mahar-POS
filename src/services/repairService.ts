@@ -200,7 +200,7 @@ export async function updateRepairDetails(
  */
 export async function payRepairBalance(
   tx: Tx,
-  opts: { businessId: string; userId: string; jobId: string; finalCost?: bigint; walletId?: string }
+  opts: { businessId: string; userId: string; jobId: string; finalCost?: bigint; partsCost?: bigint; walletId?: string }
 ) {
   const job = await tx.repairJob.findFirst({
     where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
@@ -218,6 +218,8 @@ export async function payRepairBalance(
   }
   const balance = finalCost - job.paidAmount;
   if (balance > 0n && !opts.walletId) throw new ApiError(422, "Choose the wallet the money went into");
+  const partsCost = opts.partsCost ?? job.partsCost;
+  if (partsCost < 0n) throw new ApiError(422, "Amounts cannot be negative");
 
   if (balance > 0n && opts.walletId) {
     await postLedger(tx, {
@@ -234,7 +236,7 @@ export async function payRepairBalance(
 
   const updated = await tx.repairJob.update({
     where: { id: job.id },
-    data: { finalCost, paidAmount: finalCost },
+    data: { finalCost, paidAmount: finalCost, partsCost },
   });
 
   await audit(tx, {
@@ -245,8 +247,8 @@ export async function payRepairBalance(
     module: "repair",
     resourceType: "RepairJob",
     resourceId: job.id,
-    before: { finalCost: job.finalCost.toString(), paidAmount: job.paidAmount.toString() },
-    after: { finalCost: updated.finalCost.toString(), paidAmount: updated.paidAmount.toString(), collected: balance.toString() },
+    before: { finalCost: job.finalCost.toString(), paidAmount: job.paidAmount.toString(), partsCost: job.partsCost.toString() },
+    after: { finalCost: updated.finalCost.toString(), paidAmount: updated.paidAmount.toString(), partsCost: updated.partsCost.toString(), collected: balance.toString() },
   });
   return updated;
 }
