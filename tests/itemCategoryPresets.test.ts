@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MINI_MART_ITEM_CATEGORIES, PHONE_SHOP_ITEM_CATEGORIES, itemCategoryPresets } from "@/lib/itemCategoryPresets";
+import { MINI_MART_ITEM_CATEGORIES, PHONE_SHOP_ITEM_CATEGORIES, PRESET_SUBCATEGORIES, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 import { phoneCondition } from "@/lib/warranty";
 
 describe("item category presets", () => {
@@ -25,5 +25,9 @@ describe("item category presets", () => {
     expect(phoneCondition({ name: "Vivo Y28", category: { name: "Phone" } })).toBe("NEW");
     expect(phoneCondition({ name: "Used iPhone 11", category: { name: "Phone" } })).toBe("SECOND");
     expect(phoneCondition({ name: "Type-C Cable", category: { name: "Accessories" } })).toBeNull();
+    // Phone › New and Phone › Second, the preset sub-categories.
+    expect(phoneCondition({ name: "Vivo Y28", category: { name: "New", parentName: "Phone" } })).toBe("NEW");
+    expect(phoneCondition({ name: "iPhone 11", category: { name: "Second", parentName: "Phone" } })).toBe("SECOND");
+    expect(PRESET_SUBCATEGORIES.Phone).toEqual(["New", "Second"]);
   });
 });

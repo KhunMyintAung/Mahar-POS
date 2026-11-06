@@ -33,7 +33,7 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     prisma.item.findMany({
       where,
       include: {
-        category: { select: { name: true } },
+        category: { select: { name: true, parentId: true } },
         unit: { select: { name: true } },
         stockLevels: true,
       },
@@ -43,8 +43,16 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     }),
     prisma.item.count({ where }),
   ]);
+  // A sub-category comes with its category's name (Phone › Second), for the warranty at the till.
+  const parentIds = [...new Set(items.map((i) => i.category?.parentId).filter((x): x is string => Boolean(x)))];
+  const parents = parentIds.length
+    ? new Map((await prisma.itemCategory.findMany({ where: { id: { in: parentIds } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]))
+    : new Map<string, string>();
+  const withParent = items.map((it) => (it.category?.parentId
+    ? { ...it, category: { ...it.category, parentName: parents.get(it.category.parentId) ?? null } }
+    : it));
   // A cashier or technician gets 0 for the cost price: the page shows "—" for them.
-  const shown = canSeeCost(user.permissions) ? items : items.map((it) => ({ ...it, costPrice: 0n }));
+  const shown = canSeeCost(user.permissions) ? withParent : withParent.map((it) => ({ ...it, costPrice: 0n }));
   return json({ items: shown, total, page, pageSize });
 });
 

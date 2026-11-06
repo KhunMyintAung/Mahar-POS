@@ -1,13 +1,18 @@
 import type { Tx } from "@/lib/prisma";
 
 /** The item categories a phone shop starts with: the three every phone shop has. The shop
- *  adds its own and their sub-categories (Spare Parts › LCD, Phone › Second) from there. A
- *  phone is sold with the new-phone warranty unless its category or name says second-hand. */
+ *  adds its own and more sub-categories (Spare Parts › LCD) from there. */
 export const PHONE_SHOP_ITEM_CATEGORIES = [
   "Phone",
   "Accessories",
   "Spare Parts",
 ] as const;
+
+/** Sub-categories made with a preset: Phone › New and Phone › Second pick the new-phone and
+ *  second-hand warranty lists at the till. */
+export const PRESET_SUBCATEGORIES: Record<string, readonly string[]> = {
+  Phone: ["New", "Second"],
+};
 
 /** The item categories a mini mart starts with: the shelves of a corner shop, and nothing
  *  to do with phones. */
@@ -45,13 +50,24 @@ export async function addItemCategoryPresets(tx: Tx, businessId: string, names: 
   const byName = new Map(existing.map((c) => [c.name.trim().toLowerCase(), c]));
   let changed = 0;
   for (const name of names) {
-    const found = byName.get(name.toLowerCase());
+    let found = byName.get(name.toLowerCase());
     if (!found) {
-      await tx.itemCategory.create({ data: { businessId, name } });
+      found = await tx.itemCategory.create({ data: { businessId, name }, select: { id: true, name: true, active: true } });
       changed += 1;
     } else if (!found.active) {
       await tx.itemCategory.update({ where: { id: found.id }, data: { active: true } });
       changed += 1;
+    }
+    // Its preset sub-categories (Phone › New, Second), the ones it does not have yet.
+    const subs = PRESET_SUBCATEGORIES[name] ?? [];
+    if (subs.length) {
+      const have = await tx.itemCategory.findMany({ where: { businessId, parentId: found.id }, select: { id: true, name: true, active: true } });
+      const haveBy = new Map(have.map((c) => [c.name.trim().toLowerCase(), c]));
+      for (const sub of subs) {
+        const h = haveBy.get(sub.toLowerCase());
+        if (!h) { await tx.itemCategory.create({ data: { businessId, name: sub, parentId: found.id } }); changed += 1; }
+        else if (!h.active) { await tx.itemCategory.update({ where: { id: h.id }, data: { active: true } }); changed += 1; }
+      }
     }
   }
   return changed;

@@ -74,8 +74,9 @@ const NEW_WORDS = ["new", "brand new", "အသစ်"];
 
 /** New or second-hand, for a phone; null for anything that is not a phone. Second-hand is
  *  checked first so "Second hand (like new)" reads as second-hand. */
-export function phoneCondition(item: { name: string; category?: { name: string } | null }): PhoneCondition | null {
-  const category = item.category?.name.toLowerCase() ?? "";
+export function phoneCondition(item: { name: string; category?: { name: string; parentName?: string | null } | null }): PhoneCondition | null {
+  // A sub-category reads with its category: Phone › Second is "phone second".
+  const category = [item.category?.parentName, item.category?.name].filter(Boolean).join(" ").toLowerCase();
   const text = `${category} ${item.name.toLowerCase()}`;
   if (productKind(item) !== "phone" && !category.includes("phone") && !category.includes("ဖုန်း")) return null;
   if (SECOND_WORDS.some((w) => text.includes(w))) return "SECOND";
