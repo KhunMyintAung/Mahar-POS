@@ -539,7 +539,13 @@ export default function RepairsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader
-        title={<RepairTabs />}
+        title={
+          <span className="inline-flex items-center gap-2">
+            <RepairTabs />
+            {/* Today's service profit beside the tabs, where it takes no row of its own. */}
+            {canSeeProfit && <RepairProfitCards refresh={jobs} onOpen={() => setShowDaily(true)} className="hidden lg:inline-flex" />}
+          </span>
+        }
         lead={
           <>
             <label className="relative min-w-0 basis-full sm:flex-1 sm:basis-auto">
@@ -554,7 +560,7 @@ export default function RepairsPage() {
           </>
         }
       >
-        {canSeeProfit && <Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button>}
+        {canSeeProfit && <span className="lg:hidden"><Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button></span>}
         {hasPerm("repair.create") && (
           // A phone has the floating + for this, so the search gets the whole row there.
           <span className="hidden sm:contents"><Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button></span>
@@ -592,8 +598,6 @@ export default function RepairsPage() {
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
       </div>
-      {/* Today's service profit, for whoever may see costs; tap for day by day. */}
-      {canSeeProfit && <RepairProfitCards refresh={jobs} onOpen={() => setShowDaily(true)} />}
       {month && !q.trim() && (
         <div className="flex items-center gap-2 text-sm">
           <span className="rounded-full bg-navy-800 px-3 py-1 text-xs font-semibold text-white dark:bg-gold-400 dark:text-navy-950">
