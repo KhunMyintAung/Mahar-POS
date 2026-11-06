@@ -7,17 +7,35 @@
 /** The proper spelling of each word, keyed by its lower-case form. */
 const WORDS = [
   "iPhone", "iPad", "AirPods", "Apple", "Samsung", "Galaxy", "Redmi", "Xiaomi", "POCO", "Oppo", "Realme", "Vivo",
-  "Infinix", "Tecno", "Huawei", "Honor", "Nokia", "OnePlus", "Pixel", "Google", "Itel", "Motorola", "Sony", "ZTE",
-  "Spark", "Camon", "Pova", "Note", "Pro", "Max", "Plus", "Mini", "Ultra", "Lite", "Prime", "Neo", "Edge", "Fold",
+  "Infinix", "Tecno", "Huawei", "Honor", "Nokia", "OnePlus", "Pixel", "Google", "itel", "Motorola", "Sony", "ZTE",
+  "Spark", "Camon", "POVA", "Note", "Pro", "Max", "Plus", "Mini", "Ultra", "Lite", "Prime", "Neo", "Edge", "Fold",
   "Flip", "Turbo", "Smart", "Hot", "Nova", "Reno", "Narzo", "Nord", "Watch", "Tab", "Pad", "Air",
 ];
+/** Accessory, part and colour words: put right when typed in small letters, but a word typed
+ *  all in capitals ("BLACK", "CASE") is the shop's own way of writing it and kept. */
+const EXTRA = [
+  "Cable", "Charger", "Adapter", "Earphone", "Earphones", "Headphone", "Headphones", "Battery", "Glass", "Tempered",
+  "Case", "Cover", "Screen", "Display", "Original", "Wireless", "Bluetooth", "Speaker", "Holder", "Stand", "Memory",
+  "Card", "Lightning", "Micro", "Charging", "Port", "Flex", "Housing", "Camera", "Back",
+  "Black", "White", "Blue", "Green", "Gold", "Silver", "Pink", "Purple", "Gray", "Grey", "Yellow", "Orange",
+];
+WORDS.push(...EXTRA);
+const EXTRA_LOW = new Set(EXTRA.map((w) => w.toLowerCase()));
 const CANON = new Map(WORDS.map((w) => [w.toLowerCase(), w]));
 /** Words written as one that are really two. */
 const COMPOUND = new Map<string, string>([
   ["promax", "Pro Max"], ["proplus", "Pro Plus"], ["ultramax", "Ultra Max"], ["notepro", "Note Pro"],
+  ["powerbank", "Power Bank"], ["earbuds", "Earbuds"], ["typec", "Type-C"],
 ]);
 /** Short codes always in capitals. */
-const UPPER = new Set(["5g", "4g", "3g", "fe", "se", "xr", "xs", "lte", "nfc", "gb", "tb"]);
+const UPPER = new Set([
+  "5g", "4g", "3g", "fe", "se", "xr", "xs", "lte", "nfc", "gb", "tb",
+  "usb", "otg", "lcd", "oled", "amoled", "tft", "led", "hd", "fhd", "tws", "pd", "qc", "aux", "sd", "sim", "oca", "tl", "ic",
+]);
+/** Short words kept small inside a name ("Case for iPhone"). */
+const SMALL = new Set(["and", "for", "with", "the", "of", "in", "to", "or"]);
+/** Units written the maker's way. */
+const UNITS = new Map([["mah", "mAh"], ["w", "W"], ["v", "V"], ["a", "A"], ["m", "m"], ["cm", "cm"], ["mm", "mm"]]);
 
 /** Words long enough to mend when misspelt; short ones are only fixed when exact. */
 const FUZZY = [...[...CANON.entries()].filter(([k]) => k.length >= 4), ...COMPOUND.entries()];
@@ -39,30 +57,45 @@ function distance(a: string, b: string): number {
 /** One alphabetic word: its proper form, a mended near miss, or itself. */
 function fixWord(word: string): string {
   const low = word.toLowerCase();
+  const shouting = word.length >= 3 && word === word.toUpperCase();
+  if (shouting && EXTRA_LOW.has(low)) return word;
   if (CANON.has(low)) return CANON.get(low)!;
   if (COMPOUND.has(low)) return COMPOUND.get(low)!;
   if (UPPER.has(low)) return low.toUpperCase();
-  if (low.length < 4 || !/^[a-z]+$/.test(low)) return word;
+  if (low.length < 4 || !/^[a-z]+$/.test(low) || shouting) return capitalise(word);
   let best: string | null = null;
   let bestD = Infinity;
   for (const [key, proper] of FUZZY) {
     // One slip in a short word, two in a long one; and the first letter has to be right.
     const allowed = Math.max(key.length, low.length) >= 6 ? 2 : 1;
     if (key[0] !== low[0] || Math.abs(key.length - low.length) > allowed) continue;
+    // A known word with more on the end is another word ("cases", "glasses"), not a slip.
+    if (low.startsWith(key)) continue;
     // Four-letter words are mended only for swapped letters ("plsu"), so "Plug" stays a plug.
     if (low.length === 4 && key.length === 4 && [...low].sort().join("") !== [...key].sort().join("")) continue;
     const dist = distance(low, key);
     if (dist <= allowed && dist < bestD) { best = proper; bestD = dist; }
   }
-  return best ?? word;
+  return best ?? capitalise(word);
+}
+
+/** A word typed all in small letters gets a capital ("cable" → "Cable"); one typed with any
+ *  capital ("inCell", "TL") is the shop's own way of writing it and kept. */
+function capitalise(word: string): string {
+  if (!/^[a-z]{3,}$/.test(word) || SMALL.has(word)) return word;
+  return word[0].toUpperCase() + word.slice(1);
 }
 
 /** A run of letters and digits: split where letters meet numbers ("12promax", "iphone12"),
  *  keep model codes in capitals ("a15" → "A15", "128gb" → "128GB"). */
 function fixToken(token: string): string {
   // Model codes: A15, Y28, S23, and a trailing letter kept small the way makers write it (A05s, A3x).
-  if (/^[a-z]\d{1,3}[a-z]?$/i.test(token)) return token[0].toUpperCase() + token.slice(1).toLowerCase();
+  // A capital typed at the end (A11X, A17K) is kept; one typed small (a05s) stays small.
+  if (/^[a-z]\d{1,3}[a-z]?$/i.test(token)) return token[0].toUpperCase() + token.slice(1);
   if (/^\d+(gb|tb|g)$/i.test(token)) return token.toUpperCase();
+  // 10000mah → 10000mAh, 20w → 20W, 1m → 1m.
+  const unit = /^(\d+(?:\.\d+)?)([a-z]+)$/i.exec(token);
+  if (unit && UNITS.has(unit[2].toLowerCase())) return unit[1] + UNITS.get(unit[2].toLowerCase())!;
   const parts = token.match(/[a-z]+|\d+/gi);
   if (!parts || parts.join("") !== token) return token;
   if (parts.length === 1) return /^\d+$/.test(token) ? token : fixWord(token);
@@ -79,9 +112,26 @@ function fixToken(token: string): string {
 export function autoCorrectName(text: string): string {
   if (!text) return text;
   return text
-    .replace(/[A-Za-z0-9]+/g, (t) => fixToken(t))
+    // "type c", "Type - C", "TYPEC": one way of writing it.
+    .replace(/\btype[\s-]*c\b/gi, "Type-C")
+    .replace(/[A-Za-z0-9]+/g, (t) => (t === "Type" || t === "C" ? t : fixToken(t)))
+    // No space around a slash between models ("13C 4G /13R" → "13C 4G/13R").
+    .replace(/\s*\/\s*/g, "/")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+}
+
+/** Any shop's names, kept to the basics: a capital on words typed all in small letters
+ *  ("coca cola" → "Coca Cola") and single spaces. No phone words, so "500g" or "Mini" stay. */
+export function tidyName(text: string): string {
+  if (!text) return text;
+  return text.replace(/[A-Za-z]+/g, (w) => capitalise(w)).replace(/[ \t]{2,}/g, " ").trim();
+}
+
+/** A product name put right for this kind of shop: phone words in a phone shop, the basics
+ *  anywhere else. */
+export function correctProductName(text: string, phoneShop: boolean): string {
+  return phoneShop ? autoCorrectName(text) : tidyName(text);
 }
 
 /** Brand and model fields together: a brand typed into the model ("iphne 12") moves to the
@@ -90,7 +140,7 @@ export function autoCorrectDevice(brand: string, model: string): { brand: string
   let b = autoCorrectName(brand);
   let m = autoCorrectName(model);
   const first = m.split(" ")[0];
-  const isBrand = (w: string) => ["iPhone", "Samsung", "Redmi", "Xiaomi", "POCO", "Oppo", "Realme", "Vivo", "Infinix", "Tecno", "Huawei", "Honor", "Nokia", "OnePlus", "Pixel", "Itel", "Motorola", "Sony", "ZTE"].includes(w);
+  const isBrand = (w: string) => ["iPhone", "Samsung", "Redmi", "Xiaomi", "POCO", "Oppo", "Realme", "Vivo", "Infinix", "Tecno", "Huawei", "Honor", "Nokia", "OnePlus", "Pixel", "itel", "Motorola", "Sony", "ZTE"].includes(w);
   if (!b && isBrand(first)) { b = first; m = m.slice(first.length).trim(); }
   else if (b && first.toLowerCase() === b.toLowerCase()) m = m.slice(first.length).trim();
   return { brand: b, model: m };

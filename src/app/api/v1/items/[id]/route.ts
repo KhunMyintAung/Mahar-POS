@@ -3,7 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
-import { autoCorrectName } from "@/lib/autoCorrect";
+import { correctProductName } from "@/lib/autoCorrect";
 import { itemsWithStock } from "@/lib/itemStock";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { isPhoneShop } from "@/lib/modules";
@@ -48,11 +48,10 @@ export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
   if (!item || item.businessId !== user.businessId || item.deletedAt)
     throw new ApiError(404, "Item not found");
 
-  // Phone names put right in a phone shop only; a mini mart's are kept as typed.
-  if (isPhoneShop(await loadModuleAccess(user.businessId))) {
-    if (body.name) body.name = autoCorrectName(body.name);
-    if (body.model) body.model = autoCorrectName(body.model);
-  }
+  // Phone words put right in a phone shop; any other shop's names get the basics only.
+  const phoneShop = isPhoneShop(await loadModuleAccess(user.businessId));
+  if (body.name) body.name = correctProductName(body.name, phoneShop);
+  if (body.model) body.model = correctProductName(body.model, phoneShop);
   if (body.barcode) {
     body.barcode = body.barcode.trim();
     const taken = await prisma.item.findFirst({

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { autoCorrectName } from "@/lib/autoCorrect";
+import { correctProductName } from "@/lib/autoCorrect";
+import { TidyNames } from "@/components/TidyNames";
 import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
@@ -295,6 +296,7 @@ export default function ItemsPage() {
             <>
               <Button variant="secondary" onClick={() => setShowMeta(true)}>Categories & Units</Button>
               <ProductImport onDone={load} />
+              <TidyNames onDone={load} />
               <Button onClick={() => { setForm(empty); setEditItem(null); setShowNew(true); }}>
                 <Plus size={16} className="mr-1 inline" />New item
               </Button>
@@ -568,7 +570,7 @@ export default function ItemsPage() {
               }}
             />
           </div>
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => phoneShop && setForm((f) => ({ ...f, name: autoCorrectName(f.name) }))} />
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: correctProductName(f.name, phoneShop) }))} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="SKU"

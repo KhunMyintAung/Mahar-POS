@@ -1660,6 +1660,9 @@ const MM: Record<string, string> = {
   "By sub-category": "Sub-category အလိုက်",
   "Item categories (sub-categories come with them)": "ပစ္စည်းအမျိုးအစားများ (Sub-category များ ပါဝင်သည်)",
   "Daily General Expense and your own expense categories (rent, electricity…).": "နေ့စဉ် အထွေထွေ ထွက်ငွေ နှင့် ကိုယ်ပိုင် ထွက်ငွေ အမျိုးအစားများ (ဆိုင်ခန်းခ၊ မီးဖိုး…)။",
+  "Tidy names": "အမည်များ သပ်ရပ်အောင် ပြင်",
+  "Every name is already in order": "အမည်အားလုံး မှန်ပြီးသားပါ",
+  "Capitals, spelling and spacing, the way new items are saved. Untick any you want kept as they are.": "စာလုံးအကြီးအသေး၊ စာလုံးပေါင်း နှင့် Space များကို ပစ္စည်းအသစ် သိမ်းသည့်ပုံစံအတိုင်း ပြင်မည်။ မပြင်စေချင်သည့်ဟာကို အမှန်ခြစ် ဖြုတ်ပါ။",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1813,6 +1816,9 @@ function translate(value: string) {
     [/^The Boss Share for (\d{4}-\d{2}) was already taken$/, (m) => `${m} ၏ Boss Share ယူပြီးပါပြီ`],
     [/^Total (\d+(?:\.\d+)?)% — at most 100% \(all 0 for equal shares\)\. What the partners do not take is left for staff bonus\.$/, (t) => `စုစုပေါင်း ${t}% — 100% ထက် မကျော်ရ (အားလုံး 0 ဆို တန်းတူခွဲ)။ အစုရှင်များ မယူသော ကျန်ငွေကို ဝန်ထမ်းဆုကြေးအတွက် ထားမည်။`],
     [/^Today's charge · (\d+)$/, (n) => `ဒီနေ့ ဝန်ဆောင်ခ · ${n}`],
+    [/^(\d+) names corrected$/, (n) => `အမည် ${n} ခု ပြင်ပြီး`],
+    [/^Correct (\d+)$/, (n) => `${n} ခု ပြင်မည်`],
+    [/^All · (\d+)$/, (n) => `အားလုံး · ${n}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

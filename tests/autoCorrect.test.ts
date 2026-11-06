@@ -14,7 +14,7 @@ describe("auto-correct names", () => {
 
   it("leaves words it does not know as typed", () => {
     expect(autoCorrectName("IPHONE 11 TL BLACK INCELL GX(IDM ပျောက်လို့ရ)")).toBe("iPhone 11 TL BLACK INCELL GX(IDM ပျောက်လို့ရ)");
-    expect(autoCorrectName("Infinix Smart 6 / X6511 / X6511B")).toBe("Infinix Smart 6 / X6511 / X6511B");
+    expect(autoCorrectName("Infinix Smart 6 / X6511 / X6511B")).toBe("Infinix Smart 6/X6511/X6511B");
     expect(autoCorrectName("Type-C Cable 1m")).toBe("Type-C Cable 1m");
     expect(autoCorrectName("Wall Plug")).toBe("Wall Plug");
     expect(autoCorrectName("Mint Green")).toBe("Mint Green");

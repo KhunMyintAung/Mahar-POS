@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { generateSku } from "@/lib/sku";
 import { audit } from "@/lib/audit";
-import { autoCorrectName } from "@/lib/autoCorrect";
+import { correctProductName } from "@/lib/autoCorrect";
 import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { isPhoneShop } from "@/lib/modules";
@@ -74,13 +74,11 @@ const schema = z.object({
 
 export const POST = withAuth("item.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
-  // A phone shop's brand and model words are put right ("samsng a15" → "Samsung A15"); a
-  // mini mart's names are kept as typed, so "500g" or "Mini" is not made a phone word.
+  // A phone shop's brand and model words are put right ("samsng a15" → "Samsung A15"); any
+  // other shop's names get the basics only (capitals, spaces), so "500g" is not made a phone word.
   const phoneShop = isPhoneShop(await loadModuleAccess(user.businessId));
-  if (phoneShop) {
-    body.name = autoCorrectName(body.name);
-    if (body.model) body.model = autoCorrectName(body.model);
-  }
+  body.name = correctProductName(body.name, phoneShop);
+  if (body.model) body.model = correctProductName(body.model, phoneShop);
   const expiresAt = expiryDate(body.expiresAt);
 
   const given = body.sku?.trim();
