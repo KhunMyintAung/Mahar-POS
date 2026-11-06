@@ -7,6 +7,8 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
 import { RepairPartPicker } from "@/components/RepairPartPicker";
+import { RepairDailyProfit } from "@/components/RepairDailyProfit";
+import { parseRepairFlow, REPAIR_FLOW_KEY, type RepairParts } from "@/lib/repairFlow";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
@@ -250,6 +252,16 @@ export default function RepairsPage() {
       ...(voucherText ?? {}),
     });
   }
+
+  // How this shop gets its parts (Settings → Repair parts): bought per job hides the stock picker.
+  const [partsFlow, setPartsFlow] = useState<RepairParts>("stock");
+  const [showDaily, setShowDaily] = useState(false);
+  const canSeeProfit = hasPerm("report.view") || hasPerm("item.manage");
+  useEffect(() => {
+    api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${REPAIR_FLOW_KEY}`)
+      .then((d) => setPartsFlow(parseRepairFlow(d.settings[REPAIR_FLOW_KEY]).parts))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api<RepairVoucherSettings>("/api/v1/settings/repair-voucher")
@@ -541,11 +553,14 @@ export default function RepairsPage() {
           </>
         }
       >
+        {canSeeProfit && <Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button>}
         {hasPerm("repair.create") && (
           // A phone has the floating + for this, so the search gets the whole row there.
           <span className="hidden sm:contents"><Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button></span>
         )}
       </PageHeader>
+
+      {canSeeProfit && <RepairDailyProfit open={showDaily} onClose={() => setShowDaily(false)} />}
 
       {/* One slim strip: the month's counts and the month they are for, side by side. */}
       <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">
@@ -758,9 +773,9 @@ export default function RepairsPage() {
                   onChange={(e) => setPay({ ...pay, finalCost: e.target.value })}
                 />
                 {/* What the repair cost the shop (parts bought for it…), so the profit is known. */}
-                <Input label="Cost (parts)" value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />
+                <Input label={partsFlow === "job" ? "Parts bought (cost)" : "Cost (parts)"} value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />
               </div>
-              {paying.status !== "DELIVERED" && (
+              {paying.status !== "DELIVERED" && partsFlow === "stock" && (
                 <RepairPartPicker
                   jobId={paying.id}
                   branchId={paying.branchId}

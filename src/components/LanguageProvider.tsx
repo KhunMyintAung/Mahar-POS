@@ -1635,6 +1635,21 @@ const MM: Record<string, string> = {
   "The month is not over yet": "လ မကုန်သေးပါ",
   "Partner shares can add up to at most 100% (all 0 for equal shares)": "အစုရှယ်ယာ % ပေါင်း 100% ထက် မကျော်ရ (အားလုံး 0 ဆို တန်းတူခွဲ)",
   "Staff Profit Bonus": "ဝန်ထမ်း အမြတ်ဆုကြေး",
+  "Repair parts": "ပြုပြင်ရေး အပိုပစ္စည်း",
+  "From stock": "Stock ထဲမှ",
+  "Bought per job": "Job တစ်ခုချင်း ဝယ်",
+  "Parts are bought into stock (Purchases, Bought for: Service) and picked from stock at Mark as paid. Their cost counted when bought, so Reports do not count it again.": "အပိုပစ္စည်းကို Purchases (Bought for: Service) ဖြင့် Stock ထဲ ဝယ်ထည့်ပြီး Mark as paid တွင် Stock ထဲမှ ရွေးသည်။ ဝယ်စဉ်က ကုန်ကျစရိတ် တွက်ပြီးသားမို့ Reports တွင် ထပ်မတွက်ပါ။",
+  "No parts stock: the part is bought for each job and its price typed in at Mark as paid. Reports take that cost off service profit on the day the job was paid.": "အပိုပစ္စည်း Stock မထား — Job တစ်ခုချင်းအတွက် ဝယ်ပြီး Mark as paid တွင် ဝယ်ဈေး ရိုက်ထည့်သည်။ ငွေရှင်းသည့်နေ့၏ ဝန်ဆောင်မှု အမြတ်မှ ထိုကုန်ကျစရိတ်ကို Reports က နုတ်မည်။",
+  "Parts bought (cost)": "ဝယ်ခဲ့သော အပိုပစ္စည်း (ကုန်ကျ)",
+  "Daily profit": "နေ့စဉ် အမြတ်",
+  "Daily repair profit": "ပြုပြင်ရေး နေ့စဉ် အမြတ်",
+  "Day after": "နောက်ရက်",
+  "By technician": "ဆရာ အလိုက်",
+  "No repair was paid this day": "ဒီနေ့ ငွေရှင်းသော ပြုပြင်မှု မရှိပါ",
+  "Parts bought per job: this cost comes off service profit in Reports.": "Job တစ်ခုချင်း ဝယ်သော အပိုပစ္စည်း — ဒီကုန်ကျစရိတ်ကို Reports ၏ ဝန်ဆောင်မှု အမြတ်မှ နုတ်မည်။",
+  "Parts from stock: their cost counted when bought (Service purchase), so Reports do not count it again.": "Stock ထဲမှ အပိုပစ္စည်း — ဝယ်စဉ် (Service purchase) က တွက်ပြီးသားမို့ Reports တွင် ထပ်မတွက်ပါ။",
+  "Repair parts (bought per job)": "ပြုပြင်ရေး အပိုပစ္စည်း (Job အလိုက် ဝယ်)",
+  "Not allowed to see costs": "ကုန်ကျစရိတ် ကြည့်ခွင့် မရှိပါ",
 };
 
 const originalText = new WeakMap<Node, string>();

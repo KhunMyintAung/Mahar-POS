@@ -7,6 +7,7 @@ import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } 
 import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
+import { RepairFlowCard } from "@/components/RepairFlowCard";
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
@@ -243,6 +244,9 @@ export default function SettingsPage() {
       <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
 
       <BranchesCard usersOn={featureEnabled("users")} onShowUsers={showUsers} />
+
+      {/* How the shop gets repair parts: decides where their cost counts in Reports. */}
+      {featureEnabled("repair") && <RepairFlowCard />}
       </>}
 
       {current === "printing" && <>

@@ -3,6 +3,7 @@ import { businessDateOf, dateRangeUtc } from "@/lib/dates";
 import { bucketForKey } from "@/lib/incomeCategories";
 import { isPhoneShop, type FeatureVisibility } from "@/lib/modules";
 import { loadModuleAccess } from "@/lib/moduleAccess";
+import { jobsPaidBetween, loadRepairFlow } from "@/services/repairProfitService";
 
 /** The business report for any period: a day, a month, a year or a range.
  *
@@ -23,6 +24,8 @@ import { loadModuleAccess } from "@/lib/moduleAccess";
 export const REPORT_SETTING = "report_settings";
 
 export type Section = "sales" | "service" | "topup" | "general";
+/** The expense line for parts bought per repair job (Settings → Repairs). */
+export const REPAIR_PARTS_LABEL = "Repair parts (bought per job)";
 export const SECTIONS: Section[] = ["sales", "service", "topup", "general"];
 
 export interface Partner { name: string; percent: number }
@@ -260,7 +263,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const keyOf = (date: string) => (groupBy === "day" ? date : date.slice(0, 7));
   const range = { gte: dateRangeUtc(from).gte, lt: dateRangeUtc(to).lt };
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [settings, access] = await Promise.all([loadReportSettings(businessId), loadModuleAccess(businessId)]);
+  const [settings, access, repairFlow] = await Promise.all([loadReportSettings(businessId), loadModuleAccess(businessId), loadRepairFlow(businessId)]);
   const shown = sectionsFor(access.features);
   const phoneShop = isPhoneShop(access);
   const salarySet = new Set(settings.salaryCategories.map((c) => c.toLowerCase()));
@@ -360,6 +363,10 @@ export async function buildReport(businessId: string, from: string, to: string, 
       else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; addDayTopup(e.date, e.amount); }
       else { r.otherIncome += e.amount; addOther(r.period, name, e.amount); }
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
+    } else if (e.type === "EXPENSE" && e.purchaseId && expenseSection(name) === "service") {
+      // A purchase bought for Service (repair parts): a service expense, not goods to sell.
+      r.expense += e.amount; r.expService += e.amount;
+      expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && e.purchaseId) {
       r.stockBought += e.amount;
       expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
@@ -394,8 +401,19 @@ export async function buildReport(businessId: string, from: string, to: string, 
 
   // Float purchases recorded as expense in this period: top-up cost comes from them.
   const floatMode = entries.some((e) => e.type === "EXPENSE" && e.billerTxnId);
+  // A shop buying parts per repair job (Settings → Repairs): each job's parts cost comes off
+  // service profit on the day it was paid. A shop taking parts from stock counted them when
+  // it bought them (a Service purchase), so not again.
+  if (shown.service && repairFlow.parts === "job") {
+    for (const j of await jobsPaidBetween(businessId, from, to, branchIds)) {
+      if (j.partsCost <= 0n) continue;
+      const r = at(j.paidDate);
+      r.expense += j.partsCost; r.expService += j.partsCost;
+      expenseCats.set(REPAIR_PARTS_LABEL, (expenseCats.get(REPAIR_PARTS_LABEL) ?? 0n) + j.partsCost);
+    }
+  }
   // Likewise purchases recorded as expense: sales cost comes from them, not from goods sold.
-  const purchaseMode = entries.some((e) => e.type === "EXPENSE" && e.purchaseId);
+  const purchaseMode = entries.some((e) => e.type === "EXPENSE" && e.purchaseId && expenseSection(e.categoryName ?? "") !== "service");
   const finish = (r: PeriodRow) => {
     const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
     // Top-up counts at its margin (or less the float bought): the rest of that cash is the
