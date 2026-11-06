@@ -1663,6 +1663,10 @@ const MM: Record<string, string> = {
   "Tidy names": "အမည်များ သပ်ရပ်အောင် ပြင်",
   "Every name is already in order": "အမည်အားလုံး မှန်ပြီးသားပါ",
   "Capitals, spelling and spacing, the way new items are saved. Untick any you want kept as they are.": "စာလုံးအကြီးအသေး၊ စာလုံးပေါင်း နှင့် Space များကို ပစ္စည်းအသစ် သိမ်းသည့်ပုံစံအတိုင်း ပြင်မည်။ မပြင်စေချင်သည့်ဟာကို အမှန်ခြစ် ဖြုတ်ပါ။",
+  "Bank": "ဘဏ်",
+  "Mobile money": "Mobile Money",
+  "Agent": "Agent",
+  "Clearing": "ရှင်းလင်းရန်",
 };
 
 const originalText = new WeakMap<Node, string>();

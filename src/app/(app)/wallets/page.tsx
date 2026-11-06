@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ArrowLeftRight, SlidersHorizontal, Scale, Pencil, Trash2 } from "lucide-react";
+import { Plus, ArrowLeftRight, SlidersHorizontal, Scale, Pencil, Trash2, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { minorToDecimalString } from "@/lib/money";
@@ -21,6 +21,34 @@ interface Wallet {
 /** Minor units back into something editable in a text field. */
 function fmtInput(minor: string | number | bigint) {
   return minorToDecimalString(BigInt(minor));
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  CASH: "Cash", BANK: "Bank", MOBILE: "Mobile money", AGENT: "Agent", CUSTOMER: "Customer", EXPENSE: "Expense", CLEARING: "Clearing", CUSTOM: "Other",
+};
+
+/** A wallet's less used actions behind one button, so each row stays quiet. */
+function RowMenu({ items }: { items: { label: string; icon: ReactNode; danger?: boolean; onClick: () => void }[] }) {
+  const [open, setOpen] = useState(false);
+  if (items.length === 0) return null;
+  return (
+    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <Button size="sm" variant="ghost" aria-label="More" title="More" onClick={() => setOpen((o) => !o)}><MoreHorizontal size={16} /></Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            {items.map((it) => (
+              <button key={it.label} type="button" onClick={() => { setOpen(false); it.onClick(); }}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${it.danger ? "text-red-600" : ""}`}>
+                {it.icon}{it.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 const emptyWalletForm = (branchId: string) => ({
@@ -101,46 +129,32 @@ export default function WalletsPage() {
       {wallets.length === 0 ? (
         <Card><Empty message="No wallets" /></Card>
       ) : (
-        <Table headers={["Wallet", "Code", "Type", "Currency", "Balance", ""]} rightAlign={[4]}>
+        <Table headers={["Wallet", "Balance", ""]} rightAlign={[1]}>
           {wallets.map((w) => (
-            <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-              <td className="cursor-pointer px-3 py-2.5 font-medium text-blue-600 hover:underline" onClick={() => router.push(`/wallets/${w.id}`)}>{w.name}</td>
-              <td className="px-3 py-2.5 text-xs text-gray-500">{w.code}</td>
-              <td className="px-3 py-2.5 text-xs">{w.type}</td>
-              <td className="px-3 py-2.5">{w.currency}</td>
+            // The whole row opens the wallet's history.
+            <tr key={w.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => router.push(`/wallets/${w.id}`)}>
+              <td className="px-3 py-2.5">
+                <div className="font-medium text-blue-600">{w.name}</div>
+                <div className="text-xs text-gray-500">{[w.code, TYPE_LABELS[w.type] ?? w.type, w.currency].join(" · ")}</div>
+              </td>
               <td className={`px-3 py-2.5 text-right font-semibold tabular-nums ${BigInt(w.currentBalance) < BigInt(w.minBalance) ? "text-red-600" : ""}`}>
                 {fmtMoney(w.currentBalance)}
               </td>
-              <td className="px-3 py-2.5">
-                <div className="flex justify-end gap-1">
-                  {hasPerm("wallet.adjust") && (
-                    <Button size="sm" variant="ghost" onClick={() => { setAdjust({ direction: "DEBIT", amount: "", reason: "" }); setShowAdjust(w); }}>
-                      <SlidersHorizontal size={14} className="mr-1 inline" />Adjust
-                    </Button>
-                  )}
-                  {hasPerm("wallet.reconcile") && (
-                    <Button size="sm" variant="ghost" onClick={() => { setReconcile({ countedBalance: "", notes: "" }); setShowReconcile(w); }}>
-                      <Scale size={14} className="mr-1 inline" />Reconcile
-                    </Button>
-                  )}
-                  {hasPerm("wallet.create") && (
-                    <Button size="sm" variant="ghost" onClick={() => { setEdit({ name: w.name, code: w.code, type: w.type, minBalance: fmtInput(w.minBalance), description: w.description ?? "", active: w.active }); setShowEdit(w); }}>
-                      <Pencil size={14} className="mr-1 inline" />Edit
-                    </Button>
-                  )}
-                  {hasPerm("wallet.create") && (
-                    <Button size="sm" variant="ghost" onClick={() => setShowDelete(w)}>
-                      <Trash2 size={14} className="mr-1 inline text-red-600" />Delete
-                    </Button>
-                  )}
-                </div>
+              <td className="w-12 px-1 py-2.5 text-right">
+                <RowMenu items={[
+                  ...(hasPerm("wallet.adjust") ? [{ label: "Adjust", icon: <SlidersHorizontal size={14} />, onClick: () => { setAdjust({ direction: "DEBIT", amount: "", reason: "" }); setShowAdjust(w); } }] : []),
+                  ...(hasPerm("wallet.reconcile") ? [{ label: "Reconcile", icon: <Scale size={14} />, onClick: () => { setReconcile({ countedBalance: "", notes: "" }); setShowReconcile(w); } }] : []),
+                  ...(hasPerm("wallet.create") ? [
+                    { label: "Edit", icon: <Pencil size={14} />, onClick: () => { setEdit({ name: w.name, code: w.code, type: w.type, minBalance: fmtInput(w.minBalance), description: w.description ?? "", active: w.active }); setShowEdit(w); } },
+                    { label: "Delete", icon: <Trash2 size={14} />, danger: true, onClick: () => setShowDelete(w) },
+                  ] : []),
+                ]} />
               </td>
             </tr>
           ))}
         </Table>
       )}
 
-      {wallets.length > 0 && <p className="-mt-2 text-xs text-gray-500">Tap a wallet name to see its full history.</p>}
 
       {/* The day: money in and out, transfers, withdrawals, every movement. */}
       <WalletDay refreshKey={wallets} />
@@ -165,7 +179,7 @@ export default function WalletsPage() {
             <Select label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {/* Written-out values: an option with none submits its own text, which this
                   app translates, so in Myanmar the wallet type posted was a Burmese word. */}
-              {["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"].map((t) => <option key={t} value={t}>{t}</option>)}
+              {["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"].map((t) => <option key={t} value={t}>{TYPE_LABELS[t] ?? t}</option>)}
             </Select>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -284,7 +298,7 @@ export default function WalletsPage() {
             <Input label="Code" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value.toUpperCase() })} />
             <Select label="Type" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value })}>
               {["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"].map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>{TYPE_LABELS[t] ?? t}</option>
               ))}
             </Select>
           </div>
