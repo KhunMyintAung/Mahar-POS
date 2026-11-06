@@ -38,7 +38,7 @@ export async function trackedItemIds(tx: Tx, businessId: string, itemIds: string
  *  no longer in stock (sold, then traded back in) is taken in again on the same record. */
 export async function receiveSerials(
   tx: Tx,
-  opts: { businessId: string; branchId: string; itemId: string; imeis: string[]; purchaseId?: string; notes?: string }
+  opts: { businessId: string; branchId: string; itemId: string; imeis: string[]; purchaseId?: string; notes?: string; cost?: bigint }
 ) {
   for (const imei of opts.imeis) {
     const existing = await tx.itemSerial.findUnique({ where: { businessId_imei: { businessId: opts.businessId, imei } } });
@@ -46,6 +46,7 @@ export async function receiveSerials(
     const data = {
       branchId: opts.branchId, itemId: opts.itemId, status: "IN_STOCK", purchaseId: opts.purchaseId ?? null,
       saleId: null, saleLineId: null, soldAt: null, receivedAt: new Date(), notes: opts.notes ?? null,
+      cost: opts.cost ?? null,
     };
     if (existing) await tx.itemSerial.update({ where: { id: existing.id }, data });
     else await tx.itemSerial.create({ data: { ...data, businessId: opts.businessId, imei } });
@@ -83,6 +84,14 @@ export async function sellSerials(
     if (existing) await tx.itemSerial.update({ where: { id: existing.id }, data });
     else await tx.itemSerial.create({ data: { ...data, businessId: opts.businessId, branchId: opts.branchId, itemId: opts.itemId, imei } });
   }
+}
+
+/** What these units cost together: each one's own purchase cost, and the item's average for
+ *  any unit without one (on the shelf before IMEIs were kept, or added by hand). */
+export async function serialsCost(tx: Tx, opts: { businessId: string; imeis: string[]; fallback: bigint }): Promise<bigint> {
+  const rows = await tx.itemSerial.findMany({ where: { businessId: opts.businessId, imei: { in: opts.imeis } }, select: { cost: true } });
+  const known = rows.filter((r) => r.cost != null && r.cost > 0n);
+  return known.reduce((sum, r) => sum + (r.cost as bigint), 0n) + BigInt(opts.imeis.length - known.length) * opts.fallback;
 }
 
 /** A cancelled sale: its units are back on the shelf. */

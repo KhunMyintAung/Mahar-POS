@@ -6,7 +6,8 @@ import { postLedger, reverseLedgerEntries } from "./walletService";
 import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
-import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, trackedItemIds } from "./serialService";
+import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, serialsCost, trackedItemIds } from "./serialService";
+import { averageCost } from "@/lib/costing";
 
 // Purchases and sales tie inventory to the money system:
 // - purchase: stock in; paid part leaves a wallet, unpaid part becomes a Payable
@@ -150,6 +151,11 @@ export async function createPurchase(
         lineTotal: BigInt(l.quantity) * l.unitPrice,
       },
     });
+    // Stock on hand (all branches) and its cost before this delivery, for the average.
+    const [onHand, before] = await Promise.all([
+      tx.stockLevel.aggregate({ where: { itemId: l.itemId }, _sum: { quantity: true } }),
+      tx.item.findUnique({ where: { id: l.itemId }, select: { costPrice: true } }),
+    ]);
     await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
@@ -162,11 +168,16 @@ export async function createPurchase(
     });
     const lineImeis = purchaseImeis[i];
     if (lineImeis) {
-      await receiveSerials(tx, { businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, purchaseId: purchase.id });
+      // Each phone keeps its own price, and is sold at it.
+      await receiveSerials(tx, {
+        businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, purchaseId: purchase.id,
+        cost: l.unitPrice > 0n ? l.unitPrice : undefined,
+      });
     }
-    // Keep the item's latest cost price — but not from a free (FOC) line, which would
-    // otherwise make a paid-for item look free in stock value and in every sale's profit.
-    if (l.unitPrice > 0n) await tx.item.update({ where: { id: l.itemId }, data: { costPrice: l.unitPrice } });
+    // The item's cost becomes the weighted average of what was on hand and this delivery.
+    const oldCost = before?.costPrice ?? 0n;
+    const newCost = averageCost(onHand._sum.quantity ?? 0, oldCost, l.quantity, l.unitPrice);
+    if (newCost !== oldCost) await tx.item.update({ where: { id: l.itemId }, data: { costPrice: newCost } });
   }
 
   if (opts.paidAmount > 0n && opts.walletId) {
@@ -332,14 +343,19 @@ export async function createSale(
       createdById: opts.userId,
     });
     soldItems.push({ name: item.name, quantity: l.quantity });
-    totalCost += BigInt(l.quantity) * item.costPrice;
+    // Phones sold by IMEI cost what each one was bought for; the rest the item's average.
+    const lineImeis = saleImeis[i];
+    const lineCost = lineImeis
+      ? await serialsCost(tx, { businessId: opts.businessId, imeis: lineImeis, fallback: item.costPrice })
+      : BigInt(l.quantity) * item.costPrice;
+    totalCost += lineCost;
     const line = await tx.saleLine.create({
       data: {
         saleId: sale.id,
         itemId: l.itemId,
         quantity: l.quantity,
         unitPrice: l.unitPrice,
-        unitCost: item.costPrice,
+        unitCost: (lineCost * 2n + BigInt(l.quantity)) / (BigInt(l.quantity) * 2n),
         lineTotal: BigInt(l.quantity) * l.unitPrice,
         warranty: l.warranty || null,
         warrantyDays: l.warranty ? Math.max(0, l.warrantyDays ?? 0) : 0,
@@ -347,7 +363,6 @@ export async function createSale(
         note: l.note || null,
       },
     });
-    const lineImeis = saleImeis[i];
     if (lineImeis) {
       await sellSerials(tx, { businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: lineImeis, saleId: sale.id, saleLineId: line.id });
     }

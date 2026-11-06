@@ -851,6 +851,9 @@ model ItemSerial {
   /// IN_STOCK, SOLD or REMOVED (damaged, used, returned to supplier).
   status     String    @default("IN_STOCK")
   purchaseId String?
+  /// What this one unit cost when bought (minor units); a sale of it counts this cost, not
+  /// the item's average. Empty for units recorded without a purchase.
+  cost       BigInt?
   saleId     String?
   saleLineId String?
   notes      String?
