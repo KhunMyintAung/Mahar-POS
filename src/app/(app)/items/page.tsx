@@ -547,45 +547,6 @@ export default function ItemsPage() {
       <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="Model (groups variants)"
-              value={form.model}
-              placeholder={phoneShop ? "iPhone 13" : "Coca Cola"}
-              onChange={(e) => {
-                const model = e.target.value;
-                const auto = !form.name || form.name === variantName(form.model, form.variant);
-                setForm({ ...form, model, ...(auto ? { name: variantName(model, form.variant) } : {}) });
-              }}
-            />
-            <Input
-              label="Variant"
-              value={form.variant}
-              placeholder={phoneShop ? "128GB · Blue" : "330ml"}
-              autoFocus={Boolean(variantOf)}
-              disabled={!form.model}
-              onChange={(e) => {
-                const variant = e.target.value;
-                const auto = !form.name || form.name === variantName(form.model, form.variant);
-                setForm({ ...form, variant, ...(auto ? { name: variantName(form.model, variant) } : {}) });
-              }}
-            />
-          </div>
-          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: correctProductName(f.name, phoneShop) }))} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="SKU"
-              value={form.sku}
-              disabled={!!editItem}
-              onChange={(e) => setForm({ ...form, sku: e.target.value })}
-              placeholder={editItem ? "" : "Left empty, one is made from the name"}
-            />
-            <BarcodeInput
-              label="Barcode"
-              value={form.barcode}
-              onChange={(barcode) => setForm({ ...form, barcode })}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               {/* Category, then one of its sub-categories (Spare Parts › LCD) when it has any. */}
               {(() => {
@@ -617,6 +578,50 @@ export default function ItemsPage() {
               <option value="">—</option>
               {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </Select>
+          </div>
+          {/* Model and variant come after the category: in a phone shop for phones only. */}
+          {(form.model || (form.categoryId && (!phoneShop || isPhoneCategory(catLabel(form.categoryId))))) && (
+            <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Model (groups variants)"
+                value={form.model}
+                placeholder={phoneShop ? "iPhone 13" : "Coca Cola"}
+                onChange={(e) => {
+                  const model = e.target.value;
+                  const auto = !form.name || form.name === variantName(form.model, form.variant);
+                  setForm({ ...form, model, ...(auto ? { name: variantName(model, form.variant) } : {}) });
+                }}
+              />
+              <Input
+                label="Variant"
+                value={form.variant}
+                placeholder={phoneShop ? "128GB · Blue" : "330ml"}
+                autoFocus={Boolean(variantOf)}
+                disabled={!form.model}
+                onChange={(e) => {
+                  const variant = e.target.value;
+                  const auto = !form.name || form.name === variantName(form.model, form.variant);
+                  setForm({ ...form, variant, ...(auto ? { name: variantName(form.model, variant) } : {}) });
+                }}
+              />
+            </div>
+            </>
+          )}
+          <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: correctProductName(f.name, phoneShop) }))} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="SKU"
+              value={form.sku}
+              disabled={!!editItem}
+              onChange={(e) => setForm({ ...form, sku: e.target.value })}
+              placeholder={editItem ? "" : "Left empty, one is made from the name"}
+            />
+            <BarcodeInput
+              label="Barcode"
+              value={form.barcode}
+              onChange={(barcode) => setForm({ ...form, barcode })}
+            />
           </div>
           {(isSecondHandPhone(catLabel(form.categoryId)) || form.condition || form.batteryHealth) && (
             // A second-hand phone: what a buyer asks first.
