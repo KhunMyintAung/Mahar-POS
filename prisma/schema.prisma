@@ -692,6 +692,10 @@ model Item {
   variant      String?
   /// Best before, for food, drinks and medicine (a mini mart); the day only.
   expiresAt    DateTime?     @db.Date
+  /// A second-hand phone: how it looks and works ("Like new", "Small scratches"…).
+  condition     String?
+  /// A second-hand phone's battery health, 0–100 (%).
+  batteryHealth Int?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?

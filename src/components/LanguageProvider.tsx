@@ -1596,6 +1596,9 @@ const MM: Record<string, string> = {
   "Part from stock (LCD, battery…)": "Stock ထဲမှ ပစ္စည်း (LCD၊ ဘက်ထရီ…)",
   "Part from stock": "Stock ထဲမှ ပစ္စည်း",
 
+  "Condition": "အခြေအနေ",
+  "Battery health (%)": "ဘက်ထရီ (%)",
+  "Like new, small scratches…": "Like new၊ အစင်းရာ နည်းနည်း…",
 };
 
 const originalText = new WeakMap<Node, string>();

@@ -67,6 +67,9 @@ const schema = z.object({
   trackSerial: z.boolean().optional(),
   /** Best before (YYYY-MM-DD), for food and medicine; empty for none. */
   expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).optional(),
+  /** A second-hand phone: its condition, and battery health in %. */
+  condition: z.string().trim().max(80).optional(),
+  batteryHealth: z.number().int().min(0).max(100).nullable().optional(),
 });
 
 export const POST = withAuth("item.manage", async ({ req, user }) => {
@@ -136,6 +139,8 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         variant: body.model ? body.variant || null : null,
         trackSerial: body.trackSerial ?? (phoneShop && isPhoneCategory(categoryName)),
         expiresAt,
+        condition: body.condition || null,
+        batteryHealth: body.batteryHealth ?? null,
       },
     });
     await audit(tx, {

@@ -6,7 +6,7 @@ import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
-import { isPhoneCategory } from "@/lib/itemCategoryPresets";
+import { PHONE_CONDITIONS, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
 import { CATEGORY_SEP } from "@/lib/productCsv";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
@@ -32,7 +32,12 @@ interface Item {
   model?: string | null; variant?: string | null;
   /** Best before (a mini mart's food, drinks, medicine), as an ISO date. */
   expiresAt?: string | null;
+  /** A second-hand phone: its condition and battery health (%). */
+  condition?: string | null; batteryHealth?: number | null;
 }
+/** "Good · Battery 87%" for a second-hand phone; empty when neither is set. */
+const conditionText = (it: { condition?: string | null; batteryHealth?: number | null }) =>
+  [it.condition, it.batteryHealth != null ? `Battery ${it.batteryHealth}%` : ""].filter(Boolean).join(" · ");
 /** A soft tint for a stock count, so empty, running-low and healthy stock read at a glance:
  *  none left is red, at or under the minimum (or 2 when none is set) is amber, a few is
  *  plain, and plenty is green. */
@@ -121,7 +126,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "", expiresAt: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -174,6 +179,8 @@ export default function ItemsPage() {
             trackSerial: form.trackSerial,
             model: form.model, variant: form.model ? form.variant : "",
             expiresAt: form.expiresAt,
+            condition: form.condition.trim(),
+            batteryHealth: form.batteryHealth === "" ? null : Math.min(100, Math.max(0, parseInt(form.batteryHealth) || 0)),
           },
         });
         push("Item updated");
@@ -187,6 +194,8 @@ export default function ItemsPage() {
             unitId: form.unitId || undefined,
             model: form.model || undefined,
             variant: form.model ? form.variant || undefined : undefined,
+            condition: form.condition.trim() || undefined,
+            batteryHealth: form.batteryHealth === "" ? undefined : Math.min(100, Math.max(0, parseInt(form.batteryHealth) || 0)),
           },
         });
         // A variant made from an item that had no model yet: put that item under it too.
@@ -436,6 +445,7 @@ export default function ItemsPage() {
                     {it.expiresAt && <ExpiryPill expiresAt={it.expiresAt} />}
                     {it.trackSerial && <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
                   </button>
+                  {conditionText(it) && <div className={cn("text-xs font-normal text-gray-500", inGroup && "pl-3")}>{conditionText(it)}</div>}
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
@@ -465,6 +475,8 @@ export default function ItemsPage() {
                         trackSerial: Boolean(it.trackSerial),
                         model: it.model ?? "", variant: it.variant ?? "",
                         expiresAt: it.expiresAt?.slice(0, 10) ?? "",
+                        condition: it.condition ?? "",
+                        batteryHealth: it.batteryHealth != null ? String(it.batteryHealth) : "",
                       });
                       setEditItem(it);
                       setShowNew(true);
@@ -589,6 +601,18 @@ export default function ItemsPage() {
               {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </Select>
           </div>
+          {(isSecondHandPhone(catLabel(form.categoryId)) || form.condition || form.batteryHealth) && (
+            // A second-hand phone: what a buyer asks first.
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Input label="Condition" list="phone-conditions" value={form.condition} placeholder="Like new, small scratches…"
+                  onChange={(e) => setForm({ ...form, condition: e.target.value })} />
+                <datalist id="phone-conditions">{PHONE_CONDITIONS.map((c) => <option key={c} value={c} />)}</datalist>
+              </div>
+              <Input label="Battery health (%)" type="number" inputMode="numeric" min={0} max={100} placeholder="e.g. 87"
+                value={form.batteryHealth} onChange={(e) => setForm({ ...form, batteryHealth: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-3">
             <Input label="Cost price" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
             <Input label="Selling price" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />

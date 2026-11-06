@@ -28,7 +28,12 @@ interface Item {
   trackSerial?: boolean;
   /** Variants: items of one model share a tile, and the variant is picked from it. */
   model?: string | null; variant?: string | null;
+  /** A second-hand phone: its condition and battery health (%). */
+  condition?: string | null; batteryHealth?: number | null;
 }
+/** "Good · Battery 87%", what a buyer of a second-hand phone asks first. */
+const conditionText = (it: { condition?: string | null; batteryHealth?: number | null }) =>
+  [it.condition, it.batteryHealth != null ? `Battery ${it.batteryHealth}%` : ""].filter(Boolean).join(" · ");
 
 /** FOC is offered only on accessories (Accessories / Accessory, any case). */
 const isAccessory = (item: Item) => /accessor/i.test(item.category?.name ?? "");
@@ -687,8 +692,9 @@ export default function PosPage() {
 
                   <div className="flex items-start gap-2">
                     <ProductKindIcon item={item} size={15} className="mt-0.5 h-7 w-7 rounded-md" />
-                    <div className="line-clamp-2 min-w-0 flex-1 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">
-                      {item.name}
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 text-xs font-medium leading-[1.35] [overflow-wrap:anywhere]">{item.name}</div>
+                      {conditionText(item) && <div className="truncate text-[10px] text-gray-500">{conditionText(item)}</div>}
                     </div>
                   </div>
                   <div className="flex items-baseline justify-between gap-2">
@@ -740,6 +746,7 @@ export default function PosPage() {
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium leading-tight" title={line.item.name}>{line.item.name}</div>
+                      {conditionText(line.item) && <div className="truncate text-[11px] text-gray-500">{conditionText(line.item)}</div>}
                       <div className="text-[11px] tabular-nums text-gray-500">{line.foc ? "FOC" : `${line.unitPrice.toLocaleString()} × ${line.quantity}`}</div>
                       {line.outside && <div className="text-[11px] text-amber-700 dark:text-amber-300"><span>Other shop</span> · <span>best price</span> {line.outside.cost.toLocaleString()}</div>}
                     </div>

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
 import { Badge, Button, Modal, Spinner } from "@/components/ui";
 import { api } from "@/lib/client";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
-import { printElement } from "@/lib/printReceipt";
+import { openPrintWindow, printPurchaseVoucher } from "@/lib/slipPrint";
 
 interface PurchaseVoucherData {
   id: string; txnNo: string; date: string; createdAt: string; status: string; paymentStatus: string;
@@ -20,7 +20,6 @@ interface PurchaseVoucherData {
 export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: string | null; onClose: () => void }) {
   const [data, setData] = useState<PurchaseVoucherData | null>(null);
   const [error, setError] = useState("");
-  const slip = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!purchaseId) return;
@@ -38,11 +37,23 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
       footer={data && (
         <>
           <Button variant="secondary" onClick={onClose}>Close</Button>
-          <Button onClick={() => slip.current && void printElement(slip.current)}><Printer size={16} className="mr-1 inline" />Print</Button>
+          <Button onClick={() => {
+            // Opened in the click, so the browser does not block it; then the 80mm slip is written in.
+            const win = openPrintWindow();
+            const n = (v: string) => Number(v) / 100;
+            printPurchaseVoucher({
+              txnNo: data.txnNo, createdAt: data.createdAt, status: data.status, paymentStatus: data.paymentStatus,
+              subtotal: n(data.subtotal), discount: n(data.discount), total: n(data.total), paid: n(data.paidAmount),
+              reference: data.reference, notes: data.notes,
+              lines: data.lines.map((l) => ({ name: l.item.name, quantity: l.quantity, unitCost: n(l.unitCost), lineTotal: n(l.lineTotal), imeis: l.imeis })),
+              shopName: data.business?.name ?? "", shopPhone: data.business?.phone, shopAddress: data.business?.address,
+              supplierName: data.supplierName, supplierPhone: data.supplierPhone, walletName: data.walletName, createdByName: data.createdByName,
+            }, win);
+          }}><Printer size={16} className="mr-1 inline" />Print</Button>
         </>
       )}>
       {error ? <p className="text-sm text-red-600">{error}</p> : !data ? <Spinner /> : (
-        <div ref={slip} className="space-y-3 rounded-lg bg-white p-3 text-sm text-gray-900">
+        <div className="space-y-3 rounded-lg bg-white p-3 text-sm text-gray-900">
           <div className="text-center">
             <div className="text-base font-bold">{data.business?.name}</div>
             {data.business?.phone && <div className="text-xs">{data.business.phone}</div>}

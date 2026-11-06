@@ -68,6 +68,15 @@ export async function addItemCategoryPresets(tx: Tx, businessId: string, names: 
   return changed;
 }
 
+/** A second-hand handset category (Phone Second, Phone › Second, Used phone, ဖုန်းအဟောင်း…):
+ *  its items carry a condition and battery health. */
+export function isSecondHandPhone(name: string | null | undefined): boolean {
+  return isPhoneCategory(name) && /(second|used|2nd|ဟောင်း|တစ်ပတ်ရစ်)/i.test(name ?? "");
+}
+
+/** Ready-made conditions to pick from; anything else can be typed. */
+export const PHONE_CONDITIONS = ["Like new", "Very good", "Good", "Small scratches", "Has marks", "Screen issue", "Repaired before"];
+
 /** A handset category (Phone New, Phone Second, ဖုန်း…): items in it keep an IMEI per unit
  *  unless the shop turns that off. Accessories and spare parts are not handsets. */
 export function isPhoneCategory(name: string | null | undefined): boolean {

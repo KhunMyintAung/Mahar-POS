@@ -134,6 +134,40 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
   return printWindow(targetWindow, html, sale.txnNo);
 }
 
+/** A purchase as the shop's slip printer prints it (80mm, or 58mm when set so): the same
+ *  page as the sale receipt, with what was bought, its cost, the supplier and how it was paid. */
+export interface PurchaseSlipData {
+  txnNo: string; createdAt: string; status: string; paymentStatus: string;
+  subtotal: number; discount: number; total: number; paid: number;
+  reference?: string | null; notes?: string | null;
+  lines: { name: string; quantity: number; unitCost: number; lineTotal: number; imeis: string[] }[];
+  shopName: string; shopPhone?: string | null; shopAddress?: string | null;
+  supplierName: string | null; supplierPhone: string | null; walletName: string | null; createdByName: string | null;
+}
+
+export function printPurchaseVoucher(p: PurchaseSlipData, targetWindow: Window | null = null): boolean {
+  const cancelled = p.status === "CANCELLED";
+  const owed = cancelled ? 0 : Math.max(0, p.total - p.paid);
+  const items = p.lines.map((l) => `
+    <tr>
+      <td>${escapeHtml(l.name)}${l.imeis.length ? `<small>IMEI: ${escapeHtml(l.imeis.join(", "))}</small>` : ""}</td>
+      <td class="center c-qty">${l.quantity}</td>
+      <td class="right c-price">${l.unitCost === 0 ? "FOC" : money(l.unitCost)}</td>
+      <td class="right c-total">${money(l.lineTotal)}</td>
+    </tr>`).join("");
+  const state = cancelled ? "Cancelled" : owed <= 0 ? "Paid" : p.paid > 0 ? "Part paid" : "Credit";
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(p.txnNo)}</title><style>${baseStyles()}</style></head><body>
+    ${brandBlock({ name: p.shopName, phone: p.shopPhone ?? undefined, address: p.shopAddress ?? undefined }, "Purchase Voucher")}
+    ${cancelled ? '<div class="void">CANCELLED</div>' : ""}
+    <div class="meta"><div><span>Voucher</span><b>${escapeHtml(p.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(p.createdAt))}</b></div><div><span>Supplier</span><b>${escapeHtml(p.supplierName ?? "—")}${p.supplierPhone ? ` · ${escapeHtml(p.supplierPhone)}` : ""}</b></div>${p.reference ? `<div><span>Reference</span><b>${escapeHtml(p.reference)}</b></div>` : ""}${p.createdByName ? `<div><span>Recorded by</span><b>${escapeHtml(p.createdByName)}</b></div>` : ""}</div>
+    <table class="items"><thead><tr><th>Item</th><th class="center c-qty">Qty</th><th class="right c-price">Cost</th><th class="right c-total">Amount</th></tr></thead><tbody>${items}</tbody></table>
+    <div class="summary">${p.discount > 0 ? `<div><span>Subtotal</span><b>${money(p.subtotal)}</b></div><div><span>Discount</span><b>-${money(p.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(p.total)} MMK</b></div><div><span>Paid${p.walletName ? ` (${escapeHtml(p.walletName)})` : ""}</span><b>${money(p.paid)}</b></div>${owed > 0 ? `<div><span>Credit (still owed)</span><b>${money(owed)}</b></div>` : ""}<div><span>Status</span><b>${state}</b></div></div>
+    ${p.notes ? `<p class="muted left">${nl2br(p.notes)}</p>` : ""}
+    <div class="sign"><div>Received by</div><div>Supplier</div></div>
+    ${autoPrint(true)}</body></html>`;
+  return printWindow(targetWindow, html, p.txnNo);
+}
+
 /** The repair voucher, as the multishop app prints it, with this app's QR to the customer's
  *  status page, its "paid" stamp and the shop's own terms from Settings. */
 export async function printRepairVoucher(repair: RepairVoucherData, targetWindow: Window | null = null): Promise<boolean> {
