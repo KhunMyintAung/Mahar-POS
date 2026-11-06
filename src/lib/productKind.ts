@@ -7,15 +7,16 @@
  */
 
 export type ProductKind =
-  | "earphone" | "batteryCharger" | "charger" | "cable" | "battery" | "cover" | "speaker" | "watch"
+  | "earphone" | "powerBank" | "batteryCharger" | "charger" | "cable" | "battery" | "cover" | "speaker" | "watch"
   | "tablet" | "computer" | "storage" | "mouse" | "camera" | "gaming" | "repair"
   | "phone" | "accessory" | "product";
 
 const RULES: [ProductKind, string[]][] = [
   ["earphone", ["earphone", "earbud", "headphone", "headset", "airpod", "နားကြပ်"]],
+  ["powerBank", ["power bank", "powerbank", "ပါဝါဘန့်", "ပါဝါဘဏ်"]],
   // A charger for loose batteries (P10, KG-260…) is a battery thing, not a phone charger.
   ["batteryCharger", ["battery charger", "dc charger", "ဘက်ထရီအားသွင်း", "ဘက်ထရီ အားသွင်း"]],
-  ["charger", ["charger", "adapter", "charging head", "power bank", "powerbank", "အားသွင်း"]],
+  ["charger", ["charger", "adapter", "charging head", "အားသွင်း"]],
   ["cable", ["cable", "type-c", "type c", "lightning", "micro usb", "ကြိုး"]],
   ["battery", ["battery", "ဘက်ထရီ"]],
   ["cover", ["cover", "case", "casing", "bumper", "screen protector", "tempered", "glass", "မှန်", "ကာဗာ"]],
