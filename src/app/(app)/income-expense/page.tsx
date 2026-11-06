@@ -20,6 +20,8 @@ interface Item {
   currency: string; date: string; description?: string; status: string; supplierName?: string;
   /** Set on the expense a stock purchase wrote: its line opens that purchase's voucher. */
   purchaseId?: string | null;
+  /** Set on the expense of a supplier payment: the purchase it paid for. */
+  fromPurchaseId?: string | null;
   /** Cancelled entries only: when, by whom and why. */
   cancelledAt?: string; cancelledBy?: string; cancelReason?: string;
 }
@@ -298,8 +300,8 @@ export default function IncomeExpensePage() {
               <td className="px-3 py-2 text-xs">
                 {it.supplierName && <span className="font-semibold text-gray-700 dark:text-gray-200">{it.supplierName}</span>}
                 {it.supplierName && it.description && " · "}
-                {it.purchaseId && hasPerm("purchase.view")
-                  ? <button type="button" className="text-left text-blue-600 hover:underline" onClick={() => setVoucherFor(it.purchaseId!)}>{it.description ?? "Purchase voucher"}</button>
+                {(it.purchaseId || it.fromPurchaseId) && hasPerm("purchase.view")
+                  ? <button type="button" className="text-left text-blue-600 hover:underline" onClick={() => setVoucherFor((it.purchaseId || it.fromPurchaseId)!)}>{it.description ?? "Purchase voucher"}</button>
                   : it.description ?? (it.supplierName ? "" : "—")}
               </td>
               <td className={`px-3 py-2 text-right font-medium tabular-nums ${it.type === "INCOME" ? "text-green-600" : "text-red-600"}`}>

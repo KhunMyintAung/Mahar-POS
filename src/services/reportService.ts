@@ -294,7 +294,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { id: true, kind: true, cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
       where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
-      select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true, purchaseId: true },
+      select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true, purchaseId: true, fromPurchaseId: true },
     }),
     prisma.category.findMany({ where: { businessId, systemKey: { not: null } }, select: { name: true, type: true, systemKey: true } }),
     prisma.repairJob.count({ where: { businessId, deletedAt: null, receivedAt: range } }),
@@ -376,11 +376,11 @@ export async function buildReport(businessId: string, from: string, to: string, 
       else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; addDayTopup(e.date, e.amount); }
       else { r.otherIncome += e.amount; addOther(r.period, name, e.amount); }
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
-    } else if (e.type === "EXPENSE" && e.purchaseId && expenseSection(name) === "service") {
+    } else if (e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId) && expenseSection(name) === "service") {
       // A purchase bought for Service (repair parts): a service expense, not goods to sell.
       r.expense += e.amount; r.expService += e.amount;
       expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
-    } else if (e.type === "EXPENSE" && e.purchaseId) {
+    } else if (e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId)) {
       r.stockBought += e.amount;
       expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && e.billerTxnId) {
@@ -426,7 +426,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }
   }
   // Likewise purchases recorded as expense: sales cost comes from them, not from goods sold.
-  const purchaseMode = entries.some((e) => e.type === "EXPENSE" && e.purchaseId && expenseSection(e.categoryName ?? "") !== "service");
+  const purchaseMode = entries.some((e) => e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId) && expenseSection(e.categoryName ?? "") !== "service");
   const finish = (r: PeriodRow) => {
     const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
     // Top-up counts at its margin (or less the float bought): the rest of that cash is the

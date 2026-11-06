@@ -36,16 +36,23 @@ export const GET = withAuth("purchase.view", async ({ req, user }) => {
   });
   const byId = new Map(suppliers.map((s) => [s.id, s.name]));
   // The expense each purchase was recorded as: Sale or Service.
-  const [expenses, serviceCat] = await Promise.all([
+  const [expenses, serviceCat, paidLater] = await Promise.all([
     prisma.incomeExpense.findMany({
       where: { businessId: user.businessId, status: "COMPLETED", purchaseId: { in: purchases.map((p) => p.id) } },
       select: { purchaseId: true, categoryId: true },
     }),
     prisma.category.findFirst({ where: { businessId: user.businessId, type: "EXPENSE", systemKey: "DAILY_SERVICE" }, select: { id: true } }),
+    // The part of each purchase already in expense: at purchase, and with each payment since.
+    prisma.incomeExpense.groupBy({
+      by: ["fromPurchaseId"],
+      where: { businessId: user.businessId, status: "COMPLETED", fromPurchaseId: { in: purchases.map((p) => p.id) } },
+      _sum: { amount: true },
+    }),
   ]);
+  const laterOf = new Map(paidLater.map((g) => [g.fromPurchaseId, g._sum.amount ?? 0n]));
   const lineOf = new Map(expenses.map((e) => [e.purchaseId, serviceCat && e.categoryId === serviceCat.id ? "SERVICE" : "SALE"]));
   return json({
-    purchases: purchases.map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined, expenseLine: lineOf.get(p.id) ?? null })),
+    purchases: purchases.map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined, expenseLine: lineOf.get(p.id) ?? (laterOf.has(p.id) ? (p.line === "SERVICE" ? "SERVICE" : "SALE") : null), line: p.line ?? null })),
     total, page, pageSize,
     totalAmount: agg._sum.total ?? 0n,
   });
@@ -68,6 +75,8 @@ const schema = z.object({
   discount: z.string().default("0"),
   paidAmount: z.string().default("0"),
   walletId: z.string().optional(),
+  /** What it was bought for: decides the expense (Daily Sale or Daily Service). */
+  line: z.enum(["SALE", "SERVICE"]).optional(),
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
@@ -89,6 +98,7 @@ export const POST = withAuth("purchase.create", async ({ req, user }) => {
       paidAmount: toMinor(body.paidAmount),
       walletId: body.walletId,
       dueDate: body.dueDate,
+      line: body.line,
       reference: body.reference,
       notes: body.notes,
     });

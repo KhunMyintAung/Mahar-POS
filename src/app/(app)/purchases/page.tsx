@@ -23,6 +23,8 @@ interface Purchase {
   paymentStatus: string; status: string; supplierId?: string | null; supplierName?: string; createdAt: string;
   /** The expense it was recorded as, if any: goods to sell or repair parts. */
   expenseLine?: "SALE" | "SERVICE" | null;
+  /** What it was bought for; on credit, its expense goes in on that side as the supplier is paid. */
+  line?: "SALE" | "SERVICE" | null;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
 interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean }
@@ -193,6 +195,17 @@ export default function PurchasesPage() {
   });
   const [rememberExpense, setRememberExpense] = useState(false);
 
+  /** Sale or Service, tapped on a purchase: moves its expense (or, on credit, where it will go). */
+  async function moveLine(id: string, line: ExpenseLine) {
+    try {
+      await api(`/api/v1/purchases/${id}/expense`, { method: "POST", body: { line } });
+      push(line === "SERVICE" ? "Moved to Service" : "Moved to Sale");
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Could not move it", "error");
+    }
+  }
+
   async function addPurchaseExpense(ask: { id: string; total: string; line: ExpenseLine }, auto = false) {
     try {
       await api(`/api/v1/purchases/${ask.id}/expense`, { method: "POST", body: { line: ask.line } });
@@ -226,11 +239,14 @@ export default function PurchasesPage() {
           paidAmount: String(paid),
           walletId: paid > 0 ? walletId : undefined,
           dueDate: unpaid > 0 && form.dueDate ? form.dueDate : undefined,
+          line: forLine || undefined,
         },
       });
       push("Purchase recorded — stock updated");
-      if (BigInt(saved.total) > 0n) {
-        const ask = { id: saved.id, txnNo: saved.txnNo, total: saved.total, line: forLine || "SALE" };
+      // Expense is money paid: only what was paid now. What is owed goes into expense
+      // as the supplier is paid, so a purchase on credit asks nothing here.
+      if (paid > 0) {
+        const ask = { id: saved.id, txnNo: saved.txnNo, total: String(paid), line: forLine || "SALE" };
         if (expenseAlways) addPurchaseExpense(ask, true);
         else { setRememberExpense(false); setExpenseAsk(ask); }
       }
@@ -356,17 +372,25 @@ export default function PurchasesPage() {
               <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
-                  {p.expenseLine && p.status === "COMPLETED" && (
-                    <button
-                      type="button"
-                      title={`In expense as ${LINE_EXPENSE[p.expenseLine]}. Tap to move it to ${p.expenseLine === "SALE" ? "Service" : "Sale"}.`}
-                      onClick={() => addPurchaseExpense({ id: p.id, total: p.total, line: p.expenseLine === "SALE" ? "SERVICE" : "SALE" })}
-                      className={cn("rounded-md border px-2 text-xs font-medium",
-                        p.expenseLine === "SERVICE" ? "border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-300" : "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300")}
-                    >
-                      {p.expenseLine === "SERVICE" ? "Service" : "Sale"}
-                    </button>
-                  )}
+                  {(() => {
+                    // In expense already, or on credit with its side kept for when it is paid.
+                    const side = p.expenseLine ?? (BigInt(p.paidAmount) < BigInt(p.total) ? p.line : null);
+                    if (!side || p.status !== "COMPLETED") return null;
+                    const other = side === "SALE" ? "SERVICE" : "SALE";
+                    return (
+                      <button
+                        type="button"
+                        title={p.expenseLine
+                          ? `In expense as ${LINE_EXPENSE[side]}. Tap to move it to ${other === "SALE" ? "Sale" : "Service"}.`
+                          : `Goes into ${LINE_EXPENSE[side]} as the supplier is paid. Tap to change to ${other === "SALE" ? "Sale" : "Service"}.`}
+                        onClick={() => moveLine(p.id, other)}
+                        className={cn("rounded-md border px-2 text-xs font-medium",
+                          side === "SERVICE" ? "border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-300" : "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300")}
+                      >
+                        {side === "SERVICE" ? "Service" : "Sale"}
+                      </button>
+                    );
+                  })()}
                   <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
                   {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
                     <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
@@ -604,8 +628,8 @@ export default function PurchasesPage() {
       <Modal open={Boolean(expenseAsk)} onClose={() => setExpenseAsk(null)} title="Add to expense?">
         {expenseAsk && (
           <div className="space-y-3">
-            <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} for purchase ${expenseAsk.txnNo} to expense as ${LINE_EXPENSE[expenseAsk.line]}?`}</p>
-            <p className="text-xs text-gray-500">The purchase already paid (or owes) the supplier; this only records it as an expense, so money is not taken out twice. Reports then count sales cost from what you bought.</p>
+            <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} paid for purchase ${expenseAsk.txnNo} to expense as ${LINE_EXPENSE[expenseAsk.line]}?`}</p>
+            <p className="text-xs text-gray-500">The money already left the wallet with the purchase; this only records it as an expense, so it is not taken out twice. Any amount still owed goes into expense when the supplier is paid.</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={rememberExpense} onChange={(e) => setRememberExpense(e.target.checked)} />
               Always add, don&apos;t ask again

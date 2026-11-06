@@ -550,6 +550,10 @@ model IncomeExpense {
   /// Set on the expense record of a purchase: the purchase itself paid the supplier, so
   /// this entry moves no money of its own either.
   purchaseId   String?   @unique
+  /** Set on the expense of a payment to a supplier for a purchase on credit (and the purchase
+   *  in fromPurchaseId): the payment moved the money; this records the cost on the day paid. */
+  payablePaymentId String? @unique
+  fromPurchaseId   String?
   /// The supplier an expense was paid to (a SUPPLIER contact), for the monthly total per supplier.
   supplierId   String?
   createdById  String
@@ -561,6 +565,7 @@ model IncomeExpense {
   @@unique([businessId, txnNo])
   @@index([businessId, type, date])
   @@index([businessId, supplierId, date])
+  @@index([fromPurchaseId])
 }
 
 model DailyClose {
@@ -755,6 +760,8 @@ model Purchase {
   status        String    @default("COMPLETED") // COMPLETED CANCELLED
   walletId      String?
   payableId     String?
+  /** What it was bought for: SALE (goods to sell) or SERVICE (repair parts). */
+  line          String?
   date          String // YYYY-MM-DD
   reference     String?
   notes         String?

@@ -107,7 +107,7 @@ export async function reverseIncomeExpense(
   if (!opts.reason.trim()) throw new ApiError(422, "A reason is required");
 
   // A float or stock purchase record moved no money of its own (the purchase did), so nothing to undo.
-  if (!it.billerTxnId && !it.purchaseId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
+  if (!it.billerTxnId && !it.purchaseId && !it.payablePaymentId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
 
   await tx.incomeExpense.update({ where: { id: it.id }, data: { status: "REVERSED" } });
 
@@ -190,6 +190,14 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
   await ensureStandardCategories(tx, opts.businessId);
   const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: line === "SERVICE" ? "DAILY_SERVICE" : "DAILY_SALE" } });
   const fallbackName = line === "SERVICE" ? "Daily Service Expense" : "Daily Sale Expense";
+  if (purchase.line !== line) await tx.purchase.update({ where: { id: purchase.id }, data: { line } });
+  // The expenses of payments made since (a purchase on credit) move with it.
+  const later = await tx.incomeExpense.findMany({ where: { businessId: opts.businessId, fromPurchaseId: purchase.id, status: "COMPLETED" } });
+  if (category) {
+    for (const e of later.filter((x) => x.categoryId !== category.id)) {
+      await tx.incomeExpense.update({ where: { id: e.id }, data: { categoryId: category.id, categoryName: category.name } });
+    }
+  }
   if (existing && existing.status !== "REVERSED") {
     if (!category || existing.categoryId === category.id) return existing;
     // Filed under the other side: move it (no money moves, so nothing else changes).
@@ -201,6 +209,10 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
     });
     return moved;
   }
+  // Expense is money actually paid: what was paid at purchase. A purchase on credit goes in
+  // as the supplier is paid (recordPayablePaymentExpense), so it is not asked about here.
+  // Nothing paid yet: only the side is kept, for when the supplier is paid.
+  if (purchase.paidAmount <= 0n) return later[0] ?? null;
   // The wallet that paid, or for a purchase on credit the branch's first MMK wallet.
   const wallet = purchase.walletId
     ? await tx.wallet.findUnique({ where: { id: purchase.walletId } })
@@ -212,7 +224,7 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
   const description = `Stock purchase ${purchase.txnNo}${supplier ? ` · ${supplier.name}` : ""}`;
 
   const it = existing
-    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: purchase.total, categoryId: category?.id, categoryName, description } })
+    ? await tx.incomeExpense.update({ where: { id: existing.id }, data: { status: "COMPLETED", amount: purchase.paidAmount, categoryId: category?.id, categoryName, description } })
     : await tx.incomeExpense.create({
         data: {
           txnNo: await nextNumber(tx, opts.businessId, "EXPENSE"),
@@ -221,7 +233,7 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
           type: "EXPENSE",
           categoryId: category?.id,
           categoryName,
-          amount: purchase.total,
+          amount: purchase.paidAmount,
           currency: wallet.currency,
           walletId: wallet.id,
           date: purchase.date,
@@ -235,7 +247,57 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
   await audit(tx, {
     businessId: opts.businessId, userId: opts.userId, branchId: purchase.branchId,
     action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
-    after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount: purchase.total, purchase: purchase.txnNo },
+    after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount: purchase.paidAmount, purchase: purchase.txnNo },
+  });
+  return it;
+}
+
+/** A payment to a supplier for a purchase on credit: its cost goes into expense on the day
+ *  paid (Daily Sale or Daily Service, as the purchase was bought for). The payment already
+ *  took the money out of the wallet, so this entry moves none. Never more than the part of
+ *  the purchase not yet in expense, so one recorded in full earlier is not counted twice. */
+export async function recordPayablePaymentExpense(tx: Tx, opts: {
+  businessId: string; userId: string; payableId: string; paymentId: string; amount: bigint; walletId: string; date: string;
+}) {
+  const purchase = await tx.purchase.findFirst({ where: { businessId: opts.businessId, payableId: opts.payableId, deletedAt: null, status: "COMPLETED" } });
+  if (!purchase) return null;
+  const recorded = await tx.incomeExpense.aggregate({
+    where: { businessId: opts.businessId, status: "COMPLETED", type: "EXPENSE", OR: [{ purchaseId: purchase.id }, { fromPurchaseId: purchase.id }] },
+    _sum: { amount: true },
+  });
+  const left = purchase.total - (recorded._sum.amount ?? 0n);
+  const amount = opts.amount < left ? opts.amount : left;
+  if (amount <= 0n) return null;
+
+  await ensureStandardCategories(tx, opts.businessId);
+  const line = purchase.line === "SERVICE" ? "SERVICE" : "SALE";
+  const category = await tx.category.findFirst({ where: { businessId: opts.businessId, type: "EXPENSE", systemKey: line === "SERVICE" ? "DAILY_SERVICE" : "DAILY_SALE" } });
+  const categoryName = category?.name ?? (line === "SERVICE" ? "Daily Service Expense" : "Daily Sale Expense");
+  const wallet = await tx.wallet.findUnique({ where: { id: opts.walletId } });
+  const it = await tx.incomeExpense.create({
+    data: {
+      txnNo: await nextNumber(tx, opts.businessId, "EXPENSE"),
+      businessId: opts.businessId,
+      branchId: purchase.branchId,
+      type: "EXPENSE",
+      categoryId: category?.id,
+      categoryName,
+      amount,
+      currency: wallet?.currency ?? "MMK",
+      walletId: opts.walletId,
+      date: opts.date,
+      reference: purchase.txnNo,
+      description: `Supplier paid for ${purchase.txnNo}`,
+      supplierId: purchase.supplierId,
+      payablePaymentId: opts.paymentId,
+      fromPurchaseId: purchase.id,
+      createdById: opts.userId,
+    },
+  });
+  await audit(tx, {
+    businessId: opts.businessId, userId: opts.userId, branchId: purchase.branchId,
+    action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
+    after: { txnNo: it.txnNo, type: "EXPENSE", category: categoryName, amount, purchase: purchase.txnNo, payment: opts.paymentId },
   });
   return it;
 }

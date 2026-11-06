@@ -93,6 +93,8 @@ export async function createPurchase(
     paidAmount: bigint;
     walletId?: string;
     dueDate?: string;
+    /** What it was bought for: SALE (goods to sell) or SERVICE (repair parts). */
+    line?: "SALE" | "SERVICE";
     reference?: string;
     notes?: string;
   }
@@ -136,6 +138,7 @@ export async function createPurchase(
       date: opts.date,
       reference: opts.reference,
       notes: opts.notes,
+      line: opts.line,
       createdById: opts.userId,
     },
   });

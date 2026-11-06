@@ -1,3 +1,4 @@
+import { recordPayablePaymentExpense } from "./incomeExpenseService";
 import { Tx } from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { postLedger } from "./walletService";
@@ -175,6 +176,11 @@ export async function payPayable(
     refId: payment.id,
     description: `Payment for ${pay.txnNo}`,
     createdById: opts.userId,
+  });
+  // For a purchase on credit, the cost goes into expense now that it is paid.
+  await recordPayablePaymentExpense(tx, {
+    businessId: opts.businessId, userId: opts.userId, payableId: pay.id, paymentId: payment.id,
+    amount: opts.amount, walletId: opts.walletId, date: opts.date,
   });
 
   await audit(tx, {
