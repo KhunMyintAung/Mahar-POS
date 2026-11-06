@@ -231,7 +231,7 @@ export default function PartOrdersPage() {
               {bySupplier.map(({ supplier, list }) => (
                 <Section
                   key={supplier}
-                  title={<>🏪 {supplier} · <span>{`${list.length} pcs`}</span> · <span>{daysFrom(list[0].orderedAt, now) === 0 ? "today" : `${daysFrom(list[0].orderedAt, now)} days`}</span></>}
+                  title={<>{supplier} · <span>{`${list.length} pcs`}</span> · <span>{daysFrom(list[0].orderedAt, now) === 0 ? "today" : `${daysFrom(list[0].orderedAt, now)} days`}</span></>}
                   tone="blue"
                   action={<button type="button" onClick={() => copy(list, `${supplier} list copied`)} className="flex items-center gap-1 text-xs font-medium text-blue-600"><Copy size={13} />Copy</button>}
                 >
@@ -272,7 +272,7 @@ function OrderRow({ order: o, now, open, canEdit, lead, trail, onToggle, onChang
   const meta = [
     o.customerName,
     deposit > 0n ? `Deposit ${fmtMoney(o.deposit)}` : "",
-    o.note ? `📝 ${o.note.split("\n").pop()}` : "",
+    o.note ? `${o.note.split("\n").pop()}` : "",
     o.status === "RECEIVED" ? [o.supplier, fmtDate(o.updatedAt)].filter(Boolean).join(" · ") : waited > 0 ? `${waited} days` : "",
   ].filter(Boolean);
 

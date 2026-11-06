@@ -84,7 +84,7 @@ export default function TelegramPage() {
       <Card>
         {tg.configured && tg.linked ? (
           <div className="space-y-3">
-            <p className="text-sm text-green-600">✅ Connected — @{tg.botUsername}, chat linked.</p>
+            <p className="text-sm text-green-600">Connected — @{tg.botUsername}, chat linked.</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Open your bot in Telegram and send <code>/menu</code> for the quick-start keyboard.
             </p>

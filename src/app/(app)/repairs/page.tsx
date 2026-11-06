@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, 
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
+import { RepairPartPicker } from "@/components/RepairPartPicker";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
@@ -64,6 +65,7 @@ interface Job {
   trackToken?: string | null; receivedByName?: string;
   /** Who repairs it, by name. */
   technicianName?: string | null;
+  branchId?: string;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; month: string }
@@ -204,6 +206,8 @@ export default function RepairsPage() {
   const [form, setForm] = useState(blankForm);
   const [paying, setPaying] = useState<Job | null>(null);
   const [pay, setPay] = useState({ finalCost: "", partsCost: "", walletId: "" });
+  // Parts taken from stock for the job being paid, by name, to show what the cost is made of.
+  const [payParts, setPayParts] = useState<string[]>([]);
   const [editing, setEditing] = useState<Job | null>(null);
   // The repair the owner is about to delete, and why.
   const [deleting, setDeleting] = useState<Job | null>(null);
@@ -343,6 +347,7 @@ export default function RepairsPage() {
 
   function startPay(job: Job) {
     setPaying(job);
+    setPayParts([]);
     setPay({
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
       partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
@@ -602,7 +607,7 @@ export default function RepairsPage() {
                 </td>
                 <td className="px-2 py-1.5">
                   <div className="font-medium">{job.deviceBrand} {job.deviceModel}</div>
-                  {job.technicianName && <div className="text-xs text-blue-700 dark:text-blue-300">🔧 {job.technicianName}</div>}
+                  {job.technicianName && <div className="text-xs text-blue-700 dark:text-blue-300">{job.technicianName}</div>}
                   {job.imei && (
                     <div className="font-mono text-xs text-gray-500">{job.imei}</div>
                   )}
@@ -755,6 +760,19 @@ export default function RepairsPage() {
                 {/* What the repair cost the shop (parts bought for it…), so the profit is known. */}
                 <Input label="Cost (parts)" value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />
               </div>
+              {paying.status !== "DELIVERED" && (
+                <RepairPartPicker
+                  jobId={paying.id}
+                  branchId={paying.branchId}
+                  onAdded={(partCost, partName) => {
+                    // The part's cost is on the job now; the box shows the new total.
+                    setPay((p) => ({ ...p, partsCost: String(Number(p.partsCost || 0) + Number(partCost) / 100) }));
+                    setPayParts((list) => [...list, partName]);
+                    push(`${partName} taken from stock`);
+                  }}
+                />
+              )}
+              {payParts.length > 0 && <p className="text-xs text-gray-500">{`From stock: ${payParts.join(", ")}`}</p>}
               {charge > 0 && (
                 <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
                   <span>Profit</span>

@@ -383,7 +383,7 @@ export default function IncomeExpensePage() {
             );
           })}
           <p className="text-xs text-gray-500">
-            🔒 The eight standard daily categories can be renamed but not deleted. Renaming moves past entries to the new name. A deleted category&apos;s past entries keep its name.
+            The eight standard daily categories can be renamed but not deleted. Renaming moves past entries to the new name. A deleted category&apos;s past entries keep its name.
           </p>
         </div>
       </Modal>

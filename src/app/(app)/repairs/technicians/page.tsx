@@ -136,7 +136,7 @@ export default function TechniciansPage() {
             <input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800" />
             {!ownOnly && best && best.repaired > 0 && (
               <span className="text-sm text-gray-600 dark:text-gray-300">
-                🏆 <b className="text-gray-900 dark:text-gray-100">{best.name}</b> · <span>{`${best.repaired} repaired`}</span>
+                <span>Most repaired</span>: <b className="text-gray-900 dark:text-gray-100">{best.name}</b> · <span>{`${best.repaired} repaired`}</span>
               </span>
             )}
           </>
@@ -155,7 +155,7 @@ export default function TechniciansPage() {
           {rows.map((r) => (
             <tr key={r.name || "—"} className={r.name ? "" : "text-gray-500"}>
               <td className="px-3 py-2.5 font-medium">
-                {r.name ? `🔧 ${r.name}` : "No technician"}
+                {r.name ? r.name : "No technician"}
                 {canSet && r.userId && <div className="text-xs font-normal text-gray-500">{ruleLabel(r.rule)}</div>}
               </td>
               <td className="px-3 py-2.5 text-right tabular-nums">{r.takenIn}</td>

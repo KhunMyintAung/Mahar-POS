@@ -1100,8 +1100,8 @@ const MM: Record<string, string> = {
   "Note (price, supplier, when it comes…)": "မှတ်ချက် (ဈေး၊ ဆိုင်၊ ဘယ်တော့ရမလဲ…)",
   "Undo — not received": "ပြန်ဖွင့်မည် — မရသေး",
   "Record a cash loan": "ငွေချေး မှတ်ရန်",
-  "💵 Cash loan": "💵 ငွေချေး (ငွေထုတ်ပေး)",
-  "🛒 Owes for goods": "🛒 အကြွေး (ပစ္စည်း)",
+  "Cash loan": "ငွေချေး (ငွေထုတ်ပေး)",
+  "Owes for goods": "အကြွေး (ပစ္စည်း)",
   "Who borrowed it": "ဘယ်သူ ချေးသလဲ",
   "+ New person (friend / walk-in)": "+ လူသစ် (သူငယ်ချင်း / Walk-in)",
   "Amount lent (MMK)": "ချေးငွေ (MMK)",
@@ -1193,7 +1193,7 @@ const MM: Record<string, string> = {
   "skipped": "ကျော်ခဲ့",
   "unchanged": "မပြောင်း",
   "updated": "ပြင်ပြီး",
-  "🛍️ Online order": "🛍️ Online အော်ဒါ",
+  "Online order": "Online အော်ဒါ",
   "What the operator is holding for this shop today. A minus figure is fine if the shop has sold ahead of paying.": "ဒီနေ့ Operator ဘက်မှာ ဒီဆိုင်အတွက် ရှိနေသော ငွေ။ ငွေမပေးခင် ကြိုရောင်းထားရင် အနုတ်ဖြစ်လည်း ရပါသည်။",
   "Balance and currency are not editable here — the balance comes from the ledger, so use Adjust to change it and keep the history in step.": "လက်ကျန်နှင့် ငွေကြေးကို ဒီမှာ ပြင်မရပါ — လက်ကျန်က စာရင်းမှ လာသည်။ ပြောင်းလိုလျှင် Adjust ကိုသုံးပါ၊ မှတ်တမ်းလည်း ကိုက်နေမည်။",
   "This wallet is removed from the app. Its past entries stay in the ledger and in any record that used it, so your history keeps adding up.": "ဒီ Wallet ကို App မှ ဖယ်မည်။ အရင်မှတ်တမ်းများ စာရင်းထဲ ကျန်မည်ဖြစ်လို့ စာရင်း ကိုက်နေမည်။",
@@ -1592,6 +1592,9 @@ const MM: Record<string, string> = {
   "Fold": "ခေါက်မည်",
   "Unfold": "ဖြန့်မည်",
   "Cost (parts)": "အရင်း (ပစ္စည်းဖိုး)",
+  "Most repaired": "အများဆုံး ပြင်သူ",
+  "Part from stock (LCD, battery…)": "Stock ထဲမှ ပစ္စည်း (LCD၊ ဘက်ထရီ…)",
+  "Part from stock": "Stock ထဲမှ ပစ္စည်း",
 };
 
 const originalText = new WeakMap<Node, string>();
@@ -1723,6 +1726,10 @@ function translate(value: string) {
     [/^Its (\d+) item\(s\) go to$/, (n) => `ပစ္စည်း ${n} ခုကို ရွှေ့မည့်နေရာ`],
     [/^Delete (.+)\?$/, (n) => `${n} ကို ဖျက်မှာ သေချာလား?`],
     [/^Under (.+)$/, (n) => `${n} အောက်မှာ`],
+    // Spare parts taken from stock in Mark as paid.
+    [/^(\d+) left$/, (n) => `${n} ခု ကျန်`],
+    [/^(.+) taken from stock$/, (n) => `${n} ကို Stock မှ ထုတ်ပြီး`],
+    [/^From stock: (.+)$/, (n) => `Stock မှ: ${n}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
     [/^Paid to other shop \((.*)\)$/, (wallet) => `တခြားဆိုင်ကို ပေးပြီး (${wallet})`],
     [/^Owed to (.+)$/, (shop) => `${shop} ကို ပေးရန်`],

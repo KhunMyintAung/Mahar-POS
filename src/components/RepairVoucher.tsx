@@ -183,7 +183,7 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
           </div>
         )}
 
-        {receipt && <div className="mt-2 text-center font-bold">ကျေးဇူးတင်ပါသည် 🙏</div>}
+        {receipt && <div className="mt-2 text-center font-bold">ကျေးဇူးတင်ပါသည်</div>}
 
         {!receipt && qr && data.trackUrl && (
           <div className="mt-2 text-center">

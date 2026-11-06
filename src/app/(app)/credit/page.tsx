@@ -32,7 +32,7 @@ function DebtFor({ it, onReprint }: { it: Item; onReprint?: (saleNo: string) => 
     <div className="mt-0.5 space-y-1 text-xs text-gray-500">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>{it.creditDate ?? it.payableDate}</span>
-        {it.customer?.address && <span>📍 {it.customer.address}</span>}
+        {it.customer?.address && <span>{it.customer.address}</span>}
       </div>
       {it.sale && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -270,7 +270,7 @@ function CreditContent() {
         <div className="space-y-3">
           {isRec && (
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
-              {([[true, "💵 Cash loan"], [false, "🛒 Owes for goods"]] as const).map(([loan, label]) => (
+              {([[true, "Cash loan"], [false, "Owes for goods"]] as const).map(([loan, label]) => (
                 <button key={label} type="button" onClick={() => setForm({ ...form, loan })} className={cn("rounded-md px-2 py-1.5 font-medium", form.loan === loan ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>{label}</button>
               ))}
             </div>

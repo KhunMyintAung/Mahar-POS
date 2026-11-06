@@ -726,7 +726,7 @@ export default function PosPage() {
           </div>
           {onlineOrder && (
             <div className="flex shrink-0 items-center gap-2 border-b border-purple-100 bg-purple-50 px-3 py-1.5 text-xs text-purple-800 dark:border-purple-900 dark:bg-purple-950/40 dark:text-purple-200">
-              <span className="min-w-0 flex-1 truncate">🛍️ Online order <b>{onlineOrder.orderNo}</b> · {onlineOrder.customerName} {onlineOrder.customerPhone}</span>
+              <span className="min-w-0 flex-1 truncate">Online order <b>{onlineOrder.orderNo}</b> · {onlineOrder.customerName} {onlineOrder.customerPhone}</span>
               <button type="button" className="shrink-0 font-medium hover:underline" onClick={() => setOnlineOrder(null)}>Unlink</button>
             </div>
           )}
@@ -740,8 +740,8 @@ export default function PosPage() {
                   <div className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium leading-tight" title={line.item.name}>{line.item.name}</div>
-                      <div className="text-[11px] tabular-nums text-gray-500">{line.foc ? "🎁 FOC" : `${line.unitPrice.toLocaleString()} × ${line.quantity}`}</div>
-                      {line.outside && <div className="text-[11px] text-amber-700 dark:text-amber-300">🏪 <span>Other shop</span> · <span>best price</span> {line.outside.cost.toLocaleString()}</div>}
+                      <div className="text-[11px] tabular-nums text-gray-500">{line.foc ? "FOC" : `${line.unitPrice.toLocaleString()} × ${line.quantity}`}</div>
+                      {line.outside && <div className="text-[11px] text-amber-700 dark:text-amber-300"><span>Other shop</span> · <span>best price</span> {line.outside.cost.toLocaleString()}</div>}
                     </div>
                     {line.item.trackSerial ? (
                       <span className="flex h-8 shrink-0 items-center rounded-md bg-blue-50 px-2 text-xs font-semibold tabular-nums text-blue-700 dark:bg-blue-950 dark:text-blue-300">
