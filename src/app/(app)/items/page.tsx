@@ -546,39 +546,35 @@ export default function ItemsPage() {
 
       <Modal open={showNew} onClose={() => { setShowNew(false); setEditItem(null); setVariantOf(null); }} title={editItem ? `Edit ${editItem.name}` : variantOf ? `New variant of ${form.model}` : "New item"}>
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              {/* Category, then one of its sub-categories (Spare Parts › LCD) when it has any. */}
-              {(() => {
-                const picked = meta.categories.find((c) => c.id === form.categoryId);
-                const mainId = picked?.parentId ?? picked?.id ?? "";
-                const subs = meta.categories.filter((c) => c.parentId && c.parentId === mainId).sort((a, b) => a.name.localeCompare(b.name));
-                const choose = (id: string) => {
-                  const name = catLabel(id);
-                  setForm({ ...form, categoryId: id, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
-                };
-                return (
-                  <div className={cn("grid gap-2", subs.length > 0 && "grid-cols-2")}>
-                    <Select label="Category" value={mainId} onChange={(e) => choose(e.target.value)}>
-                      <option value="">—</option>
-                      {meta.categories.filter((c) => !c.parentId).sort((a, b) => a.name.localeCompare(b.name))
-                        .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </Select>
-                    {subs.length > 0 && (
-                      <Select label="Sub-category" value={picked?.parentId ? picked.id : ""} onChange={(e) => choose(e.target.value || mainId)}>
-                        <option value="">—</option>
-                        {subs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                      </Select>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
-              <option value="">—</option>
-              {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </Select>
-          </div>
+          {/* Category, then one of its sub-categories (Spare Parts › LCD) when it has any, and the unit. */}
+          {(() => {
+            const picked = meta.categories.find((c) => c.id === form.categoryId);
+            const mainId = picked?.parentId ?? picked?.id ?? "";
+            const subs = meta.categories.filter((c) => c.parentId && c.parentId === mainId).sort((a, b) => a.name.localeCompare(b.name));
+            const choose = (id: string) => {
+              const name = catLabel(id);
+              setForm({ ...form, categoryId: id, ...(editItem || !phoneShop ? {} : { trackSerial: isPhoneCategory(name) }) });
+            };
+            return (
+              <div className={cn("grid items-end gap-3", subs.length > 0 ? "grid-cols-3" : "grid-cols-2")}>
+                <Select label="Category" value={mainId} onChange={(e) => choose(e.target.value)}>
+                  <option value="">—</option>
+                  {meta.categories.filter((c) => !c.parentId).sort((a, b) => a.name.localeCompare(b.name))
+                    .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </Select>
+                {subs.length > 0 && (
+                  <Select label="Sub-category" value={picked?.parentId ? picked.id : ""} onChange={(e) => choose(e.target.value || mainId)}>
+                    <option value="">—</option>
+                    {subs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </Select>
+                )}
+                <Select label="Unit" value={form.unitId} onChange={(e) => setForm({ ...form, unitId: e.target.value })}>
+                  <option value="">—</option>
+                  {meta.units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </Select>
+              </div>
+            );
+          })()}
           {/* Model and variant come after the category: in a phone shop for phones only. */}
           {(form.model || (form.categoryId && (!phoneShop || isPhoneCategory(catLabel(form.categoryId))))) && (
             <>
@@ -609,20 +605,6 @@ export default function ItemsPage() {
             </>
           )}
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: correctProductName(f.name, phoneShop) }))} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Input
-              label="SKU"
-              value={form.sku}
-              disabled={!!editItem}
-              onChange={(e) => setForm({ ...form, sku: e.target.value })}
-              placeholder={editItem ? "" : "Left empty, one is made from the name"}
-            />
-            <BarcodeInput
-              label="Barcode"
-              value={form.barcode}
-              onChange={(barcode) => setForm({ ...form, barcode })}
-            />
-          </div>
           {(isSecondHandPhone(catLabel(form.categoryId)) || form.condition || form.batteryHealth) && (
             // A second-hand phone: what a buyer asks first.
             <div className="grid gap-3 sm:grid-cols-2">
@@ -651,6 +633,24 @@ export default function ItemsPage() {
               <span className="block text-xs text-gray-500">Each phone has its own IMEI: entered when bought, picked when sold, and searchable.</span>
             </span>
           </label>}
+          {/* Optional: an SKU is made from the name when left empty. */}
+          <div className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-700">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="SKU"
+                value={form.sku}
+                disabled={!!editItem}
+                onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                placeholder={editItem ? "" : "Made from the name"}
+              />
+              <BarcodeInput
+                label="Barcode"
+                value={form.barcode}
+                onChange={(barcode) => setForm({ ...form, barcode })}
+              />
+            </div>
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => { setShowNew(false); setEditItem(null); }}>Cancel</Button>
             <Button onClick={save} disabled={busy || !form.name}>{editItem ? "Save changes" : "Create item"}</Button>
