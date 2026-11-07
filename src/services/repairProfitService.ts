@@ -41,3 +41,16 @@ export async function jobsPaidBetween(businessId: string, from: string, to: stri
     .map((j) => ({ ...j, paidDate: businessDateOf(paidAt.get(j.id)!), profit: j.finalCost - j.partsCost }))
     .sort((a, b) => a.paidDate.localeCompare(b.paidDate) || a.jobNo.localeCompare(b.jobNo));
 }
+
+/** A day's service money entered in Income & Expense: income under Daily Service Income and
+ *  expense under Daily Service Expense (parts bought for repairs, and other repair costs). */
+export async function serviceEntriesOn(businessId: string, date: string, branchIds?: string[]) {
+  const cats = await prisma.category.findMany({ where: { businessId, systemKey: "DAILY_SERVICE" }, select: { name: true, type: true } });
+  const names = (type: string) => cats.filter((c) => c.type === type).map((c) => c.name);
+  const where = { businessId, deletedAt: null, status: "COMPLETED" as const, date, currency: "MMK", ...(branchIds ? { branchId: { in: branchIds } } : {}) };
+  const [income, expense] = await Promise.all([
+    prisma.incomeExpense.aggregate({ where: { ...where, type: "INCOME", billerTxnId: null, categoryName: { in: names("INCOME") } }, _sum: { amount: true } }),
+    prisma.incomeExpense.aggregate({ where: { ...where, type: "EXPENSE", categoryName: { in: names("EXPENSE") } }, _sum: { amount: true } }),
+  ]);
+  return { income: income._sum.amount ?? 0n, expense: expense._sum.amount ?? 0n };
+}

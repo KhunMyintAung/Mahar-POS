@@ -11,6 +11,8 @@ interface Daily {
   jobs: { id: string; jobNo: string; who: string; device: string; technician: string | null; charge: string; partsCost: string; profit: string }[];
   byTechnician: { technician: string | null; count: number; charge: string; parts: string; profit: string }[];
   total: { count: number; charge: string; parts: string; profit: string };
+  /** The day in all: repair income less repair expenses (and per-job parts when bought per job). */
+  day: { charge: string; otherIncome: string; income: string; parts: string; expense: string; profit: string };
 }
 
 const today = () => new Date(Date.now() + 390 * 60_000).toISOString().slice(0, 10);
@@ -38,12 +40,21 @@ export function RepairDailyProfit({ open, onClose }: { open: boolean; onClose: (
           <div className="w-40"><Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} /></div>
           <Button size="sm" variant="ghost" aria-label="Day after" disabled={date >= today()} onClick={() => setDate(shift(date, 1))}><ChevronRight size={16} /></Button>
         </div>
-        {!shown ? <Spinner /> : shown.jobs.length === 0 ? <Empty message="No repair was paid this day" /> : (
+        {!shown ? <Spinner /> : shown.jobs.length === 0 && shown.day.income === "0" && shown.day.expense === "0" ? <Empty message="No repair was paid this day" /> : (
           <>
-            <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div className="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div className="text-xs text-gray-500">Charge</div><b className="tabular-nums">{fmtMoney(shown.total.charge)}</b></div>
-              <div className="rounded-lg bg-gray-50 p-2 dark:bg-gray-800"><div className="text-xs text-gray-500">Parts cost</div><b className="tabular-nums">{fmtMoney(shown.total.parts)}</b></div>
-              <div className="rounded-lg bg-emerald-50 p-2 dark:bg-emerald-900/20"><div className="text-xs text-gray-500">Profit</div><b className={cn("tabular-nums", tone(shown.total.profit))}>{fmtMoney(shown.total.profit)}</b></div>
+            {/* The day: repair income, less repair expenses, is the profit. */}
+            <div className="space-y-1 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800">
+              <div className="flex justify-between"><span>Repair income</span><b className="tabular-nums">{fmtMoney(shown.day.income)}</b></div>
+              {shown.day.otherIncome !== "0" && (
+                <div className="flex justify-between pl-3 text-xs text-gray-500"><span>{`Repairs paid ${fmtMoney(shown.day.charge)} · Other income ${fmtMoney(shown.day.otherIncome)}`}</span></div>
+              )}
+              {shown.day.parts !== "0" && (
+                <div className="flex justify-between"><span>Parts cost</span><span className="tabular-nums">{`− ${fmtMoney(shown.day.parts)}`}</span></div>
+              )}
+              <div className="flex justify-between"><span>Repair expense</span><span className="tabular-nums">{`− ${fmtMoney(shown.day.expense)}`}</span></div>
+              <div className="flex justify-between border-t border-gray-200 pt-1 dark:border-gray-700">
+                <span className="font-semibold">Profit</span><b className={cn("tabular-nums", tone(shown.day.profit))}>{fmtMoney(shown.day.profit)}</b>
+              </div>
             </div>
             {shown.byTechnician.length > 1 || shown.byTechnician[0]?.technician ? (
               <div className="space-y-0.5 text-sm">
