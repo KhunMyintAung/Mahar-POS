@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  *  Categories match the page's filter chips: start, pos, manage. A card shows the steps'
  *  headings only; the full guide, with each step explained, is at manualUrl. */
 export async function GET(req: NextRequest) {
-  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 30));
+  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 50));
   return publicJson({
     ok: true,
     total: MANUAL.length,
