@@ -85,6 +85,7 @@ export const MANUAL: ManualGuide[] = [
       { t: "Repair Voucher ပုံစံ", d: "Printing → Repair voucher တွင် Voucher prefix (ဥပမာ MS)၊ Digits၊ Next number၊ ဆိုင်အမည်အောက် စာကြောင်း (Line under shop name)၊ Warnings (တစ်ကြောင်းလျှင် တစ်ချက်) နှင့် QR အောက်စာ (Text under QR) ကို သတ်မှတ်ပြီး Save voucher settings နှိပ်ပါ။" },
       { t: "ဖုန်း Warranty", d: "Phone warranty တွင် ဖုန်းအသစ် / ဖုန်းအဟောင်း အတွက် Warranty ရက်ရွေးစရာများနှင့် စည်းကမ်းစာကြောင်းများ ထည့်ပါ။ ပထမစာကြောင်းသည် ခေါင်းစဉ်အဖြစ် ထွက်ပါမည်။" },
       { t: "Print ထုတ်ပါ", d: "Voucher တွင် Print နှိပ်လျှင် Print window ပွင့်ပါမည်။ Printer ရွေးပြီး Margins: None ထားပါ။ Repair Voucher သည် ထုတ်ပြီးလျှင် အလိုအလျောက် ပိတ်သွားပါမည်။" },
+      { t: "ဖုန်းမှ ဆိုင် Printer ဖြင့် ထုတ်ခြင်း (Cloud Print)", d: "Cloud Print ဖွင့်ထားသော ဆိုင်တွင် ဖုန်းမှ Print နှိပ်လျှင် ဆိုင်ကောင်တာရှိ Printer (XP-80C) မှ ထွက်ပါသည်။ ဖုန်းတွင် ဆက်တင်များ → Printing → Counter printer (Cloud Print) ကို On ထားပါ (Off ထားလျှင် ဖုန်း၏ ကိုယ်ပိုင် Printer ဖြင့်သာ ထုတ်ပါမည်)။ Printer ချိတ်ထားသော ကွန်ပျူတာတွင် Print station စာမျက်နှာ (app.maharpos.shop/print-station) ကို ဖွင့်ပြီး Login တစ်ကြိမ်ဝင်ကာ ဖွင့်ထားပါ — 'Waiting for slips' ပြနေလျှင် အသင့်ဖြစ်ပါပြီ။ Pause / Resume ဖြင့် ခဏရပ်နိုင်ပြီး Recent slips တွင် Print again ဖြင့် ပြန်ထုတ်နိုင်ပါသည်။ Print dialog မပေါ်ဘဲ တန်းထွက်စေရန် စာမျက်နှာပေါ်ရှိ Shortcut ညွှန်ကြားချက်အတိုင်း Desktop shortcut လုပ်ပြီး XP-80C ကို Default printer ထားပါ။ Cloud Print ကို သင့်ဆိုင်အတွက် ဖွင့်လိုပါက Support Team ကို ဆက်သွယ်ပါ။" },
       { t: "PDF အဖြစ် သိမ်းခြင်း", d: "Save as PDF ရွေးလျှင် ဖိုင်အမည်သည် Voucher နံပါတ် ဖြစ်ပါမည်။" },
     ],
     tips: ["Print window မပွင့်လျှင် Browser ၏ Pop-up ပိတ်ထားခြင်း ဖြစ်နိုင်သည် — ဤဆိုက်အတွက် Pop-ups ခွင့်ပြုပါ။", "WiFi/Bluetooth printer တွင် 'local network' error ပေါ်လျှင် Printer နှင့် ဖုန်း/ကွန်ပျူတာ တစ်ခုတည်းသော WiFi တွင် ရှိမရှိ စစ်ပါ။"],
@@ -295,7 +296,10 @@ export const MANUAL: ManualGuide[] = [
       { t: "CSV ထုတ်ပါ", d: "CSV ခလုပ်ဖြင့် ဖိုင်ထုတ်ပါ — Excel၊ Google Sheet တွင် ဖွင့်နိုင်ပြီး မြန်မာစာ မပျက်ပါ။ Grand Report (အမြတ်၊ လစာ၊ နောက်လအရင်း၊ အစုရှင်ခွဲဝေ) ပါဝင်ပါသည်။" },
       { t: "Report settings (⚙)", d: "⚙ တွင် အထွေထွေ အသုံးစရိတ်များ မည်သည့်ကဏ္ဍအောက် ပြမည်၊ Stock sheet တွင် ပါမည့် Category များ၊ လစာ Category များ စသည် သတ်မှတ်ပြီး Save နှိပ်ပါ။" },
     ],
-    tips: ["Google Sheet နှင့် အလိုအလျောက် ချိတ်လိုလျှင် 'Google Sheet Sync' လမ်းညွှန် ကြည့်ပါ။"],
+    tips: [
+      "နေ့ချုပ်ကို သီးခြား ပိတ်ရန် ခလုတ် မလိုပါ — ရောင်းချမှု၊ ဝင်ငွေ/ထွက်ငွေ မှတ်လိုက်တိုင်း အစီရင်ခံစာ (Reports) → Day တွင် ချက်ချင်း ပေါ်ပါသည်။ ဆိုင်ပိတ်ချိန်တွင် Reports → Day ကို ဖွင့်ပြီး ငွေသားနှင့် KPay/Wave လက်ကျန်ကို တကယ် ရေတွက်ကာ ငွေစာရင်းများ (Wallet) နှင့် ကိုက်မကိုက် စစ်ပါ။ မှားနေလျှင် Void / Reverse ဖြင့် ပြင်ပါ။",
+      "Google Sheet နှင့် အလိုအလျောက် ချိတ်လိုလျှင် 'Google Sheet Sync' လမ်းညွှန် ကြည့်ပါ။",
+    ],
   },
   {
     slug: "google-sheet-sync", category: "manage", title: "Google Sheet Sync",
