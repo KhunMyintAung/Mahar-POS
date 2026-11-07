@@ -117,6 +117,10 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
 
   return json({
     date, summary, pos, income, expense,
-    ...(service ? { service: { charge: service.charge, parts: service.parts, profit: service.profit } } : {}),
+    // Repair income: repairs paid that day plus service income put in as Other income (it has no
+    // parts cost, so all of it is profit), as the income list above counts them together.
+    ...(service ? { service: {
+      charge: service.charge + raw.serviceIncome, parts: service.parts, profit: service.profit + raw.serviceIncome, otherIncome: raw.serviceIncome,
+    } } : {}),
   });
 });

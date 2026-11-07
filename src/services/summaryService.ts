@@ -112,6 +112,8 @@ export interface DayIncome {
   sales: bigint; service: bigint; topup: bigint; other: bigint; total: bigint;
   /** Each source on its own: till sales, repairs, top-up sales and every income category entered. */
   lines: DayLine[];
+  /** Income put in under Daily Service (Other income), on its own. */
+  serviceIncome: bigint;
 }
 
 /** Everything the shop took in on a day, in one figure: till sales, repair money taken
@@ -177,7 +179,8 @@ export async function computeDayIncome(
     { label: "Top-up & Bill sales", amount: topupSales },
     ...incomeByCategory.filter((row) => !isService(row.categoryName)).map((row) => ({ label: row.categoryName ?? "Other income", amount: row._sum.amount ?? 0n })),
   ].filter((l) => l.amount !== 0n);
-  return { ...out, total: out.sales + out.service + out.topup + out.other, lines };
+  // serviceIncome: what was put in as Daily Service income (Other income), on its own.
+  return { ...out, total: out.sales + out.service + out.topup + out.other, lines, serviceIncome: byBucket.service };
 }
 
 /** What went out on a day, by expense category, biggest first. */
