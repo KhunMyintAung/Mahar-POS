@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Wallet, HandCoins, FileBarChart,
-  Users, UserCog, IdCard, Settings, ScrollText, Info, Menu, X, LogOut,
+  Users, UserCog, IdCard, Settings, ScrollText, Info, Menu, X, LogOut, HardDrive,
   Receipt, Plus, ShoppingCart, Package, Truck, MessageCircle,
   Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight, ChevronDown, ClipboardList, Award,
 } from "lucide-react";
@@ -23,6 +23,10 @@ import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
 import { clearOfflineCaches, getNetMode, offlineReadyAt, prepareOffline, tellServiceWorker } from "@/lib/netMode";
 import { posDataUrls } from "@/lib/posData";
+import { isDeviceShop, refreshDeviceApp } from "@/lib/device";
+
+/** Parts that need a server, hidden in a shop kept on this device only. */
+const DEVICE_OFF: FeatureKey[] = ["onlineShop", "telegram", "users"];
 import { listQueued, syncQueued } from "@/lib/offlineSales";
 
 interface Me {
@@ -200,12 +204,26 @@ export function AppShell({ children }: { children: ReactNode }) {
     setMe(next);
   }, []);
 
+  // A shop kept on this device only (no account): its engine answers, no one signs in or out.
+  const [deviceShop] = useState(() => typeof window !== "undefined" && isDeviceShop());
+  const [deviceError, setDeviceError] = useState("");
+
   useEffect(() => {
     api<Me>("/api/v1/auth/me")
       .then(setMe)
-      .catch(() => router.push("/login"))
+      .catch((error) => {
+        if (isDeviceShop()) setDeviceError(error instanceof Error ? error.message : String(error));
+        else router.push("/login");
+      })
       .finally(() => setLoading(false));
   }, [router]);
+
+  // A device shop brings its kept app up to date when there is internet and a new version.
+  useEffect(() => {
+    if (!deviceShop || !navigator.onLine) return;
+    const timer = window.setTimeout(() => { refreshDeviceApp().catch(() => {}); }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [deviceShop]);
 
   async function logout() {
     await api("/api/v1/auth/logout", { method: "POST" });
@@ -220,7 +238,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userId = me?.user.id;
   const branchId = me?.branches[0]?.id ?? "";
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || deviceShop) return;
     tellServiceWorker();
     const run = () => {
       if (getNetMode() !== "sync" || !navigator.onLine) return;
@@ -243,12 +261,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.clearInterval(timer);
       window.clearTimeout(refresh);
     };
-  }, [userId, branchId]);
+  }, [userId, branchId, deviceShop]);
 
   const miniMartEnabled = me?.modules.miniMartEnabled ?? false;
   const walletsEnabled = me?.modules.walletsEnabled ?? true;
   const playEdition = me?.edition === "PLAY";
-  const featureEnabled = (feature: FeatureKey) => me?.modules.features[feature] ?? false;
+  const featureEnabled = (feature: FeatureKey) => (me?.modules.features[feature] ?? false) && !(deviceShop && DEVICE_OFF.includes(feature));
   const blockedModulePath = [...NAV, ...WALLET_TABS].some(
     (item) =>
       item.feature &&
@@ -263,6 +281,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCloudPrintAllowed(me?.cloudPrint ?? false);
   }, [me]);
+
+  if (deviceError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+        <p className="font-medium">{"The shop on this device could not open."}</p>
+        <p className="max-w-sm text-sm text-gray-500">{deviceError}</p>
+        <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white">{"Try again"}</button>
+      </div>
+    );
+  }
 
   if (loading || !me) {
     return (
@@ -381,6 +409,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         );
       })}
+      {deviceShop ? (
+        <p className="mt-2 flex items-center gap-3 border-t border-white/10 px-3 py-2 text-xs text-slate-400">
+          <HardDrive size={16} />{"This device only"}
+        </p>
+      ) : (
       <button
         type="button"
         onClick={logout}
@@ -388,6 +421,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         <LogOut size={18} />Sign out
       </button>
+      )}
     </nav>
   );
 
@@ -483,9 +517,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <PwaInstall compact />
                 <SoundToggle />
                 <ThemeToggle />
-                <button onClick={logout} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title={`Sign out (${me.user.name} · ${me.user.roleName})`}>
-                  <LogOut size={18} />
-                </button>
+                {!deviceShop && (
+                  <button onClick={logout} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" title={`Sign out (${me.user.name} · ${me.user.roleName})`}>
+                    <LogOut size={18} />
+                  </button>
+                )}
               </div>
               )}
             </header>

@@ -32,7 +32,8 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  const keep = [CACHE, PAGES, DATA];
+  // mahar-device holds a device shop's screens and engine: kept across app versions.
+  const keep = [CACHE, PAGES, DATA, "mahar-device"];
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((key) => !keep.includes(key)).map((key) => caches.delete(key)))
@@ -59,6 +60,82 @@ self.addEventListener("message", (event) => {
   const mode = data.mode === "sync" || data.mode === "offline" ? data.mode : "online";
   event.waitUntil(caches.open(DATA).then((cache) => cache.put(MODE_KEY, new Response(mode))));
 });
+
+// ---- "This device only" shops ------------------------------------------------------------
+// The shop's books are in the browser (the device engine), so every screen opens from the
+// device, with or without the internet: the screens (HTML and the router's RSC data) and the
+// engine's files are kept in DEVICE when the shop is set up (src/lib/device.ts).
+const DEVICE = "mahar-device";
+const DEVICE_KEY = "/__mahar-device";
+// Screens with an id in the address are kept once, with this in place of the id.
+const DEVICE_ID = "__device__";
+const DEVICE_DYNAMIC = [/^\/customers\/([^/]+)$/, /^\/wallets\/([^/]+)$/];
+
+async function isDevice() {
+  try {
+    return Boolean(await caches.match(DEVICE_KEY, { cacheName: DEVICE }));
+  } catch {
+    return false;
+  }
+}
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (data && data.type === "device") {
+    event.waitUntil(caches.open(DEVICE).then((cache) => cache.put(DEVICE_KEY, new Response("1"))));
+  }
+});
+
+/** The kept screen for a path, and the id to put back in it for a screen with an id. */
+function deviceKey(pathname) {
+  const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+  for (const re of DEVICE_DYNAMIC) {
+    const m = path.match(re);
+    if (m) return { key: path.slice(0, path.length - m[1].length) + DEVICE_ID, id: m[1] };
+  }
+  return { key: path, id: null };
+}
+
+async function fromDevice(key, id) {
+  const cached = await caches.match(key, { cacheName: DEVICE });
+  if (!cached || !id) return cached;
+  const text = (await cached.text()).split(DEVICE_ID).join(encodeURIComponent(id));
+  return new Response(text, { status: cached.status, headers: cached.headers });
+}
+
+async function deviceFetch(event, request, url) {
+  // The router asks for a screen's data (RSC) when moving between screens.
+  if (request.headers.get("rsc") === "1") {
+    // Prefetches ask for parts of a screen the device does not keep; the router manages without.
+    if (request.headers.get("next-router-prefetch")) return new Response(null, { status: 204 });
+    const { key, id } = deviceKey(url.pathname);
+    const kept = await fromDevice("/__rsc" + key, id);
+    return kept || fetch(request);
+  }
+  if (request.mode === "navigate") {
+    if (url.pathname.startsWith("/api/")) return fetch(request);
+    const { key, id } = deviceKey(url.pathname);
+    const kept = await fromDevice(key, id);
+    if (kept) return kept;
+    try {
+      return await fetch(request);
+    } catch {
+      // Not a kept screen (the app opens at /full-app or /play-app): the dashboard.
+      if (url.pathname !== "/" && (await caches.match("/", { cacheName: DEVICE }))) return Response.redirect("/", 302);
+      return (await caches.match("/offline.html")) || Response.error();
+    }
+  }
+  // Which version is current is always asked of the server.
+  if (url.pathname === "/device/manifest.json") return fetch(request);
+  // The engine and the built files: the kept copy, else the network (and keep it).
+  const cached = (await caches.match(request)) || (url.pathname.startsWith("/device/") ? await caches.match(request, { ignoreSearch: true, cacheName: DEVICE }) : undefined);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok && (url.pathname.startsWith("/device/") || url.pathname.startsWith("/_next/static/"))) {
+    const clone = response.clone();
+    caches.open(DEVICE).then((cache) => cache.put(request, clone)).catch(() => {});
+  }
+  return response;
+}
 
 function keep(request, response, cacheName) {
   if (!response.ok) return;
@@ -97,24 +174,20 @@ async function cacheFirst(request, cacheName) {
   return network;
 }
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
-  const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin) return;
-
+/** The answer for a shop with an account: null lets the request go to the network as is. */
+function accountResponse(request, url) {
   if (url.pathname.startsWith("/api/")) {
     // Only a read the page marked (the till is not set to online only) and only the reads
     // the till needs.
     const how = request.headers.get("x-mahar-offline");
-    if (how !== "1" && how !== "cache") return;
-    if (!DATA_PATHS.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"))) return;
-    event.respondWith(how === "cache" ? cacheFirst(request, DATA) : networkFirst(request, DATA, 6000));
-    return;
+    if (how !== "1" && how !== "cache") return null;
+    if (!DATA_PATHS.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"))) return null;
+    return how === "cache" ? cacheFirst(request, DATA) : networkFirst(request, DATA, 6000);
   }
 
   if (request.mode === "navigate") {
     const keepPage = !NO_PAGE.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
-    event.respondWith((async () => {
+    return (async () => {
       // Only the till (/pos) is kept: the other screens need the internet for their data.
       // Online only: the screen comes from the network, and without it the offline notice.
       // Sync later: the network, or the kept till when it fails or is too slow.
@@ -149,12 +222,12 @@ self.addEventListener("fetch", (event) => {
         }
       }
       return network.catch(notice);
-    })());
-    return;
+    })();
   }
 
-  event.respondWith(
-    caches.match(request).then(
+  return (
+    // Only the built files kept here: never a device shop's kept screens (mahar-device).
+    caches.match(request, { cacheName: CACHE }).then(
       (cached) =>
         cached ||
         fetch(request).then((response) => {
@@ -169,4 +242,29 @@ self.addEventListener("fetch", (event) => {
         })
     )
   );
+}
+
+// Whether this browser holds a "This device only" shop; known after the first look.
+let deviceMode;
+isDevice().then((v) => { if (deviceMode === undefined) deviceMode = v; });
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "device") deviceMode = true;
+});
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  // Keeping the app on the device asks the server itself (src/lib/device.ts).
+  if (request.headers.get("x-mahar-fresh")) return;
+  if (deviceMode === false) {
+    const r = accountResponse(request, url);
+    if (r) event.respondWith(r);
+    return;
+  }
+  event.respondWith((async () => {
+    if (deviceMode === undefined) deviceMode = await isDevice();
+    if (deviceMode) return deviceFetch(event, request, url);
+    return (await accountResponse(request, url)) || fetch(request);
+  })());
 });

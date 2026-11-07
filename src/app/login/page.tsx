@@ -9,7 +9,8 @@ import { PwaInstall } from "@/components/PwaInstall";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { PageToggles } from "@/components/ThemeToggle";
 import { api } from "@/lib/client";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, HardDrive } from "lucide-react";
+import { isDeviceShop } from "@/lib/device";
 
 /** The username is kept on this device so the next sign-in only needs the password, which
  *  the browser's own password manager saves (never this page). */
@@ -42,6 +43,8 @@ export default function LoginPage() {
     // this page dynamic and need a Suspense boundary for one query parameter. Deferred (a
     // timeout, which also runs in a background tab) so it is an ordinary update, not one during mount.
     const timer = window.setTimeout(() => {
+      // A shop kept on this device has no sign-in: it opens.
+      if (isDeviceShop()) return window.location.replace("/");
       const reason = new URLSearchParams(window.location.search).get("error");
       if (reason) setError(SIGN_IN_ERRORS[reason] ?? "Sign-in failed. Please try again.");
       try {
@@ -112,6 +115,13 @@ export default function LoginPage() {
             Create a free account
           </Link>
         </p>
+        <Link href="/device-setup" className="mt-4 flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 dark:border-gray-700">
+          <HardDrive size={20} className="shrink-0 text-gray-500" />
+          <span>
+            <span className="block font-medium">{"No internet at the shop?"}</span>
+            <span className="block text-xs text-gray-500">{"Use on this device only: no account, works offline."}</span>
+          </span>
+        </Link>
         <div className="mt-3 flex justify-center">
           <PwaInstall />
         </div>

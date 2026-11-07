@@ -56,6 +56,8 @@ if [ "$old_lock" != "$(sha1sum package-lock.json | cut -d' ' -f1)" ] || [ ! -d n
 fi
 # npm ci only regenerates the client when packages change; a schema change alone needs this.
 npx prisma generate >/dev/null
+# The device engine ("This device only" shops) into public/device, before Next copies public.
+node scripts/build-device.mjs || exit 1
 echo "Building (a few minutes on 1 CPU)…"
 NEXT_SKIP_TYPECHECK=1 npx next build > ../build.log 2>&1 || { tail -20 ../build.log; exit 1; }
 cd ..

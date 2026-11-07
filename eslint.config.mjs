@@ -10,6 +10,9 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".deploy/**",
+    // The device engine: generated Prisma client and the built bundle.
+    "src/generated/**",
+    "public/device/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

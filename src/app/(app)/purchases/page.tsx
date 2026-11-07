@@ -660,7 +660,7 @@ export default function PurchasesPage() {
                 </p>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setMoveTarget(null)}>Don't move</Button>
+                <Button variant="secondary" onClick={() => setMoveTarget(null)}>{"Don't move"}</Button>
                 <Button variant="danger" disabled={busy} onClick={() => void moveLine(moveTarget.p.id, other)}>
                   {other === "SERVICE" ? "Yes, move to Service" : "Yes, move to Sale"}
                 </Button>

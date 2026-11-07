@@ -3,6 +3,7 @@
 // Small fetch wrapper for the app's own API. Throws Error with a friendly message.
 
 import { getNetMode } from "./netMode";
+import { deviceFetch, isDeviceShop } from "./device";
 
 export class ApiClientError extends Error {
   constructor(message: string, public status: number, public details?: unknown) {
@@ -27,7 +28,8 @@ export async function api<T = unknown>(
   const timer = controller ? setTimeout(() => controller.abort(), opts!.timeoutMs) : undefined;
   let res: Response;
   try {
-    res = await fetch(path, {
+    // A shop kept on this device only: its own engine answers, never the server.
+    res = isDeviceShop() ? await deviceFetch(method, path, opts?.body) : await fetch(path, {
       method,
       headers,
       body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,

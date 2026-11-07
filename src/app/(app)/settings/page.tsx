@@ -14,6 +14,8 @@ import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
 import { NetModeCard } from "@/components/NetModeBar";
+import { DeviceShopCard } from "@/components/DeviceShopCard";
+import { isDeviceShop } from "@/lib/device";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -157,10 +159,12 @@ export default function SettingsPage() {
   // One section at a time instead of one long page. Printing appears only for shops that
   // print vouchers or warranty cards.
   const hasPrinting = featureEnabled("pos") || featureEnabled("repair");
+  const deviceShop = isDeviceShop();
   const tabs = [
     { key: "shop", label: "Shop", icon: Store },
     ...(hasPrinting ? [{ key: "printing", label: "Printing", icon: Printer }] : []),
-    ...(featureEnabled("reports") ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
+    // Google Sheet backup needs the server: not for a shop kept on this device only.
+    ...(featureEnabled("reports") && !deviceShop ? [{ key: "sheets", label: "Google Sheet", icon: FileSpreadsheet }] : []),
     { key: "menu", label: "Menu", icon: LayoutList },
     { key: "account", label: "Account", icon: UserCircle },
   ] as const;
@@ -306,18 +310,19 @@ export default function SettingsPage() {
       )}
 
       {current === "account" && <>
-      {/* Online only / Sync later / Offline for this device's till. */}
-      {featureEnabled("pos") && <NetModeCard />}
+      {/* Online only / Sync later / Offline for this device's till; a shop kept on this device
+          only has no server to reach. */}
+      {deviceShop ? <DeviceShopCard /> : featureEnabled("pos") && <NetModeCard />}
 
-      <Card>
+      {!deviceShop && <Card>
         <h3 className="text-sm font-semibold">Privacy and account</h3>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
           <Link className="font-medium text-blue-600 hover:text-blue-700" href="/privacy">Privacy policy</Link>
           <Link className="font-medium text-red-600 hover:text-red-700" href="/account-deletion">Request account deletion</Link>
         </div>
-      </Card>
+      </Card>}
 
-      {me?.user.roleName === "Owner" && (
+      {me?.user.roleName === "Owner" && !deviceShop && (
         <Card className="border-red-300 dark:border-red-900">
           <h3 className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this business</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">

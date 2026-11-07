@@ -9,6 +9,15 @@ generator client {
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
+// The same schema run inside a phone or computer for "This device only" shops (no server):
+// a client with no native engine, used on PGlite (Postgres in the browser) by the device
+// engine (src/device, built by scripts/build-device.mjs).
+generator device {
+  provider   = "prisma-client-js"
+  output     = "../src/generated/device-prisma"
+  engineType = "client"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
