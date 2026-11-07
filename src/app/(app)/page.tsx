@@ -33,7 +33,7 @@ interface DashData {
   income?: { sales: string; service: string; topup: string; other: string; total: string; lines: { label: string; amount: string }[] };
   expense?: { total: string; lines: { label: string; amount: string }[] };
   /** Repairs paid that day (those who may see costs). */
-  service?: { charge: string; parts: string; expense?: string; profit: string; otherIncome?: string };
+  service?: { charge: string; otherIncome?: string };
 }
 
 /** Today in the shop's time zone, to label the income card. */
@@ -155,7 +155,6 @@ export default function DashboardPage() {
               sub={BigInt(data.service.otherIncome ?? "0") > 0n ? `Other income ${fmtMoney(data.service.otherIncome ?? "0", "MMK")}` : undefined}
               onClick={() => router.push("/repairs")}
             />
-            <StatCard label="Repair profit" value={fmtMoney(data.service.profit, "MMK")} sub={`Repair expense ${fmtMoney(data.service.expense ?? "0", "MMK")}`} tone={BigInt(data.service.profit) >= 0n ? "green" : "red"} onClick={() => router.push("/repairs")} />
           </>
         )}
         {featureEnabled("stock") && data.pos && (

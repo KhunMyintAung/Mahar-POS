@@ -257,6 +257,9 @@ export default function RepairsPage() {
   const [partsFlow, setPartsFlow] = useState<RepairParts>("stock");
   const [showDaily, setShowDaily] = useState(false);
   const canSeeProfit = hasPerm("report.view") || hasPerm("item.manage");
+  // Parts from stock were counted as an expense when bought, so a job's own profit would
+  // mislead: it is shown only for a shop buying parts per job.
+  const showProfit = canSeeProfit && partsFlow === "job";
   useEffect(() => {
     api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${REPAIR_FLOW_KEY}`)
       .then((d) => setPartsFlow(parseRepairFlow(d.settings[REPAIR_FLOW_KEY]).parts))
@@ -553,14 +556,14 @@ export default function RepairsPage() {
           </>
         }
       >
-        {canSeeProfit && <Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button>}
+        {showProfit && <Button size="sm" variant="secondary" onClick={() => setShowDaily(true)}>Daily profit</Button>}
         {hasPerm("repair.create") && (
           // A phone has the floating + for this, so the search gets the whole row there.
           <span className="hidden sm:contents"><Button size="sm" onClick={() => setShowNew(true)}><Plus size={16} className="mr-1 inline" />Take in a device</Button></span>
         )}
       </PageHeader>
 
-      {canSeeProfit && <RepairDailyProfit open={showDaily} onClose={() => setShowDaily(false)} />}
+      {showProfit && <RepairDailyProfit open={showDaily} onClose={() => setShowDaily(false)} />}
 
       {/* One slim strip: the month's counts and the month they are for, side by side. */}
       <div className="flex items-stretch overflow-hidden rounded-lg border border-gray-200 bg-white text-center dark:border-gray-800 dark:bg-gray-900">
@@ -788,7 +791,7 @@ export default function RepairsPage() {
                 />
               )}
               {payParts.length > 0 && <p className="text-xs text-gray-500">{`From stock: ${payParts.join(", ")}`}</p>}
-              {charge > 0 && (
+              {showProfit && charge > 0 && (
                 <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
                   <span>Profit</span>
                   <b className={cn("tabular-nums", charge - cost < 0 ? "text-red-600" : "text-emerald-700 dark:text-emerald-300")}>{fmtMoney(String(charge - cost))}</b>
