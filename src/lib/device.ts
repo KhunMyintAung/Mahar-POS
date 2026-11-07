@@ -80,6 +80,79 @@ export async function createDeviceShop(input: DeviceShopInput) {
   markDeviceShop();
 }
 
+// ---- Backups ---------------------------------------------------------------------------------
+
+const LAST_BACKUP_KEY = "mahar-pos:device-backup";
+/** A reminder shows when the last backup is older than this. */
+export const BACKUP_REMIND_DAYS = 7;
+
+/** When the books were last backed up on this device (as the engine recorded it), or null. */
+export async function deviceLastBackup(): Promise<number | null> {
+  const r = (await send({ type: "status" })) as Reply & { lastBackupAt?: number | null };
+  const at = r.lastBackupAt ?? null;
+  try { localStorage.setItem(LAST_BACKUP_KEY, String(at ?? "")); } catch {}
+  return at;
+}
+
+/** The last backup as last seen, without waking the engine (for reminders). */
+export function lastBackupSeen(): number | null {
+  try {
+    const v = Number(localStorage.getItem(LAST_BACKUP_KEY));
+    return v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The shop's books as one file (a compressed copy of the whole database), named for the shop
+ *  and the time. */
+export async function makeDeviceBackup(): Promise<File> {
+  const r = (await send({ type: "backup" })) as Reply & { file: Blob; shop: string; at: number };
+  try { localStorage.setItem(LAST_BACKUP_KEY, String(r.at)); } catch {}
+  const d = new Date(r.at);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+  const shop = r.shop.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "shop";
+  return new File([r.file], `mahar-pos-backup-${shop}-${stamp}.tar.gz`, { type: "application/gzip", lastModified: r.at });
+}
+
+/** Saves a file to the device's downloads. */
+export function saveFile(file: File) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** Whether the phone can hand the file to another app (Telegram, Drive, Gmail). */
+export function canShareFile(file: File): boolean {
+  try {
+    return typeof navigator.share === "function" && Boolean(navigator.canShare?.({ files: [file] }));
+  } catch {
+    return false;
+  }
+}
+
+/** Replaces the books on this device with a backup file. The file is checked first; a wrong one
+ *  leaves the books as they are. The page should reload afterwards. */
+export async function restoreDeviceBackup(file: File): Promise<{ shop: string; at: number | null }> {
+  let r: Reply & { shop: string; at: number | null };
+  try {
+    r = (await send({ type: "restore", file })) as typeof r;
+  } finally {
+    // The engine may have closed its database: the next call starts a new one.
+    worker?.terminate();
+    worker = null;
+  }
+  markDeviceShop();
+  try { localStorage.setItem(LAST_BACKUP_KEY, String(r.at ?? "")); } catch {}
+  return { shop: r.shop, at: r.at };
+}
+
 // ---- Keeping the app on the device -------------------------------------------------------
 
 const DEVICE_CACHE = "mahar-device";
@@ -121,7 +194,9 @@ export async function prepareDevice(onProgress?: (done: number) => void): Promis
   let done = 0;
   const step = () => onProgress?.(Math.min(0.99, ++done / (total + 60)));
   /** What this device already holds under that key (files that never change), else the network. */
-  const reuse = async (key: string, url = key) => (await current.match(key)) ?? (await fetch(url));
+  // Never through the service worker, which answers a device file with the kept one (any version).
+  const reuse = async (key: string, url = key) =>
+    (await current.match(key)) ?? (await fetch(url, { headers: { "x-mahar-fresh": "1" }, cache: "no-cache" }));
 
   // The engine and its large files (fetched again only when they change), then each screen
   // as a page and as the router's data.
@@ -130,7 +205,8 @@ export async function prepareDevice(onProgress?: (done: number) => void): Promis
   step();
   for (const f of manifest.files) {
     const key = `/device/${f.name}?h=${f.hash}`;
-    await keep(next, key, await reuse(key, `/device/${f.name}`));
+    // The hash in the address keeps the browser from giving an older copy of the file.
+    await keep(next, key, await reuse(key));
     step();
   }
   for (let i = 0; i < manifest.screens.length; i += 6) {

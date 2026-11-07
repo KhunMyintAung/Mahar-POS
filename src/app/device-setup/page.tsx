@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { HardDrive } from "lucide-react";
+import { HardDrive, Upload } from "lucide-react";
 import { Button, Card, Input, Select } from "@/components/ui";
 import { PageToggles } from "@/components/ThemeToggle";
+import { PwaInstall } from "@/components/PwaInstall";
+import { useInstalledApp } from "@/lib/installedApp";
 import { SELECTABLE_BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
-import { createDeviceShop, isDeviceShop, prepareDevice } from "@/lib/device";
+import { createDeviceShop, isDeviceShop, prepareDevice, restoreDeviceBackup } from "@/lib/device";
 
 /** "This device only": a shop with no account and no server. Its books are kept in this
  *  browser and every screen works without the internet, which is needed once, now, to keep
@@ -19,6 +21,8 @@ export default function DeviceSetupPage() {
   const [progress, setProgress] = useState<number | null>(null);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
+  const installed = useInstalledApp();
 
   useEffect(() => {
     // A device that already holds a shop opens it.
@@ -46,6 +50,25 @@ export default function DeviceSetupPage() {
     }
   }
 
+  /** A new phone: keep the app, then open the shop from the backup in place of a new one. */
+  async function restore(file: File) {
+    setError("");
+    if (!navigator.onLine) return setError("Connect to the internet once to set up. After that the shop works without it.");
+    try {
+      setStep("Keeping the app on this device...");
+      setProgress(0);
+      await prepareDevice((p) => setProgress(p * 0.8));
+      setStep("Restoring the shop's books...");
+      await restoreDeviceBackup(file);
+      setProgress(1);
+      window.location.replace("/");
+    } catch (err) {
+      setProgress(null);
+      setStep("");
+      setError(err instanceof Error ? err.message : "Could not restore. Please try again.");
+    }
+  }
+
   const busy = progress !== null;
   return (
     <main className="relative flex min-w-0 w-full flex-1 items-center justify-center overflow-x-hidden p-4 pt-16">
@@ -66,6 +89,14 @@ export default function DeviceSetupPage() {
           <li className="font-medium text-amber-700 dark:text-amber-400">{"If the phone is lost or the app's data is cleared, the books are lost. Keep backups."}</li>
         </ul>
 
+        {!installed ? (
+          <div className="space-y-3">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+              {"This device only works in the installed app: the app on the phone's home screen, the app installed on the computer, or the Android app. A browser tab may clear its data. Install the app, open it, and set up there."}
+            </p>
+            <div className="flex justify-center"><PwaInstall /></div>
+          </div>
+        ) : (<>
         <form onSubmit={submit} className="space-y-4">
           <Input label="Shop name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} required minLength={2} maxLength={80} disabled={busy} />
           <Input label="Your name" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} required minLength={2} maxLength={80} disabled={busy} />
@@ -88,6 +119,26 @@ export default function DeviceSetupPage() {
             {busy ? "Setting up..." : "Set up on this device"}
           </Button>
         </form>
+
+        <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
+          <p className="text-sm font-medium">{"Have a backup file?"}</p>
+          <p className="mt-0.5 text-xs text-gray-500">{"On a new phone, open the shop from a backup made in Settings → Account."}</p>
+          <Button variant="secondary" className="mt-2 w-full" onClick={() => fileInput.current?.click()} disabled={busy}>
+            <Upload size={16} className="mr-1 inline" />{"Restore from backup"}
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".gz,.tgz,application/gzip,application/x-gzip"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void restore(file);
+            }}
+          />
+        </div>
+        </>)}
 
         <p className="mt-5 text-center text-sm text-gray-500 dark:text-gray-400">
           {"Have internet at the shop?"}{" "}

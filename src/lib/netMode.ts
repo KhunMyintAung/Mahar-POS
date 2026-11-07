@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { isInstalledApp } from "./installedApp";
 
 /** How this device's till uses the internet. Set per device, as each counter's connection
  *  differs.
@@ -19,7 +20,10 @@ export const DEFAULT_NET_MODE: NetMode = "online";
  *  data, so they are emptied on sign-out. */
 export const OFFLINE_CACHES = ["mahar-data", "mahar-pages"];
 
+/** The mode chosen on this device. Sync later and Offline are for the installed app only
+ *  (src/lib/installedApp.ts): in a browser tab the till is always online only. */
 export function getNetMode(): NetMode {
+  if (!isInstalledApp()) return "online";
   try {
     const v = localStorage.getItem(KEY);
     return v === "online" || v === "sync" || v === "offline" ? v : DEFAULT_NET_MODE;

@@ -11,6 +11,7 @@ import { PageToggles } from "@/components/ThemeToggle";
 import { api } from "@/lib/client";
 import { Eye, EyeOff, HardDrive } from "lucide-react";
 import { isDeviceShop } from "@/lib/device";
+import { useInstalledApp } from "@/lib/installedApp";
 
 /** The username is kept on this device so the next sign-in only needs the password, which
  *  the browser's own password manager saves (never this page). */
@@ -37,6 +38,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [shown, setShown] = useState(false);
   const [remember, setRemember] = useState(true);
+  const installed = useInstalledApp();
 
   useEffect(() => {
     // Read straight from the URL rather than through useSearchParams, which would make
@@ -115,13 +117,24 @@ export default function LoginPage() {
             Create a free account
           </Link>
         </p>
-        <Link href="/device-setup" className="mt-4 flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 dark:border-gray-700">
-          <HardDrive size={20} className="shrink-0 text-gray-500" />
-          <span>
-            <span className="block font-medium">{"No internet at the shop?"}</span>
-            <span className="block text-xs text-gray-500">{"Use on this device only: no account, works offline."}</span>
-          </span>
-        </Link>
+        {installed ? (
+          <Link href="/device-setup" className="mt-4 flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 dark:border-gray-700">
+            <HardDrive size={20} className="shrink-0 text-gray-500" />
+            <span>
+              <span className="block font-medium">{"No internet at the shop?"}</span>
+              <span className="block text-xs text-gray-500">{"Use on this device only: no account, works offline."}</span>
+            </span>
+          </Link>
+        ) : (
+          // Without the internet only in the installed app (src/lib/installedApp.ts).
+          <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-left text-sm dark:border-gray-700">
+            <HardDrive size={20} className="shrink-0 text-gray-400" />
+            <span>
+              <span className="block font-medium">{"No internet at the shop?"}</span>
+              <span className="block text-xs text-gray-500">{"Install the app on the phone or computer (or the Android app), then open it: This device only works without the internet."}</span>
+            </span>
+          </div>
+        )}
         <div className="mt-3 flex justify-center">
           <PwaInstall />
         </div>

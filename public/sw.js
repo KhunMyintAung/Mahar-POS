@@ -120,7 +120,7 @@ async function deviceFetch(event, request, url) {
       return await fetch(request);
     } catch {
       // Not a kept screen (the app opens at /full-app or /play-app): the dashboard.
-      if (url.pathname !== "/" && (await caches.match("/", { cacheName: DEVICE }))) return Response.redirect("/", 302);
+      if (url.pathname !== "/" && (await caches.match("/", { cacheName: DEVICE }))) return Response.redirect("/" + startMark(url), 302);
       return (await caches.match("/offline.html")) || Response.error();
     }
   }
@@ -135,6 +135,14 @@ async function deviceFetch(event, request, url) {
     caches.open(DEVICE).then((cache) => cache.put(request, clone)).catch(() => {});
   }
   return response;
+}
+
+/** The installed apps' start addresses carry on, without the internet too, that the window is
+ *  the app (src/lib/installedApp.ts), as the server's redirect does. */
+function startMark(url) {
+  if (url.pathname === "/full-app") return "?from=pwa";
+  if (url.pathname === "/play-app") return "?from=app";
+  return "";
 }
 
 function keep(request, response, cacheName) {
@@ -206,7 +214,7 @@ function accountResponse(request, url) {
       // then the dashboard) goes to the kept till, the one screen that works offline.
       const notice = async () => {
         if (mode !== "online" && url.pathname !== "/pos" && (await caches.match("/pos", { cacheName: PAGES }))) {
-          return Response.redirect("/pos", 302);
+          return Response.redirect("/pos" + startMark(url), 302);
         }
         return (await caches.match("/offline.html")) || Response.error();
       };

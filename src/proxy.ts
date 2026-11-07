@@ -5,7 +5,8 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/full-app") {
     const destination = request.nextUrl.clone();
     destination.pathname = "/";
-    destination.search = "";
+    // The installed app (PWA) starts here: the page knows it is the app (src/lib/installedApp.ts).
+    destination.search = "?from=pwa";
     const response = NextResponse.redirect(destination);
     response.cookies.set(EDITION_COOKIE, "", {
       httpOnly: true,
@@ -21,7 +22,7 @@ export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/play-app") {
     const destination = request.nextUrl.clone();
     destination.pathname = "/";
-    destination.search = "";
+    destination.search = "?from=app";
     const response = NextResponse.redirect(destination);
     response.cookies.set(EDITION_COOKIE, "play", {
       httpOnly: true,

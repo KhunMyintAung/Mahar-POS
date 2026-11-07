@@ -3,7 +3,8 @@
 // app.maharpos.shop, on Postgres in the browser (PGlite, kept in IndexedDB). Nothing leaves
 // the device. Built by scripts/build-device.mjs into public/device/engine.js.
 import { NextRequest } from "next/server";
-import { pglite } from "./prisma";
+import { PGlite } from "@electric-sql/pglite";
+import { DEVICE_DB, pglite } from "./prisma";
 import { createSession, SESSION_COOKIE } from "@/lib/auth";
 import { registerTenant } from "@/lib/tenant";
 import { deviceRequest } from "./shims/next-headers";
@@ -73,8 +74,9 @@ async function setMeta(key: string, value: string) {
 // The shop's owner is always signed in on this device: there is no one else to keep out but
 // whoever holds the phone, which the phone's own lock is for.
 async function signIn(userId: string) {
-  const { token } = await createSession(userId, { userAgent: "This device" });
+  const { token, expiresAt } = await createSession(userId, { userAgent: "This device" });
   await setMeta("session", token);
+  await setMeta("sessionExpires", String(expiresAt.getTime()));
   deviceRequest.cookies.set(SESSION_COOKIE, token);
 }
 
@@ -90,6 +92,11 @@ function boot() {
     stage = "ready";
     const token = await meta("session");
     if (token) deviceRequest.cookies.set(SESSION_COOKIE, token);
+    // Sessions end after a year: the owner is signed in again well before (and a shop set up
+    // before this was recorded gets its date now).
+    const owner = await meta("owner");
+    const expires = Number(await meta("sessionExpires"));
+    if (owner && (!token || !expires || expires - Date.now() < 30 * 24 * 3600 * 1000)) await signIn(owner);
   })();
   return booted;
 }
@@ -138,13 +145,69 @@ function notAvailable() {
   };
 }
 
+// ---- Backups --------------------------------------------------------------------------------
+// A backup is the whole database (every shop record, the owner and the device's settings) as one
+// compressed file, which the owner keeps somewhere other than this device.
+
+/** The shop's books as a file, and when it was made. */
+async function backup(): Promise<{ file: Blob; shop: string; at: number }> {
+  await boot();
+  if (!(await meta("owner"))) throw new Error("This device has no shop to back up");
+  const at = Date.now();
+  // Recorded before the copy, so a restored backup knows when it was made.
+  stage = "backup: meta";
+  await setMeta("lastBackup", String(at));
+  stage = "backup: checkpoint";
+  await pglite.query("CHECKPOINT");
+  stage = "backup: dump";
+  const file = await pglite.dumpDataDir("gzip");
+  const shop = (await pglite.query<{ name: string }>(`SELECT name FROM "Business" ORDER BY "createdAt" LIMIT 1`)).rows[0]?.name ?? "shop";
+  return { file, shop, at };
+}
+
+/** Replaces the books on this device with a backup. The file is opened and checked apart first,
+ *  so a wrong or damaged file never touches the books already here. The page starts a new
+ *  engine afterwards: this one has closed its database. */
+async function restore(file: Blob): Promise<{ shop: string; at: number | null }> {
+  let check: PGlite | null = null;
+  let shop: string;
+  let at: number | null;
+  try {
+    check = await PGlite.create({ loadDataDir: file });
+    const owner = await check.query<{ value: string }>(`SELECT value FROM "_device_meta" WHERE key = 'owner'`);
+    if (!owner.rows[0]) throw new Error("no owner");
+    shop = (await check.query<{ name: string }>(`SELECT name FROM "Business" ORDER BY "createdAt" LIMIT 1`)).rows[0]?.name ?? "";
+    const last = await check.query<{ value: string }>(`SELECT value FROM "_device_meta" WHERE key = 'lastBackup'`);
+    at = Number(last.rows[0]?.value) || null;
+  } catch {
+    throw new Error("This file is not a Mahar POS backup, or it is damaged");
+  } finally {
+    await check?.close().catch(() => {});
+  }
+  // Close the books here, empty them, and open the backup in their place.
+  stage = "restoring";
+  await pglite.close().catch(() => {});
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase("/pglite/" + DEVICE_DB.slice("idb://".length));
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error("Could not empty the books on this device"));
+    req.onblocked = () => reject(new Error("Close the app's other tabs, then try again"));
+  });
+  const restored = await PGlite.create(DEVICE_DB, { loadDataDir: file, relaxedDurability: false });
+  await restored.query("SELECT 1");
+  await restored.close();
+  return { shop, at };
+}
+
 // ---- Messages from the page --------------------------------------------------------------
 
 type Message =
   | { id: number; type: "status" }
   | { id: number; type: "stage" }
   | { id: number; type: "setup"; input: Parameters<typeof setup>[0] }
-  | { id: number; type: "api"; method: string; path: string; body?: unknown };
+  | { id: number; type: "api"; method: string; path: string; body?: unknown }
+  | { id: number; type: "backup" }
+  | { id: number; type: "restore"; file: Blob };
 
 // One copy of the database open at a time: a second tab waits until the first one closes.
 const opened = new Promise<void>((resolve) => {
@@ -164,12 +227,16 @@ self.addEventListener("message", async (event: MessageEvent<Message>) => {
     await opened;
     if (msg.type === "status") {
       await boot();
-      reply({ ok: true, hasShop: Boolean(await meta("owner")) });
+      reply({ ok: true, hasShop: Boolean(await meta("owner")), lastBackupAt: Number(await meta("lastBackup")) || null });
     } else if (msg.type === "setup") {
       await setup(msg.input);
       reply({ ok: true });
     } else if (msg.type === "api") {
       reply({ ok: true, ...(await callApi(msg.method, msg.path, msg.body)) });
+    } else if (msg.type === "backup") {
+      reply({ ok: true, ...(await backup()) });
+    } else if (msg.type === "restore") {
+      reply({ ok: true, ...(await restore(msg.file)) });
     }
   } catch (error) {
     console.error("[device]", error);

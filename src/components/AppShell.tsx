@@ -24,6 +24,7 @@ import { TopBarTitle } from "./PageHeader";
 import { clearOfflineCaches, getNetMode, offlineReadyAt, prepareOffline, tellServiceWorker } from "@/lib/netMode";
 import { posDataUrls } from "@/lib/posData";
 import { isDeviceShop, refreshDeviceApp } from "@/lib/device";
+import { DeviceBackupReminder } from "./DeviceBackupReminder";
 
 /** Parts that need a server, hidden in a shop kept on this device only. */
 const DEVICE_OFF: FeatureKey[] = ["onlineShop", "telegram", "users"];
@@ -534,6 +535,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : (
                 <>
                   <div className="mx-auto max-w-6xl"><AnnouncementBanner /></div>
+                  {deviceShop && pathname === "/" && <div className="mx-auto max-w-6xl"><DeviceBackupReminder /></div>}
                   {groupTabs && groupTabs.length > 1 && (
                     <div className="no-print mx-auto mb-2.5 flex max-w-6xl gap-1 overflow-x-auto rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                       {groupTabs.map((t) => {

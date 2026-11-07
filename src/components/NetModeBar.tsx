@@ -8,6 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { prepareOffline, setNetMode, useNetMode, useOfflineReadyAt, useOnline, type NetMode } from "@/lib/netMode";
 import { removeQueued, syncQueued, useQueuedSales, type QueuedSale } from "@/lib/offlineSales";
 import { posDataUrls } from "@/lib/posData";
+import { useInstalledApp } from "@/lib/installedApp";
 
 const MODES: { value: NetMode; label: string; hint: string }[] = [
   { value: "online", label: "Online only", hint: "Every sale is sent at once. Without the internet a sale cannot be made." },
@@ -20,6 +21,7 @@ const MODES: { value: NetMode; label: string; hint: string }[] = [
 export function NetModeCard() {
   const mode = useNetMode();
   const online = useOnline();
+  const installed = useInstalledApp();
   const readyAt = useOfflineReadyAt();
   const { me, defaultBranchId } = useAuth();
   const queued = useQueuedSales(me?.user.id);
@@ -64,9 +66,10 @@ export function NetModeCard() {
             type="button"
             role="radio"
             aria-checked={mode === m.value}
+            disabled={!installed && m.value !== "online"}
             onClick={() => { setNetMode(m.value); push(m.label); }}
             className={cn(
-              "rounded-lg border-2 px-3 py-3 text-left transition",
+              "rounded-lg border-2 px-3 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50",
               mode === m.value ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-700"
             )}
           >
@@ -75,6 +78,9 @@ export function NetModeCard() {
           </button>
         ))}
       </div>
+      {!installed && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{"Sync later and Offline work in the installed app only: the app on the phone's home screen, the app installed on the computer, or the Android app. A browser tab is always Online only."}</p>
+      )}
 
       <div className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800/60">
         <p className={cn("flex items-center gap-1 font-medium", online ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>

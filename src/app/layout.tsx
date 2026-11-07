@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { InstalledAppMark } from "@/components/InstalledAppMark";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -88,6 +89,7 @@ addEventListener("appinstalled",function(){window.__wnInstallPrompt=null});`,
         />
       </head>
       <body className="min-h-full flex flex-col">
+        <InstalledAppMark />
         <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
