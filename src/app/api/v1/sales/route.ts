@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withAuth, json, parseBody, pagination } from "@/lib/api";
+import { withAuth, json, parseBody, pagination, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { canSeeCost } from "@/lib/permissions";
@@ -7,6 +7,7 @@ import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { createSale } from "@/services/posService";
 import { todayBusinessDate, isValidBusinessDate } from "@/lib/dates";
+import { offlineSaleProblem } from "@/lib/offlineSale";
 import { notifyAuditFeed, saleNotice } from "@/lib/telegramNotify";
 
 export const GET = withAuth("sale.view", async ({ req, user }) => {
@@ -97,14 +98,37 @@ const schema = z.object({
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
+  // A sale rung up at the till without the internet and sent later: the device's own id for
+  // it (so a resend is recorded once) and when it was made (it belongs to that day).
+  offline: z.object({
+    clientRef: z.string().trim().min(8).max(64),
+    at: z.string().datetime(),
+  }).optional(),
 });
 
 export const POST = withAuth("sale.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   await assertBranchAccess(user, body.branchId);
 
-  const sale = await prisma.$transaction(async (tx) =>
-    createSale(tx, {
+  // Sent before and recorded: the reply was lost, so answer with the sale already made.
+  const alreadySent = async () => {
+    if (!body.offline) return null;
+    const done = await prisma.sale.findFirst({
+      where: { businessId: user.businessId, clientRef: body.offline.clientRef },
+      select: { id: true, txnNo: true, total: true, profit: true },
+    });
+    return done && json({ ...done, profit: canSeeCost(user.permissions) ? done.profit : 0n, duplicate: true });
+  };
+  if (body.offline) {
+    const done = await alreadySent();
+    if (done) return done;
+    const problem = offlineSaleProblem(new Date(body.offline.at), body.date);
+    if (problem) throw new ApiError(422, problem);
+  }
+
+  let sale: Awaited<ReturnType<typeof createSale>>;
+  try {
+    sale = await prisma.$transaction(async (tx) => createSale(tx, {
       businessId: user.businessId,
       branchId: body.branchId,
       userId: user.id,
@@ -126,11 +150,20 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
       walletId: body.walletId,
       payments: body.payments?.map((p) => ({ walletId: p.walletId, amount: toMinor(p.amount) })),
       outsidePay: body.outsidePay,
+      clientRef: body.offline?.clientRef,
+      offlineAt: body.offline ? new Date(body.offline.at) : undefined,
       dueDate: body.dueDate,
       reference: body.reference,
       notes: body.notes,
-    })
-  );
+    }));
+  } catch (error) {
+    // The same offline sale sent twice at once: the other send recorded it.
+    if (body.offline && (error as { code?: string })?.code === "P2002") {
+      const done = await alreadySent();
+      if (done) return done;
+    }
+    throw error;
+  }
   notifyAuditFeed(
     user.businessId,
     saleNotice({

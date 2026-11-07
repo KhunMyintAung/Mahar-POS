@@ -2,6 +2,8 @@
 
 // Small fetch wrapper for the app's own API. Throws Error with a friendly message.
 
+import { getNetMode } from "./netMode";
+
 export class ApiClientError extends Error {
   constructor(message: string, public status: number, public details?: unknown) {
     super(message);
@@ -12,9 +14,15 @@ export async function api<T = unknown>(
   path: string,
   opts?: { method?: string; body?: unknown }
 ): Promise<T> {
+  const method = opts?.method ?? "GET";
+  const headers: Record<string, string> = {};
+  if (opts?.body !== undefined) headers["content-type"] = "application/json";
+  // Unless the till is set to online only, a read is kept by the service worker so the app
+  // still opens, with the last data it had, when the internet is gone.
+  if (method === "GET" && getNetMode() !== "online") headers["x-mahar-offline"] = "1";
   const res = await fetch(path, {
-    method: opts?.method ?? "GET",
-    headers: opts?.body !== undefined ? { "content-type": "application/json" } : undefined,
+    method,
+    headers,
     body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {

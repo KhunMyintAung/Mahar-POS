@@ -245,6 +245,9 @@ export async function createSale(
     /** For goods fetched from another shop (outside lines): paid now out of walletId, or
      *  owed to the shop named supplierName (a Payable). */
     outsidePay?: { walletId?: string; supplierName?: string };
+    /** A sale rung up without the internet: the device's own id for it, and when it was made. */
+    clientRef?: string;
+    offlineAt?: Date;
     dueDate?: string;
     reference?: string;
     notes?: string;
@@ -308,6 +311,8 @@ export async function createSale(
       date: opts.date,
       reference: opts.reference,
       notes: opts.notes,
+      clientRef: opts.clientRef,
+      offlineAt: opts.offlineAt,
       createdById: opts.userId,
     },
   });

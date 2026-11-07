@@ -813,6 +813,11 @@ model Sale {
   date          String
   reference     String?
   notes         String?
+  /// Set by the till for a sale rung up without the internet and sent later: the same
+  /// sale sent twice (a resend after a lost reply) is recorded once.
+  clientRef     String?
+  /// When a sale rung up without the internet was actually made at the till.
+  offlineAt     DateTime?
   createdById   String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -821,6 +826,7 @@ model Sale {
   lines SaleLine[]
 
   @@unique([businessId, txnNo])
+  @@unique([businessId, clientRef])
   @@index([businessId, branchId, date])
 }
 

@@ -21,6 +21,8 @@ import { LanguageSwitch } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
+import { clearOfflineCaches, getNetMode } from "@/lib/netMode";
+import { listQueued, syncQueued } from "@/lib/offlineSales";
 
 interface Me {
   user: {
@@ -206,8 +208,30 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   async function logout() {
     await api("/api/v1/auth/logout", { method: "POST" });
+    // The kept screens and data are this shop's; the next person to sign in starts clean.
+    // Sales kept on the device stay, under this user, until they sign in again.
+    await clearOfflineCaches();
     router.push("/login");
   }
+
+  // In sync mode, sales kept on the device while the internet was gone are sent by
+  // themselves: when it comes back, on opening the app, and once a minute.
+  const userId = me?.user.id;
+  useEffect(() => {
+    if (!userId) return;
+    const run = () => {
+      if (getNetMode() !== "sync" || !navigator.onLine) return;
+      if (!listQueued(userId).some((s) => s.status === "pending")) return;
+      syncQueued(userId).catch(() => {});
+    };
+    run();
+    window.addEventListener("online", run);
+    const timer = window.setInterval(run, 60_000);
+    return () => {
+      window.removeEventListener("online", run);
+      window.clearInterval(timer);
+    };
+  }, [userId]);
 
   const miniMartEnabled = me?.modules.miniMartEnabled ?? false;
   const walletsEnabled = me?.modules.walletsEnabled ?? true;

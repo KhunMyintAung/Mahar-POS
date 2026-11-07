@@ -19,6 +19,10 @@ import { printSaleReceipt } from "@/lib/slipPrint";
 import { PageHeader } from "@/components/PageHeader";
 import { RepairHandBack, type HandBackJob } from "@/components/RepairHandBack";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
+import { isNetworkError, useNetMode } from "@/lib/netMode";
+import { enqueueSale } from "@/lib/offlineSales";
+import { businessDateOf } from "@/lib/dates";
+import { NetModeBar } from "@/components/NetModeBar";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -47,7 +51,8 @@ interface Contact { id: string; name: string; type: string }
 /** outside: goods the shop does not stock, fetched from another shop for this sale at its
  *  best price (cost). Its item is made up here (id "outside:…") and on the server. */
 interface CartLine { item: Item; quantity: number; unitPrice: number; warranty?: WarrantyOption | null; note?: string; imeis?: string[]; foc?: boolean; listPrice?: number; outside?: { cost: number; kind?: OutsideKind } }
-interface SaleResult { id: string; txnNo: string; total: string; profit: string }
+/** offline: kept on this device, to be sent later; txnNo is then the device's own number. */
+interface SaleResult { id: string; txnNo: string; total: string; profit: string; offline?: boolean }
 /** An Online Shop order being rung up: Online Shop → Orders puts it in the draft. */
 interface OnlineOrderRef { id: string; orderNo: string; customerName: string; customerPhone: string }
 interface Draft {
@@ -139,6 +144,7 @@ export default function PosPage() {
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
   const { defaultBranchId, me, hasPerm, phoneShop } = useAuth();
+  const netMode = useNetMode();
   // Phone warranties are a phone shop's: a mini mart offers none, whatever an item is called.
   const offered = phoneShop ? warrantySettings : { ...warrantySettings, newPhone: [], secondHand: [] };
   const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
@@ -514,9 +520,7 @@ export default function PosPage() {
     if (!canCheckout) return;
     setBusy(true);
     try {
-      const sale = await api<SaleResult>("/api/v1/sales", {
-        method: "POST",
-        body: {
+      const body: Record<string, unknown> = {
           branchId: defaultBranchId,
           customerId: customerId || undefined,
           lines: cart.map((line) => line.outside ? {
@@ -548,17 +552,11 @@ export default function PosPage() {
             ? outsideMode === "PAID" ? { walletId: outsideWalletId, supplierName: outsideShop.trim() || undefined } : { supplierName: outsideShop.trim() }
             : undefined,
           notes: onlineOrder ? `Online order ${onlineOrder.orderNo} · ${onlineOrder.customerName} ${onlineOrder.customerPhone}` : undefined,
-        },
-      });
-      // The online order this sale rang up is done; the sale stands even if this fails.
-      if (onlineOrder) {
-        api(`/api/v1/online-shop/orders/${onlineOrder.id}`, { method: "PATCH", body: { status: "COMPLETED", saleId: sale.id } })
-          .catch((e) => push(e instanceof Error ? e.message : "Could not close the online order", "error"));
-      }
+      };
       // Captured before clearSale empties the cart, or there would be nothing to print.
-      setReceipt({
-        txnNo: sale.txnNo,
-        at: new Date().toISOString(),
+      const slip = (txnNo: string, at: Date): ReceiptData => ({
+        txnNo,
+        at: at.toISOString(),
         shopName: me?.business?.name ?? "Mahar Mini POS",
         shopLogo: me?.business?.logoUrl ?? undefined,
         shopPhone: me?.business?.phone ?? undefined,
@@ -583,13 +581,54 @@ export default function PosPage() {
         change,
         credit: creditAmount,
       });
+
+      /** Keeps the sale on this device, to be sent later (offline or sync mode). */
+      const keepOnDevice = (): SaleResult & { slip: ReceiptData } => {
+        if (onlineOrder) throw new Error("An online order needs the internet to be completed");
+        if (!me) throw new Error("Sale failed");
+        const at = new Date();
+        const clientRef = crypto.randomUUID();
+        const txnNo = `OFFLINE-${clientRef.slice(0, 6).toUpperCase()}`;
+        const kept = slip(txnNo, at);
+        try {
+          enqueueSale(me.user.id, {
+            clientRef, at: at.toISOString(),
+            body: { ...body, date: businessDateOf(at), offline: { clientRef, at: at.toISOString() } },
+            receipt: kept, total: Math.round(total * 100), status: "pending",
+          });
+        } catch {
+          throw new Error("This device has no room left to keep the sale. Free some space or connect to the internet.");
+        }
+        // In minor units (pya), as the server answers.
+        return { id: "", txnNo, total: Math.round(total * 100).toString(), profit: "0", offline: true, slip: kept };
+      };
+
+      let sale: SaleResult & { slip: ReceiptData };
+      if (netMode === "offline") {
+        sale = keepOnDevice();
+      } else {
+        try {
+          const sent = await api<SaleResult>("/api/v1/sales", { method: "POST", body });
+          sale = { ...sent, slip: slip(sent.txnNo, new Date()) };
+        } catch (error) {
+          if (!isNetworkError(error)) throw error;
+          if (netMode !== "sync") throw new Error("No internet: the sale was not made. Connect, or choose Sync later to keep sales on this device.");
+          sale = keepOnDevice();
+        }
+      }
+      // The online order this sale rang up is done; the sale stands even if this fails.
+      if (onlineOrder && !sale.offline) {
+        api(`/api/v1/online-shop/orders/${onlineOrder.id}`, { method: "PATCH", body: { status: "COMPLETED", saleId: sale.id } })
+          .catch((e) => push(e instanceof Error ? e.message : "Could not close the online order", "error"));
+      }
+      setReceipt(sale.slip);
       setReviewOpen(false);
       setLastSale(sale);
       // A finished sale opens a modal rather than a toast, so it would otherwise be the
       // one completion in the app that made no sound.
       playSuccess();
       clearSale();
-      load();
+      if (!sale.offline) load();
     } catch (error) {
       push(error instanceof Error ? error.message : "Sale failed", "error");
     } finally {
@@ -602,6 +641,7 @@ export default function PosPage() {
   return (
     <div className={cn("mx-auto max-w-7xl", cart.length > 0 && "pb-20 lg:pb-0")}>
       <PageHeader title={<>Sales &amp; POS</>} />
+      <NetModeBar />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         {/* On a wide screen the items stay in view beside the cart, as tall as it, and the
             grid scrolls inside: down to the bottom of the screen, never stopping short. */}
@@ -1138,6 +1178,11 @@ export default function PosPage() {
               <p className="font-mono text-lg font-bold">{lastSale.txnNo}</p>
               <p className="mt-1 text-2xl font-bold text-blue-600">{fmtMoney(lastSale.total)} MMK</p>
             </div>
+            {lastSale.offline && (
+              <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                {"Saved on this device. It is recorded in the shop's books when it is sent (Sync)."}
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => receipt && printSaleReceipt(receipt)} disabled={!receipt}>
                 <Printer size={16} className="mr-1 inline" />Print slip
