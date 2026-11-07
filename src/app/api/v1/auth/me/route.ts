@@ -1,10 +1,10 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { parseModuleAccess } from "@/lib/modules";
-import { appEdition } from "@/lib/edition";
+import { appEdition, EDITION_COOKIE } from "@/lib/edition";
 import { cloudPrintEnabled } from "@/lib/cloudPrint";
 
-export const GET = withAuth(null, async ({ user }) => {
+export const GET = withAuth(null, async ({ req, user }) => {
   // The shop's own details, so a printed slip can carry them. Anyone signed in already
   // belongs to this business, so there is nothing here they may not see.
   const [business, branches, moduleSetting] = await Promise.all([
@@ -36,5 +36,5 @@ export const GET = withAuth(null, async ({ user }) => {
   }
 
   // Whether this shop may send phone slips to its counter printer (CLOUD_PRINT_BUSINESS_IDS).
-  return json({ user, business, branches, modules, edition: appEdition(), cloudPrint: cloudPrintEnabled(user.businessId) });
+  return json({ user, business, branches, modules, edition: appEdition(req.cookies.get(EDITION_COOKIE)?.value), cloudPrint: cloudPrintEnabled(user.businessId) });
 });

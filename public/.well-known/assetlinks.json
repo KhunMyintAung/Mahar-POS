@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.maharpos.shop",
+      "sha256_cert_fingerprints": [
+        "5B:83:29:26:EC:08:A0:C9:E5:CE:42:52:24:CF:13:25:EE:B2:F8:D7:53:06:3A:38:9D:DA:01:63:FD:6F:14:DB"
+      ]
+    }
+  }
+]

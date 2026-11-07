@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isPlayEdition } from "@/lib/edition";
+import { EDITION_COOKIE, isPlayEdition } from "@/lib/edition";
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/full-app") {
@@ -7,7 +7,7 @@ export function proxy(request: NextRequest) {
     destination.pathname = "/";
     destination.search = "";
     const response = NextResponse.redirect(destination);
-    response.cookies.set("wn_edition", "", {
+    response.cookies.set(EDITION_COOKIE, "", {
       httpOnly: true,
       sameSite: "lax",
       secure: true,
@@ -17,22 +17,23 @@ export function proxy(request: NextRequest) {
     return response;
   }
 
+  // The Play Store app opens here: from then on this phone gets the store build.
   if (request.nextUrl.pathname === "/play-app") {
     const destination = request.nextUrl.clone();
     destination.pathname = "/";
     destination.search = "";
     const response = NextResponse.redirect(destination);
-    response.cookies.set("wn_edition", "", {
+    response.cookies.set(EDITION_COOKIE, "play", {
       httpOnly: true,
       sameSite: "lax",
       secure: true,
       path: "/",
-      maxAge: 0,
+      maxAge: 60 * 60 * 24 * 365,
     });
     return response;
   }
 
-  if (!isPlayEdition()) return NextResponse.next();
+  if (!isPlayEdition(request.cookies.get(EDITION_COOKIE)?.value)) return NextResponse.next();
 
   const response = NextResponse.next();
   response.headers.set("X-Wallet-Edition", "play");
