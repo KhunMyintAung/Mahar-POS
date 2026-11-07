@@ -18,7 +18,11 @@ export async function POST(req: NextRequest) {
     if (!user) return errorJson(400, "This link has expired or was already used. Ask for a new one.");
     const passwordHash = await bcrypt.hash(body.password, 12);
     await prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: user.id }, data: { passwordHash, failedLogins: 0, lockedUntil: null } });
+      // The link went to the account's email (when it has one), so opening it proves that
+      // address is this person's. With no email it went to the address in the username, which
+      // proves nothing about an email field.
+      const emailVerifiedAt = user.email && !user.emailVerifiedAt ? new Date() : undefined;
+      await tx.user.update({ where: { id: user.id }, data: { passwordHash, failedLogins: 0, lockedUntil: null, emailVerifiedAt } });
       await tx.authSession.deleteMany({ where: { userId: user.id } });
       await audit(tx, { businessId: user.businessId, userId: user.id, action: "UPDATE", module: "auth", resourceType: "User", resourceId: user.id, after: { passwordReset: "email link" } });
     });

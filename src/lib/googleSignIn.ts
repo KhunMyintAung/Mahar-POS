@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { audit } from "./audit";
 import { registerTenant } from "./tenant";
@@ -32,11 +33,49 @@ async function signUpWithGoogle(identity: GoogleIdentity) {
     ownerName: identity.name?.trim() || undefined,
     username,
     email: identity.email,
+    emailVerified: true,
     password: randomBytes(24).toString("hex"),
     currency: "MMK",
     timezone: "Asia/Yangon",
   });
   return { user: await prisma.user.findUniqueOrThrow({ where: { id: owner.id } }), businessName: business.name, username };
+}
+
+type MatchedUser = NonNullable<Awaited<ReturnType<typeof prisma.user.findFirst>>>;
+
+/** Google has just shown this person owns the address, but the account holding it was set
+ *  up with the address typed in, which proves nothing: anyone could have registered with
+ *  someone else's email before they did. So the address's owner takes the account over.
+ *  The password whoever set it up chose stops working and every session is ended, so a
+ *  stranger who registered first is out. The owner sets a password again with "Forgot
+ *  password", which now reaches them. */
+async function claimUnverifiedAccount(
+  user: MatchedUser,
+  identity: GoogleIdentity,
+  meta: { ip?: string; userAgent?: string },
+): Promise<MatchedUser | null> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const claimed = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          email: user.email ?? identity.email,
+          emailVerifiedAt: new Date(),
+          passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 10),
+        },
+      });
+      const ended = await tx.authSession.deleteMany({ where: { userId: user.id } });
+      await audit(tx, {
+        businessId: user.businessId, userId: user.id, action: "UPDATE", module: "auth",
+        resourceType: "User", resourceId: user.id, ip: meta.ip, userAgent: meta.userAgent,
+        after: { emailVerified: "google", passwordCleared: true, sessionsEnded: ended.count },
+      });
+      return claimed;
+    });
+  } catch (error) {
+    console.error("[google claim]", error);
+    return null;
+  }
 }
 
 export type GoogleSignInResult =
@@ -47,13 +86,22 @@ export async function signInWithGoogle(identity: GoogleIdentity, meta: { ip?: st
   // An unverified address proves nothing about who is signing in.
   if (!identity.emailVerified) return { ok: false, reason: "google_unverified" };
 
-  // Matched the same way a password login matches: some accounts hold the address in the
-  // username rather than the email field.
-  let user = await prisma.user.findFirst({
-    where: { OR: [{ email: identity.email }, { username: identity.email }], deletedAt: null },
-  });
+  // Matched on the email field first. Some older accounts hold the address in the username
+  // instead; those match only when their email field is empty or the same address, so a
+  // username that merely looks like someone's address never borrows their Google.
+  let user =
+    (await prisma.user.findFirst({ where: { email: identity.email, deletedAt: null } })) ??
+    (await prisma.user.findFirst({
+      where: { username: identity.email, deletedAt: null, OR: [{ email: null }, { email: identity.email }] },
+    }));
   if (user && !user.active) return { ok: false, reason: "google_disabled" };
   if (user?.lockedUntil && user.lockedUntil > new Date()) return { ok: false, reason: "locked" };
+
+  if (user && !user.emailVerifiedAt) {
+    const claimed = await claimUnverifiedAccount(user, identity, meta);
+    if (!claimed) return { ok: false, reason: "google_signup_failed" };
+    user = claimed;
+  }
 
   let isNew = false;
   if (!user) {

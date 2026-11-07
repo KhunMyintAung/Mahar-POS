@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { assertCanGrant } from "@/lib/roleGuard";
 
 export const GET = withAuth("users.manage", async ({ user }) => {
   const roles = await prisma.role.findMany({
@@ -26,6 +27,7 @@ export const POST = withAuth("users.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const invalid = body.permissions.filter((p) => !(ALL_PERMISSIONS as readonly string[]).includes(p));
   if (invalid.length) throw new ApiError(422, `Unknown permissions: ${invalid.join(", ")}`);
+  assertCanGrant(user, body.permissions);
 
   const role = await prisma.$transaction(async (tx) => {
     const r = await tx.role.create({

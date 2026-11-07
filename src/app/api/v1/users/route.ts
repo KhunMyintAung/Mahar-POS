@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { assertCanGrant, rolePermissions } from "@/lib/roleGuard";
 
 export const GET = withAuth("users.manage", async ({ user }) => {
   const users = await prisma.user.findMany({
@@ -34,6 +35,7 @@ export const POST = withAuth("users.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   const role = await prisma.role.findUnique({ where: { id: body.roleId } });
   if (!role || role.businessId !== user.businessId) throw new ApiError(404, "Role not found");
+  assertCanGrant(user, rolePermissions(role));
 
   const existing = await prisma.user.findUnique({ where: { username: body.username.toLowerCase() } });
   if (existing) throw new ApiError(422, "Username is already taken");

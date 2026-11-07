@@ -25,7 +25,14 @@ describe("who reaches the admin panel", () => {
   it("matches on username or email, either case", () => {
     process.env.ADMIN_USERS = "KhunMyintAung, owner@example.com";
     expect(isAdminIdentity({ username: "khunmyintaung" })).toBe(true);
-    expect(isAdminIdentity({ username: "someone", email: "OWNER@example.com" })).toBe(true);
+    expect(isAdminIdentity({ username: "someone", email: "OWNER@example.com", emailVerifiedAt: new Date() })).toBe(true);
+  });
+
+  it("does not take a listed email that nobody has proven", () => {
+    // Signing up never checks the address: anyone could register with a listed email.
+    process.env.ADMIN_USERS = "owner@example.com";
+    expect(isAdminIdentity({ username: "someone", email: "owner@example.com" })).toBe(false);
+    expect(isAdminIdentity({ username: "someone", email: "owner@example.com", emailVerifiedAt: null })).toBe(false);
   });
 
   it("turns away an account that is not named", () => {

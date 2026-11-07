@@ -79,6 +79,9 @@ model User {
   name           String
   username       String    @unique
   email          String?   @unique
+  /// When the address was shown to be this person's: signed up or in with Google, or a
+  /// password reset sent to it. Null means someone typed it in and nobody has proven it.
+  emailVerifiedAt DateTime?
   phone          String?
   passwordHash   String
   roleId         String

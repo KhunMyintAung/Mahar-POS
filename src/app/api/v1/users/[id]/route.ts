@@ -4,6 +4,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { destroyAllSessions } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { assertCanChangeUser, assertCanGrant, rolePermissions } from "@/lib/roleGuard";
 
 const schema = z.object({
   name: z.string().min(1).optional(),
@@ -23,12 +24,16 @@ export const PATCH = withAuth("users.manage", async ({ req, user, params }) => {
     throw new ApiError(404, "User not found");
 
   const updated = await prisma.$transaction(async (tx) => {
+    const targetRole = await tx.role.findUniqueOrThrow({ where: { id: target.roleId }, select: { name: true } });
+    const changesRole = body.roleId !== undefined && body.roleId !== target.roleId;
+    assertCanChangeUser(user, { id: target.id, roleName: targetRole.name }, changesRole);
     if (body.roleId) {
       const role = await tx.role.findFirst({
         where: { id: body.roleId, businessId: user.businessId },
-        select: { id: true },
+        select: { id: true, permissions: true },
       });
       if (!role) throw new ApiError(404, "Role not found");
+      if (changesRole) assertCanGrant(user, rolePermissions(role));
     }
     // A shop always keeps one active Owner: taking the role from the last one, or switching
     // them off, would leave nobody able to manage users, roles or settings, with no way back.

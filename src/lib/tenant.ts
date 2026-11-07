@@ -24,6 +24,8 @@ export interface TenantRegistration {
   timezone: string;
   businessCategory?: BusinessCategory;
   moduleMode?: ModuleMode;
+  /** True only when the address has been proven (a Google sign-up); a typed one is not. */
+  emailVerified?: boolean;
 }
 
 export async function assertBranchAccess(user: AuthUser, branchId: string) {
@@ -100,6 +102,7 @@ export async function registerTenant(input: TenantRegistration) {
           name: input.ownerName?.trim() || username,
           username,
           email,
+          emailVerifiedAt: input.emailVerified ? new Date() : null,
           phone: input.phone,
           passwordHash,
           roleId: ownerRoleId,

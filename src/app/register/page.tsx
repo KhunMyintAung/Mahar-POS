@@ -143,7 +143,7 @@ export default function RegisterPage() {
             <Input
               label="Username"
               value={form.username}
-              onChange={(event) => update("username", event.target.value.toLowerCase())}
+              onChange={(event) => update("username", event.target.value.toLowerCase().replace(/[^a-z0-9_.-]/g, ""))}
               autoComplete="username"
               required
             />

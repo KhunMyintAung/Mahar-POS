@@ -8,7 +8,9 @@ import { notifyNewSignup, sendWelcomeEmail } from "@/lib/mail";
 const schema = z.object({
   businessName: z.string().trim().min(2).max(80),
   ownerName: z.string().trim().min(2).max(80).optional(),
-  username: z.string().trim().toLowerCase().min(3).max(40),
+  // No "@": a username shaped like an email could pass for someone's address.
+  username: z.string().trim().toLowerCase().min(3).max(40)
+    .regex(/^[a-z0-9_.-]+$/, "Username: letters, numbers, dots, dashes and underscores only"),
   email: z.string().trim().toLowerCase().email().max(160),
   phone: z.string().trim().max(30).optional(),
   password: z.string().min(8, "Password must be at least 8 characters").max(72),

@@ -29,13 +29,15 @@ export function adminUsers(): string[] {
 }
 
 export function isAdminIdentity(
-  user: { username?: string | null; email?: string | null } | null | undefined
+  user: { username?: string | null; email?: string | null; emailVerifiedAt?: Date | null } | null | undefined
 ): boolean {
   if (!user) return false;
   const allowed = adminUsers();
   if (allowed.length === 0) return false;
   const username = user.username?.toLowerCase();
-  const email = user.email?.toLowerCase();
+  // An email counts only once it is proven to be theirs. Signing up never checks the address,
+  // so otherwise anyone could register with a listed email nobody had used yet and walk in.
+  const email = user.emailVerifiedAt ? user.email?.toLowerCase() : undefined;
   return (
     (username !== undefined && username !== null && allowed.includes(username)) ||
     (email !== undefined && email !== null && allowed.includes(email))
@@ -103,7 +105,7 @@ export async function isAdminIdentityRequest(): Promise<boolean> {
   // either — a Google signup's username is derived, and its address is what a person knows.
   const user = await prisma.user.findUnique({
     where: { id: session.id },
-    select: { username: true, email: true, active: true, deletedAt: true },
+    select: { username: true, email: true, emailVerifiedAt: true, active: true, deletedAt: true },
   });
   if (!user || !user.active || user.deletedAt) return false;
   return isAdminIdentity(user);
