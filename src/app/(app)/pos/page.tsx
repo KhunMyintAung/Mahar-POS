@@ -21,6 +21,7 @@ import { RepairHandBack, type HandBackJob } from "@/components/RepairHandBack";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
 import { isNetworkError, useNetMode } from "@/lib/netMode";
 import { enqueueSale } from "@/lib/offlineSales";
+import { posDataUrls } from "@/lib/posData";
 import { businessDateOf } from "@/lib/dates";
 import { NetModeBar } from "@/components/NetModeBar";
 
@@ -145,34 +146,40 @@ export default function PosPage() {
   const { push } = useToast();
   const { defaultBranchId, me, hasPerm, phoneShop } = useAuth();
   const netMode = useNetMode();
+  // The id of the sale being completed; a new one once the cart changes (see checkout).
+  const attemptRef = useRef<string | null>(null);
   // Phone warranties are a phone shop's: a mini mart offers none, whatever an item is called.
   const offered = phoneShop ? warrantySettings : { ...warrantySettings, newPhone: [], secondHand: [] };
   const draftKey = `mahar-pos:pos-draft:${me?.user.id ?? "anonymous"}`;
 
   const load = useCallback(() => {
-    api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1")
+    const urls = posDataUrls(defaultBranchId);
+    api<{ items: Item[] }>(urls.items)
       .then((data) => setItems(data.items))
       .catch((error) => push(error.message, "error"));
-    api<{ units: { imei: string; itemId: string }[] }>(`/api/v1/serials?status=IN_STOCK${defaultBranchId ? `&branchId=${defaultBranchId}` : ""}`)
+    api<{ units: { imei: string; itemId: string }[] }>(urls.serials)
       .then((data) => {
         const byItem = new Map<string, string[]>();
         for (const u of data.units) byItem.set(u.itemId, [...(byItem.get(u.itemId) ?? []), u.imei]);
         setShelfImeis(byItem);
       })
       .catch(() => {});
-    api<Wallet[]>("/api/v1/wallets").then((data) => {
+    api<Wallet[]>(urls.wallets).then((data) => {
       setWallets(data);
       const cash = data.find((wallet) => wallet.currency === "MMK");
       if (cash) setWalletId((current) => current || cash.id);
     }).catch(() => {});
-    api<{ contacts: Contact[] }>("/api/v1/customers?type=CUSTOMER&pageSize=200")
+    api<{ contacts: Contact[] }>(urls.customers)
       .then((data) => setCustomers(data.contacts)).catch(() => {});
-    api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${WARRANTY_SETTING}`)
+    api<{ settings: Record<string, unknown> }>(urls.warranty)
       .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
       .catch(() => {});
   }, [push, defaultBranchId]);
 
   useEffect(load, [load]);
+
+  // A changed sale is a different sale: it gets its own id when completed.
+  useEffect(() => { attemptRef.current = null; }, [cart, discount, customerId, walletId, payMode, partialAmount]);
 
   useEffect(() => {
     // Asked after mount: there is no window on the server to ask whether it can decode.
@@ -582,23 +589,38 @@ export default function PosPage() {
         credit: creditAmount,
       });
 
+      // One id for this sale, kept while the cart is unchanged: pressing Complete again after a
+      // reply lost on a weak connection, or keeping it on the device after one, can never
+      // record it twice.
+      const clientRef = (attemptRef.current ??= crypto.randomUUID());
+      const at = new Date();
+      body.clientRef = clientRef;
+      body.date = businessDateOf(at);
+
       /** Keeps the sale on this device, to be sent later (offline or sync mode). */
       const keepOnDevice = (): SaleResult & { slip: ReceiptData } => {
         if (onlineOrder) throw new Error("An online order needs the internet to be completed");
         if (!me) throw new Error("Sale failed");
-        const at = new Date();
-        const clientRef = crypto.randomUUID();
         const txnNo = `OFFLINE-${clientRef.slice(0, 6).toUpperCase()}`;
         const kept = slip(txnNo, at);
         try {
           enqueueSale(me.user.id, {
             clientRef, at: at.toISOString(),
-            body: { ...body, date: businessDateOf(at), offline: { clientRef, at: at.toISOString() } },
+            body: { ...body, offline: { at: at.toISOString() } },
             receipt: kept, total: Math.round(total * 100), status: "pending",
           });
         } catch {
           throw new Error("This device has no room left to keep the sale. Free some space or connect to the internet.");
         }
+        // Until it is sent, the till still counts what left the shelf: stock goes down here,
+        // and a phone sold by IMEI is not offered again.
+        const sold = new Map<string, number>();
+        for (const line of cart) if (!line.outside) sold.set(line.item.id, (sold.get(line.item.id) ?? 0) + line.quantity);
+        setItems((list) => list?.map((it) => sold.has(it.id)
+          ? { ...it, stockLevels: it.stockLevels.map((s) => s.branchId === defaultBranchId ? { ...s, quantity: s.quantity - sold.get(it.id)! } : s) }
+          : it) ?? list);
+        const soldImeis = new Set(cart.flatMap((line) => line.imeis ?? []));
+        if (soldImeis.size) setShelfImeis((map) => new Map([...map].map(([id, list]) => [id, list.filter((i) => !soldImeis.has(i))])));
         // In minor units (pya), as the server answers.
         return { id: "", txnNo, total: Math.round(total * 100).toString(), profit: "0", offline: true, slip: kept };
       };
@@ -608,14 +630,16 @@ export default function PosPage() {
         sale = keepOnDevice();
       } else {
         try {
-          const sent = await api<SaleResult>("/api/v1/sales", { method: "POST", body });
+          // A sale waits at most this long on a weak connection before the till decides.
+          const sent = await api<SaleResult>("/api/v1/sales", { method: "POST", body, timeoutMs: 15_000 });
           sale = { ...sent, slip: slip(sent.txnNo, new Date()) };
         } catch (error) {
           if (!isNetworkError(error)) throw error;
-          if (netMode !== "sync") throw new Error("No internet: the sale was not made. Connect, or choose Sync later to keep sales on this device.");
+          if (netMode !== "sync") throw new Error("No internet, or the connection is too slow: the sale is not confirmed. Press Complete sale again when connected; it will not be recorded twice.");
           sale = keepOnDevice();
         }
       }
+      attemptRef.current = null;
       // The online order this sale rang up is done; the sale stands even if this fails.
       if (onlineOrder && !sale.offline) {
         api(`/api/v1/online-shop/orders/${onlineOrder.id}`, { method: "PATCH", body: { status: "COMPLETED", saleId: sale.id } })

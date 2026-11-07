@@ -21,7 +21,7 @@ import { LanguageSwitch } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
-import { clearOfflineCaches, getNetMode } from "@/lib/netMode";
+import { clearOfflineCaches, getNetMode, tellServiceWorker } from "@/lib/netMode";
 import { listQueued, syncQueued } from "@/lib/offlineSales";
 
 interface Me {
@@ -219,6 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userId = me?.user.id;
   useEffect(() => {
     if (!userId) return;
+    tellServiceWorker();
     const run = () => {
       if (getNetMode() !== "sync" || !navigator.onLine) return;
       if (!listQueued(userId).some((s) => s.status === "pending")) return;

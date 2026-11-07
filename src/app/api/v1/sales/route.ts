@@ -98,10 +98,13 @@ const schema = z.object({
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
-  // A sale rung up at the till without the internet and sent later: the device's own id for
-  // it (so a resend is recorded once) and when it was made (it belongs to that day).
+  // The till's own id for this sale, sent with every sale: when the reply is lost on a weak
+  // connection and the till sends it again, it is recorded once.
+  clientRef: z.string().trim().min(8).max(64).optional(),
+  // A sale rung up at the till without the internet and sent later: when it was made (it
+  // belongs to that day). The device's id for it may come here too (the first offline tills).
   offline: z.object({
-    clientRef: z.string().trim().min(8).max(64),
+    clientRef: z.string().trim().min(8).max(64).optional(),
     at: z.string().datetime(),
   }).optional(),
 });
@@ -109,19 +112,22 @@ const schema = z.object({
 export const POST = withAuth("sale.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   await assertBranchAccess(user, body.branchId);
+  const clientRef = body.clientRef ?? body.offline?.clientRef;
 
   // Sent before and recorded: the reply was lost, so answer with the sale already made.
   const alreadySent = async () => {
-    if (!body.offline) return null;
+    if (!clientRef) return null;
     const done = await prisma.sale.findFirst({
-      where: { businessId: user.businessId, clientRef: body.offline.clientRef },
+      where: { businessId: user.businessId, clientRef },
       select: { id: true, txnNo: true, total: true, profit: true },
     });
     return done && json({ ...done, profit: canSeeCost(user.permissions) ? done.profit : 0n, duplicate: true });
   };
-  if (body.offline) {
+  if (clientRef) {
     const done = await alreadySent();
     if (done) return done;
+  }
+  if (body.offline) {
     const problem = offlineSaleProblem(new Date(body.offline.at), body.date);
     if (problem) throw new ApiError(422, problem);
   }
@@ -150,7 +156,7 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
       walletId: body.walletId,
       payments: body.payments?.map((p) => ({ walletId: p.walletId, amount: toMinor(p.amount) })),
       outsidePay: body.outsidePay,
-      clientRef: body.offline?.clientRef,
+      clientRef,
       offlineAt: body.offline ? new Date(body.offline.at) : undefined,
       dueDate: body.dueDate,
       reference: body.reference,
@@ -158,7 +164,7 @@ export const POST = withAuth("sale.create", async ({ req, user }) => {
     }));
   } catch (error) {
     // The same offline sale sent twice at once: the other send recorded it.
-    if (body.offline && (error as { code?: string })?.code === "P2002") {
+    if (clientRef && (error as { code?: string })?.code === "P2002") {
       const done = await alreadySent();
       if (done) return done;
     }

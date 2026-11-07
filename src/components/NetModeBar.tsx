@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { CloudOff, RefreshCw, Wifi } from "lucide-react";
+import { CloudOff, Download, RefreshCw, Wifi } from "lucide-react";
 import { Button, Card, ConfirmDialog, Modal, cn, useToast } from "./ui";
 import { useAuth } from "./AppShell";
 import { fmtMoney } from "@/lib/format";
-import { setNetMode, useNetMode, useOnline, type NetMode } from "@/lib/netMode";
+import { prepareOffline, setNetMode, useNetMode, useOfflineReadyAt, useOnline, type NetMode } from "@/lib/netMode";
 import { removeQueued, syncQueued, useQueuedSales, type QueuedSale } from "@/lib/offlineSales";
+import { posDataUrls } from "@/lib/posData";
 
 const MODES: { value: NetMode; label: string; hint: string }[] = [
   { value: "online", label: "Online only", hint: "Every sale is sent at once. Without the internet a sale cannot be made." },
@@ -14,11 +15,42 @@ const MODES: { value: NetMode; label: string; hint: string }[] = [
   { value: "offline", label: "Offline", hint: "Sales are kept on this device and sent only when you press Sync now." },
 ];
 
-/** Settings → Shop: how this device's till uses the internet. Kept in this browser, as each
+/** Settings → Account: how this device's till uses the internet. Kept in this browser, as each
  *  counter's connection differs. */
 export function NetModeCard() {
   const mode = useNetMode();
+  const online = useOnline();
+  const readyAt = useOfflineReadyAt();
+  const { me, defaultBranchId } = useAuth();
+  const queued = useQueuedSales(me?.user.id);
   const { push } = useToast();
+  const [preparing, setPreparing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  async function prepare() {
+    setPreparing(true);
+    try {
+      const ok = await prepareOffline(Object.values(posDataUrls(defaultBranchId)));
+      push(ok ? "This device is ready to sell offline" : "Could not get ready. Open the app once with the internet, then try again.", ok ? "success" : "error");
+    } finally {
+      setPreparing(false);
+    }
+  }
+
+  async function syncNow() {
+    if (!me) return;
+    setSyncing(true);
+    try {
+      const r = await syncQueued(me.user.id, { retryFailed: true });
+      if (r.stopped === "offline") push("No internet. The sales stay on this device.", "error");
+      else if (r.stopped) push("The server could not take them now. Try again shortly.", "error");
+      else if (r.failed > 0) push(`${r.sent} sent, ${r.failed} need checking`, "error");
+      else push(`${r.sent} sales sent`, "success");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <Card className="space-y-3">
       <div>
@@ -38,11 +70,40 @@ export function NetModeCard() {
               mode === m.value ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-700"
             )}
           >
-            <span className="block text-sm font-semibold">{m.label}</span>
+            <span className="block text-sm font-semibold">{m.label}{m.value === "online" && <span className="ml-1 text-xs font-normal text-gray-500">{"(default)"}</span>}</span>
             <span className="mt-1 block text-xs text-gray-500">{m.hint}</span>
           </button>
         ))}
       </div>
+
+      <div className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800/60">
+        <p className={cn("flex items-center gap-1 font-medium", online ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>
+          {online ? <Wifi size={16} /> : <CloudOff size={16} />}{online ? "Connected" : "No internet"}
+        </p>
+        {mode !== "online" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-600 dark:text-gray-300">
+              {readyAt ? <>{"Ready offline since"} {new Date(readyAt).toLocaleString()}</> : "Not ready offline yet: press Get ready while connected."}
+            </span>
+            <Button size="sm" variant="secondary" className="ml-auto" onClick={prepare} disabled={preparing || !online}>
+              <Download size={14} className="mr-1 inline" />{preparing ? "Getting ready..." : "Get ready for offline"}
+            </Button>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-gray-600 dark:text-gray-300">
+            {queued.length === 0 ? "Every sale has been sent." : <>{queued.length} {"sales on this device not sent yet"}</>}
+          </span>
+          {queued.length > 0 && (
+            <Button size="sm" className="ml-auto" onClick={syncNow} disabled={syncing || !online}>
+              <RefreshCw size={14} className={cn("mr-1 inline", syncing && "animate-spin")} />{"Sync now"}
+            </Button>
+          )}
+        </div>
+      </div>
+      {mode !== "online" && (
+        <p className="text-xs text-gray-500">{"Offline works for selling at the POS. Repairs, purchases, reports and settings need the internet."}</p>
+      )}
     </Card>
   );
 }
@@ -79,7 +140,7 @@ export function NetModeBar() {
 
   // Shown only when there is something to say: no internet, or sales waiting on the device.
   // The mode itself is chosen in Settings.
-  if (online && queued.length === 0) return null;
+  if (online && queued.length === 0 && mode !== "offline") return null;
   const current = MODES.find((m) => m.value === mode)!;
   return (
     <div className="no-print mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">

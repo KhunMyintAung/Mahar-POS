@@ -248,9 +248,6 @@ export default function SettingsPage() {
 
       {/* How the shop gets repair parts: decides where their cost counts in Reports. */}
       {featureEnabled("repair") && <RepairFlowCard />}
-
-      {/* Online only / Sync later / Offline for this device's till. */}
-      {featureEnabled("pos") && <NetModeCard />}
       </>}
 
       {current === "printing" && <>
@@ -309,6 +306,9 @@ export default function SettingsPage() {
       )}
 
       {current === "account" && <>
+      {/* Online only / Sync later / Offline for this device's till. */}
+      {featureEnabled("pos") && <NetModeCard />}
+
       <Card>
         <h3 className="text-sm font-semibold">Privacy and account</h3>
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
