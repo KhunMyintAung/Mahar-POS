@@ -7,7 +7,7 @@ import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
 import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, serialsCost, trackedItemIds } from "./serialService";
-import { averageCost } from "@/lib/costing";
+import { averageCost, averageCostWithout } from "@/lib/costing";
 
 // Purchases and sales tie inventory to the money system:
 // - purchase: stock in; paid part leaves a wallet, unpaid part becomes a Payable
@@ -466,6 +466,8 @@ export async function cancelSaleOrPurchase(
       : await tx.purchase.findUnique({ where: { id: opts.id }, include: { lines: true } });
   if (!record || record.businessId !== opts.businessId) throw new ApiError(404, "Record not found");
   if (record.status === "CANCELLED") throw new ApiError(422, "Already cancelled");
+  // Cancelling takes the sale or purchase off its own day: not once that day is closed.
+  await assertDateOpen(tx, record.branchId, record.date);
 
   // IMEIs first: a purchase whose phone has since been sold cannot be cancelled.
   if (kind === "sale") await releaseSaleSerials(tx, record.id);
@@ -474,6 +476,14 @@ export async function cancelSaleOrPurchase(
   // reverse stock (goods fetched from another shop never came off a shelf here)
   for (const l of record.lines) {
     if ("item" in l && (l.item as { sku: string }).sku.startsWith(OUTSIDE_SKU)) continue;
+    // A purchase coming out takes its price back out of the item's average cost, so the
+    // goods still on hand go on being sold at what they cost.
+    const before = kind === "purchase"
+      ? await Promise.all([
+          tx.stockLevel.aggregate({ where: { itemId: l.itemId }, _sum: { quantity: true } }),
+          tx.item.findUnique({ where: { id: l.itemId }, select: { costPrice: true } }),
+        ])
+      : null;
     await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
@@ -489,6 +499,12 @@ export async function cancelSaleOrPurchase(
       allowNegative: kind === "sale",
       allowInactive: true,
     });
+    if (before) {
+      const [onHand, item] = before;
+      const oldCost = item?.costPrice ?? 0n;
+      const newCost = averageCostWithout(onHand._sum.quantity ?? 0, oldCost, l.quantity, (l as { unitCost: bigint }).unitCost);
+      if (newCost !== oldCost) await tx.item.update({ where: { id: l.itemId }, data: { costPrice: newCost } });
+    }
   }
 
   // Reverse the wallet movements. A split sale posted one receipt per wallet, so each one

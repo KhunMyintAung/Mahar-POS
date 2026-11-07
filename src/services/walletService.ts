@@ -4,6 +4,8 @@ import Decimal from "decimal.js";
 import { isValidDecimalString, mulMinor, toMinor } from "@/lib/money";
 import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
+import { todayBusinessDate } from "@/lib/dates";
+import { recordTransferFeeExpense, reverseIncomeExpense } from "./incomeExpenseService";
 
 // The single choke point for wallet balance changes. A wallet balance is never
 // mutated except through postLedger, inside a database transaction, so the
@@ -148,14 +150,16 @@ export async function createTransfer(
     },
   });
 
+  // Only the amount moved is a transfer; the fee leaves the source as an expense of its own
+  // (Transfer Fee), so it shows in profit and in cash out.
   await postLedger(tx, {
     businessId: opts.businessId,
     walletId: source.id,
     direction: "CREDIT",
-    amount: sourceAmount,
+    amount: enteredAmount,
     refType: "TRANSFER_OUT",
     refId: transfer.id,
-    description: `${txnNo} -> ${dest.name}`,
+    description: `${txnNo} → ${dest.name}`,
     createdById: opts.userId,
   });
   await postLedger(tx, {
@@ -165,9 +169,17 @@ export async function createTransfer(
     amount: destAmount,
     refType: "TRANSFER_IN",
     refId: transfer.id,
-    description: `${txnNo} <- ${source.name}`,
+    description: `${txnNo} ← ${source.name}`,
     createdById: opts.userId,
   });
+  let result = transfer;
+  if (fee > 0n) {
+    const expense = await recordTransferFeeExpense(tx, {
+      businessId: opts.businessId, userId: opts.userId, amount: fee, walletId: source.id,
+      date: todayBusinessDate(), reference: txnNo, description: `Fee on ${txnNo} · ${source.name} → ${dest.name}`,
+    });
+    result = await tx.walletTransfer.update({ where: { id: transfer.id }, data: { feeExpenseId: expense.id } });
+  }
   await audit(tx, {
     businessId: opts.businessId,
     userId: opts.userId,
@@ -178,10 +190,11 @@ export async function createTransfer(
     resourceId: transfer.id,
     after: { txnNo, sourceAmount, destAmount, rate, fee },
   });
-  return transfer;
+  return result;
 }
 
-/** Void a transfer: reverses both wallet movements exactly as posted (fee already baked into destAmount). */
+/** Void a transfer: reverses both wallet movements exactly as posted, and the fee's expense.
+ *  (A transfer made before fees were filed as expense carries its fee in TRANSFER_OUT.) */
 export async function reverseTransfer(
   tx: Tx,
   opts: { transferId: string; reason: string; userId: string; businessId: string }
@@ -193,6 +206,11 @@ export async function reverseTransfer(
 
   await reverseLedgerEntries(tx, opts.businessId, "TRANSFER_OUT", transfer.id, opts.userId, opts.reason);
   await reverseLedgerEntries(tx, opts.businessId, "TRANSFER_IN", transfer.id, opts.userId, opts.reason);
+  if (transfer.feeExpenseId) {
+    const fee = await tx.incomeExpense.findUnique({ where: { id: transfer.feeExpenseId } });
+    if (fee && fee.status === "COMPLETED")
+      await reverseIncomeExpense(tx, { id: fee.id, reason: opts.reason, userId: opts.userId, businessId: opts.businessId });
+  }
 
   await tx.walletTransfer.update({ where: { id: transfer.id }, data: { status: "REVERSED" } });
 

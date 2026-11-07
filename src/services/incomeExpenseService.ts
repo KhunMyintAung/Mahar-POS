@@ -105,6 +105,9 @@ export async function reverseIncomeExpense(
   if (!it || it.businessId !== opts.businessId || it.deletedAt) throw new ApiError(404, "Record not found");
   if (it.status === "REVERSED") throw new ApiError(422, "Already reversed");
   if (!opts.reason.trim()) throw new ApiError(422, "A reason is required");
+  // Reversing takes the entry off its own day: a closed day's figures stay as they were
+  // closed unless the day is reopened first (which is logged).
+  await assertDateOpen(tx, it.branchId, it.date);
 
   // A float or stock purchase record moved no money of its own (the purchase did), so nothing to undo.
   if (!it.billerTxnId && !it.purchaseId && !it.payablePaymentId) await reverseLedgerEntries(tx, opts.businessId, it.type, it.id, opts.userId, opts.reason);
@@ -308,15 +311,22 @@ export async function recordPayablePaymentExpense(tx: Tx, opts: {
 export const AUTO_INCOME_CATEGORIES = { BILL_PROFIT: "Bill Profit", MONEY_FEE: "Transfer & Cash-out Fee" } as const;
 export type AutoIncomeKey = keyof typeof AUTO_INCOME_CATEGORIES;
 
-async function autoIncomeCategory(tx: Tx, businessId: string, key: AutoIncomeKey) {
-  const keyed = await tx.category.findFirst({ where: { businessId, type: "INCOME", systemKey: key } });
+/** Expense the app files by itself: the fee a bank or wallet charges on a transfer between
+ *  the shop's own wallets. Not a standard daily category, so it counts as a general expense. */
+export const AUTO_EXPENSE_CATEGORIES = { TRANSFER_FEE: "Transfer Fee" } as const;
+export type AutoExpenseKey = keyof typeof AUTO_EXPENSE_CATEGORIES;
+
+async function autoCategory(tx: Tx, businessId: string, type: "INCOME" | "EXPENSE", key: string, name: string) {
+  const keyed = await tx.category.findFirst({ where: { businessId, type, systemKey: key } });
   if (keyed) return keyed.active ? keyed : tx.category.update({ where: { id: keyed.id }, data: { active: true } });
   // One the shop already made by hand under the same name takes the key rather than being doubled.
-  const name = AUTO_INCOME_CATEGORIES[key];
-  const named = await tx.category.findFirst({ where: { businessId, type: "INCOME", name } });
+  const named = await tx.category.findFirst({ where: { businessId, type, name } });
   if (named && !named.systemKey) return tx.category.update({ where: { id: named.id }, data: { systemKey: key, active: true } });
-  return tx.category.create({ data: { businessId, type: "INCOME", name: named ? `${name} (auto)` : name, systemKey: key } });
+  return tx.category.create({ data: { businessId, type, name: named ? `${name} (auto)` : name, systemKey: key } });
 }
+
+const autoIncomeCategory = (tx: Tx, businessId: string, key: AutoIncomeKey) =>
+  autoCategory(tx, businessId, "INCOME", key, AUTO_INCOME_CATEGORIES[key]);
 
 /** The branch to file an entry under: the wallet's, else the record's, else the shop's first. */
 async function entryBranch(tx: Tx, businessId: string, ...candidates: (string | null | undefined)[]) {
@@ -359,6 +369,39 @@ export async function recordBillProfitIncome(tx: Tx, opts: { businessId: string;
     businessId: opts.businessId, userId: opts.userId, branchId,
     action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
     after: { txnNo: it.txnNo, type: "INCOME", category: category.name, amount: txn.profit, billSale: txn.txnNo },
+  });
+  return it;
+}
+
+/** The fee paid on a transfer between the shop's own wallets, as an expense (Transfer Fee)
+ *  out of the wallet that paid it. The amount moved is not an expense (it is still the
+ *  shop's money, now in the other wallet); the fee is money gone, so it is. */
+export async function recordTransferFeeExpense(
+  tx: Tx,
+  opts: { businessId: string; userId: string; amount: bigint; walletId: string; date: string; reference: string; description: string }
+) {
+  const wallet = await tx.wallet.findUnique({ where: { id: opts.walletId } });
+  if (!wallet || wallet.businessId !== opts.businessId) throw new ApiError(404, "Wallet not found");
+  const category = await autoCategory(tx, opts.businessId, "EXPENSE", "TRANSFER_FEE", AUTO_EXPENSE_CATEGORIES.TRANSFER_FEE);
+  const branchId = await entryBranch(tx, opts.businessId, wallet.branchId);
+  const txnNo = await nextNumber(tx, opts.businessId, "EXPENSE");
+  const it = await tx.incomeExpense.create({
+    data: {
+      txnNo, businessId: opts.businessId, branchId, type: "EXPENSE",
+      categoryId: category.id, categoryName: category.name,
+      amount: opts.amount, currency: wallet.currency, walletId: wallet.id,
+      date: opts.date, reference: opts.reference, description: opts.description,
+      createdById: opts.userId,
+    },
+  });
+  await postLedger(tx, {
+    businessId: opts.businessId, walletId: wallet.id, direction: "CREDIT", amount: opts.amount,
+    refType: "EXPENSE", refId: it.id, description: `${txnNo} ${category.name}`, createdById: opts.userId,
+  });
+  await audit(tx, {
+    businessId: opts.businessId, userId: opts.userId, branchId,
+    action: "CREATE", module: "income_expense", resourceType: "IncomeExpense", resourceId: it.id,
+    after: { txnNo, type: "EXPENSE", category: category.name, amount: opts.amount, transfer: opts.reference },
   });
   return it;
 }

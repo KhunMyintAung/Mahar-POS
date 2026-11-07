@@ -88,17 +88,14 @@ export function parseReportSettings(raw: unknown): ReportSettings {
  *  Expense of a section is what it cost to earn that income: goods sold at cost, top-up cost,
  *  plus the section's own expense entries. So income − expense is the profit, before salary.
  *
- *  Top-up cost is the float actually bought when the shop records its float purchases as
- *  expense (`floatMode`), and otherwise the operator's share of the top-up cash sold. Never
- *  both, so it is not counted twice. */
-export function incomeExpenseOf(r: PeriodRow, floatMode = false, purchaseMode = false) {
+ *  Sales cost and top-up cost are the row's `costOfSales` and `topupCost` (see `countCosts`). */
+export function incomeExpenseOf(r: PeriodRow) {
   const income = { sales: r.sales, service: r.service, topup: r.topup, other: r.otherIncome, total: 0n };
   income.total = income.sales + income.service + income.topup + income.other;
   const expense = {
-    // Cost of goods sold, or the stock actually bought when purchases are recorded as expense.
-    sales: (purchaseMode ? r.stockBought : r.salesCost) + r.expSales,
+    sales: r.costOfSales + r.expSales,
     service: r.expService,
-    topup: (floatMode ? r.floatBought : r.topup - r.topupMargin) + r.expTopup,
+    topup: r.topupCost + r.expTopup,
     other: r.expGeneral,
     total: 0n,
   };
@@ -128,6 +125,27 @@ export interface PeriodRow {
   floatBought: bigint;
   /** Stock bought, recorded as expense from the Purchases page (no second wallet move). */
   stockBought: bigint;
+  /** What the sales cost, set by `countCosts`: goods sold at cost, or the stock bought once the
+   *  shop records its purchases as expense. Never both, so cost is not counted twice. */
+  costOfSales: bigint;
+  /** What the top-up cash cost, set by `countCosts`: the operator's part of it, or the float
+   *  bought once the shop records its float purchases as expense. Never both. */
+  topupCost: bigint;
+}
+
+/** Day by day, which cost counts. A shop recording its stock (or float) purchases as expense
+ *  counts what it bought, from the first day it did so; before that, and in a shop that never
+ *  does, what was sold counts at its cost. The day the shop started is the same whatever
+ *  range is reported, so the same day always shows the same profit. */
+export function countCosts(r: PeriodRow, purchaseMode: boolean, floatMode: boolean) {
+  r.costOfSales = purchaseMode ? r.stockBought : r.salesCost;
+  r.topupCost = floatMode ? r.floatBought : r.topup - r.topupMargin;
+}
+
+/** Adds one row's amounts into another (a day into its month, or into the total). */
+export function addRow(t: PeriodRow, r: PeriodRow) {
+  for (const k of Object.keys(t) as (keyof PeriodRow)[]) if (k !== "period") (t[k] as bigint) += r[k] as bigint;
+  return t;
 }
 
 type Finished = { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint } & ReturnType<typeof incomeExpenseOf>;
@@ -198,6 +216,7 @@ const zeroRow = (period: string): PeriodRow => ({
   period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, billProfit: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
   expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n, stockBought: 0n,
+  costOfSales: 0n, topupCost: 0n,
 });
 
 /** Section profits for one row (or the totals). */
@@ -218,9 +237,10 @@ export function addBillerTxn(r: PeriodRow, b: { kind: string; cashAmount: bigint
 
 export function sectionsOf(r: PeriodRow): SectionResult[] {
   return [
-    { section: "sales", income: [{ label: "Sales", amount: r.sales }], expense: [{ label: "Cost of goods sold", amount: r.salesCost }, { label: "Sale expenses", amount: r.expSales }], profit: r.sales - r.salesCost - r.expSales },
+    // The same costs as the profit, so the sections always add up to it.
+    { section: "sales", income: [{ label: "Sales", amount: r.sales }], expense: [{ label: "Cost of goods sold", amount: r.costOfSales }, { label: "Sale expenses", amount: r.expSales }], profit: r.sales - r.costOfSales - r.expSales },
     { section: "service", income: [{ label: "Service / repair", amount: r.service }], expense: [{ label: "Service expenses", amount: r.expService }], profit: r.service - r.expService },
-    { section: "topup", income: [{ label: "Top-up & bill margin", amount: r.topupMargin }], expense: [{ label: "Bill expenses", amount: r.expTopup }], profit: r.topupMargin - r.expTopup },
+    { section: "topup", income: [{ label: "Top-up & bill margin", amount: r.topup - r.topupCost }], expense: [{ label: "Bill expenses", amount: r.expTopup }], profit: r.topup - r.topupCost - r.expTopup },
     { section: "general", income: [{ label: "General income", amount: r.otherIncome }], expense: [{ label: "General expenses", amount: r.expGeneral }], profit: r.otherIncome - r.expGeneral },
   ];
 }
@@ -269,7 +289,14 @@ function periodKeys(from: string, to: string, groupBy: "day" | "month"): string[
 
 // A customer's transfer or cash-out only swaps money between the drawer and the KBZPay /
 // Wave account, like a transfer between the shop's own wallets; its fee is income of its own.
-const ledgerMovesCash = (refType: string) => !["TRANSFER_IN", "TRANSFER_OUT", "EXCHANGE_IN", "EXCHANGE_OUT", "OPENING", "MONEY_SERVICE"].includes(refType);
+export const ledgerMovesCash = (refType: string) => !["TRANSFER_IN", "TRANSFER_OUT", "EXCHANGE_IN", "EXCHANGE_OUT", "OPENING", "MONEY_SERVICE"].includes(refType);
+
+/** The type that decides whether a ledger entry is cash: a reversal of another entry takes
+ *  that entry's type. (A sale or purchase cancel points at the sale, not an entry: cash.) */
+export function cashTypeOf(l: { refType: string; refId: string | null }, reversedType: Map<string, string>): string {
+  if (l.refType !== "REVERSAL" || !l.refId) return l.refType;
+  return reversedType.get(l.refId) ?? l.refType;
+}
 
 export async function buildReport(businessId: string, from: string, to: string, branchIds?: string[]): Promise<Report> {
   const groupBy: "day" | "month" = periodKeys(from, to, "day").length > 62 ? "month" : "day";
@@ -305,8 +332,10 @@ export async function buildReport(businessId: string, from: string, to: string, 
     prisma.purchase.aggregate({ where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, ...branch }, _sum: { total: true }, _count: true }),
   ]);
 
-  const rows = new Map(periodKeys(from, to, groupBy).map((k) => [k, zeroRow(k)]));
-  const at = (date: string) => rows.get(keyOf(date)) ?? rows.set(keyOf(date), zeroRow(keyOf(date))).get(keyOf(date))!;
+  // Worked out day by day, then added up into months: each day's cost is counted the same way
+  // whatever range it is reported in, so a month is always the sum of its days.
+  const rows = new Map(periodKeys(from, to, "day").map((k) => [k, zeroRow(k)]));
+  const at = (date: string) => rows.get(date) ?? rows.set(date, zeroRow(date)).get(date)!;
 
   for (const s of sales) { const r = at(s.date); r.sales += s.total; r.salesCost += s.totalCost; }
   const mmkWallets = new Set(wallets.filter((w) => w.currency === "MMK").map((w) => w.id));
@@ -317,9 +346,17 @@ export async function buildReport(businessId: string, from: string, to: string, 
     for (const key of [period, "Total"]) serviceBy.set(key, [...(serviceBy.get(key) ?? []), { date, label, amount }]);
   };
   const repairIds = [...new Set(ledger.filter((l) => (l.refType === "REPAIR_DEPOSIT" || l.refType === "REPAIR_PAYMENT") && l.refId).map((l) => l.refId!))];
-  const repairJobs = new Map((repairIds.length
-    ? await prisma.repairJob.findMany({ where: { id: { in: repairIds } }, select: { id: true, jobNo: true, customerName: true, deviceBrand: true, deviceModel: true } })
-    : []).map((j) => [j.id, j]));
+  // A reversal is cash only if what it undoes was: undoing a transfer between the shop's own
+  // wallets moves no money in or out of the shop, any more than the transfer did.
+  const reversedIds = [...new Set(ledger.filter((l) => l.refType === "REVERSAL" && l.refId).map((l) => l.refId!))];
+  const [repairJobs, reversedType] = await Promise.all([
+    (repairIds.length
+      ? prisma.repairJob.findMany({ where: { id: { in: repairIds } }, select: { id: true, jobNo: true, customerName: true, deviceBrand: true, deviceModel: true } })
+      : Promise.resolve([])).then((list) => new Map(list.map((j) => [j.id, j]))),
+    (reversedIds.length
+      ? prisma.walletLedgerEntry.findMany({ where: { businessId, id: { in: reversedIds } }, select: { id: true, refType: true } })
+      : Promise.resolve([])).then((list) => new Map(list.map((e) => [e.id, e.refType]))),
+  ]);
   for (const l of ledger) {
     const date = businessDateOf(l.createdAt);
     const r = at(date);
@@ -329,10 +366,10 @@ export async function buildReport(businessId: string, from: string, to: string, 
         r.service += amount;
         const job = l.refId ? repairJobs.get(l.refId) : undefined;
         const who = job ? [job.jobNo, job.customerName || `${job.deviceBrand} ${job.deviceModel}`.trim()].filter(Boolean).join(" · ") : "Repair";
-        addService(r.period, date, `${who} · ${l.refType === "REPAIR_DEPOSIT" ? "Deposit" : "Payment"}${amount < 0n ? " (refund)" : ""}`, amount);
+        addService(keyOf(date), date, `${who} · ${l.refType === "REPAIR_DEPOSIT" ? "Deposit" : "Payment"}${amount < 0n ? " (refund)" : ""}`, amount);
       }
     }
-    if (mmkWallets.has(l.walletId) && ledgerMovesCash(l.refType)) {
+    if (mmkWallets.has(l.walletId) && ledgerMovesCash(cashTypeOf(l, reversedType))) {
       if (l.direction === "DEBIT") r.cashIn += l.amount; else r.cashOut += l.amount;
     }
   }
@@ -365,16 +402,18 @@ export async function buildReport(businessId: string, from: string, to: string, 
       otherBy.set(key, m);
     }
   };
-  for (const r of rows.values()) addOther(r.period, "Bill Profit", r.billProfit);
+  for (const r of rows.values()) addOther(keyOf(r.period), "Bill Profit", r.billProfit);
   for (const e of entries) {
     const r = at(e.date);
     const name = e.categoryName ?? (e.type === "WITHDRAW" ? "Withdrawal" : "—");
     if (e.type === "INCOME") {
       const bucket = bucketForKey(keyByName.get(name.toLowerCase()));
       if (bucket === "sales") r.sales += e.amount;
-      else if (bucket === "service") { r.service += e.amount; addService(r.period, e.date, name, e.amount); }
-      else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; addDayTopup(e.date, e.amount); }
-      else { r.otherIncome += e.amount; addOther(r.period, name, e.amount); }
+      else if (bucket === "service") { r.service += e.amount; addService(keyOf(e.date), e.date, name, e.amount); }
+      // Bill income is the shop's own margin, all of it: not top-up cash to round to thousands
+      // (rounding it would count the odd hundreds again, as Bill Profit).
+      else if (bucket === "topup") { r.topup += e.amount; r.topupMargin += e.amount; }
+      else { r.otherIncome += e.amount; addOther(keyOf(e.date), name, e.amount); }
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId) && expenseSection(name) === "service") {
       // A purchase bought for Service (repair parts): a service expense, not goods to sell.
@@ -409,11 +448,9 @@ export async function buildReport(businessId: string, from: string, to: string, 
     if (rest === 0n) continue;
     const r = at(day);
     r.topup -= rest; r.otherIncome += rest; r.billProfit += rest;
-    addOther(r.period, "Bill Profit", rest);
+    addOther(keyOf(day), "Bill Profit", rest);
   }
 
-  // Float purchases recorded as expense in this period: top-up cost comes from them.
-  const floatMode = entries.some((e) => e.type === "EXPENSE" && e.billerTxnId);
   // A shop buying parts per repair job (Settings → Repairs): each job's parts cost comes off
   // service profit on the day it was paid. A shop taking parts from stock counted them when
   // it bought them (a Service purchase), so not again.
@@ -425,23 +462,41 @@ export async function buildReport(businessId: string, from: string, to: string, 
       expenseCats.set(REPAIR_PARTS_LABEL, (expenseCats.get(REPAIR_PARTS_LABEL) ?? 0n) + j.partsCost);
     }
   }
-  // Likewise purchases recorded as expense: sales cost comes from them, not from goods sold.
-  const purchaseMode = entries.some((e) => e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId) && expenseSection(e.categoryName ?? "") !== "service");
+  // The first day the shop recorded a stock purchase (bought to sell, not repair parts) or a
+  // float purchase as expense, over all its records, not only this range: from that day on
+  // what it bought is the cost, before it what it sold (see countCosts).
+  const NEVER = "9999-12-31";
+  const recorded = { businessId, deletedAt: null, status: "COMPLETED", type: "EXPENSE", currency: "MMK", ...branch };
+  const [boughtFrom, floatFrom] = await Promise.all([
+    prisma.incomeExpense.groupBy({
+      by: ["categoryName"],
+      where: { ...recorded, OR: [{ purchaseId: { not: null } }, { fromPurchaseId: { not: null } }] },
+      _min: { date: true },
+    }),
+    prisma.incomeExpense.aggregate({ where: { ...recorded, billerTxnId: { not: null } }, _min: { date: true } }),
+  ]);
+  const purchaseFrom = boughtFrom
+    .filter((g) => expenseSection(g.categoryName ?? "") !== "service")
+    .reduce((min, g) => (g._min.date && g._min.date < min ? g._min.date : min), NEVER);
+  const floatStart = floatFrom._min.date ?? NEVER;
+
   const finish = (r: PeriodRow) => {
     const totalIncome = r.sales + r.service + r.topup + r.otherIncome;
-    // Top-up counts at its margin (or less the float bought): the rest of that cash is the
-    // operator's credit passing through.
-    const topupProfit = floatMode ? r.topup - r.floatBought : r.topupMargin;
-    const grossProfit = r.sales - (purchaseMode ? r.stockBought : r.salesCost) + r.service + topupProfit + r.otherIncome;
+    // Top-up counts at what is left of its cash once its cost is off: the rest of that cash
+    // is the operator's credit passing through.
+    const grossProfit = r.sales - r.costOfSales + r.service + (r.topup - r.topupCost) + r.otherIncome;
     const netProfit = grossProfit - r.expense - r.salary;
-    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r, floatMode, purchaseMode) };
+    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
   };
-  for (const r of rows.values()) foldHidden(r, shown);
-  const ordered = [...rows.values()].sort((a, b) => a.period.localeCompare(b.period)).map(finish);
-  const sum = ordered.reduce((t, r) => {
-    for (const k of Object.keys(t) as (keyof PeriodRow)[]) if (k !== "period") (t[k] as bigint) += r[k] as bigint;
-    return t;
-  }, zeroRow(`${from} – ${to}`));
+  const grouped = new Map<string, PeriodRow>();
+  for (const r of [...rows.values()].sort((a, b) => a.period.localeCompare(b.period))) {
+    foldHidden(r, shown);
+    countCosts(r, r.period >= purchaseFrom, r.period >= floatStart);
+    const key = keyOf(r.period);
+    grouped.set(key, addRow(grouped.get(key) ?? zeroRow(key), r));
+  }
+  const ordered = [...grouped.values()].map(finish);
+  const sum = ordered.reduce((t, r) => addRow(t, r), zeroRow(`${from} – ${to}`));
 
   // Items sold, best sellers first.
   const byItem = new Map<string, { name: string; quantity: number; revenue: bigint; cost: bigint }>();

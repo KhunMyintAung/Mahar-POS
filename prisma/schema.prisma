@@ -416,6 +416,8 @@ model WalletTransfer {
   destAmount     BigInt
   rate           String? // required when currencies differ
   fee            BigInt   @default(0)
+  /// The Transfer Fee expense filed for the fee (transfers made before it was filed have none).
+  feeExpenseId   String?  @unique
   reference      String?
   notes          String?
   status         String   @default("COMPLETED") // COMPLETED REVERSED

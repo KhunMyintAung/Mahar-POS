@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { averageCost } from "@/lib/costing";
+import { averageCost, averageCostWithout } from "@/lib/costing";
 
 describe("averageCost", () => {
   it("pools stock on hand with what came in", () => {
@@ -19,5 +19,22 @@ describe("averageCost", () => {
   it("rounds to the nearest minor unit", () => {
     expect(averageCost(1, 100n, 2, 101n)).toBe(101n); // 302 / 3 = 100.67
     expect(averageCost(2, 100n, 1, 101n)).toBe(100n); // 301 / 3 = 100.33
+  });
+});
+
+describe("averageCostWithout", () => {
+  it("takes a cancelled delivery back out of the average", () => {
+    // 10 at 500 + 10 at 1,000 → 750; cancelling the 10 puts it back to 500.
+    const after = averageCost(10, 500_00n, 10, 1_000_00n);
+    expect(after).toBe(750_00n);
+    expect(averageCostWithout(20, after, 10, 1_000_00n)).toBe(500_00n);
+  });
+  it("puts a free (FOC) delivery's pull on the average back", () => {
+    const after = averageCost(10, 1_000_00n, 10, 0n);
+    expect(averageCostWithout(20, after, 10, 0n)).toBe(1_000_00n);
+  });
+  it("keeps the cost when nothing would be left, or the pool would be nothing", () => {
+    expect(averageCostWithout(10, 1_000_00n, 10, 1_000_00n)).toBe(1_000_00n);
+    expect(averageCostWithout(12, 500_00n, 10, 1_000_00n)).toBe(500_00n);
   });
 });

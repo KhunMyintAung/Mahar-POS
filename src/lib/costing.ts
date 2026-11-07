@@ -16,3 +16,20 @@ export function averageCost(onHand: number, oldCost: bigint, quantity: number, u
   const pool = BigInt(onHand) * oldCost + BigInt(quantity) * unitCost;
   return (pool * 2n + units) / (units * 2n);
 }
+
+/** The weighted average with a delivery taken back out of the pool, for a cancelled purchase:
+ *  the reverse of `averageCost`.
+ *
+ *    10 at 500 + 10 bought at 1,000 → 750; cancel the 10 → (15,000 − 10,000) / 10 = 500
+ *
+ *  - Nothing would be left on hand → the cost stays as it is (there is nothing to value).
+ *  - The pool would come to nothing or less (the price on hand has moved since) → stays too.
+ *  All in minor units, rounded to the nearest one. */
+export function averageCostWithout(onHand: number, cost: bigint, quantity: number, unitCost: bigint): bigint {
+  const left = onHand - quantity;
+  if (quantity <= 0 || left <= 0 || cost <= 0n) return cost;
+  const pool = BigInt(onHand) * cost - BigInt(quantity) * unitCost;
+  if (pool <= 0n) return cost;
+  const units = BigInt(left);
+  return (pool * 2n + units) / (units * 2n);
+}
