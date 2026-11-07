@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { computeDayExpense, computeDayIncome, computeDaySummary } from "@/services/summaryService";
 import { todayBusinessDate } from "@/lib/dates";
 import { EXPIRY_WARN_DAYS } from "@/lib/expiry";
-import { paidTotals } from "@/services/repairProfitService";
+import { loadRepairFlow, paidTotals } from "@/services/repairProfitService";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 
 export const GET = withAuth("dashboard.view", async ({ req, user }) => {
@@ -110,13 +110,22 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
   ]);
   const income = { sales: raw.sales, service: raw.service, topup: raw.topup, other: raw.other, total: raw.total, lines: raw.lines };
 
-  // Repair income, for those who may see costs: repairs paid that day plus service income put
-  // in as Other income, as the income list above counts them together. Repair profit is left to
-  // the report, which takes off the repair costs of the whole period.
-  let service: { charge: bigint; otherIncome: bigint } | null = null;
+  // Repair income and profit, for those who may see costs, worked out as the report does:
+  // income is repairs paid that day plus service income put in as Other income; what comes off
+  // is that day's Daily Service Expense (parts bought for repairs, and other repair costs) and,
+  // for a shop buying parts per job, the parts cost typed in on each job paid.
+  let service: { charge: bigint; parts: bigint; expense: bigint; profit: bigint; otherIncome: bigint } | null = null;
   if (canSeeCost(user.permissions) && (await loadModuleAccess(user.businessId)).features.repair) {
-    const jobs = await paidTotals(user.businessId, date, branchIds);
-    service = { charge: jobs.charge + raw.serviceIncome, otherIncome: raw.serviceIncome };
+    const [jobs, flow, serviceCats] = await Promise.all([
+      paidTotals(user.businessId, date, branchIds),
+      loadRepairFlow(user.businessId),
+      prisma.category.findMany({ where: { businessId: user.businessId, type: "EXPENSE", systemKey: "DAILY_SERVICE" }, select: { name: true } }),
+    ]);
+    const names = new Set(serviceCats.map((c) => c.name.toLowerCase()));
+    const spent = expense.lines.filter((l) => names.has(l.label.toLowerCase())).reduce((t, l) => t + l.amount, 0n);
+    const parts = flow.parts === "job" ? jobs.parts : 0n;
+    const charge = jobs.charge + raw.serviceIncome;
+    service = { charge, parts: jobs.parts, expense: spent + parts, profit: charge - spent - parts, otherIncome: raw.serviceIncome };
   }
 
   return json({
