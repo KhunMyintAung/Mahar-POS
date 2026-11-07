@@ -1,7 +1,8 @@
 import { MANUAL, MANUAL_CATEGORY_LABEL, type ManualCategory, type ManualGuide } from "./manual";
 
-/** The manual as plain HTML pages, with the styles inline and no scripts, so the same page
- *  can be served here and, through the landing site's proxy, at maharpos.shop/manual. */
+/** The manual as plain HTML pages, with the styles and the one script (the "Ask for support"
+ *  chat) inline, so the same page can be served here and, through the landing site's proxy,
+ *  at maharpos.shop/manual. */
 
 const SITE = "https://maharpos.shop";
 const APP = "https://app.maharpos.shop";
@@ -29,7 +30,25 @@ header{background:linear-gradient(135deg,var(--head1),var(--head2));border-radiu
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;text-decoration:none;color:var(--ink);display:block}
 .card small{color:var(--gold);font-weight:700}.card h3{margin:4px 0 6px;font-size:17px;line-height:1.5}.card p{margin:0;color:var(--muted);font-size:14px}
 .pager{display:flex;justify-content:space-between;gap:10px;margin-top:22px;font-size:15px}.pager a{text-decoration:none;font-weight:600;max-width:48%}
-footer{text-align:center;color:var(--muted);font-size:13px;padding-top:24px}@media(max-width:600px){header{padding:22px 18px}.step{padding:14px;gap:12px}}`;
+footer{text-align:center;color:var(--muted);font-size:13px;padding-top:24px}
+.free{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:10px 14px;margin:0 0 18px;font-size:14px;color:var(--muted)}
+.ask-btn{position:fixed;right:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:8px;background:var(--gold);color:#fff;border:0;border-radius:999px;padding:12px 18px;font:inherit;font-weight:700;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);cursor:pointer}
+.ask-btn svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ask{position:fixed;right:16px;bottom:16px;z-index:50;width:min(420px,calc(100vw - 32px));height:min(620px,calc(100vh - 32px));background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:none;flex-direction:column;overflow:hidden}
+.ask.open{display:flex}
+.ask-head{background:linear-gradient(135deg,var(--head1),var(--head2));color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ask-head b{font-size:15px}.ask-head small{display:block;color:#cdd5e1;font-size:12px;line-height:1.4}
+.ask-x{background:transparent;border:0;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px 8px}
+.ask-log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.msg{max-width:88%;padding:9px 12px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;line-height:1.7}
+.msg.u{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:4px}
+.msg.a{align-self:flex-start;background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.e{align-self:flex-start;background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.ask-sugg{display:flex;flex-wrap:wrap;gap:6px}.ask-sugg button{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font:inherit;font-size:13px;color:var(--ink);cursor:pointer}
+.ask-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}
+.ask-form textarea{flex:1;resize:none;height:44px;max-height:120px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:inherit;font-size:14px;background:var(--bg);color:var(--ink)}
+.ask-form button{background:var(--gold);color:#fff;border:0;border-radius:12px;padding:0 16px;font:inherit;font-weight:700;cursor:pointer}.ask-form button:disabled{opacity:.5}
+@media print{.ask,.ask-btn{display:none!important}}@media(max-width:600px){header{padding:22px 18px}.step{padding:14px;gap:12px}}`;
 
 function page(opts: { title: string; description: string; canonical: string; body: string }) {
   return `<!doctype html>
@@ -47,8 +66,51 @@ function page(opts: { title: string; description: string; canonical: string; bod
 ${opts.body}
 <div class="cta"><a class="btn btn-gold" href="${APP}">App ဖွင့်မည်</a><a class="btn btn-ghost" href="/manual">အခြား လမ်းညွှန်များ</a><a class="btn btn-ghost" href="${HELP}">အကူအညီ (Telegram)</a></div>
 <footer>Mahar POS · app.maharpos.shop</footer>
-</main></body></html>`;
+</main>
+${ASK}
+</body></html>`;
 }
+
+/** "Ask for support": a chat that answers from the whole manual (POST /manual/ask). Answers
+ *  are shown as text, never as HTML. */
+const ASK = `<button class="ask-btn" id="askOpen" type="button" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><path d="M12 17h.01"/></svg>Ask for support</button>
+<section class="ask" id="ask" role="dialog" aria-label="Ask for support">
+<div class="ask-head"><div><b>Ask for support</b><small>Mahar POS ကို ဘယ်လိုသုံးရမလဲ — Function တိုင်း မေးနိုင်ပါသည်</small></div><button class="ask-x" id="askClose" type="button" aria-label="Close">×</button></div>
+<div class="ask-log" id="askLog"><div class="msg a">မင်္ဂလာပါ။ Mahar POS အသုံးပြုနည်း၊ Function တစ်ခုချင်း ဘယ်လို အလုပ်လုပ်သလဲ — ဘာမဆို မေးနိုင်ပါတယ်။ အဆင့်လိုက် ရှင်းပြပေးပါမယ်။</div>
+<div class="ask-sugg" id="askSugg"><button type="button">ဖုန်းတစ်လုံး ဘယ်လို ရောင်းရမလဲ</button><button type="button">ဖုန်းပြင် Job ဘယ်လို ထည့်ရမလဲ</button><button type="button">နေ့ချုပ် ဘယ်လို ပိတ်ရမလဲ</button><button type="button">ဝန်ထမ်း အကောင့် ဘယ်လို ဖွင့်ရမလဲ</button></div></div>
+<form class="ask-form" id="askForm"><textarea id="askText" placeholder="မေးခွန်း ရေးပါ..." aria-label="Question" maxlength="1000"></textarea><button type="submit" id="askSend">ပို့မည်</button></form>
+</section>
+<script>
+(function(){
+var box=document.getElementById("ask"),log=document.getElementById("askLog"),form=document.getElementById("askForm"),text=document.getElementById("askText"),send=document.getElementById("askSend"),sugg=document.getElementById("askSugg"),opener=document.getElementById("askOpen"),turns=[],busy=false;
+function open(){box.classList.add("open");opener.style.display="none";text.focus();}
+function close(){box.classList.remove("open");opener.style.display="";}
+opener.onclick=open;document.getElementById("askClose").onclick=close;
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&box.classList.contains("open"))close();});
+function add(kind,t){var d=document.createElement("div");d.className="msg "+kind;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+function clean(t){return t.replace(/\\*\\*(.+?)\\*\\*/g,"$1").replace(/^#+\\s*/gm,"");}
+function ask(q){
+  q=q.trim();if(!q||busy)return;busy=true;send.disabled=true;if(sugg)sugg.remove();sugg=null;
+  add("u",q);turns.push({role:"user",content:q});text.value="";
+  var wait=add("a","ဖြေဆိုနေပါသည်...");
+  fetch("/manual/ask",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({messages:turns.slice(-8)})})
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(j&&j.ok){var a=clean(j.data.answer);wait.textContent=a;turns.push({role:"assistant",content:a});}
+      else{wait.className="msg e";wait.textContent=(j&&j.error)||"အဖြေ မရပါ။ ခဏနေမှ ပြန်မေးပါ။";turns.pop();}
+    })
+    .catch(function(){wait.className="msg e";wait.textContent="ချိတ်ဆက်မှု မရပါ။ Internet စစ်ပြီး ပြန်မေးပါ။";turns.pop();})
+    .then(function(){busy=false;send.disabled=false;log.scrollTop=log.scrollHeight;});
+}
+form.onsubmit=function(e){e.preventDefault();ask(text.value);};
+text.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask(text.value);}});
+if(sugg)sugg.addEventListener("click",function(e){if(e.target.tagName==="BUTTON")ask(e.target.textContent);});
+if(/[?&]ask=1/.test(location.search))open();
+})();
+</script>`;
+
+/** Why it costs nothing now. */
+const FREE = `<div class="free">Mahar POS ကို ယခု Develop လုပ်နေဆဲ ကာလ ဖြစ်သောကြောင့် Feature အားလုံးကို အခမဲ့ အသုံးပြုနိုင်ပါသည်။ နောင်တွင် ငွေပေးစနစ် ထည့်ပါက ကြိုတင် အသိပေးမည် ဖြစ်ပြီး သင့် Data များ မပျောက်ပါ။</div>`;
 
 function card(g: ManualGuide) {
   return `<a class="card" href="/manual/${g.slug}"><small>${esc(MANUAL_CATEGORY_LABEL[g.category])} · အဆင့် ${mmNumber(g.steps.length)} ဆင့်</small><h3>${esc(g.title)}</h3><p>${esc(g.description)}</p></a>`;
@@ -63,7 +125,7 @@ export function manualIndexHtml(): string {
     title: "Mahar POS အသုံးပြုနည်း လမ်းညွှန်",
     description: "Mahar POS ၏ Function အားလုံးကို အဆင့်လိုက် မြန်မာလို ရှင်းပြထားသော အသုံးပြုနည်း လမ်းညွှန်။",
     canonical: `${SITE}/manual`,
-    body: `<header><div class="eyebrow">အသုံးပြုနည်း လမ်းညွှန် · ${mmNumber(MANUAL.length)} ခု</div><h1>Mahar POS အသုံးပြုနည်း</h1><p>အရောင်း၊ ဖုန်းပြင်၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ ကုန်ပစ္စည်း၊ အစီရင်ခံစာနှင့် ဝန်ထမ်း စီမံခြင်း — Function တိုင်းကို အဆင့်လိုက် ရှင်းပြထားပါသည်။</p></header>${sections}`,
+    body: `<header><div class="eyebrow">အသုံးပြုနည်း လမ်းညွှန် · ${mmNumber(MANUAL.length)} ခု</div><h1>Mahar POS အသုံးပြုနည်း</h1><p>အရောင်း၊ ဖုန်းပြင်၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ ကုန်ပစ္စည်း၊ အစီရင်ခံစာနှင့် ဝန်ထမ်း စီမံခြင်း — Function တိုင်းကို အဆင့်လိုက် ရှင်းပြထားပါသည်။ မသိတာရှိရင် ညာဘက်အောက်က Ask for support ကို နှိပ်ပြီး မေးနိုင်ပါသည်။</p></header>${FREE}${sections}`,
   });
 }
 

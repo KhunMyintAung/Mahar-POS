@@ -159,6 +159,32 @@ export async function askShopAgent(
   return text.length > MAX_REPLY ? `${text.slice(0, MAX_REPLY)}…` : text;
 }
 
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+/** A conversation answered from what the system prompt gives, with no lookups: the manual's
+ *  support chat. */
+export async function askPlain(
+  key: { provider: AiProvider; key: string }, system: string, turns: ChatTurn[], maxReply = 6000,
+): Promise<string> {
+  let text: string;
+  if (key.provider === "GEMINI") {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+    const data = (await post(url, { "x-goog-api-key": key.key }, {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.content }] })),
+    })) as GeminiReply;
+    text = ((data.candidates?.[0]?.content?.parts ?? []) as GeminiPart[]).map((p) => p.text ?? "").join("").trim();
+  } else {
+    const api = CHAT_API[key.provider];
+    const data = (await post(`${api.url}/chat/completions`, { authorization: `Bearer ${key.key}` }, {
+      model: api.model, messages: [{ role: "system", content: system }, ...turns],
+    })) as OpenAiReply;
+    text = data.choices?.[0]?.message?.content?.trim() ?? "";
+  }
+  if (!text) throw new AiError("failed", "empty reply");
+  return text.length > maxReply ? `${text.slice(0, maxReply)}…` : text;
+}
+
 /** A cheap call that tells a working key from a wrong one before it is saved. */
 export async function checkAiKey(provider: AiProvider, apiKey: string): Promise<"ok" | "bad_key" | "failed"> {
   const req: { url: string; headers: Record<string, string> } = provider === "GEMINI"
