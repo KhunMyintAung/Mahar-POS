@@ -1855,6 +1855,8 @@ function translate(value: string) {
     [/^(\d+) names corrected$/, (n) => `အမည် ${n} ခု ပြင်ပြီး`],
     [/^Correct (\d+)$/, (n) => `${n} ခု ပြင်မည်`],
     [/^All · (\d+)$/, (n) => `အားလုံး · ${n}`],
+    [/^Repair expense (.+)$/, (v) => `ဖုန်းပြင် ထွက်ငွေ ${v}`],
+    [/^Other income (\d[\d,.]* MMK)$/, (v) => `အခြားဝင်ငွေ ${v}`],
     [/^Parts cost (.+) · Other income (.+)$/, (v, o) => `အပိုပစ္စည်းဖိုး ${v} · အခြားဝင်ငွေ ${o}`],
     [/^Parts cost (.+)$/, (v) => `အပိုပစ္စည်းဖိုး ${v}`],
     [/^Other income · (.+)$/, (p) => `အခြား ဝင်ငွေ · ${p === "Total" ? "စုစုပေါင်း" : p}`],
