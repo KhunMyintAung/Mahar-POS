@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CloudOff, RefreshCw, Wifi } from "lucide-react";
-import { Button, ConfirmDialog, Modal, cn, useToast } from "./ui";
+import { Button, Card, ConfirmDialog, Modal, cn, useToast } from "./ui";
 import { useAuth } from "./AppShell";
 import { fmtMoney } from "@/lib/format";
 import { setNetMode, useNetMode, useOnline, type NetMode } from "@/lib/netMode";
@@ -14,8 +14,41 @@ const MODES: { value: NetMode; label: string; hint: string }[] = [
   { value: "offline", label: "Offline", hint: "Sales are kept on this device and sent only when you press Sync now." },
 ];
 
-/** The till's connection: the mode for this device, whether it is online, and the sales kept
- *  on it waiting to be sent, with Sync now and the ones the server refused. */
+/** Settings → Shop: how this device's till uses the internet. Kept in this browser, as each
+ *  counter's connection differs. */
+export function NetModeCard() {
+  const mode = useNetMode();
+  const { push } = useToast();
+  return (
+    <Card className="space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">{"Internet connection (this device)"}</h3>
+        <p className="mt-1 text-xs text-gray-500">{"How the till on this device sells when the internet is weak or gone."}</p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Connection mode">
+        {MODES.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            role="radio"
+            aria-checked={mode === m.value}
+            onClick={() => { setNetMode(m.value); push(m.label); }}
+            className={cn(
+              "rounded-lg border-2 px-3 py-3 text-left transition",
+              mode === m.value ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-700"
+            )}
+          >
+            <span className="block text-sm font-semibold">{m.label}</span>
+            <span className="mt-1 block text-xs text-gray-500">{m.hint}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/** The till's connection on the POS: shown when there is no internet or sales are kept on
+ *  the device waiting to be sent, with Sync now and the ones the server refused. */
 export function NetModeBar() {
   const { me } = useAuth();
   const userId = me?.user.id;
@@ -44,32 +77,17 @@ export function NetModeBar() {
     }
   }
 
+  // Shown only when there is something to say: no internet, or sales waiting on the device.
+  // The mode itself is chosen in Settings.
+  if (online && queued.length === 0) return null;
   const current = MODES.find((m) => m.value === mode)!;
   return (
-    <div className="no-print mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="no-print mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">
       <span className={cn("inline-flex items-center gap-1 font-medium", online ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>
         {online ? <Wifi size={16} /> : <CloudOff size={16} />}
         {online ? "Connected" : "No internet"}
       </span>
-      <div className="inline-flex overflow-hidden rounded-md border border-gray-300 dark:border-gray-700" role="radiogroup" aria-label="Connection mode">
-        {MODES.map((m) => (
-          <button
-            key={m.value}
-            type="button"
-            role="radio"
-            aria-checked={mode === m.value}
-            title={m.hint}
-            onClick={() => setNetMode(m.value)}
-            className={cn(
-              "px-2.5 py-1 text-xs font-medium",
-              mode === m.value ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200"
-            )}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-      <span className="hidden text-xs text-gray-500 md:inline">{current.hint}</span>
+      <span className="text-xs text-gray-600 dark:text-gray-300">{current.label}</span>
       {queued.length > 0 && (
         <span className="ml-auto flex items-center gap-2">
           <button type="button" onClick={() => setListOpen(true)} className="text-xs font-medium text-amber-700 underline dark:text-amber-400">

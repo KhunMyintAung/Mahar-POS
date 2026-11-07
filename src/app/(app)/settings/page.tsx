@@ -13,6 +13,7 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
+import { NetModeCard } from "@/components/NetModeBar";
 import {
   defaultFeaturesForMode,
   FEATURE_DEFINITIONS,
@@ -247,6 +248,9 @@ export default function SettingsPage() {
 
       {/* How the shop gets repair parts: decides where their cost counts in Reports. */}
       {featureEnabled("repair") && <RepairFlowCard />}
+
+      {/* Online only / Sync later / Offline for this device's till. */}
+      {featureEnabled("pos") && <NetModeCard />}
       </>}
 
       {current === "printing" && <>

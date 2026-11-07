@@ -1691,6 +1691,8 @@ const MM: Record<string, string> = {
   "Sub-category": "အမျိုးအစားခွဲ",
   // The till's connection modes and the sales kept on the device.
   "No internet": "အင်တာနက် မရှိပါ",
+  "Internet connection (this device)": "အင်တာနက် ချိတ်ဆက်မှု (ဒီစက်)",
+  "How the till on this device sells when the internet is weak or gone.": "အင်တာနက် အားနည်းချိန် သို့မဟုတ် မရှိချိန် ဒီစက်က POS ရောင်းပုံ။",
   "Online only": "Online သီးသန့်",
   "Sync later": "နောက်မှ Sync",
   "Offline": "Offline",
