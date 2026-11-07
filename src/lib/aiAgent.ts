@@ -1,6 +1,6 @@
 import type { AuthUser } from "./auth";
 import type { AiProvider } from "./aiKey";
-import { AI_TOOLS, runAiTool } from "./aiTools";
+import { AI_TOOLS, runAiTool, type AiTool } from "./aiTools";
 import { todayBusinessDate } from "./dates";
 
 /** The Telegram AI helper: a shop's question, answered from its own records with the
@@ -90,21 +90,32 @@ const json = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint"
 type OpenAiMessage = Record<string, unknown>;
 type OpenAiReply = { choices?: { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[] };
 
+type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
+type GeminiContent = { role: string; parts: (GeminiPart | Record<string, unknown>)[] };
+type GeminiReply = { candidates?: { content?: GeminiContent }[]; promptFeedback?: { blockReason?: string } };
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+/** A lookup the model may make: its description for the model, and what runs it. */
+export interface ToolSet {
+  tools: AiTool[];
+  run: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+}
+
 async function askChat(
-  api: (typeof CHAT_API)[keyof typeof CHAT_API], user: AuthUser, apiKey: string, system: string, question: string,
+  api: (typeof CHAT_API)[keyof typeof CHAT_API], apiKey: string, system: string, turns: ChatTurn[], toolSet?: ToolSet,
 ): Promise<string> {
-  const messages: OpenAiMessage[] = [{ role: "system", content: system }, { role: "user", content: question }];
-  const tools = AI_TOOLS.map((t) => ({ type: "function", function: t }));
+  const messages: OpenAiMessage[] = [{ role: "system", content: system }, ...turns];
+  const tools = toolSet?.tools.length ? toolSet.tools.map((t) => ({ type: "function", function: t })) : undefined;
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const data = (await post(`${api.url}/chat/completions`, { authorization: `Bearer ${apiKey}` }, {
-      model: api.model, messages, tools,
+      model: api.model, messages, ...(tools ? { tools } : {}),
     })) as OpenAiReply;
     const msg = data.choices?.[0]?.message;
     if (!msg) throw new AiError("failed", "empty chat reply");
-    if (!msg.tool_calls?.length) return msg.content ?? "";
+    if (!msg.tool_calls?.length || !toolSet) return msg.content ?? "";
     messages.push({ role: "assistant", content: msg.content ?? null, tool_calls: msg.tool_calls });
     for (const call of msg.tool_calls) {
-      const result = await runAiTool(user, call.function.name, parseArgs(call.function.arguments));
+      const result = await toolSet.run(call.function.name, parseArgs(call.function.arguments));
       messages.push({ role: "tool", tool_call_id: call.id, content: json(result) });
     }
   }
@@ -112,37 +123,47 @@ async function askChat(
 }
 
 // Gemini refuses an object schema with no properties; a tool without inputs leaves it out.
-const GEMINI_TOOLS = AI_TOOLS.map((t) => (Object.keys(t.parameters.properties).length ? t : { name: t.name, description: t.description }));
+const geminiTools = (tools: AiTool[]) =>
+  tools.map((t) => (Object.keys(t.parameters.properties).length ? t : { name: t.name, description: t.description }));
 
-type GeminiPart ={ text?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
-type GeminiContent = { role: string; parts: (GeminiPart | Record<string, unknown>)[] };
-type GeminiReply = { candidates?: { content?: GeminiContent }[]; promptFeedback?: { blockReason?: string } };
-
-async function askGemini(user: AuthUser, apiKey: string, system: string, question: string): Promise<string> {
-  const contents: GeminiContent[] = [{ role: "user", parts: [{ text: question }] }];
+async function askGemini(apiKey: string, system: string, turns: ChatTurn[], toolSet?: ToolSet): Promise<string> {
+  const contents: GeminiContent[] = turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.content }] }));
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  const tools = toolSet?.tools.length ? [{ functionDeclarations: geminiTools(toolSet.tools) }] : undefined;
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const data = (await post(url, { "x-goog-api-key": apiKey }, {
       systemInstruction: { parts: [{ text: system }] },
       contents,
-      tools: [{ functionDeclarations: GEMINI_TOOLS }],
+      ...(tools ? { tools } : {}),
     })) as GeminiReply;
     const content = data.candidates?.[0]?.content;
     if (!content) throw new AiError("failed", `empty Gemini reply ${data.promptFeedback?.blockReason ?? ""}`);
     const parts = (content.parts ?? []) as GeminiPart[];
     const calls = parts.filter((p) => p.functionCall);
-    if (!calls.length) return parts.map((p) => p.text ?? "").join("").trim();
+    if (!calls.length || !toolSet) return parts.map((p) => p.text ?? "").join("").trim();
     // The model's turn goes back unchanged: newer Gemini models attach signatures to it.
     contents.push({ role: "model", parts: content.parts });
     const responses = [];
     for (const p of calls) {
       const { name, args } = p.functionCall!;
-      const result = await runAiTool(user, name, args ?? {});
+      const result = await toolSet.run(name, args ?? {});
       responses.push({ functionResponse: { name, response: { result: JSON.parse(json(result)) } } });
     }
     contents.push({ role: "user", parts: responses });
   }
   throw new AiError("failed", "too many lookups");
+}
+
+/** A conversation with the shop's key: the model may make the given lookups until it answers. */
+export async function askAgent(
+  key: { provider: AiProvider; key: string }, system: string, turns: ChatTurn[], toolSet?: ToolSet, maxReply = MAX_REPLY,
+): Promise<string> {
+  const answer = key.provider === "GEMINI"
+    ? await askGemini(key.key, system, turns, toolSet)
+    : await askChat(CHAT_API[key.provider], key.key, system, turns, toolSet);
+  const text = answer.trim();
+  if (!text) throw new AiError("failed", "empty reply");
+  return text.length > maxReply ? `${text.slice(0, maxReply)}…` : text;
 }
 
 export async function askShopAgent(
@@ -151,38 +172,12 @@ export async function askShopAgent(
   question: string,
   key: { provider: AiProvider; key: string },
 ): Promise<string> {
-  const system = systemPrompt(user, businessName);
-  const answer = key.provider === "GEMINI"
-    ? await askGemini(user, key.key, system, question)
-    : await askChat(CHAT_API[key.provider], user, key.key, system, question);
-  const text = answer.trim() || "…";
-  return text.length > MAX_REPLY ? `${text.slice(0, MAX_REPLY)}…` : text;
-}
-
-export type ChatTurn = { role: "user" | "assistant"; content: string };
-
-/** A conversation answered from what the system prompt gives, with no lookups: the manual's
- *  support chat. */
-export async function askPlain(
-  key: { provider: AiProvider; key: string }, system: string, turns: ChatTurn[], maxReply = 6000,
-): Promise<string> {
-  let text: string;
-  if (key.provider === "GEMINI") {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-    const data = (await post(url, { "x-goog-api-key": key.key }, {
-      systemInstruction: { parts: [{ text: system }] },
-      contents: turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.content }] })),
-    })) as GeminiReply;
-    text = ((data.candidates?.[0]?.content?.parts ?? []) as GeminiPart[]).map((p) => p.text ?? "").join("").trim();
-  } else {
-    const api = CHAT_API[key.provider];
-    const data = (await post(`${api.url}/chat/completions`, { authorization: `Bearer ${key.key}` }, {
-      model: api.model, messages: [{ role: "system", content: system }, ...turns],
-    })) as OpenAiReply;
-    text = data.choices?.[0]?.message?.content?.trim() ?? "";
-  }
-  if (!text) throw new AiError("failed", "empty reply");
-  return text.length > maxReply ? `${text.slice(0, maxReply)}…` : text;
+  return askAgent(key, systemPrompt(user, businessName), [{ role: "user", content: question }], {
+    tools: AI_TOOLS, run: (name, args) => runAiTool(user, name, args),
+  }).catch((e) => {
+    if (e instanceof AiError && e.message === "empty reply") return "…";
+    throw e;
+  });
 }
 
 /** A cheap call that tells a working key from a wrong one before it is saved. */
