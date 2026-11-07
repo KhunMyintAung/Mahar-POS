@@ -21,7 +21,8 @@ import { LanguageSwitch } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
-import { clearOfflineCaches, getNetMode, tellServiceWorker } from "@/lib/netMode";
+import { clearOfflineCaches, getNetMode, offlineReadyAt, prepareOffline, tellServiceWorker } from "@/lib/netMode";
+import { posDataUrls } from "@/lib/posData";
 import { listQueued, syncQueued } from "@/lib/offlineSales";
 
 interface Me {
@@ -217,6 +218,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // In sync mode, sales kept on the device while the internet was gone are sent by
   // themselves: when it comes back, on opening the app, and once a minute.
   const userId = me?.user.id;
+  const branchId = me?.branches[0]?.id ?? "";
   useEffect(() => {
     if (!userId) return;
     tellServiceWorker();
@@ -226,13 +228,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       syncQueued(userId).catch(() => {});
     };
     run();
+    // Not online only: keep the till's offline copy current by itself (a new version of the
+    // app or new prices), so it works without the internet even if Get ready was never
+    // pressed again. At most every 10 minutes.
+    const refresh = window.setTimeout(() => {
+      const readyAt = offlineReadyAt();
+      if (getNetMode() === "online" || !navigator.onLine || (readyAt && Date.now() - readyAt < 10 * 60_000)) return;
+      prepareOffline(Object.values(posDataUrls(branchId))).catch(() => {});
+    }, 5000);
     window.addEventListener("online", run);
     const timer = window.setInterval(run, 60_000);
     return () => {
       window.removeEventListener("online", run);
       window.clearInterval(timer);
+      window.clearTimeout(refresh);
     };
-  }, [userId]);
+  }, [userId, branchId]);
 
   const miniMartEnabled = me?.modules.miniMartEnabled ?? false;
   const walletsEnabled = me?.modules.walletsEnabled ?? true;

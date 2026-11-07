@@ -23,7 +23,7 @@ const DATA_PATHS = [
   "/api/v1/categories",
   "/api/v1/item-meta",
 ];
-// Screens never kept: signing in and out, and the admin's.
+// Screens that never go to the till offline: signing in and out, and the admin's.
 const NO_PAGE = ["/login", "/register", "/logout", "/admin", "/auth", "/forgot-password", "/reset-password"];
 
 self.addEventListener("install", (event) => {
@@ -115,20 +115,28 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     const keepPage = !NO_PAGE.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
     event.respondWith((async () => {
+      // Only the till (/pos) is kept: the other screens need the internet for their data.
       // Online only: the screen comes from the network, and without it the offline notice.
-      // Sync later: the network, or the kept screen when it fails or is too slow.
-      // Offline: the kept screen at once.
+      // Sync later: the network, or the kept till when it fails or is too slow.
+      // Offline: the kept till at once.
       const mode = keepPage ? await tillMode() : "online";
       const network = fetch(request).then((response) => {
-        if (response.ok && keepPage && response.type === "basic" && !response.redirected) {
+        if (response.ok && url.pathname === "/pos" && response.type === "basic" && !response.redirected) {
           const clone = response.clone();
           caches.open(PAGES).then((cache) => cache.put(url.pathname, clone)).catch(() => {});
         }
         return response;
       });
       network.catch(() => {});
-      const kept = () => (mode === "online" ? Promise.resolve(undefined) : caches.match(url.pathname, { cacheName: PAGES }));
-      const notice = async () => (await caches.match("/offline.html")) || Response.error();
+      const kept = () => (mode === "online" || url.pathname !== "/pos" ? Promise.resolve(undefined) : caches.match("/pos", { cacheName: PAGES }));
+      // Without the internet, a screen never kept (the app opens at /full-app or /play-app,
+      // then the dashboard) goes to the kept till, the one screen that works offline.
+      const notice = async () => {
+        if (mode !== "online" && url.pathname !== "/pos" && (await caches.match("/pos", { cacheName: PAGES }))) {
+          return Response.redirect("/pos", 302);
+        }
+        return (await caches.match("/offline.html")) || Response.error();
+      };
       if (mode === "offline") return (await kept()) || network.catch(notice);
       if (mode === "sync") {
         const slow = new Promise((resolve) => setTimeout(() => resolve("slow"), 6000));
