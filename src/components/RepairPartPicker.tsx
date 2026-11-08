@@ -7,7 +7,7 @@ import { fmtMoney } from "@/lib/format";
 import { useToast } from "@/components/ui";
 
 interface Hit {
-  id: string; name: string; costPrice: string; trackSerial?: boolean;
+  id: string; name: string; costPrice: string; trackSerial?: boolean; trackStock?: boolean;
   stockLevels: { branchId: string; quantity: number }[];
 }
 
@@ -30,7 +30,7 @@ export function RepairPartPicker({ jobId, branchId, onAdded }: {
       if (term.length < 2) { setHits([]); return; }
       api<{ items: Hit[] }>(`/api/v1/items?q=${encodeURIComponent(term)}`)
         // Phones go out with their IMEI from the Items page; parts here are counted ones.
-        .then((d) => setHits(d.items.filter((it) => !it.trackSerial).slice(0, 6)))
+        .then((d) => setHits(d.items.filter((it) => !it.trackSerial && it.trackStock !== false).slice(0, 6)))
         .catch(() => setHits([]));
     }, term.length < 2 ? 0 : 250);
     return () => clearTimeout(t);

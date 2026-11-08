@@ -572,7 +572,7 @@ async function stockOf(businessId: string, categoryIds: string[], byBrand: boole
   if (!categoryIds.length) return [];
   const children = await prisma.itemCategory.findMany({ where: { businessId, parentId: { in: categoryIds } }, select: { id: true } });
   const items = await prisma.item.findMany({
-    where: { businessId, deletedAt: null, active: true, categoryId: { in: [...categoryIds, ...children.map((c) => c.id)] } },
+    where: { businessId, deletedAt: null, active: true, trackStock: true, categoryId: { in: [...categoryIds, ...children.map((c) => c.id)] } },
     select: { name: true, costPrice: true, category: { select: { name: true, parentId: true } }, stockLevels: { where: branchIds ? { branchId: { in: branchIds } } : {}, select: { quantity: true } } },
     orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
   });

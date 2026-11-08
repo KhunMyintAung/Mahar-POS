@@ -707,6 +707,9 @@ model Item {
   active       Boolean       @default(true)
   /// Each unit has its own IMEI or serial, recorded when it comes in and picked when sold.
   trackSerial  Boolean       @default(false)
+  /// False: the quantity is unlimited. It can always be sold and no stock is counted (a service,
+  /// a fee, anything the shop does not count).
+  trackStock   Boolean       @default(true)
   description  String?
   /// Shown in the shop's Online Shop, with its photos.
   onlineVisible Boolean      @default(false)

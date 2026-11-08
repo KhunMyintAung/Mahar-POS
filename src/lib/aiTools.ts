@@ -192,7 +192,7 @@ async function stockList(user: AuthUser, args: Record<string, unknown>) {
   const words = typeof args.search === "string" ? searchWords(args.search) : [];
   const fields = ["name", "model", "variant", "sku", "barcode", "description"] as const;
   const select = {
-    name: true, model: true, variant: true, costPrice: true, sellingPrice: true, minStock: true,
+    name: true, model: true, variant: true, costPrice: true, sellingPrice: true, minStock: true, trackStock: true,
     category: { select: { name: true } },
     stockLevels: { where: branchScope(user), select: { quantity: true } },
   };
@@ -212,7 +212,7 @@ async function stockList(user: AuthUser, args: Record<string, unknown>) {
   const rowOf = (i: (typeof items)[number]) => ({
     name: i.name,
     category: i.category?.name,
-    quantity: i.stockLevels.reduce((s, l) => s + l.quantity, 0),
+    quantity: i.trackStock ? i.stockLevels.reduce((s, l) => s + l.quantity, 0) : "unlimited",
     min_stock: i.minStock,
     ...(canSeeCost(user.permissions) ? { cost: ks(i.costPrice) } : {}),
     price: ks(i.sellingPrice),
@@ -223,7 +223,7 @@ async function stockList(user: AuthUser, args: Record<string, unknown>) {
     return words.filter((w) => text.includes(w)).length;
   };
   let rows = [...items].sort((a, b) => hits(b) - hits(a)).map(rowOf);
-  if (args.low_only === true) rows = rows.filter((r) => r.quantity <= r.min_stock);
+  if (args.low_only === true) rows = rows.filter((r) => typeof r.quantity === "number" && r.quantity <= r.min_stock);
   if (rows.length || !words.length) return { item_count: rows.length, items: rows.slice(0, 80), more: Math.max(0, rows.length - 80) };
 
   // Nothing holds the words: maybe a typo. Offer the closest names and the categories.

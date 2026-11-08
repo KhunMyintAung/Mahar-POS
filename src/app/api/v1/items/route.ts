@@ -73,6 +73,8 @@ const schema = z.object({
   variant: z.string().trim().max(80).optional(),
   /** Keep an IMEI per unit. Left out, it is on for a phone shop's phones (Phone New / Phone Second). */
   trackSerial: z.boolean().optional(),
+  /** False: unlimited quantity, no stock is counted. */
+  trackStock: z.boolean().default(true),
   /** Best before (YYYY-MM-DD), for food and medicine; empty for none. */
   expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).optional(),
   /** A second-hand phone: its condition, and battery health in %. */
@@ -139,11 +141,12 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         unitId: body.unitId,
         costPrice: toMinor(body.costPrice),
         sellingPrice: toMinor(body.sellingPrice),
-        minStock: body.minStock,
+        minStock: body.trackStock ? body.minStock : 0,
         description: body.description,
         model: body.model || null,
         variant: body.model ? body.variant || null : null,
-        trackSerial: body.trackSerial ?? (phoneShop && isPhoneCategory(categoryName)),
+        trackSerial: body.trackStock && (body.trackSerial ?? (phoneShop && isPhoneCategory(categoryName))),
+        trackStock: body.trackStock,
         expiresAt,
         condition: body.condition || null,
         batteryHealth: body.batteryHealth ?? null,

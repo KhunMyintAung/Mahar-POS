@@ -1,5 +1,6 @@
 "use client";
 
+import { UNLIMITED_STOCK } from "@/lib/unlimitedStock";
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronRight, Gamepad2, MapPin, Minus, Navigation, Phone, Plus, Search, ShoppingBag, Truck, Wallet, X } from "lucide-react";
 import { fmtMoney } from "@/lib/format";
@@ -165,7 +166,7 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
                 <button type="button" onClick={() => setViewing(g)} className="line-clamp-2 min-h-[2.5rem] text-left text-sm font-medium leading-tight [overflow-wrap:anywhere]">{g.model}</button>
                 <div className="flex items-baseline justify-between gap-1">
                   <span className="text-base font-bold text-blue-600 tabular-nums">{low === high ? fmtMoney(low.toString()) : `${fmtMoney(low.toString())}+`}</span>
-                  <span className={cn("shrink-0 text-[11px]", stock <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{out ? "" : `ကျန် ${stock}`}</span>
+                  <span className={cn("shrink-0 text-[11px]", stock <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{out || stock >= UNLIMITED_STOCK ? "" : `ကျန် ${stock}`}</span>
                 </div>
                 <div className="mt-auto">
                   {many ? (
@@ -296,7 +297,7 @@ function ItemSheet({ group, cart, onQty, onClose }: {
           <h3 className="text-lg font-semibold leading-snug [overflow-wrap:anywhere]">{item.name}</h3>
           <div className="mt-1 flex items-baseline justify-between">
             <span className="text-2xl font-bold text-blue-600 tabular-nums">{fmtMoney(item.price)} <span className="text-sm font-medium text-gray-500">ကျပ်</span></span>
-            <span className="text-sm text-gray-500">{item.stock > 0 ? `ကျန် ${item.stock} ခု` : "ကုန်သွားပါပြီ"}</span>
+            <span className="text-sm text-gray-500">{item.stock >= UNLIMITED_STOCK ? "" : item.stock > 0 ? `ကျန် ${item.stock} ခု` : "ကုန်သွားပါပြီ"}</span>
           </div>
         </div>
         {item.description && <p className="whitespace-pre-line text-sm text-gray-600">{item.description}</p>}

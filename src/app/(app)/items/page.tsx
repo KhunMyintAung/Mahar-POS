@@ -25,6 +25,8 @@ import { useRefreshOnReturn } from "@/lib/useRefreshOnReturn";
 interface Item {
   id: string; name: string; sku: string; barcode?: string; active: boolean;
   costPrice: string; sellingPrice: string; minStock: number; trackSerial?: boolean;
+  /** False: unlimited quantity, no stock is counted. */
+  trackStock?: boolean;
   categoryId?: string | null; unitId?: string | null;
   category?: { name: string }; unit?: { name: string };
   stockLevels: { branchId: string; quantity: number }[];
@@ -50,6 +52,10 @@ function qtyTone(qty: number, minStock: number) {
 }
 const QtyPill = ({ qty, minStock }: { qty: number; minStock: number }) => (
   <span className={cn("inline-block min-w-8 rounded-md px-1.5 py-0.5 text-center", qtyTone(qty, minStock))}>{qty}</span>
+);
+
+const UnlimitedPill = () => (
+  <span className="inline-block rounded-md bg-blue-50 px-1.5 py-0.5 text-center text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Unlimited</span>
 );
 
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
@@ -129,7 +135,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -180,6 +186,7 @@ export default function ItemsPage() {
             categoryId: form.categoryId || null, unitId: form.unitId || null,
             costPrice: form.costPrice, sellingPrice: form.sellingPrice, minStock: form.minStock,
             trackSerial: form.trackSerial,
+            trackStock: form.trackStock,
             model: form.model, variant: form.model ? form.variant : "",
             expiresAt: form.expiresAt,
             condition: form.condition.trim(),
@@ -413,7 +420,7 @@ export default function ItemsPage() {
                   {g.model}
                   <span className="ml-2 text-xs font-normal text-gray-500">{`${g.items.length} variants`}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right font-semibold tabular-nums"><QtyPill qty={stockAll} minStock={Math.max(...g.items.map((it) => it.minStock))} /></td>
+                <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{g.items.every((it) => it.trackStock === false) ? <UnlimitedPill /> : <QtyPill qty={stockAll} minStock={Math.max(...g.items.map((it) => it.minStock))} />}</td>
                 <td className="px-3 py-2.5 text-xs">{catLabel(g.items[0].categoryId, g.items[0].category?.name) ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{g.items[0].unit?.name ?? "—"}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{showCost ? range((it) => it.costPrice) : "—"}</td>
@@ -452,7 +459,7 @@ export default function ItemsPage() {
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-                  <QtyPill qty={qty} minStock={it.minStock} />
+                  {it.trackStock === false ? <UnlimitedPill /> : <QtyPill qty={qty} minStock={it.minStock} />}
                 </td>
                 <td className="px-3 py-2.5 text-xs">{catLabel(it.categoryId, it.category?.name) ?? "—"}</td>
                 <td className="px-3 py-2.5 text-xs">{it.unit?.name ?? "—"}</td>
@@ -476,6 +483,7 @@ export default function ItemsPage() {
                         sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
                         minStock: it.minStock,
                         trackSerial: Boolean(it.trackSerial),
+                        trackStock: it.trackStock !== false,
                         model: it.model ?? "", variant: it.variant ?? "",
                         expiresAt: it.expiresAt?.slice(0, 10) ?? "",
                         condition: it.condition ?? "",
@@ -497,6 +505,7 @@ export default function ItemsPage() {
                         sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
                         minStock: it.minStock,
                         trackSerial: Boolean(it.trackSerial),
+                        trackStock: it.trackStock !== false,
                         model: it.model || it.name,
                       });
                       setEditItem(null);
@@ -516,7 +525,7 @@ export default function ItemsPage() {
                     {it.barcode && <span>{`Barcode ${it.barcode}`}</span>}
                     <span>{`Category ${catLabel(it.categoryId, it.category?.name) ?? "—"}`}</span>
                     <span>{`Cost ${costText(it.costPrice)} · Price ${fmtMoney(it.sellingPrice)}`}</span>
-                    <span>{`Min stock ${it.minStock}`}</span>
+                    {it.trackStock !== false && <span>{`Min stock ${it.minStock}`}</span>}
                     {it.expiresAt && <span>{`Expires ${it.expiresAt.slice(0, 10)}`}</span>}
                     {it.stockLevels.length > 1 && it.stockLevels.map((l) => (
                       <span key={l.branchId}>{`${branches.find((b) => b.id === l.branchId)?.name ?? "Branch"}: ${l.quantity}`}</span>
@@ -667,16 +676,28 @@ export default function ItemsPage() {
                 value={form.batteryHealth} onChange={(e) => setForm({ ...form, batteryHealth: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className={cn("grid gap-3", form.trackStock ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
             <Input label="Cost price" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
             <Input label="Selling price" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
-            <Input label="Min stock" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseInt(e.target.value) || 0 })} />
+            {form.trackStock && <Input label="Min stock" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseInt(e.target.value) || 0 })} />}
           </div>
           {/* Best before: a mini mart's food, drinks and medicine. */}
           {(!phoneShop || form.expiresAt) && (
             <Input label="Expiry date (optional)" type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
           )}
-          {(phoneShop || form.trackSerial) && <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+          <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={!form.trackStock}
+              onChange={(e) => setForm({ ...form, trackStock: !e.target.checked, ...(e.target.checked ? { trackSerial: false, minStock: 0 } : {}) })}
+            />
+            <span>
+              <span className="font-medium">No track stock</span>
+              <span className="block text-xs text-gray-500">Unlimited quantity: it can always be sold, and no stock is counted. For services, fees and the like.</span>
+            </span>
+          </label>
+          {form.trackStock && (phoneShop || form.trackSerial) && <label className="flex items-start gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
             <input type="checkbox" className="mt-0.5 h-4 w-4" checked={form.trackSerial} onChange={(e) => setForm({ ...form, trackSerial: e.target.checked })} />
             <span>
               <span className="font-medium">Track IMEI / serial</span>

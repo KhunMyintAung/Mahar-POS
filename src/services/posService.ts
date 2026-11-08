@@ -115,6 +115,12 @@ export async function createPurchase(
     });
     if (!supplier) throw new ApiError(404, "Supplier not found");
   }
+  // Buying in means adding to a count, and this item has none: what it costs is an expense.
+  const uncounted = await tx.item.findFirst({
+    where: { businessId: opts.businessId, id: { in: opts.lines.map((l) => l.itemId) }, trackStock: false },
+    select: { name: true },
+  });
+  if (uncounted) throw new ApiError(422, `${uncounted.name} has unlimited quantity, so it cannot be bought in. Record its cost as an expense.`);
   const { subtotal, total } = computeTotals(opts.lines, opts.discount);
   if (opts.paidAmount < 0n || opts.paidAmount > total)
     throw new ApiError(422, "Paid amount cannot exceed the total");
@@ -506,7 +512,10 @@ export async function cancelSaleOrPurchase(
           tx.item.findUnique({ where: { id: l.itemId }, select: { costPrice: true } }),
         ])
       : null;
-    await moveStock(tx, {
+    // Sold while its quantity was unlimited: nothing left the shelf, so nothing goes back, even
+    // if the item is counted by now.
+    if (kind === "sale" && !(await tx.stockMovement.findFirst({ where: { refType: "SALE", refId: record.id, itemId: l.itemId }, select: { id: true } }))) continue;
+    const moved = await moveStock(tx, {
       businessId: opts.businessId,
       itemId: l.itemId,
       branchId: record.branchId,
@@ -521,7 +530,7 @@ export async function cancelSaleOrPurchase(
       allowNegative: kind === "sale",
       allowInactive: true,
     });
-    if (before) {
+    if (before && moved.movement) {
       const [onHand, item] = before;
       const oldCost = item?.costPrice ?? 0n;
       const newCost = averageCostWithout(onHand._sum.quantity ?? 0, oldCost, l.quantity, (l as { unitCost: bigint }).unitCost);

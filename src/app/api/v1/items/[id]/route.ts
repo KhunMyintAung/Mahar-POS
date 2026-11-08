@@ -35,6 +35,8 @@ const schema = z.object({
   variant: z.string().trim().max(80).transform((v) => (v === "" ? null : v)).nullable().optional(),
   active: z.boolean().optional(),
   trackSerial: z.boolean().optional(),
+  /** False: unlimited quantity, no stock is counted. */
+  trackStock: z.boolean().optional(),
   /** Best before (YYYY-MM-DD); empty clears it. */
   expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).nullable().optional(),
   /** A second-hand phone: its condition (empty clears it), and battery health in %. */
@@ -76,10 +78,20 @@ export const PATCH = withAuth("item.manage", async ({ req, user, params }) => {
       });
       if (!unit) throw new ApiError(404, "Unit not found");
     }
+    // Goods on the shelf have a value in the books, so they cannot just stop being counted.
+    if (body.trackStock === false && item.trackStock) {
+      const [levels, phones] = await Promise.all([
+        tx.stockLevel.findMany({ where: { itemId: item.id }, select: { quantity: true } }),
+        tx.itemSerial.count({ where: { itemId: item.id, status: { notIn: ["SOLD", "REMOVED"] } } }),
+      ]);
+      const held = levels.find((l) => l.quantity !== 0)?.quantity ?? phones;
+      if (held !== 0) throw new ApiError(422, `${item.name} still has ${held} in stock. Bring it to 0 with Adjust first.`);
+    }
     const it = await tx.item.update({
       where: { id: item.id },
       data: {
         ...rest,
+        ...((body.trackStock ?? item.trackStock) ? {} : { trackSerial: false, minStock: 0 }),
         ...(costPrice !== undefined ? { costPrice: toMinor(costPrice) } : {}),
         ...(sellingPrice !== undefined ? { sellingPrice: toMinor(sellingPrice) } : {}),
         ...(expiresAt !== undefined ? { expiresAt: expiryDate(expiresAt) } : {}),

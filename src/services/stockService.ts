@@ -34,6 +34,8 @@ export async function moveStock(
     select: { id: true },
   });
   if (!branch) throw new ApiError(404, "Branch not found");
+  // Unlimited quantity: nothing is counted, so nothing moves.
+  if (item.trackStock === false) return { movement: null, qtyAfter: 0, item };
 
   const level = await tx.stockLevel.upsert({
     where: { itemId_branchId: { itemId: opts.itemId, branchId: opts.branchId } },

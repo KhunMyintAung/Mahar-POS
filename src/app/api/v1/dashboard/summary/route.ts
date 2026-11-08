@@ -52,7 +52,7 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
       prisma.item.findMany({
         where: { businessId: user.businessId, deletedAt: null, active: true },
         select: {
-          id: true, name: true, minStock: true, costPrice: true, sellingPrice: true, expiresAt: true,
+          id: true, name: true, minStock: true, trackStock: true, costPrice: true, sellingPrice: true, expiresAt: true,
           stockLevels: {
             where: branchIds ? { branchId: { in: branchIds } } : undefined,
             select: { quantity: true },
@@ -67,7 +67,7 @@ export const GET = withAuth("dashboard.view", async ({ req, user }) => {
     }));
 
     const lowStock = withQty
-      .filter((it) => it.minStock > 0 && it.qty < it.minStock)
+      .filter((it) => it.trackStock && it.minStock > 0 && it.qty < it.minStock)
       .map((it) => ({ id: it.id, name: it.name, minStock: it.minStock, qty: it.qty }));
 
     // Still on the shelf and past, or within a month of, its best-before date; soonest first.

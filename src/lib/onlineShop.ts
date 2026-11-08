@@ -1,3 +1,4 @@
+import { UNLIMITED_STOCK } from "./unlimitedStock";
 import { NextResponse } from "next/server";
 import { prisma } from "./prisma";
 
@@ -176,8 +177,14 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** Stock on hand of each item, over all branches. */
 export async function stockByItem(itemIds: string[]): Promise<Map<string, number>> {
-  const levels = await prisma.stockLevel.groupBy({ by: ["itemId"], where: { itemId: { in: itemIds } }, _sum: { quantity: true } });
-  return new Map(levels.map((l) => [l.itemId, l._sum.quantity ?? 0]));
+  const [levels, unlimited] = await Promise.all([
+    prisma.stockLevel.groupBy({ by: ["itemId"], where: { itemId: { in: itemIds } }, _sum: { quantity: true } }),
+    prisma.item.findMany({ where: { id: { in: itemIds }, trackStock: false }, select: { id: true } }),
+  ]);
+  return new Map([
+    ...levels.map((l): [string, number] => [l.itemId, l._sum.quantity ?? 0]),
+    ...unlimited.map((i): [string, number] => [i.id, UNLIMITED_STOCK]),
+  ]);
 }
 
 /** What a visitor sees: the shop, and its items shown online (active, not deleted). */

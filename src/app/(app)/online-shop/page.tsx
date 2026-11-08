@@ -1,5 +1,6 @@
 "use client";
 
+import { UNLIMITED_STOCK } from "@/lib/unlimitedStock";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Check, Copy, ExternalLink, ImagePlus, MapPin, Phone, Search, ShoppingCart, Star, Trash2, X } from "lucide-react";
@@ -258,7 +259,7 @@ function ProductsTab() {
                 </button>
                 <button type="button" onClick={() => setOpen(open === item.id ? null : item.id)} className="min-w-0 flex-1 text-left">
                   <div className="truncate text-sm font-medium">{item.name}</div>
-                  <div className="text-xs text-gray-500">{fmtMoney(item.price)} MMK · stock {item.stock} · {item.images.length} photo{item.images.length === 1 ? "" : "s"}</div>
+                  <div className="text-xs text-gray-500">{fmtMoney(item.price)} MMK · {item.stock >= UNLIMITED_STOCK ? "Unlimited" : `stock ${item.stock}`} · {item.images.length} photo{item.images.length === 1 ? "" : "s"}</div>
                 </button>
                 <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300">
                   <span className="hidden sm:inline">Show online</span>

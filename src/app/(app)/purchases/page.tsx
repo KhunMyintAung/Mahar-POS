@@ -30,7 +30,7 @@ interface Purchase {
   line?: "SALE" | "SERVICE" | null;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
-interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean; model?: string | null }
+interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean; trackStock?: boolean; model?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 /** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
 /** foc: given free by the supplier with the order — stock comes in at no cost. */
@@ -86,7 +86,7 @@ export default function PurchasesPage() {
     api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=1000")
       .then((d) => setPurchases(d.purchases))
       .catch((e) => push(e.message, "error"));
-    api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1").then((d) => setItems(d.items)).catch(() => {});
+    api<{ items: Item[] }>("/api/v1/items?pageSize=1000&active=1").then((d) => setItems(d.items.filter((it) => it.trackStock !== false))).catch(() => {});
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
     api<{ contacts: Supplier[] }>("/api/v1/customers?type=SUPPLIER&pageSize=200")
       .then((d) => setSuppliers(d.contacts)).catch(() => {});

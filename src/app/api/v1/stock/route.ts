@@ -36,7 +36,7 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
   }
 
   const items = await prisma.item.findMany({
-    where: { businessId: user.businessId, deletedAt: null },
+    where: { businessId: user.businessId, deletedAt: null, trackStock: true },
     include: {
       stockLevels: true,
       unit: { select: { name: true } },
@@ -103,6 +103,8 @@ export const POST = withAuth("stock.adjust", async ({ req, user }) => {
   const label = STOCK_REASONS.find((r) => r.key === body.reasonType)?.label ?? "Adjustment";
 
   const result = await prisma.$transaction(async (tx) => {
+    const target = await tx.item.findFirst({ where: { id: body.itemId, businessId: user.businessId }, select: { name: true, trackStock: true } });
+    if (target && !target.trackStock) throw new ApiError(422, `${target.name} has unlimited quantity, so there is no stock to adjust`);
     const returning = body.reasonType === "RETURN_IN";
     const job = forRepair && body.repairJobId
       ? await tx.repairJob.findFirst({ where: { id: body.repairJobId, businessId: user.businessId, deletedAt: null } })

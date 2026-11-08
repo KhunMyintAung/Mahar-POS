@@ -31,6 +31,8 @@ interface Item {
   category?: { name: string }; unit?: { name: string };
   /** One IMEI per unit: picked at the till, one line per phone model. */
   trackSerial?: boolean;
+  /** False: unlimited quantity. */
+  trackStock?: boolean;
   /** Variants: items of one model share a tile, and the variant is picked from it. */
   model?: string | null; variant?: string | null;
   /** A second-hand phone: its condition and battery health (%). */
@@ -83,6 +85,8 @@ function outsideItemOf(name: string, kind: OutsideKind = ""): Item {
     ...(category ? { category: { name: category } } : {}),
   };
 }
+
+const stockLabel = (left: number) => (left === Infinity ? "Unlimited" : `stock ${left}`);
 
 function readAmount(value: string) {
   return parseFloat(value.replace(/,/g, "")) || 0;
@@ -199,7 +203,7 @@ export default function PosPage() {
             if (line.outside) return [{ item: outsideItemOf(line.outside.name, line.outside.kind), quantity: line.quantity, unitPrice: line.unitPrice, warranty: line.warranty ?? null, note: line.note, outside: { cost: line.outside.cost, kind: line.outside.kind } }];
             const item = byId.get(line.itemId);
             if (!item) return [];
-            const stock = item.stockLevels
+            const stock = item.trackStock === false ? Infinity : item.stockLevels
               .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
               .reduce((total, level) => total + level.quantity, 0);
             if (item.trackSerial) {
@@ -267,7 +271,7 @@ export default function PosPage() {
     const needle = q.trim().toLowerCase();
     // Nothing on the shelf, nothing to sell: items out of stock in this branch are left off
     // the till. They still show under Items and Stock, where they can be restocked.
-    const inStock = (item: Item) => item.stockLevels
+    const inStock = (item: Item) => item.trackStock === false || item.stockLevels
       .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
       .reduce((total, level) => total + level.quantity, 0) > 0;
     return items.filter((item) =>
@@ -285,6 +289,7 @@ export default function PosPage() {
   }
 
   function stockOf(item: Item) {
+    if (item.trackStock === false) return Infinity;
     return item.stockLevels
       .filter((level) => !defaultBranchId || level.branchId === defaultBranchId)
       .reduce((total, level) => total + level.quantity, 0);
@@ -727,7 +732,7 @@ export default function PosPage() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-sm font-bold tabular-nums text-blue-600">{low === high ? fmtMoney(low.toString()) : `${fmtMoney(low.toString())}+`}</span>
                       <span className={cn("shrink-0 text-[11px]", left <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>
-                        stock {left}
+                        {stockLabel(left)}
                       </span>
                     </div>
                   </button>
@@ -764,7 +769,7 @@ export default function PosPage() {
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-bold tabular-nums text-blue-600">{fmtMoney(item.sellingPrice)}</span>
                     <span className={cn("shrink-0 text-[11px]", available <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>
-                      stock {available}
+                      {stockLabel(available)}
                     </span>
                   </div>
                 </button>
@@ -1146,7 +1151,7 @@ export default function PosPage() {
                     <span className="block truncate text-sm font-medium">{variantLabel(it)}</span>
                     <span className="block truncate text-[11px] text-gray-500">{it.sku}</span>
                   </span>
-                  <span className={cn("shrink-0 text-xs", left <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{`stock ${left}`}</span>
+                  <span className={cn("shrink-0 text-xs", left <= 2 ? "font-medium text-amber-600" : "text-gray-500")}>{stockLabel(left)}</span>
                   <b className="w-24 shrink-0 text-right text-sm tabular-nums text-blue-600">{fmtMoney(it.sellingPrice)}</b>
                 </button>
               );
