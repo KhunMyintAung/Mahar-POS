@@ -6,7 +6,7 @@ import { postLedger, reverseLedgerEntries } from "./walletService";
 import { nextNumber } from "@/lib/sequence";
 import { audit } from "@/lib/audit";
 import { assertDateOpen } from "./closeGuard";
-import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, sellSerials, serialsCost, trackedItemIds } from "./serialService";
+import { cleanImeis, receiveSerials, releaseSaleSerials, removePurchaseSerials, removeTradeInSerials, sellSerials, serialsCost, trackedItemIds } from "./serialService";
 import { averageCost, averageCostWithout } from "@/lib/costing";
 
 // Purchases and sales tie inventory to the money system:
@@ -97,6 +97,8 @@ export async function createPurchase(
     line?: "SALE" | "SERVICE";
     reference?: string;
     notes?: string;
+    /** A second-hand phone bought from a customer: each unit waits for QC before it is on the shelf. */
+    tradeIn?: boolean;
   }
 ) {
   if (opts.lines.length === 0) throw new ApiError(422, "A purchase needs at least one line");
@@ -139,11 +141,15 @@ export async function createPurchase(
       reference: opts.reference,
       notes: opts.notes,
       line: opts.line,
+      tradeIn: opts.tradeIn ?? false,
       createdById: opts.userId,
     },
   });
 
   const purchaseImeis = await imeisPerLine(tx, opts.businessId, opts.lines);
+  if (opts.tradeIn && purchaseImeis.some((x) => !x)) {
+    throw new ApiError(422, "A trade-in is for phones with an IMEI. Turn on IMEI tracking for the item first.");
+  }
   for (const [i, l] of opts.lines.entries()) {
     await tx.purchaseLine.create({
       data: {
@@ -154,6 +160,14 @@ export async function createPurchase(
         lineTotal: BigInt(l.quantity) * l.unitPrice,
       },
     });
+    if (opts.tradeIn) {
+      // Not on the shelf yet: QC puts each phone into stock (and into the average cost) once checked.
+      await receiveSerials(tx, {
+        businessId: opts.businessId, branchId: opts.branchId, itemId: l.itemId, imeis: purchaseImeis[i] ?? [],
+        purchaseId: purchase.id, cost: l.unitPrice, status: "QC",
+      });
+      continue;
+    }
     // Stock on hand (all branches) and its cost before this delivery, for the average.
     const [onHand, before] = await Promise.all([
       tx.stockLevel.aggregate({ where: { itemId: l.itemId }, _sum: { quantity: true } }),
@@ -222,7 +236,7 @@ export async function createPurchase(
   await audit(tx, {
     businessId: opts.businessId, userId: opts.userId, branchId: opts.branchId,
     action: "CREATE", module: "purchase", resourceType: "Purchase", resourceId: purchase.id,
-    after: { txnNo, total, paidAmount: opts.paidAmount, lines: opts.lines.length },
+    after: { txnNo, total, paidAmount: opts.paidAmount, lines: opts.lines.length, tradeIn: opts.tradeIn ?? false },
   });
 
   return { ...purchase, payableId };
@@ -475,11 +489,14 @@ export async function cancelSaleOrPurchase(
   await assertDateOpen(tx, record.branchId, record.date);
 
   // IMEIs first: a purchase whose phone has since been sold cannot be cancelled.
+  // A trade-in phone not yet through QC never reached the shelf, so there is no stock to take back.
+  const tradeIn = kind === "purchase" && (record as { tradeIn?: boolean }).tradeIn === true;
   if (kind === "sale") await releaseSaleSerials(tx, record.id);
+  else if (tradeIn) await removeTradeInSerials(tx, record.id);
   else await removePurchaseSerials(tx, record.id);
 
   // reverse stock (goods fetched from another shop never came off a shelf here)
-  for (const l of record.lines) {
+  for (const l of tradeIn ? [] : record.lines) {
     if ("item" in l && (l.item as { sku: string }).sku.startsWith(OUTSIDE_SKU)) continue;
     // A purchase coming out takes its price back out of the item's average cost, so the
     // goods still on hand go on being sold at what they cost.

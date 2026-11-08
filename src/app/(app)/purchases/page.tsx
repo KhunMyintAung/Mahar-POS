@@ -14,6 +14,7 @@ import { NewSupplierModal, SupplierList, type Supplier, type SupplierTotals } fr
 import { DayPicker, todayDate } from "@/components/DayPicker";
 import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
 import { ContactCsvTools } from "@/components/ContactCsv";
+import { NewTradeInModal, TradeInList } from "@/components/TradeIn";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -21,13 +22,15 @@ const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
 interface Purchase {
   id: string; txnNo: string; date: string; total: string; paidAmount: string;
   paymentStatus: string; status: string; supplierId?: string | null; supplierName?: string; createdAt: string;
+  /** A second-hand phone bought from a customer. */
+  tradeIn?: boolean;
   /** The expense it was recorded as, if any: goods to sell or repair parts. */
   expenseLine?: "SALE" | "SERVICE" | null;
   /** What it was bought for; on credit, its expense goes in on that side as the supplier is paid. */
   line?: "SALE" | "SERVICE" | null;
   lines: { id: string; quantity: number; unitCost: string; item: { name: string } }[];
 }
-interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean }
+interface Item { id: string; name: string; sku: string; barcode?: string | null; costPrice: string; trackSerial?: boolean; model?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 /** imeiText: for an IMEI-tracked phone, the IMEIs as typed or scanned; the quantity follows it. */
 /** foc: given free by the supplier with the order — stock comes in at no cost. */
@@ -59,7 +62,10 @@ export default function PurchasesPage() {
   // Suppliers live here, beside what was bought from them: a tab of their own, a supplier's
   // purchases one tap away, and a new supplier added from the purchase form itself.
   const canSuppliers = featureEnabled("suppliers") && hasPerm("customer.view");
-  const [tab, setTab] = useState<"purchases" | "suppliers">("purchases");
+  const [tab, setTab] = useState<"purchases" | "suppliers" | "tradein">("purchases");
+  // Trade-in: second-hand phones bought from customers, checked (QC) before they are sold.
+  const [showTradeIn, setShowTradeIn] = useState(false);
+  const [tradeInKey, setTradeInKey] = useState(0);
   // The supplier whose purchases are shown (by id, so a link with ?supplier= works before the
   // supplier list has loaded).
   const [supplierFilterId, setSupplierFilterId] = useState("");
@@ -95,6 +101,7 @@ export default function PurchasesPage() {
     const t = window.setTimeout(() => {
       const sp = new URLSearchParams(window.location.search);
       if (sp.get("tab") === "suppliers") setTab("suppliers");
+      if (sp.get("tab") === "tradein") setTab("tradein");
       if (sp.get("newSupplier") === "1") setNewSupplier(true);
       // A supplier's purchases opened from elsewhere: all of them, not just today's.
       if (sp.get("supplier")) setAllDates(true);
@@ -252,7 +259,7 @@ export default function PurchasesPage() {
       // Expense is money paid: only what was paid now. What is owed goes into expense
       // as the supplier is paid, so a purchase on credit asks nothing here.
       if (paid > 0) {
-        const ask = { id: saved.id, txnNo: saved.txnNo, total: String(paid), line: forLine || "SALE" };
+        const ask = { id: saved.id, txnNo: saved.txnNo, total: String(Math.round(paid * 100)), line: forLine || "SALE" };
         if (expenseAlways) addPurchaseExpense(ask, true);
         else { setRememberExpense(false); setExpenseAsk(ask); }
       }
@@ -286,9 +293,9 @@ export default function PurchasesPage() {
     <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader
         title={<>Purchases</>}
-        lead={canSuppliers && (
+        lead={(canSuppliers || phoneShop) && (
           <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
-            {([["purchases", "Purchases"], ["suppliers", "Suppliers"]] as const).map(([k, label]) => (
+            {([["purchases", "Purchases"], ...(canSuppliers ? [["suppliers", "Suppliers"]] as const : []), ...(phoneShop ? [["tradein", "Trade-in"]] as const : [])] as const).map(([k, label]) => (
               <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-md px-3 py-1 text-sm font-medium", tab === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
                 {label}
                 {k === "suppliers" && <span className="ml-1.5 text-xs tabular-nums text-gray-400">{suppliers.length}</span>}
@@ -302,17 +309,24 @@ export default function PurchasesPage() {
           {tab === "suppliers" && hasPerm("customer.manage") && (
             <Button variant={hasPerm("purchase.create") ? "secondary" : "primary"} onClick={() => setNewSupplier(true)}><Plus size={16} className="mr-1 inline" />New supplier</Button>
           )}
-          {hasPerm("purchase.create") && (
+          {phoneShop && hasPerm("purchase.create") && (
+            <Button variant={tab === "tradein" ? "primary" : "secondary"} onClick={() => setShowTradeIn(true)}><Plus size={16} className="mr-1 inline" />Trade-in phone</Button>
+          )}
+          {hasPerm("purchase.create") && tab !== "tradein" && (
             <Button onClick={() => openNew(tab === "purchases" ? supplierFilter ?? undefined : undefined)}><Plus size={16} className="mr-1 inline" />New purchase</Button>
           )}
         </div>
       </PageHeader>
 
+      {tab !== "tradein" && (
       <div className="flex flex-wrap items-center gap-2">
         <DayPicker day={day} allDates={allDates} onDay={setDay} onAllDates={setAllDates} />
       </div>
+      )}
 
-      {tab === "suppliers" ? (
+      {tab === "tradein" ? (
+        <TradeInList wallets={wallets} reloadKey={tradeInKey} canAct={hasPerm("purchase.create")} />
+      ) : tab === "suppliers" ? (
         <SupplierList
           suppliers={suppliers}
           totals={supplierTotals}
@@ -375,7 +389,10 @@ export default function PurchasesPage() {
               </td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(p.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(p.paidAmount)}</td>
-              <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
+              <td className="px-3 py-2">
+                <Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} />
+                {p.tradeIn && <span className="ml-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Trade-in</span>}
+              </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
                   {(() => {
@@ -406,6 +423,29 @@ export default function PurchasesPage() {
       </>)}
 
       <PurchaseVoucherDialog purchaseId={voucherFor} onClose={() => setVoucherFor(null)} />
+
+      {phoneShop && (
+        <NewTradeInModal
+          open={showTradeIn}
+          onClose={() => setShowTradeIn(false)}
+          items={items}
+          wallets={wallets}
+          branchId={defaultBranchId}
+          onItemAdded={(it) => setItems((prev) => [...prev, { ...it, costPrice: it.costPrice ?? "0" }])}
+          onSaved={(saved) => {
+            setShowTradeIn(false);
+            setTab("tradein");
+            setTradeInKey((k) => k + 1);
+            // Paid now: like any purchase, its cost may go into expense (Daily Sale Expense).
+            if (BigInt(saved.paid) > 0n) {
+              const ask = { id: saved.id, txnNo: saved.txnNo, total: saved.paid, line: "SALE" as const };
+              if (expenseAlways) addPurchaseExpense(ask, true);
+              else { setRememberExpense(false); setExpenseAsk(ask); }
+            }
+            load();
+          }}
+        />
+      )}
 
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New purchase" wide>
         <div className="space-y-4">

@@ -225,6 +225,12 @@ model RepairJob {
   completedAt DateTime?
   deliveredAt DateTime?
 
+  /// The shop's own trade-in phone (ItemSerial) being made ready to sell: no customer, no
+  /// charge; its parts and repair fee go into the phone's cost.
+  serialId    String?
+  /// The repair fee for a shop phone, added to the phone's cost.
+  laborCost   BigInt    @default(0)
+
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -776,6 +782,9 @@ model Purchase {
   payableId     String?
   /** What it was bought for: SALE (goods to sell) or SERVICE (repair parts). */
   line          String?
+  /// A second-hand phone bought from a person (trade-in): it waits in QC, and goes into sale
+  /// stock only once checked (and repaired, if it needs it). See src/services/tradeInService.ts.
+  tradeIn       Boolean   @default(false)
   date          String // YYYY-MM-DD
   reference     String?
   notes         String?
@@ -875,12 +884,21 @@ model ItemSerial {
   item       Item      @relation(fields: [itemId], references: [id])
   /// IMEI or serial number, spaces removed.
   imei       String
-  /// IN_STOCK, SOLD or REMOVED (damaged, used, returned to supplier).
+  /// IN_STOCK, SOLD or REMOVED (damaged, used, returned to supplier); a trade-in phone is
+  /// QC (bought, not checked yet) or IN_REPAIR first, and not in the shelf count until then.
   status     String    @default("IN_STOCK")
   purchaseId String?
   /// What this one unit cost when bought (minor units); a sale of it counts this cost, not
-  /// the item's average. Empty for units recorded without a purchase.
+  /// the item's average. Empty for units recorded without a purchase. For a trade-in phone it
+  /// includes what its repair cost (repairCost).
   cost       BigInt?
+  /// Trade-in: the repair that made it sellable — parts and repair fee, part of cost.
+  repairCost    BigInt    @default(0)
+  repairJobId   String?
+  /// Trade-in QC: battery health (%) and what was found.
+  batteryHealth Int?
+  qcNote        String?
+  qcAt          DateTime?
   saleId     String?
   saleLineId String?
   notes      String?

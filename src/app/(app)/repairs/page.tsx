@@ -68,6 +68,8 @@ interface Job {
   /** Who repairs it, by name. */
   technicianName?: string | null;
   branchId?: string;
+  /** A trade-in phone the shop owns: repaired for stock, closed from Purchases → Trade-in. */
+  serialId?: string | null;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; month: string }
@@ -224,7 +226,10 @@ export default function RepairsPage() {
   // Handing a phone back and marking it paid take money into a wallet; someone who cannot
   // see wallets (a technician) is not offered either.
   const canTakeMoney = hasPerm("wallet.view");
-  const moves = (from: string) => nextStatuses(from).filter((s) => canTakeMoney || s !== "DELIVERED");
+  // A shop phone (trade-in) is never handed back or charged here: its repair is finished from
+  // Purchases → Trade-in, which adds the cost onto the phone.
+  const moves = (from: string, shopPhone?: string | null) => nextStatuses(from)
+    .filter((s) => (canTakeMoney || s !== "DELIVERED") && (!shopPhone || (s !== "DELIVERED" && s !== "CANCELLED")));
 
   function openVoucher(job: Job) {
     setVoucher({
@@ -475,7 +480,7 @@ export default function RepairsPage() {
   function startMove(job: Job, to?: string) {
     setWorking(job);
     setMove({
-      status: to ?? moves(job.status)[0] ?? "",
+      status: to ?? moves(job.status, job.serialId)[0] ?? "",
       // Pre-filled with whatever is known: the final charge if set, otherwise the quote.
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
       partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
@@ -609,7 +614,7 @@ export default function RepairsPage() {
           rightAlign={[5, 6]}
         >
           {pageRows.map((job) => {
-            const options = moves(job.status);
+            const options = moves(job.status, job.serialId);
             const canQuick = hasPerm("repair.update") && options.length > 0;
             return (
               <tr key={job.id} className="align-top">
@@ -629,6 +634,7 @@ export default function RepairsPage() {
                 </td>
                 <td className="px-2 py-1.5">
                   <div>{job.customerName || "-"}</div>
+                  {job.serialId && <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Shop phone</span>}
                   {job.customerPhone && <div className="text-xs text-gray-500">{job.customerPhone}</div>}
                 </td>
                 {/* One short line so the buttons on the right stay in view; a tap shows all of
@@ -675,7 +681,7 @@ export default function RepairsPage() {
                     {hasPerm("repair.update") && (
                       <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
                     )}
-                    {canTakeMoney && hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && (
+                    {canTakeMoney && hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && !job.serialId && (
                       <Button size="sm" onClick={() => startPay(job)}>Mark as paid</Button>
                     )}
                   </div>
@@ -829,8 +835,8 @@ export default function RepairsPage() {
               <Input label="Brand" list="repair-brand-suggestions" autoComplete="off" value={edit.deviceBrand} onChange={(e) => onBrandTyped(e.target.value, edit.deviceModel, (deviceBrand, deviceModel) => setEdit({ ...edit, deviceBrand, deviceModel }), "repair-model-edit")} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input id="repair-model-edit" label="Model" list="repair-model-suggestions" autoComplete="off" value={edit.deviceModel} onChange={(e) => setEdit({ ...edit, deviceModel: e.target.value })} onBlur={() => setEdit((x) => ({ ...x, ...correctedDevice(x) }))} />
               <Input label="IMEI / serial" value={edit.imei} onChange={(e) => setEdit({ ...edit, imei: e.target.value })} />
-              <Select label="Status" value={edit.status} disabled={moves(editing.status).length === 0} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
-                {[editing.status as RepairStatus, ...moves(editing.status)].map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s] ?? s}</option>)}
+              <Select label="Status" value={edit.status} disabled={moves(editing.status, editing.serialId).length === 0} onChange={(e) => setEdit({ ...edit, status: e.target.value })}>
+                {[editing.status as RepairStatus, ...moves(editing.status, editing.serialId)].map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s] ?? s}</option>)}
               </Select>
               <Select label="Priority" value={edit.priority} onChange={(e) => setEdit({ ...edit, priority: e.target.value })}>
                 {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -851,7 +857,7 @@ export default function RepairsPage() {
             </div>
             <Input label="Notes" value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
             <div className="flex justify-end gap-2 pt-1">
-              {me?.user.roleName === "Owner" && (
+              {me?.user.roleName === "Owner" && !editing.serialId && (
                 <Button variant="danger" className="mr-auto" onClick={() => { setDeleteReason(""); setDeleting(editing); }}>Delete</Button>
               )}
               <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
@@ -889,7 +895,7 @@ export default function RepairsPage() {
         {working && (
           <div className="space-y-3">
             <Select label="Move to" value={move.status} onChange={(e) => setMove({ ...move, status: e.target.value })}>
-              {moves(working.status).map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
+              {moves(working.status, working.serialId).map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </Select>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Parts cost" value={move.partsCost} onChange={(e) => setMove({ ...move, partsCost: e.target.value })} />

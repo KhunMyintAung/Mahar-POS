@@ -28,6 +28,9 @@ export function cleanImeis(raw: string[] | undefined): string[] {
   return out;
 }
 
+/** A unit the shop holds: on the shelf, or a trade-in phone waiting for QC or in repair. */
+export const HELD = ["IN_STOCK", "QC", "IN_REPAIR"];
+
 /** The trackSerial items among these ids. */
 export async function trackedItemIds(tx: Tx, businessId: string, itemIds: string[]): Promise<Set<string>> {
   const rows = await tx.item.findMany({ where: { businessId, id: { in: itemIds }, trackSerial: true }, select: { id: true } });
@@ -38,15 +41,22 @@ export async function trackedItemIds(tx: Tx, businessId: string, itemIds: string
  *  no longer in stock (sold, then traded back in) is taken in again on the same record. */
 export async function receiveSerials(
   tx: Tx,
-  opts: { businessId: string; branchId: string; itemId: string; imeis: string[]; purchaseId?: string; notes?: string; cost?: bigint }
+  opts: {
+    businessId: string; branchId: string; itemId: string; imeis: string[]; purchaseId?: string; notes?: string; cost?: bigint;
+    /** QC for a trade-in phone, which is not on the shelf until it is checked. */
+    status?: "IN_STOCK" | "QC";
+  }
 ) {
   for (const imei of opts.imeis) {
     const existing = await tx.itemSerial.findUnique({ where: { businessId_imei: { businessId: opts.businessId, imei } } });
-    if (existing?.status === "IN_STOCK") throw new ApiError(422, `IMEI ${imei} is already in stock`);
+    if (existing && HELD.includes(existing.status)) {
+      throw new ApiError(422, existing.status === "IN_STOCK" ? `IMEI ${imei} is already in stock` : `IMEI ${imei} is already in the shop (trade-in ${existing.status === "QC" ? "waiting for QC" : "in repair"})`);
+    }
     const data = {
-      branchId: opts.branchId, itemId: opts.itemId, status: "IN_STOCK", purchaseId: opts.purchaseId ?? null,
+      branchId: opts.branchId, itemId: opts.itemId, status: opts.status ?? "IN_STOCK", purchaseId: opts.purchaseId ?? null,
       saleId: null, saleLineId: null, soldAt: null, receivedAt: new Date(), notes: opts.notes ?? null,
       cost: opts.cost ?? null,
+      repairCost: 0n, repairJobId: null, batteryHealth: null, qcNote: null, qcAt: null,
     };
     if (existing) await tx.itemSerial.update({ where: { id: existing.id }, data });
     else await tx.itemSerial.create({ data: { ...data, businessId: opts.businessId, imei } });
@@ -78,7 +88,7 @@ export async function sellSerials(
   }
   for (const imei of opts.imeis) {
     const existing = await tx.itemSerial.findUnique({ where: { businessId_imei: { businessId: opts.businessId, imei } }, include: { item: { select: { name: true } } } });
-    if (existing && existing.status !== "IN_STOCK") throw new ApiError(422, `IMEI ${imei} is not in stock (${existing.status === "SOLD" ? "already sold" : "removed"})`);
+    if (existing && existing.status !== "IN_STOCK") throw new ApiError(422, `IMEI ${imei} is not in stock (${existing.status === "SOLD" ? "already sold" : existing.status === "QC" ? "trade-in waiting for QC" : existing.status === "IN_REPAIR" ? "trade-in in repair" : "removed"})`);
     if (existing && existing.itemId !== opts.itemId) throw new ApiError(422, `IMEI ${imei} belongs to ${existing.item.name}`);
     const data = { status: "SOLD", saleId: opts.saleId, saleLineId: opts.saleLineId, soldAt: now };
     if (existing) await tx.itemSerial.update({ where: { id: existing.id }, data });
@@ -97,6 +107,13 @@ export async function serialsCost(tx: Tx, opts: { businessId: string; imeis: str
 /** A cancelled sale: its units are back on the shelf. */
 export async function releaseSaleSerials(tx: Tx, saleId: string) {
   await tx.itemSerial.updateMany({ where: { saleId, status: "SOLD" }, data: { status: "IN_STOCK", saleId: null, saleLineId: null, soldAt: null } });
+}
+
+/** A cancelled trade-in: its phone goes away again, while it is still waiting for QC. */
+export async function removeTradeInSerials(tx: Tx, purchaseId: string) {
+  const moved = await tx.itemSerial.findFirst({ where: { purchaseId, status: { not: "QC" } }, select: { imei: true } });
+  if (moved) throw new ApiError(422, `Cannot cancel: IMEI ${moved.imei} has already been checked (QC)`);
+  await tx.itemSerial.deleteMany({ where: { purchaseId, status: "QC" } });
 }
 
 /** A cancelled purchase: the units it brought in go away again — unless one was sold since. */

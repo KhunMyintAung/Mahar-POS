@@ -206,6 +206,7 @@ export async function payRepairBalance(
     where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
   });
   if (!job) throw new ApiError(404, "Repair job not found");
+  if (job.serialId) throw new ApiError(422, `${job.jobNo} is a shop phone (trade-in): finish it from Purchases → Trade-in`);
   if (job.status === "CANCELLED") throw new ApiError(422, "A cancelled job cannot be paid");
 
   const finalCost = opts.finalCost ?? job.finalCost;
@@ -277,6 +278,10 @@ export async function updateRepairStatus(
     where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
   });
   if (!job) throw new ApiError(404, "Repair job not found");
+  // A shop phone's job closes when its repair is finished from Trade-in, which costs it onto the phone.
+  if (job.serialId && (opts.status === "DELIVERED" || opts.status === "CANCELLED")) {
+    throw new ApiError(422, `${job.jobNo} is a shop phone (trade-in): finish it from Purchases → Trade-in`);
+  }
   if (job.status !== opts.status && !canMove(job.status, opts.status)) {
     throw new ApiError(422, `A ${job.status.toLowerCase()} job cannot become ${opts.status.toLowerCase()}`);
   }
@@ -357,6 +362,7 @@ export async function updateRepairStatus(
 export async function deleteRepairJob(tx: Tx, opts: { businessId: string; userId: string; jobId: string; reason?: string }) {
   const job = await tx.repairJob.findFirst({ where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null } });
   if (!job) throw new ApiError(404, "Repair job not found");
+  if (job.serialId) throw new ApiError(422, `${job.jobNo} belongs to a trade-in phone and cannot be deleted`);
 
   const entries = await tx.walletLedgerEntry.findMany({
     where: { businessId: opts.businessId, refId: job.id, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] } },

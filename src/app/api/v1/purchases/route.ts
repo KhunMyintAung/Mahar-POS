@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { withAuth, json, parseBody, pagination } from "@/lib/api";
+import { withAuth, json, parseBody, pagination, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
 import { branchScope } from "@/lib/auth";
@@ -81,19 +81,38 @@ const schema = z.object({
   dueDate: z.string().optional(),
   reference: z.string().optional(),
   notes: z.string().optional(),
+  /** A second-hand phone bought from a customer: it waits for QC before it is in stock. */
+  tradeIn: z.boolean().optional(),
+  /** Who sold it, for a trade-in: found by phone (or name) among contacts, or added. */
+  seller: z.object({ name: z.string().trim().min(1).max(120), phone: z.string().trim().max(40).optional() }).optional(),
 });
 
 export const POST = withAuth("purchase.create", async ({ req, user }) => {
   const body = await parseBody(req, schema);
   await assertBranchAccess(user, body.branchId);
 
+  if (body.tradeIn && !body.supplierId && !body.seller) throw new ApiError(422, "Enter the seller's name");
+
   const purchase = await prisma.$transaction(async (tx) => {
+    let supplierId = body.supplierId;
+    if (body.tradeIn && !supplierId && body.seller) {
+      const phone = body.seller.phone || undefined;
+      const found = await tx.contact.findFirst({
+        where: { businessId: user.businessId, deletedAt: null, ...(phone ? { phone } : { name: body.seller.name, phone: null }) },
+        select: { id: true },
+      });
+      supplierId = found?.id ?? (await tx.contact.create({
+        data: { businessId: user.businessId, name: body.seller.name, phone, type: "CUSTOMER", notes: "Sold a phone to the shop (trade-in)" },
+        select: { id: true },
+      })).id;
+    }
     const created = await createPurchase(tx, {
       businessId: user.businessId,
       branchId: body.branchId,
       userId: user.id,
       date: body.date,
-      supplierId: body.supplierId,
+      supplierId,
+      tradeIn: body.tradeIn,
       lines: body.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, unitPrice: toMinor(l.unitPrice), imeis: l.imeis })),
       discount: toMinor(body.discount),
       paidAmount: toMinor(body.paidAmount),
