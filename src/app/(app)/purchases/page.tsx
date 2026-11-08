@@ -272,13 +272,19 @@ export default function PurchasesPage() {
 
   if (!purchases) return <Spinner />;
 
+  const pageTabs = [
+    ["purchases", "Purchases"],
+    ...(canSuppliers ? [["suppliers", "Suppliers"]] : []),
+    ...(phoneShop ? [["tradein", "Trade-in"]] : []),
+  ] as ["purchases" | "suppliers" | "tradein", string][];
+
   return (
     <div className="mx-auto max-w-6xl space-y-3">
       <PageHeader
         title={<>Purchases</>}
         lead={(canSuppliers || phoneShop) && (
           <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
-            {([["purchases", "Purchases"], ...(canSuppliers ? [["suppliers", "Suppliers"]] as const : []), ...(phoneShop ? [["tradein", "Trade-in"]] as const : [])] as const).map(([k, label]) => (
+            {pageTabs.map(([k, label]) => (
               <button key={k} type="button" onClick={() => setTab(k)} className={cn("rounded-md px-3 py-1 text-sm font-medium", tab === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
                 {label}
                 {k === "suppliers" && <span className="ml-1.5 text-xs tabular-nums text-gray-400">{suppliers.length}</span>}

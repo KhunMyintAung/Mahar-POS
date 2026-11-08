@@ -69,6 +69,18 @@ export function CardTitle({ icon: Icon, title, hint, tone = "blue", className, c
   );
 }
 
+/** Progress from 0 to 1, with what is happening under it. */
+export function ProgressBar({ value, label }: { value: number; label?: ReactNode }) {
+  return (
+    <div>
+      <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(value * 100)}%` }} />
+      </div>
+      {label && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{label}</p>}
+    </div>
+  );
+}
+
 /** An on / off switch. */
 export function Switch({ on, onChange, disabled, label }: { on: boolean; onChange: (on: boolean) => void; disabled?: boolean; label?: string }) {
   return (

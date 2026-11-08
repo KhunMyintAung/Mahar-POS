@@ -681,6 +681,9 @@ export default function RepairsPage() {
                     {hasPerm("repair.update") && (
                       <Button variant="secondary" size="sm" onClick={() => startEdit(job)}>Edit</Button>
                     )}
+                    {job.serialId && job.status !== "DELIVERED" && (
+                      <Link href="/purchases?tab=tradein" className="inline-flex items-center rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700">Trade-in</Link>
+                    )}
                     {canTakeMoney && hasPerm("repair.update") && job.status !== "CANCELLED" && !settled(job) && !job.serialId && (
                       <Button size="sm" onClick={() => startPay(job)}>Mark as paid</Button>
                     )}

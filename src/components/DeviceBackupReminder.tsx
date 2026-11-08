@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DatabaseBackup, X } from "lucide-react";
-import { BACKUP_REMIND_DAYS, deviceLastBackup } from "@/lib/device";
+import { BACKUP_REMIND_DAYS, backupOverdue, deviceLastBackup } from "@/lib/device";
 import { useInstalledApp } from "@/lib/installedApp";
 
-const DAY = 24 * 60 * 60 * 1000;
 const HIDDEN_KEY = "mahar-pos:backup-reminder-hidden";
 
 function hiddenToday(): boolean {
@@ -28,8 +27,7 @@ export function DeviceBackupReminder() {
     deviceLastBackup()
       .then((at) => {
         if (!live || hiddenToday()) return;
-        if (at === null) setShow("never");
-        else if (Date.now() - at > BACKUP_REMIND_DAYS * DAY) setShow("old");
+        if (backupOverdue(at)) setShow(at === null ? "never" : "old");
       })
       .catch(() => {});
     return () => { live = false; };

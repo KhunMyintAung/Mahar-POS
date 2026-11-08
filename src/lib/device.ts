@@ -86,6 +86,11 @@ const LAST_BACKUP_KEY = "mahar-pos:device-backup";
 /** A reminder shows when the last backup is older than this. */
 export const BACKUP_REMIND_DAYS = 7;
 
+/** No backup yet, or the last one is older than the reminder allows. */
+export function backupOverdue(at: number | null, now = Date.now()): boolean {
+  return at === null || now - at > BACKUP_REMIND_DAYS * 24 * 60 * 60 * 1000;
+}
+
 /** When the books were last backed up on this device (as the engine recorded it), or null. */
 export async function deviceLastBackup(): Promise<number | null> {
   const r = (await send({ type: "status" })) as Reply & { lastBackupAt?: number | null };

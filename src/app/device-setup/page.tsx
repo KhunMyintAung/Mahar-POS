@@ -3,13 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { HardDrive, Upload } from "lucide-react";
-import { Button, Card, Input, Select } from "@/components/ui";
+import { CloudOff, HardDrive, Lock, ShieldAlert, Upload, Wifi, type LucideIcon } from "lucide-react";
+import { Button, Card, Input, ProgressBar, Select, cn } from "@/components/ui";
 import { PageToggles } from "@/components/ThemeToggle";
 import { PwaInstall } from "@/components/PwaInstall";
 import { useInstalledApp } from "@/lib/installedApp";
 import { SELECTABLE_BUSINESS_CATEGORIES, BUSINESS_CATEGORY_LABELS } from "@/lib/modules";
 import { createDeviceShop, isDeviceShop, prepareDevice, restoreDeviceBackup } from "@/lib/device";
+
+/** What to know before choosing it. */
+const POINTS: { icon: LucideIcon; text: string; warn?: boolean }[] = [
+  { icon: CloudOff, text: "The shop's books are kept in this phone or computer only. Nothing is sent to a server." },
+  { icon: Wifi, text: "The internet is needed once, now (about 25 MB). After that, none." },
+  { icon: Lock, text: "Only this device can open the shop. Another phone or the owner elsewhere cannot see it." },
+  { icon: ShieldAlert, text: "If the phone is lost or the app's data is cleared, the books are lost. Keep backups.", warn: true },
+];
 
 /** "This device only": a shop with no account and no server. Its books are kept in this
  *  browser and every screen works without the internet, which is needed once, now, to keep
@@ -82,11 +90,12 @@ export default function DeviceSetupPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">{"For a shop with no internet: no account, every screen works offline."}</p>
         </div>
 
-        <ul className="mb-5 space-y-1.5 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
-          <li>{"The shop's books are kept in this phone or computer only. Nothing is sent to a server."}</li>
-          <li>{"The internet is needed once, now (about 25 MB). After that, none."}</li>
-          <li>{"Only this device can open the shop. Another phone or the owner elsewhere cannot see it."}</li>
-          <li className="font-medium text-amber-700 dark:text-amber-400">{"If the phone is lost or the app's data is cleared, the books are lost. Keep backups."}</li>
+        <ul className="mb-5 space-y-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+          {POINTS.map(({ icon: Icon, text, warn }) => (
+            <li key={text} className={cn("flex items-start gap-2", warn && "font-medium text-amber-700 dark:text-amber-400")}>
+              <Icon size={14} className="mt-0.5 shrink-0" /><span>{text}</span>
+            </li>
+          ))}
         </ul>
 
         {!installed ? (
@@ -107,12 +116,7 @@ export default function DeviceSetupPage() {
             ))}
           </Select>
           {busy && (
-            <div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">{step} {Math.round((progress ?? 0) * 100)}%</p>
-            </div>
+            <ProgressBar value={progress ?? 0} label={<>{step} {Math.round((progress ?? 0) * 100)}%</>} />
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" className="w-full" disabled={busy || businessName.trim().length < 2 || ownerName.trim().length < 2}>
@@ -120,7 +124,7 @@ export default function DeviceSetupPage() {
           </Button>
         </form>
 
-        <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
+        <div className="mt-5 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
           <p className="text-sm font-medium">{"Have a backup file?"}</p>
           <p className="mt-0.5 text-xs text-gray-500">{"On a new phone, open the shop from a backup made in Settings → Account."}</p>
           <Button variant="secondary" className="mt-2 w-full" onClick={() => fileInput.current?.click()} disabled={busy}>

@@ -1218,6 +1218,7 @@
     "ရောင်းပြီး (Sold)",
     "ရောင်းရန် အသင့် (Ready to sell)",
     "ရောင်းရန် အသင့် — Stock ထဲ ရောက်ပြီ (Ready to sell — in stock)",
+    "ရောင်းသူ (Seller)",
     "ရောင်းသူ ဖုန်း (Seller phone)",
     "ရောင်းသူ အမည် (Seller name)",
     "ရောင်းသူ အမည် ထည့်ပါ (Enter the seller's name)",
@@ -1242,6 +1243,7 @@
     "အကြောင်းပြချက် (မဖြစ်မနေ) (Reason (required))",
     "အကြွေး (Credit)",
     "အကြွေးကန့်သတ်ချက် (Credit limit)",
+    "အခြေအနေ (Condition)",
     "အခြေအနေ (Status)",
     "အပိုပစ္စည်း (Parts)",
     "အမည် (Name)",
@@ -1256,7 +1258,10 @@
     "အဝယ် အမျိုးအစား (Purchase type)",
     "အဝယ်ကို ထွက်ငွေထဲ အလိုအလျောက် ထည့်မည်။ (The purchase is added to expense automatically.)",
     "အဝယ်ပယ်ဖျက်မည် (Cancel purchase)",
-    "အဝယ်အသစ် (New purchase)"
+    "အဝယ်အသစ် (New purchase)",
+    "ဤဖုန်းများအတွက် ကုန်ကျငွေ (Money in these phones)",
+    "ဥပမာ - နောက်ကျော ခြစ်ရာ အနည်းငယ် (e.g. Small scratch on the back)",
+    "ဥပမာ - မျက်နှာပြင် ကွဲ၊ ဘက်ထရီ အားနည်း (e.g. Screen cracked, battery weak)"
    ]
   },
   {
@@ -1321,6 +1326,7 @@
     "ဖုန်းပြင် ထွက်ငွေ (Repair expense)",
     "ဖုန်းပြင်ဝင်ငွေ (Repair income)",
     "ဖုန်းလက်ခံမည် (Take in a device)",
+    "ဖုန်းအဟောင်း ဝယ်ယူ (Trade-in)",
     "ဖောက်သည် (Customer)",
     "ဖောက်သည် အမည် (Customer name)",
     "ဖောက်သည်ကို လာယူရန် ဖုန်းခေါ်မလား? (Call the customer to come and collect it?)",

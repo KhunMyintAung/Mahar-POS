@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CloudUpload, DatabaseBackup, Download, HardDrive, RefreshCw, Share2, Upload } from "lucide-react";
-import { Button, Card, CardTitle, ConfirmDialog, Input, useToast } from "./ui";
+import { Button, Card, CardTitle, ConfirmDialog, Input, ProgressBar, useToast } from "./ui";
 import {
   BACKUP_REMIND_DAYS,
+  backupOverdue,
   canShareFile,
   deviceLastBackup,
   deviceReadyAt,
@@ -17,8 +18,6 @@ import {
 } from "@/lib/device";
 import { useOnline } from "@/lib/netMode";
 import { useInstalledApp } from "@/lib/installedApp";
-
-const DAY = 24 * 60 * 60 * 1000;
 
 /** Settings → Account for a shop kept on this device only: where its books are, how much
  *  room they take, backups, and bringing the app up to date while there is internet. */
@@ -55,8 +54,6 @@ export function DeviceShopCard() {
 
   return (
     <>
-      <DeviceBackupCard />
-      <MoveToAccountCard />
       <Card className="space-y-3">
         <CardTitle icon={HardDrive} title="This device only" hint="This shop has no account. Its books are kept in this phone or computer only, and every screen works without the internet." />
         <dl className="grid gap-1 rounded-lg bg-gray-50 p-3 text-xs dark:bg-gray-800/60">
@@ -76,6 +73,8 @@ export function DeviceShopCard() {
           </Button>
         </div>
       </Card>
+      <DeviceBackupCard />
+      <MoveToAccountCard />
     </>
   );
 }
@@ -132,12 +131,7 @@ function MoveToAccountCard() {
             <li>{"Make a backup first. The books on this device are kept, but the app works with the account from then on."}</li>
           </ul>
           {busy && (
-            <div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(({ update: 0.05, pack: 0.15, send: 0.2 + step.done * 0.7, finish: 0.95 })[step.step] * 100)}%` }} />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">{MOVE_STEPS[step.step]}</p>
-            </div>
+            <ProgressBar value={({ update: 0.05, pack: 0.15, send: 0.2 + step.done * 0.7, finish: 0.95 })[step.step]} label={MOVE_STEPS[step.step]} />
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
@@ -172,7 +166,7 @@ function DeviceBackupCard() {
     const seen = (at: number | null) => {
       if (!live) return;
       setShareable(typeof navigator.share === "function");
-      setLast({ at, overdue: at === null || Date.now() - at > BACKUP_REMIND_DAYS * DAY });
+      setLast({ at, overdue: backupOverdue(at) });
     };
     deviceLastBackup().then(seen).catch(() => seen(null));
     return () => { live = false; };
@@ -234,7 +228,7 @@ function DeviceBackupCard() {
       {!installed ? (
         <p className="text-xs font-medium text-amber-700 dark:text-amber-400">{"Backups are made and restored in the installed app only. Open Mahar POS from the phone's home screen, the computer's apps or the Android app."}</p>
       ) : (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
         {shareable && (
           <Button size="sm" onClick={() => backup("share")} disabled={Boolean(busy)}>
             <Share2 size={14} className="mr-1 inline" />{busy === "share" ? "Making backup..." : "Share backup"}
