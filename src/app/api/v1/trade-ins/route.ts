@@ -40,6 +40,7 @@ export const GET = withAuth("purchase.view", async ({ req, user }) => {
       return {
         id: s.id, imei: s.imei, status: s.status, itemId: s.itemId, itemName: s.item.name, model: s.item.model,
         sellingPrice: s.item.sellingPrice, cost: s.cost, repairCost: s.repairCost, batteryHealth: s.batteryHealth,
+        qcGrade: s.qcGrade, bodyCondition: s.bodyCondition,
         qcNote: s.qcNote, qcAt: s.qcAt, receivedAt: s.receivedAt,
         purchaseId: p?.id, purchaseNo: p?.txnNo, date: p?.date,
         sellerName: seller?.name ?? null, sellerPhone: seller?.phone ?? null,

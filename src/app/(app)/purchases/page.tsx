@@ -53,8 +53,6 @@ export default function PurchasesPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [showNew, setShowNew] = useNewModal();
   const [cancelTarget, setCancelTarget] = useState<Purchase | null>(null);
-  /** Moving a purchase's expense to the other side: only from the danger zone, after a confirm. */
-  const [moveTarget, setMoveTarget] = useState<{ p: Purchase; side: ExpenseLine } | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
@@ -203,21 +201,6 @@ export default function PurchasesPage() {
     try { return typeof window !== "undefined" && localStorage.getItem(PURCHASE_EXPENSE_KEY) === "always"; } catch { return false; }
   });
   const [rememberExpense, setRememberExpense] = useState(false);
-
-  /** Sale or Service, tapped on a purchase: moves its expense (or, on credit, where it will go). */
-  async function moveLine(id: string, line: ExpenseLine) {
-    setBusy(true);
-    try {
-      await api(`/api/v1/purchases/${id}/expense`, { method: "POST", body: { line } });
-      push(line === "SERVICE" ? "Moved to Service" : "Moved to Sale");
-      setMoveTarget(null);
-      load();
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Could not move it", "error");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function addPurchaseExpense(ask: { id: string; total: string; line: ExpenseLine }, auto = false) {
     try {
@@ -399,15 +382,12 @@ export default function PurchasesPage() {
                     // In expense already, or on credit with its side kept for when it is paid.
                     const side = p.expenseLine ?? (BigInt(p.paidAmount) < BigInt(p.total) ? p.line : null);
                     if (!side || p.status !== "COMPLETED") return null;
-                    // A label only: a tap never moves it. The move is in the danger zone behind it.
-                    const canMove = hasPerm("purchase.cancel");
+                    // A label only: Sale or Service is chosen once, in the purchase form.
                     const look = cn("inline-flex items-center rounded-md border px-2 text-xs font-medium",
                       side === "SERVICE" ? "border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-300" : "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300");
                     const text = side === "SERVICE" ? "Service" : "Sale";
                     const title = p.expenseLine ? `In expense as ${LINE_EXPENSE[side]}` : `Goes into ${LINE_EXPENSE[side]} as the supplier is paid`;
-                    return canMove
-                      ? <button type="button" title={title} onClick={() => setMoveTarget({ p, side })} className={look}>{text}</button>
-                      : <span title={title} className={look}>{text}</span>;
+                    return <span title={title} className={look}>{text}</span>;
                   })()}
                   <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
                   {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
@@ -683,32 +663,6 @@ export default function PurchasesPage() {
         )}
       </Modal>
 
-      <Modal open={!!moveTarget} onClose={() => setMoveTarget(null)} title={moveTarget ? `${moveTarget.p.txnNo} · ${moveTarget.side === "SERVICE" ? "Service" : "Sale"}` : ""}>
-        {moveTarget && (() => {
-          const other: ExpenseLine = moveTarget.side === "SALE" ? "SERVICE" : "SALE";
-          return (
-            <div className="space-y-3">
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                {moveTarget.p.expenseLine
-                  ? `In expense as ${LINE_EXPENSE[moveTarget.side]}.`
-                  : `Goes into ${LINE_EXPENSE[moveTarget.side]} as the supplier is paid.`}
-              </p>
-              <div className="rounded-lg border-2 border-red-500 bg-red-50 p-3 dark:bg-red-950/40">
-                <div className="text-sm font-bold text-red-700 dark:text-red-300">Danger zone</div>
-                <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                  {`Moving it to ${LINE_EXPENSE[other]} changes the expense of this purchase and of every payment made for it, and the Sale and Service profit in reports. No money moves. Logged in the audit trail.`}
-                </p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" onClick={() => setMoveTarget(null)}>{"Don't move"}</Button>
-                <Button variant="danger" disabled={busy} onClick={() => void moveLine(moveTarget.p.id, other)}>
-                  {other === "SERVICE" ? "Yes, move to Service" : "Yes, move to Sale"}
-                </Button>
-              </div>
-            </div>
-          );
-        })()}
-      </Modal>
 
       <Modal open={!!cancelTarget} onClose={() => setCancelTarget(null)} title={`Cancel ${cancelTarget?.txnNo}`}>
         <div className="space-y-3">

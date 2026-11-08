@@ -48,18 +48,19 @@ async function putInStock(tx: Tx, opts: { businessId: string; userId: string; se
 /** QC passed: the phone is ready to sell. */
 export async function qcReady(tx: Tx, opts: {
   businessId: string; userId: string; serialId: string; batteryHealth?: number | null; note?: string | null;
+  grade: string; bodyCondition: string;
 }) {
   const s = await heldSerial(tx, opts.businessId, opts.serialId);
   if (s.status !== "QC") throw new ApiError(422, `IMEI ${s.imei} is not waiting for QC`);
   await tx.itemSerial.update({
     where: { id: s.id },
-    data: { batteryHealth: opts.batteryHealth ?? null, qcNote: opts.note?.trim() || null, qcAt: new Date() },
+    data: { qcGrade: opts.grade, bodyCondition: opts.bodyCondition, batteryHealth: opts.batteryHealth ?? null, qcNote: opts.note?.trim() || null, qcAt: new Date() },
   });
   await putInStock(tx, { businessId: opts.businessId, userId: opts.userId, serialId: s.id, cost: s.cost ?? 0n, note: `QC passed · ${s.imei}` });
   await audit(tx, {
     businessId: opts.businessId, userId: opts.userId, branchId: s.branchId,
     action: "UPDATE", module: "stock", resourceType: "ItemSerial", resourceId: s.id,
-    after: { imei: s.imei, qc: "READY", batteryHealth: opts.batteryHealth ?? null },
+    after: { imei: s.imei, qc: "READY", grade: opts.grade, body: opts.bodyCondition, batteryHealth: opts.batteryHealth ?? null },
   });
 }
 
@@ -67,6 +68,7 @@ export async function qcReady(tx: Tx, opts: {
 export async function qcNeedsRepair(tx: Tx, opts: {
   businessId: string; userId: string; serialId: string; problem: string;
   batteryHealth?: number | null; note?: string | null; technicianName?: string | null;
+  grade: string; bodyCondition: string;
 }) {
   const s = await heldSerial(tx, opts.businessId, opts.serialId);
   if (s.status !== "QC") throw new ApiError(422, `IMEI ${s.imei} is not waiting for QC`);
@@ -76,6 +78,7 @@ export async function qcNeedsRepair(tx: Tx, opts: {
     customerName: TRADE_IN_CUSTOMER,
     deviceBrand: s.item.name, deviceModel: s.item.model?.trim() || s.item.name,
     imei: s.imei, problem: opts.problem.trim(), estimatedCost: 0n, depositAmount: 0n,
+    intakeCondition: `Grade ${opts.grade} · ${opts.bodyCondition}${opts.batteryHealth != null ? ` · Battery ${opts.batteryHealth}%` : ""}`,
     technicianName: opts.technicianName?.trim() || undefined,
     notes: opts.note?.trim() || undefined,
   });
@@ -84,6 +87,7 @@ export async function qcNeedsRepair(tx: Tx, opts: {
     where: { id: s.id },
     data: {
       status: "IN_REPAIR", repairJobId: job.id, batteryHealth: opts.batteryHealth ?? null,
+      qcGrade: opts.grade, bodyCondition: opts.bodyCondition,
       qcNote: opts.note?.trim() || null, qcAt: new Date(),
     },
   });
@@ -96,9 +100,11 @@ export async function qcNeedsRepair(tx: Tx, opts: {
 }
 
 /** The repair is finished: parts used plus the repair fee go onto the phone's cost, a fee
- *  paid out now leaves its wallet as an expense, and the phone goes on the shelf. */
+ *  paid out now leaves its wallet as an expense, and the phone goes on the shelf. Its grade
+ *  and body may be better now, so they can be given again. */
 export async function finishTradeInRepair(tx: Tx, opts: {
   businessId: string; userId: string; serialId: string; laborCost: bigint; walletId?: string; note?: string | null;
+  grade?: string; bodyCondition?: string;
 }) {
   const s = await heldSerial(tx, opts.businessId, opts.serialId);
   if (s.status !== "IN_REPAIR" || !s.repairJobId) throw new ApiError(422, `IMEI ${s.imei} is not in repair`);
@@ -128,7 +134,10 @@ export async function finishTradeInRepair(tx: Tx, opts: {
       notes: opts.note?.trim() ? [job.notes, opts.note.trim()].filter(Boolean).join("\n") : job.notes,
     },
   });
-  await tx.itemSerial.update({ where: { id: s.id }, data: { repairCost } });
+  await tx.itemSerial.update({
+    where: { id: s.id },
+    data: { repairCost, ...(opts.grade ? { qcGrade: opts.grade } : {}), ...(opts.bodyCondition ? { bodyCondition: opts.bodyCondition } : {}) },
+  });
   await putInStock(tx, { businessId: opts.businessId, userId: opts.userId, serialId: s.id, cost, note: `Repaired (${job.jobNo}) · ${s.imei}` });
   await audit(tx, {
     businessId: opts.businessId, userId: opts.userId, branchId: s.branchId,

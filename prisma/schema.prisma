@@ -895,7 +895,9 @@ model ItemSerial {
   /// Trade-in: the repair that made it sellable — parts and repair fee, part of cost.
   repairCost    BigInt    @default(0)
   repairJobId   String?
-  /// Trade-in QC: battery health (%) and what was found.
+  /// Trade-in QC: grade (A best to D), body condition, battery health (%) and what was found.
+  qcGrade       String?
+  bodyCondition String?
   batteryHealth Int?
   qcNote        String?
   qcAt          DateTime?

@@ -5,6 +5,7 @@ import { Search, Wrench, CheckCircle2, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Empty, cn, useToast } from "@/components/ui";
+import { BODY_CONDITIONS, QC_GRADES, QC_GRADE_TEXT, type QcGrade } from "@/lib/tradeInQc";
 
 /** Second-hand phones bought from customers: buy (into QC), check, then route each one to the
  *  shelf or to the shop's own repair bench. Repair costs go onto the phone's own cost. */
@@ -14,12 +15,13 @@ interface Wallet { id: string; name: string; currency: string; currentBalance: s
 interface Phone {
   id: string; imei: string; status: "QC" | "IN_REPAIR" | "IN_STOCK" | "SOLD" | "REMOVED"; itemName: string; model?: string | null;
   sellingPrice: string; cost: string | null; repairCost: string; batteryHealth: number | null; qcNote: string | null; qcAt: string | null;
+  qcGrade: string | null; bodyCondition: string | null;
   receivedAt: string; purchaseNo?: string; sellerName: string | null; sellerPhone: string | null;
   repair: { id: string; jobNo: string; status: string; problem: string; partsCost: string; laborCost: string; technicianName: string | null } | null;
 }
 
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
-const normalizeImei = (raw: string) => raw.replace(/[s-]/g, "").toUpperCase();
+const normalizeImei = (raw: string) => raw.replace(/[\s-]/g, "").toUpperCase();
 
 /** The Trade-in tab: phones waiting for QC and phones in repair, each with its next step. */
 export function TradeInList({ wallets, reloadKey, canAct }: { wallets: Wallet[]; reloadKey: number; canAct: boolean }) {
@@ -85,6 +87,41 @@ const STATUS_LOOK: Record<string, string> = {
   IN_STOCK: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   SOLD: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
 };
+const GRADE_LOOK: Record<string, string> = {
+  A: "bg-green-600 text-white", B: "bg-blue-600 text-white", C: "bg-amber-500 text-white", D: "bg-red-600 text-white",
+};
+
+/** Grade A to D and how the body looks: given at QC, and again once a repair is done. */
+function GradePicker({ grade, onGrade, body, onBody }: { grade: string; onGrade: (g: QcGrade) => void; body: string; onBody: (b: string) => void }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">QC grade</span>
+        <div className="grid grid-cols-4 gap-1.5">
+          {QC_GRADES.map((g) => (
+            <button key={g} type="button" onClick={() => onGrade(g)} title={QC_GRADE_TEXT[g]}
+              className={cn("rounded-lg border py-2 text-base font-bold", grade === g ? cn(GRADE_LOOK[g], "border-transparent") : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300")}>
+              {g}
+            </button>
+          ))}
+        </div>
+        {grade && <p className="mt-1 text-xs text-gray-500">{QC_GRADE_TEXT[grade as QcGrade]}</p>}
+      </div>
+      <div>
+        <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Body condition</span>
+        <div className="grid grid-cols-2 gap-1.5">
+          {BODY_CONDITIONS.map((b) => (
+            <button key={b} type="button" onClick={() => onBody(b)}
+              className={cn("rounded-lg border px-2 py-2 text-sm", body === b ? "border-blue-600 bg-blue-50 font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300")}>
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const STATUS_TEXT: Record<string, string> = { QC: "Waiting for QC", IN_REPAIR: "In repair", IN_STOCK: "Ready to sell", SOLD: "Sold", REMOVED: "Removed" };
 
 function PhoneRow({ p, children }: { p: Phone; children?: React.ReactNode }) {
@@ -95,6 +132,7 @@ function PhoneRow({ p, children }: { p: Phone; children?: React.ReactNode }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{p.itemName}</span>
           <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", STATUS_LOOK[p.status] ?? "bg-gray-100 text-gray-600")}>{STATUS_TEXT[p.status] ?? p.status}</span>
+          {p.qcGrade && <span className={cn("rounded px-1.5 py-0.5 text-xs font-bold", GRADE_LOOK[p.qcGrade] ?? "bg-gray-100 text-gray-700")} title={QC_GRADE_TEXT[p.qcGrade as QcGrade]}>{`Grade ${p.qcGrade}`}</span>}
           {p.repair && <span className="text-xs text-gray-500">{p.repair.jobNo}</span>}
         </div>
         <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-gray-500">
@@ -103,6 +141,7 @@ function PhoneRow({ p, children }: { p: Phone; children?: React.ReactNode }) {
           {p.purchaseNo && <span>{p.purchaseNo}</span>}
           <span>{fmtDateTime(p.receivedAt)}</span>
           {p.batteryHealth != null && <span>{`Battery ${p.batteryHealth}%`}</span>}
+          {p.bodyCondition && <span>{p.bodyCondition}</span>}
         </div>
         {(p.qcNote || p.repair?.problem) && (
           <div className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{p.repair?.problem ?? p.qcNote}</div>
@@ -129,16 +168,20 @@ function QcModal({ phone, onClose, onDone }: { phone: Phone | null; onClose: () 
   const [note, setNote] = useState("");
   const [problem, setProblem] = useState("");
   const [technician, setTechnician] = useState("");
+  const [grade, setGrade] = useState("");
+  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
   const [shownFor, setShownFor] = useState<string | null>(null);
   if (phone && shownFor !== phone.id) {
-    setShownFor(phone.id); setResult(""); setBattery(""); setNote(""); setProblem(""); setTechnician("");
+    setShownFor(phone.id); setResult(""); setBattery(""); setNote(""); setProblem(""); setTechnician(""); setGrade(""); setBody("");
   }
 
   const batteryNum = battery.trim() === "" ? null : Math.round(num(battery));
   const problemText =
-    !result ? "Choose the QC result"
+    !grade ? "Choose the QC grade"
+    : !body ? "Choose the body condition"
+    : !result ? "Choose the QC result"
     : batteryNum != null && (batteryNum < 0 || batteryNum > 100) ? "Battery health is 0 to 100"
     : result === "REPAIR" && !problem.trim() ? "Say what needs repairing"
     : "";
@@ -149,7 +192,7 @@ function QcModal({ phone, onClose, onDone }: { phone: Phone | null; onClose: () 
     try {
       const r = await api<{ status: string; jobNo?: string }>(`/api/v1/trade-ins/${phone.id}/qc`, {
         method: "POST",
-        body: { result, batteryHealth: batteryNum, note: note.trim() || undefined, problem: problem.trim() || undefined, technicianName: technician.trim() || undefined },
+        body: { result, grade, bodyCondition: body, batteryHealth: batteryNum, note: note.trim() || undefined, problem: problem.trim() || undefined, technicianName: technician.trim() || undefined },
       });
       push(r.status === "IN_STOCK" ? "Ready to sell — in stock" : `Sent to repair (${r.jobNo})`);
       onDone();
@@ -174,6 +217,9 @@ function QcModal({ phone, onClose, onDone }: { phone: Phone | null; onClose: () 
             <div className="font-medium">{phone.itemName}</div>
             <div className="font-mono text-xs text-gray-500">{phone.imei}</div>
           </div>
+          <GradePicker grade={grade} onGrade={setGrade} body={body} onBody={setBody} />
+          <Input label="Battery health %" inputMode="numeric" value={battery} onChange={(e) => setBattery(e.target.value.replace(/[^\d]/g, "").slice(0, 3))} placeholder="e.g. 86" />
+          <span className="block text-sm font-medium text-gray-700 dark:text-gray-300">QC result</span>
           <div className="grid grid-cols-2 gap-2">
             {([["READY", "Ready to sell", CheckCircle2], ["REPAIR", "Needs repair", Wrench]] as const).map(([k, label, Icon]) => (
               <button key={k} type="button" onClick={() => setResult(k)}
@@ -185,7 +231,6 @@ function QcModal({ phone, onClose, onDone }: { phone: Phone | null; onClose: () 
               </button>
             ))}
           </div>
-          <Input label="Battery health %" inputMode="numeric" value={battery} onChange={(e) => setBattery(e.target.value.replace(/[^\d]/g, "").slice(0, 3))} placeholder="e.g. 86" />
           {result === "REPAIR" && (
             <>
               <Input label="What needs repairing" value={problem} onChange={(e) => setProblem(e.target.value)} placeholder="e.g. Screen cracked, battery weak" />
@@ -207,11 +252,15 @@ function RepairedModal({ phone, wallets, onClose, onDone }: { phone: Phone | nul
   const [paidNow, setPaidNow] = useState(true);
   const [walletId, setWalletId] = useState("");
   const [note, setNote] = useState("");
+  const [grade, setGrade] = useState("");
+  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
   const [shownFor, setShownFor] = useState<string | null>(null);
   if (phone && shownFor !== phone.id) {
+    // What QC found, to change if the repair made it better.
     setShownFor(phone.id); setFee(""); setPaidNow(true); setWalletId(""); setNote("");
+    setGrade(phone.qcGrade ?? ""); setBody(phone.bodyCondition ?? "");
   }
   const mmk = wallets.filter((w) => w.currency === "MMK");
   const wallet = walletId || mmk[0]?.id || "";
@@ -227,7 +276,7 @@ function RepairedModal({ phone, wallets, onClose, onDone }: { phone: Phone | nul
     try {
       await api(`/api/v1/trade-ins/${phone.id}/repaired`, {
         method: "POST",
-        body: { laborCost: String(num(fee)), walletId: feeMinor > 0n && paidNow ? wallet : undefined, note: note.trim() || undefined },
+        body: { laborCost: String(num(fee)), walletId: feeMinor > 0n && paidNow ? wallet : undefined, note: note.trim() || undefined, grade: grade || undefined, bodyCondition: body || undefined },
       });
       push("Repaired — in stock");
       onDone();
@@ -267,6 +316,7 @@ function RepairedModal({ phone, wallets, onClose, onDone }: { phone: Phone | nul
             </div>
           )}
           <Input label="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <GradePicker grade={grade} onGrade={setGrade} body={body} onBody={setBody} />
           <div className="space-y-1 rounded-lg border border-gray-200 p-2 text-sm tabular-nums dark:border-gray-700">
             <Row label="Bought" value={bought} />
             <Row label="Parts used" value={parts} />
