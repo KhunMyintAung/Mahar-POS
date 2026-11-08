@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DatabaseBackup, Download, HardDrive, RefreshCw, Share2, Upload } from "lucide-react";
-import { Button, Card, ConfirmDialog, useToast } from "./ui";
+import { CloudUpload, DatabaseBackup, Download, HardDrive, RefreshCw, Share2, Upload } from "lucide-react";
+import { Button, Card, ConfirmDialog, Input, useToast } from "./ui";
 import {
   BACKUP_REMIND_DAYS,
   canShareFile,
   deviceLastBackup,
   deviceReadyAt,
   makeDeviceBackup,
+  moveToAccount,
+  type MoveStep,
   prepareDevice,
   restoreDeviceBackup,
   saveFile,
@@ -54,6 +56,7 @@ export function DeviceShopCard() {
   return (
     <>
       <DeviceBackupCard />
+      <MoveToAccountCard />
       <Card className="space-y-3">
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold"><HardDrive size={16} />{"This device only"}</h3>
@@ -77,6 +80,81 @@ export function DeviceShopCard() {
         </div>
       </Card>
     </>
+  );
+}
+
+const MOVE_STEPS: Record<MoveStep["step"], string> = {
+  update: "Getting the newest app...",
+  pack: "Packing the shop's books...",
+  send: "Sending the shop...",
+  finish: "Opening the online account...",
+};
+
+/** Moving the shop into an online account, for a shop that now has the internet: the same
+ *  books, then usable from any phone or computer, with staff accounts, Telegram and backups
+ *  on the server. */
+function MoveToAccountCard() {
+  const online = useOnline();
+  const installed = useInstalledApp();
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<MoveStep | null>(null);
+  const [error, setError] = useState("");
+
+  async function move(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await moveToAccount({ username: username.trim().toLowerCase(), email: email.trim().toLowerCase(), password }, setStep);
+      window.location.replace("/");
+    } catch (err) {
+      setStep(null);
+      setError(err instanceof Error ? err.message : "The shop could not be moved. Try again.");
+    }
+  }
+
+  if (!installed) return null;
+  const busy = step !== null;
+  return (
+    <Card className="space-y-3">
+      <div>
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><CloudUpload size={16} />{"Move to an online account"}</h3>
+        <p className="mt-1 text-xs text-gray-500">{"When the shop has the internet: every record goes into a new online account, to use from any phone or computer, with staff accounts, Telegram and backups on the server."}</p>
+      </div>
+      {!open ? (
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)} disabled={!online}>
+          <CloudUpload size={14} className="mr-1 inline" />{online ? "Move to an online account" : "Needs the internet"}
+        </Button>
+      ) : (
+        <form onSubmit={move} className="space-y-3">
+          <Input label="Username" value={username} onChange={(e) => setUsername(e.target.value)} required minLength={3} maxLength={40} autoComplete="username" disabled={busy} />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required maxLength={160} autoComplete="email" disabled={busy} />
+          <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} maxLength={72} autoComplete="new-password" disabled={busy} />
+          <ul className="space-y-1 rounded-lg bg-gray-50 p-3 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+            <li>{"You sign in with this username and password from now on, on any device."}</li>
+            <li>{"Keep the internet on until it is done. If it stops, nothing is changed: try again."}</li>
+            <li>{"Make a backup first. The books on this device are kept, but the app works with the account from then on."}</li>
+          </ul>
+          {busy && (
+            <div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                <div className="h-full bg-blue-600 transition-all" style={{ width: `${Math.round(({ update: 0.05, pack: 0.15, send: 0.2 + step.done * 0.7, finish: 0.95 })[step.step] * 100)}%` }} />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">{MOVE_STEPS[step.step]}</p>
+            </div>
+          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => { setOpen(false); setError(""); }} disabled={busy}>{"Cancel"}</Button>
+            <Button size="sm" type="submit" className="ml-auto" disabled={busy || !online}>
+              {busy ? "Moving..." : "Move the shop"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }
 

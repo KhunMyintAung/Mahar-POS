@@ -14,7 +14,7 @@ const migrationsDir = join(root, "prisma/migrations");
 
 // Routes that only make sense with a server (sign-in, Google, Telegram, cloud print, the
 // online shop, e-mail) are left out: the device answers them "not available".
-const SKIP = [/^auth\/(?!me$)/, /^telegram/, /^print-jobs/, /^online-shop/, /^community/, /^account-deletion/, /^reports\/gsheet/];
+const SKIP = [/^auth\/(?!me$)/, /^device-move/, /^telegram/, /^print-jobs/, /^online-shop/, /^community/, /^account-deletion/, /^reports\/gsheet/];
 
 function routeFilesNamed(dir, fileName) {
   const found = [];

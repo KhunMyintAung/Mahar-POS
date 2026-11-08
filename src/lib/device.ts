@@ -153,6 +153,65 @@ export async function restoreDeviceBackup(file: File): Promise<{ shop: string; a
   return { shop: r.shop, at: r.at };
 }
 
+// ---- Moving to an online account -------------------------------------------------------------
+
+export type MoveInput = { username: string; email: string; password: string };
+export type MoveStep = { step: "update" | "pack" | "send" | "finish"; done: number };
+
+/** Moves this shop into a new online account (src/services/deviceMove.ts): the app brought
+ *  up to date, the shop packed, sent in parts (a weak connection manages) and imported in
+ *  one go on the server, which signs this device in. The books on the device are kept as they
+ *  are, but the app now works with the account. */
+export async function moveToAccount(input: MoveInput, onStep?: (s: MoveStep) => void): Promise<void> {
+  if (!navigator.onLine) throw new Error("Moving the shop needs the internet");
+  onStep?.({ step: "update", done: 0 });
+  // The server takes a shop from the same version of the app only.
+  if (await refreshDeviceApp()) {
+    worker?.terminate();
+    worker = null;
+  }
+  onStep?.({ step: "pack", done: 0 });
+  const { file } = (await send({ type: "export" })) as Reply & { file: Blob };
+
+  const server = async (method: string, path: string, body?: BodyInit, type = "application/json") => {
+    const res = await fetch(path, { method, body, headers: { "content-type": type, "x-mahar-fresh": "1" }, credentials: "same-origin" });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; data?: unknown; error?: string };
+    if (!res.ok || data.ok === false) throw new Error(data.error || `The server could not take the shop (${res.status})`);
+    return data.data as Record<string, unknown>;
+  };
+  const started = await server("POST", "/api/v1/device-move", JSON.stringify(input));
+  const id = String(started.id);
+  const size = Number(started.partBytes) || 512 * 1024;
+  const total = Math.max(1, Math.ceil(file.size / size));
+  for (let i = 0; i < total; i++) {
+    const part = file.slice(i * size, (i + 1) * size);
+    // A dropped connection only costs the part it was sending.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await server("PUT", `/api/v1/device-move/${id}/parts/${i}?of=${total}`, part, "application/octet-stream");
+        break;
+      } catch (error) {
+        if (attempt >= 4) throw error;
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
+    }
+    onStep?.({ step: "send", done: (i + 1) / total });
+  }
+  onStep?.({ step: "finish", done: 0 });
+  await server("POST", `/api/v1/device-move/${id}/finish`);
+  leaveDeviceMode();
+}
+
+/** This browser goes back to working with an account. */
+function leaveDeviceMode() {
+  worker?.terminate();
+  worker = null;
+  try {
+    for (const k of [KEY, VERSION_KEY, READY_KEY, LAST_BACKUP_KEY]) localStorage.removeItem(k);
+  } catch {}
+  navigator.serviceWorker?.ready.then((reg) => reg.active?.postMessage({ type: "device-off" })).catch(() => {});
+}
+
 // ---- Keeping the app on the device -------------------------------------------------------
 
 const DEVICE_CACHE = "mahar-device";

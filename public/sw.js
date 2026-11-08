@@ -257,6 +257,11 @@ let deviceMode;
 isDevice().then((v) => { if (deviceMode === undefined) deviceMode = v; });
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "device") deviceMode = true;
+  // The shop moved to an online account: screens come from the server again.
+  if (event.data && event.data.type === "device-off") {
+    deviceMode = false;
+    event.waitUntil(caches.delete(DEVICE));
+  }
 });
 
 self.addEventListener("fetch", (event) => {

@@ -199,6 +199,36 @@ async function restore(file: Blob): Promise<{ shop: string; at: number | null }>
   return { shop, at };
 }
 
+// ---- Moving the shop to an online account -------------------------------------------------
+// Every table of the shop as JSON, which the server imports into a new account
+// (src/services/deviceMove.ts). Tables for the server alone (sign-in sessions, Telegram, mail,
+// cloud print) are left out.
+
+const NOT_MOVED = new Set(["AuthSession", "TelegramAiKey", "TelegramSession", "EmailLog", "EmailBroadcast", "PlatformSetting", "PrintJob"]);
+
+async function exportShop(): Promise<{ file: Blob; businessId: string }> {
+  await boot();
+  const owner = await meta("owner");
+  if (!owner) throw new Error("This device has no shop to move");
+  const businessId = (await pglite.query<{ businessId: string }>(`SELECT "businessId" FROM "User" WHERE id = $1`, [owner])).rows[0]?.businessId;
+  if (!businessId) throw new Error("This device has no shop to move");
+  const tables = (await pglite.query<{ name: string }>(
+    `SELECT table_name AS name FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name NOT LIKE '\\_%' ORDER BY 1`,
+  )).rows.map((r) => r.name).filter((t) => !NOT_MOVED.has(t));
+  const migrationNames = (await pglite.query<{ name: string }>(`SELECT name FROM "_device_migrations" ORDER BY name`)).rows.map((r) => r.name);
+  // Postgres writes each table's JSON itself, so every value keeps its exact form.
+  const parts: string[] = [];
+  for (const t of tables) {
+    const j = (await pglite.query<{ j: string }>(`SELECT coalesce(json_agg(t), '[]')::text AS j FROM "${t.replace(/"/g, "")}" t`)).rows[0]?.j ?? "[]";
+    parts.push(`${JSON.stringify(t)}:${j}`);
+  }
+  const text = `{"format":"mahar-device-shop","version":1,"businessId":${JSON.stringify(businessId)},"owner":${JSON.stringify(owner)},` +
+    `"migrations":${JSON.stringify(migrationNames)},"tables":{${parts.join(",")}}}`;
+  const gz = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+  return { file: await new Response(gz).blob(), businessId };
+}
+
 // ---- Messages from the page --------------------------------------------------------------
 
 type Message =
@@ -207,7 +237,8 @@ type Message =
   | { id: number; type: "setup"; input: Parameters<typeof setup>[0] }
   | { id: number; type: "api"; method: string; path: string; body?: unknown }
   | { id: number; type: "backup" }
-  | { id: number; type: "restore"; file: Blob };
+  | { id: number; type: "restore"; file: Blob }
+  | { id: number; type: "export" };
 
 // One copy of the database open at a time: a second tab waits until the first one closes.
 const opened = new Promise<void>((resolve) => {
@@ -237,6 +268,8 @@ self.addEventListener("message", async (event: MessageEvent<Message>) => {
       reply({ ok: true, ...(await backup()) });
     } else if (msg.type === "restore") {
       reply({ ok: true, ...(await restore(msg.file)) });
+    } else if (msg.type === "export") {
+      reply({ ok: true, ...(await exportShop()) });
     }
   } catch (error) {
     console.error("[device]", error);
