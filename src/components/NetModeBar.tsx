@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CloudOff, Download, RefreshCw, Wifi } from "lucide-react";
-import { Button, Card, ConfirmDialog, Modal, cn, useToast } from "./ui";
+import { Button, Card, CardTitle, ConfirmDialog, Modal, cn, useToast } from "./ui";
 import { useAuth } from "./AppShell";
 import { fmtMoney } from "@/lib/format";
 import { prepareOffline, setNetMode, useNetMode, useOfflineReadyAt, useOnline, type NetMode } from "@/lib/netMode";
@@ -55,10 +55,7 @@ export function NetModeCard() {
 
   return (
     <Card className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold">{"Internet connection (this device)"}</h3>
-        <p className="mt-1 text-xs text-gray-500">{"How the till on this device sells when the internet is weak or gone."}</p>
-      </div>
+      <CardTitle icon={Wifi} title="Internet connection (this device)" hint="How the till on this device sells when the internet is weak or gone." />
       <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Connection mode">
         {MODES.map((m) => (
           <button

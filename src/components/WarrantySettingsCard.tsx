@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, ShieldCheck, X } from "lucide-react";
 import { api } from "@/lib/client";
-import { Button, Card, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, useToast } from "@/components/ui";
 import {
   DEFAULT_WARRANTY,
   WARRANTY_SETTING,
@@ -101,11 +101,10 @@ export function WarrantySettingsCard() {
 
   return (
     <Card>
-      <h3 className="text-sm font-semibold">Phone warranty</h3>
-      <p className="mb-3 mt-1 text-xs text-gray-500">
+      <CardTitle icon={ShieldCheck} title="Phone warranty" className="mb-3" hint={<>
         Offered at the till when a phone is sold. A category with &quot;New&quot; (e.g. Phone New) uses the first list;
         one with &quot;Second&quot; or &quot;Used&quot; (e.g. Phone Second) uses the second. The first option is picked by default.
-      </p>
+      </>} />
       <div className="grid gap-5 sm:grid-cols-2">
         <OptionList title="New phone" hint="Category: Phone New" rows={newRows} onChange={setNewRows} />
         <OptionList title="Second-hand phone" hint="Category: Phone Second" rows={secondRows} onChange={setSecondRows} />

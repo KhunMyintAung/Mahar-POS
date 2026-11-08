@@ -5,6 +5,7 @@ import { Search, Wrench, CheckCircle2, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Empty, cn, useToast } from "@/components/ui";
+import { normalizeImei } from "@/lib/imeiInput";
 import { BODY_CONDITIONS, QC_GRADES, QC_GRADE_TEXT, type QcGrade } from "@/lib/tradeInQc";
 
 /** Second-hand phones bought from customers: buy (into QC), check, then route each one to the
@@ -21,7 +22,6 @@ interface Phone {
 }
 
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
-const normalizeImei = (raw: string) => raw.replace(/[\s-]/g, "").toUpperCase();
 
 /** The Trade-in tab: phones waiting for QC and phones in repair, each with its next step. */
 export function TradeInList({ wallets, reloadKey, canAct }: { wallets: Wallet[]; reloadKey: number; canAct: boolean }) {

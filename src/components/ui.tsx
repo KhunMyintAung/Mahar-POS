@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, ReactNode } from "react";
-import { Check, Download, X } from "lucide-react";
+import { Check, Download, X, type LucideIcon } from "lucide-react";
 import { STATUS_COLORS } from "@/lib/format";
 import { playError, playSuccess } from "@/lib/sound";
 
@@ -43,6 +43,38 @@ export function StatCard({ label, value, sub, onClick, tone }: {
       <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
       <div className={cn("mt-1 text-lg font-bold tabular-nums sm:text-xl", tones[tone ?? "default"])}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sub}</div>}
+    </button>
+  );
+}
+
+const TITLE_TONES = {
+  blue: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300",
+  green: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  red: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300",
+};
+
+/** The head of a card: its icon, title and a line on what it is for; children sit on the right. */
+export function CardTitle({ icon: Icon, title, hint, tone = "blue", className, children }: {
+  icon: LucideIcon; title: string; hint?: ReactNode; tone?: keyof typeof TITLE_TONES; className?: string; children?: ReactNode;
+}) {
+  return (
+    <div className={cn("flex gap-3", hint ? "items-start" : "items-center", className)}>
+      <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", TITLE_TONES[tone])}><Icon size={18} /></span>
+      <div className="min-w-0 flex-1">
+        <h3 className={cn("text-[15px] font-semibold leading-snug", tone === "red" && "text-red-700 dark:text-red-400")}>{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** An on / off switch. */
+export function Switch({ on, onChange, disabled, label }: { on: boolean; onChange: (on: boolean) => void; disabled?: boolean; label?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => onChange(!on)}
+      className={cn("relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50", on ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700")}>
+      <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", on ? "left-5" : "left-0.5")} />
     </button>
   );
 }

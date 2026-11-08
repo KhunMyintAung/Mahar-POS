@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
-import { Button, Card, Input, useToast } from "@/components/ui";
+import { ReceiptText } from "lucide-react";
+import { Button, Card, CardTitle, Input, useToast } from "@/components/ui";
 import { DEFAULT_REPAIR_TERMS, formatVoucherNo, type RepairVoucherSettings } from "@/lib/repairVoucherSettings";
 
 type Loaded = RepairVoucherSettings & { nextNumber: number; autoPrefix: string };
@@ -63,8 +64,7 @@ export function RepairVoucherSettingsCard() {
 
   return (
     <Card>
-      <h3 className="text-sm font-semibold">Repair voucher</h3>
-      <p className="mb-3 mt-1 text-xs text-gray-500">Voucher number format and the text printed on the repair voucher.</p>
+      <CardTitle icon={ReceiptText} title="Repair voucher" className="mb-3" hint="Voucher number format and the text printed on the repair voucher." />
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-3">
           <Input label="Voucher prefix" value={form.prefix} maxLength={6} placeholder={autoPrefix} onChange={(e) => setForm({ ...form, prefix: e.target.value.replace(/[^A-Za-z0-9]/g, "") })} />

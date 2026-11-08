@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
-import { Card, useToast, cn } from "@/components/ui";
+import { Wrench } from "lucide-react";
+import { Card, CardTitle, useToast, cn } from "@/components/ui";
 import { DEFAULT_REPAIR_FLOW, parseRepairFlow, REPAIR_FLOW_KEY, type RepairParts } from "@/lib/repairFlow";
 
 const OPTIONS: { v: RepairParts; title: string; body: string }[] = [
@@ -36,7 +37,7 @@ export function RepairFlowCard() {
   if (!parts) return null;
   return (
     <Card className="space-y-2 p-4">
-      <h2 className="text-sm font-semibold">Repair parts</h2>
+      <CardTitle icon={Wrench} title="Repair parts" />
       <div className="grid gap-2 sm:grid-cols-2">
         {OPTIONS.map((o) => (
           <button key={o.v} type="button" disabled={busy} onClick={() => void pick(o.v)}

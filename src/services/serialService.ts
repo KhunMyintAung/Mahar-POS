@@ -1,5 +1,6 @@
 import { Tx } from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
+import { normalizeImei } from "@/lib/imeiInput";
 
 /** Per-unit IMEI / serial tracking for items marked trackSerial (phones).
  *
@@ -8,10 +9,7 @@ import { ApiError } from "@/lib/api";
  *  lives in StockLevel; these records say which units make up that count. Every write here
  *  runs inside the caller's transaction, beside the stock movement it explains. */
 
-/** An IMEI or serial as stored: no spaces or dashes, upper case. */
-export function normalizeImei(raw: string): string {
-  return raw.replace(/[\s-]/g, "").toUpperCase();
-}
+export { normalizeImei };
 
 const IMEI_PATTERN = /^[A-Z0-9]{5,32}$/;
 
@@ -29,7 +27,7 @@ export function cleanImeis(raw: string[] | undefined): string[] {
 }
 
 /** A unit the shop holds: on the shelf, or a trade-in phone waiting for QC or in repair. */
-export const HELD = ["IN_STOCK", "QC", "IN_REPAIR"];
+const HELD = ["IN_STOCK", "QC", "IN_REPAIR"];
 
 /** The trackSerial items among these ids. */
 export async function trackedItemIds(tx: Tx, businessId: string, itemIds: string[]): Promise<Set<string>> {

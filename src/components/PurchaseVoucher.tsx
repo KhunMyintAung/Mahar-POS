@@ -69,7 +69,7 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
             <span>Date</span><span className="text-right">{fmtDateTime(data.createdAt)}</span>
             <span>Supplier</span><span className="text-right">{data.supplierName ?? "—"}{data.supplierPhone ? ` · ${data.supplierPhone}` : ""}</span>
             {data.line && <><span>Bought for</span><span className="text-right">{data.line === "SERVICE" ? "Daily Service Expense" : "Daily Sale Expense"}</span></>}
-            {data.tradeIn && <><span>Type</span><span className="text-right">Trade-in</span></>}
+            {data.tradeIn && <><span>Purchase type</span><span className="text-right">Trade-in</span></>}
             {data.reference && <><span>Reference</span><span className="text-right">{data.reference}</span></>}
             {data.createdByName && <><span>Recorded by</span><span className="text-right">{data.createdByName}</span></>}
           </div>

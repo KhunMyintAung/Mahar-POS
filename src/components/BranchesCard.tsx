@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Plus, Store, UserCog } from "lucide-react";
 import { api } from "@/lib/client";
-import { Button, Card, Input, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, Input, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 
 /** A short branch code from its name, e.g. "Mahar Shwe Hlaing" → "MSH". Kept unique by a
@@ -51,10 +51,7 @@ export function BranchesCard({ usersOn, onShowUsers }: { usersOn: boolean; onSho
 
   return (
     <Card className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold">Branches and staff</h3>
-        <p className="mt-1 text-xs text-gray-500">Run more than one shop under this account, and give each person their own login.</p>
-      </div>
+      <CardTitle icon={Store} title="Branches and staff" hint="Run more than one shop under this account, and give each person their own login." />
 
       <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
         {branches.map((b) => (

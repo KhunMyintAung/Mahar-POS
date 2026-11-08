@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_Myanmar } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { InstalledAppMark } from "@/components/InstalledAppMark";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Not every phone has a good Myanmar font of its own. The browser fetches it only when Myanmar
+// text is on screen, so it is not preloaded.
+const notoMyanmar = Noto_Sans_Myanmar({ variable: "--font-noto-myanmar", subsets: ["myanmar"], weight: ["400", "500", "600", "700"], preload: false, display: "swap" });
 
 /** Where the site actually lives, used to make every canonical and social URL absolute.
  *  Search engines treat a relative canonical as no canonical at all. */
@@ -73,7 +76,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${notoMyanmar.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script
           // apply saved theme before paint to avoid flashing

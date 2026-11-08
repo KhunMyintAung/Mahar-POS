@@ -17,7 +17,7 @@ import { createIncomeExpenseEntry } from "./incomeExpenseService";
  *     fee are added to the phone's own cost, so the sale later shows the true profit.
  *  Only a phone in stock joins the item's average cost and its stock count. */
 
-export const TRADE_IN_CUSTOMER = "Trade-in (shop)";
+const TRADE_IN_CUSTOMER = "Trade-in (shop)";
 
 async function heldSerial(tx: Tx, businessId: string, serialId: string) {
   const s = await tx.itemSerial.findFirst({

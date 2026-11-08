@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { FileSpreadsheet, LayoutList, LocateFixed, Printer, Store, UserCircle } from "lucide-react";
-import { Button, Card, Input, Spinner, cn, useToast } from "@/components/ui";
+import { FileSpreadsheet, LayoutList, LocateFixed, MapPin, Printer, ShieldCheck, Store, TriangleAlert, UserCircle } from "lucide-react";
+import { Button, Card, CardTitle, Input, Spinner, Switch, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import { RepairFlowCard } from "@/components/RepairFlowCard";
@@ -113,11 +113,11 @@ export default function SettingsPage() {
     }, { enableHighAccuracy: true, timeout: 15000 });
   }
 
-  async function save(fn: () => Promise<unknown>) {
+  async function save(fn: () => Promise<unknown>, saved = "Settings saved") {
     setBusy(true);
     try {
       await fn();
-      push("Settings saved");
+      push(saved);
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
     } finally {
@@ -136,22 +136,6 @@ export default function SettingsPage() {
       window.location.href = "/users";
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
-    }
-  }
-
-  async function saveModules() {
-    setBusy(true);
-    try {
-      await api("/api/v1/settings", {
-        method: "PUT",
-        body: { key: "modules", value: moduleSettingFromFeatures(features) },
-      });
-      await refreshAuth();
-      push("Module setting saved");
-    } catch (e) {
-      push(e instanceof Error ? e.message : "Failed", "error");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -182,7 +166,7 @@ export default function SettingsPage() {
             type="button"
             onClick={() => selectTab(t.key)}
             className={cn(
-              "flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition",
+              "flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition sm:min-w-0 sm:flex-1",
               current === t.key ? "bg-white text-blue-600 shadow dark:bg-gray-900" : "text-gray-600 hover:text-gray-900 dark:text-gray-300"
             )}
           >
@@ -193,7 +177,7 @@ export default function SettingsPage() {
 
       {current === "shop" && <>
       <Card>
-        <h3 className="mb-3 text-sm font-semibold">Business profile</h3>
+        <CardTitle icon={Store} title="Business profile" className="mb-3" />
         <div className="space-y-3">
           <Input label="Business name" value={biz.name} onChange={(e) => setBiz({ ...biz, name: e.target.value })} />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -209,10 +193,13 @@ export default function SettingsPage() {
 
           <div className="space-y-2 rounded-lg border border-gray-200 p-3 dark:border-gray-700">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="text-sm font-medium">Shop location</div>
-                <div className="text-xs text-gray-500">
-                  {biz.latitude != null && biz.longitude != null ? `${biz.latitude}, ${biz.longitude}` : "Not pinned yet"}
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="shrink-0 text-gray-400" />
+                <div>
+                  <div className="text-sm font-medium">Shop location</div>
+                  <div className="text-xs text-gray-500">
+                    {biz.latitude != null && biz.longitude != null ? `${biz.latitude}, ${biz.longitude}` : "Not pinned yet"}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -268,7 +255,7 @@ export default function SettingsPage() {
 
       {current === "menu" && (
       <Card>
-        <h3 className="text-sm font-semibold">Sidebar functions</h3>
+        <CardTitle icon={LayoutList} title="Sidebar functions" />
         {FEATURE_GROUPS.map((group) => (
           <div key={group} className="mt-4">
             <h4 className="mb-2 text-xs font-semibold uppercase text-gray-500">{group}</h4>
@@ -278,33 +265,24 @@ export default function SettingsPage() {
                 .map((item) => (
                 <div key={item.key} className="flex min-h-12 items-center justify-between gap-4 px-3 py-2">
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{item.label}</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={features[item.key]}
-                    aria-label={`${item.label} ${features[item.key] ? "on" : "off"}`}
-                    onClick={() =>
-                      setFeatures((current) => ({
-                        ...current,
-                        [item.key]: !current[item.key],
-                      }))
-                    }
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${
-                      features[item.key] ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-700"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                        features[item.key] ? "left-6" : "left-1"
-                      }`}
-                    />
-                  </button>
+                  <Switch
+                    on={features[item.key]}
+                    label={item.label}
+                    onChange={(on) => setFeatures((current) => ({ ...current, [item.key]: on }))}
+                  />
                 </div>
                 ))}
             </div>
           </div>
         ))}
-        <Button className="mt-3" disabled={busy} onClick={saveModules}>
+        <Button
+          className="mt-3"
+          disabled={busy}
+          onClick={() => save(async () => {
+            await api("/api/v1/settings", { method: "PUT", body: { key: "modules", value: moduleSettingFromFeatures(features) } });
+            await refreshAuth();
+          }, "Module setting saved")}
+        >
           Save sidebar functions
         </Button>
       </Card>
@@ -317,7 +295,7 @@ export default function SettingsPage() {
       {!deviceShop && me?.user.roleName === "Owner" && <DeviceShopAllowCard />}
 
       {!deviceShop && <Card>
-        <h3 className="text-sm font-semibold">Privacy and account</h3>
+        <CardTitle icon={ShieldCheck} title="Privacy and account" />
         <div className="mt-3 flex flex-wrap gap-3 text-sm">
           <Link className="font-medium text-blue-600 hover:text-blue-700" href="/privacy">Privacy policy</Link>
           <Link className="font-medium text-red-600 hover:text-red-700" href="/account-deletion">Request account deletion</Link>
@@ -326,14 +304,14 @@ export default function SettingsPage() {
 
       {me?.user.roleName === "Owner" && !deviceShop && (
         <Card className="border-red-300 dark:border-red-900">
-          <h3 className="text-sm font-semibold text-red-700 dark:text-red-400">Delete this business</h3>
+          <CardTitle icon={TriangleAlert} tone="red" title="Delete this business" />
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             Erases this business and everything in it — wallets and their history, credits,
             sales, purchases, stock, records, users and audit logs. It happens immediately
             and cannot be undone, and there is no copy afterwards.
           </p>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Type <b>{data.business.name}</b> to confirm.
+            {`Type ${data.business.name} to confirm.`}
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div className="min-w-56 flex-1">

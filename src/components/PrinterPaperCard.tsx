@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
-import { Button, Card, cn, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { getPaperWidth, setPaperWidth, type PaperWidth } from "@/lib/printSettings";
@@ -45,10 +45,7 @@ export function PrinterPaperCard() {
 
   return (
     <Card className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold">Receipt printer paper</h3>
-        <p className="mt-1 text-xs text-gray-500">{phoneShop ? "For the printer on this device. Every voucher, receipt and warranty card is sized to it." : "For the printer on this device. Every receipt is sized to it."}</p>
-      </div>
+      <CardTitle icon={Printer} title="Receipt printer paper" hint={phoneShop ? "For the printer on this device. Every voucher, receipt and warranty card is sized to it." : "For the printer on this device. Every receipt is sized to it."} />
       <div className="grid grid-cols-2 gap-2">
         {([58, 80] as const).map((w) => (
           <button

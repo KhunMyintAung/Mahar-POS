@@ -1,3 +1,8 @@
+/** An IMEI or serial as stored: no spaces or dashes, upper case. */
+export function normalizeImei(raw: string): string {
+  return raw.replace(/[\s-]/g, "").toUpperCase();
+}
+
 /** IMEIs as typed or scanned into a box: one per line, or separated by spaces or commas.
  *  Spaces inside a number are not supported, since a scanner never sends them. */
 export function splitImeis(text: string): string[] {

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
-import { Button, Card, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, useToast } from "@/components/ui";
 
 /** Largest stored logo. Wide word-mark logos keep their full width; plenty for a 58mm slip
  *  and small enough to live in the database and travel with every print. */
@@ -106,8 +106,7 @@ export function BusinessLogoCard({ initial, onSaved }: { initial: string | null;
 
   return (
     <Card>
-      <h3 className="text-sm font-semibold">Business logo</h3>
-      <p className="mb-3 mt-1 text-xs text-gray-500"><span>Printed at the top of every voucher and receipt.</span> <span>Square or wide logos both work (PNG, JPG, WebP, GIF, SVG).</span></p>
+      <CardTitle icon={ImagePlus} title="Business logo" className="mb-3" hint={<><span>Printed at the top of every voucher and receipt.</span> <span>Square or wide logos both work (PNG, JPG, WebP, GIF, SVG).</span></>} />
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-24 w-48 max-w-full items-center justify-center p-2 overflow-hidden rounded-lg border border-dashed border-gray-300 bg-white dark:border-gray-700">
           {logo ? (

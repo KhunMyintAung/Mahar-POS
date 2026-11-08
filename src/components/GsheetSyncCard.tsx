@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, CheckCircle2, Copy, ExternalLink, FileSpreadsheet, Link2, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { api } from "@/lib/client";
-import { Button, Card, cn, useToast } from "@/components/ui";
+import { Button, Card, CardTitle, Switch, cn, useToast } from "@/components/ui";
 
 type Interval = "hourly" | "daily";
 interface Cfg { url: string | null; auto: boolean; interval: Interval; time: string; lastSent: string | null; lastResult: string | null; script: string }
@@ -18,15 +18,6 @@ function lastRun(result: string | null) {
   const at = new Date(stamp);
   const text = rest.join(" · ");
   return { at: Number.isNaN(+at) ? null : at, text, ok: !text.startsWith("failed") };
-}
-
-function Switch({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={() => onChange(!on)}
-      className={cn("relative h-6 w-11 shrink-0 rounded-full transition disabled:opacity-50", on ? "bg-green-600" : "bg-gray-300 dark:bg-gray-700")}>
-      <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all", on ? "left-5" : "left-0.5")} />
-    </button>
-  );
 }
 
 function Step({ n, title, done, children }: { n: number; title: string; done?: boolean; children: React.ReactNode }) {
@@ -138,13 +129,11 @@ export function GsheetSyncCard() {
     <Card className="space-y-4">
       {/* Header + status */}
       <div>
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"><FileSpreadsheet size={22} /></span>
-          <h3 className="min-w-0 flex-1 text-base font-semibold">Google Sheet sync</h3>
+        <CardTitle icon={FileSpreadsheet} tone="green" title="Google Sheet sync">
           <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold", connected ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
             {connected ? "Connected" : "Not connected"}
           </span>
-        </div>
+        </CardTitle>
         <p className="mt-2 text-sm text-gray-500">Your reports in your own Google Sheet. Only the numbers change — your colours, column widths and fonts stay as you set them.</p>
       </div>
 

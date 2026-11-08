@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CloudUpload, DatabaseBackup, Download, HardDrive, RefreshCw, Share2, Upload } from "lucide-react";
-import { Button, Card, ConfirmDialog, Input, useToast } from "./ui";
+import { Button, Card, CardTitle, ConfirmDialog, Input, useToast } from "./ui";
 import {
   BACKUP_REMIND_DAYS,
   canShareFile,
@@ -58,10 +58,7 @@ export function DeviceShopCard() {
       <DeviceBackupCard />
       <MoveToAccountCard />
       <Card className="space-y-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold"><HardDrive size={16} />{"This device only"}</h3>
-          <p className="mt-1 text-xs text-gray-500">{"This shop has no account. Its books are kept in this phone or computer only, and every screen works without the internet."}</p>
-        </div>
+        <CardTitle icon={HardDrive} title="This device only" hint="This shop has no account. Its books are kept in this phone or computer only, and every screen works without the internet." />
         <dl className="grid gap-1 rounded-lg bg-gray-50 p-3 text-xs dark:bg-gray-800/60">
           <div className="flex justify-between gap-2"><dt className="text-gray-500">{"App kept on this device"}</dt><dd>{readyAt ? new Date(readyAt).toLocaleString() : "-"}</dd></div>
           {usage && <div className="flex justify-between gap-2"><dt className="text-gray-500">{"Space used"}</dt><dd>{(usage.used / 1024 / 1024).toFixed(1)} MB</dd></div>}
@@ -119,10 +116,7 @@ function MoveToAccountCard() {
   const busy = step !== null;
   return (
     <Card className="space-y-3">
-      <div>
-        <h3 className="flex items-center gap-2 text-sm font-semibold"><CloudUpload size={16} />{"Move to an online account"}</h3>
-        <p className="mt-1 text-xs text-gray-500">{"When the shop has the internet: every record goes into a new online account, to use from any phone or computer, with staff accounts, Telegram and backups on the server."}</p>
-      </div>
+      <CardTitle icon={CloudUpload} title="Move to an online account" hint="When the shop has the internet: every record goes into a new online account, to use from any phone or computer, with staff accounts, Telegram and backups on the server." />
       {!open ? (
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)} disabled={!online}>
           <CloudUpload size={14} className="mr-1 inline" />{online ? "Move to an online account" : "Needs the internet"}
@@ -225,10 +219,7 @@ function DeviceBackupCard() {
 
   return (
     <Card className="space-y-3">
-      <div>
-        <h3 className="flex items-center gap-2 text-sm font-semibold"><DatabaseBackup size={16} />{"Backup"}</h3>
-        <p className="mt-1 text-xs text-gray-500">{"The shop's books are only on this device. A backup is one file with all of them: keep it somewhere else (Telegram, Google Drive, a computer). On a new phone, set up This device only and restore it."}</p>
-      </div>
+      <CardTitle icon={DatabaseBackup} title="Backup" hint="The shop's books are only on this device. A backup is one file with all of them: keep it somewhere else (Telegram, Google Drive, a computer). On a new phone, set up This device only and restore it." />
       <div className="flex justify-between gap-2 rounded-lg bg-gray-50 p-3 text-xs dark:bg-gray-800/60">
         <span className="text-gray-500">{"Last backup"}</span>
         <span className={overdue ? "font-medium text-amber-700 dark:text-amber-400" : "text-green-700 dark:text-green-400"}>
