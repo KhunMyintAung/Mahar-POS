@@ -37,17 +37,32 @@
   input, select, textarea { font-size: 16px !important; }
 }
 
+/* The raised digits after a decimal point: all ten from one font of the device, because the
+   web font has only some of them and a mixed set looks uneven. */
+@font-face {
+  font-family: "Raised digits";
+  src: local("Segoe UI"), local("Roboto"), local("Helvetica Neue"), local("Arial");
+  unicode-range: U+B2-B3, U+B9, U+2070, U+2074-2079;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), var(--font-noto-myanmar), "Pyidaungsu", "Myanmar Text", Arial, sans-serif;
+  font-family: "Raised digits", var(--font-geist-sans), var(--font-noto-myanmar), "Pyidaungsu", "Myanmar Text", Arial, sans-serif;
   overflow-x: hidden;
 }
 
-/* Myanmar letters stack above and below the line, so small text needs more room to stay clear. */
+/* Myanmar letters look larger than Latin at the same size, so each size is a step down. They
+   also stack above and below the line, so small text needs more room to stay clear. */
 html[lang="my"] {
+  --text-xs: 0.71875rem;
   --text-xs--line-height: 1.55;
+  --text-sm: 0.8125rem;
   --text-sm--line-height: 1.6;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.1875rem;
+  --text-2xl: 1.375rem;
 }
 
 /* Sale POS: a tapped product pops, and the mobile cart bar bounces, so a cashier sees the

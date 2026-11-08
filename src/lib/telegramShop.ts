@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { answerCallbackQuery, btn, keyboard, linkBtn, sendMessage, sendPhoto, type InlineButton, type TgUpdate } from "./telegram";
 import { allowOrder, publicShop } from "./onlineShop";
 import { placeOnlineOrder, type PublicShop } from "./onlineOrder";
-import { fmtMoney } from "./format";
+import { fmtMoneyPlain } from "./format";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
@@ -55,7 +55,7 @@ async function loadShop(ownerUserId: string): Promise<Shop | null> {
   return shop && shop.items.length > 0 ? { ...shop, slug } : null;
 }
 
-const price = (shop: Shop, minor: bigint) => fmtMoney(minor, shop.business.currency);
+const price = (shop: Shop, minor: bigint) => fmtMoneyPlain(minor, shop.business.currency);
 const itemName = (i: Item) => [i.name, i.variant].filter(Boolean).join(" · ");
 
 /** Words typed by the customer, matched against name, model, variant and category. */

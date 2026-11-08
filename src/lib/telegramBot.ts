@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { branchScope } from "./auth";
 import type { AuthUser } from "./auth";
 import { toMinor, isValidDecimalString } from "./money";
-import { fmtMoney } from "./format";
+import { fmtMoneyPlain } from "./format";
 import { todayBusinessDate } from "./dates";
 import { createIncomeExpenseEntry, recordFloatExpense } from "@/services/incomeExpenseService";
 import { createTransfer } from "@/services/walletService";
@@ -163,7 +163,7 @@ const CANCEL_ROW = [btn("✕ မလုပ်တော့ပါ", "cancel")];
 const SKIP_ROW = [btn("ကျော်မည် →", "skip")];
 
 function money(n: string): string {
-  return fmtMoney(toMinor(n).toString());
+  return fmtMoneyPlain(toMinor(n).toString());
 }
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ async function walletButtons(businessId: string, branchId: string, currency?: st
     // Fall back to any wallet if the business has no wallet of the preferred type yet.
     wallets = await prisma.wallet.findMany({ where: base, orderBy: { name: "asc" } });
   }
-  return { wallets, rows: wallets.map((w) => [btn(`${w.name} (${fmtMoney(w.currentBalance)} ${w.currency})`, `w:${w.id}`)]) };
+  return { wallets, rows: wallets.map((w) => [btn(`${w.name} (${fmtMoneyPlain(w.currentBalance)} ${w.currency})`, `w:${w.id}`)]) };
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +201,7 @@ async function startBiller(chatId: string, user: AuthUser) {
   if (billers.length === 0) {
     return sendMessage(chatId, "ဖုန်းဘေ Biller မထည့်ရသေးပါ။ Mahar Mini POS ရဲ့ Top-up Billers မှာ ထည့်ပါ။");
   }
-  const rows = billers.map((b) => [btn(`${b.name} (${fmtMoney(b.currentBalance)})`, `b:${b.id}`)]);
+  const rows = billers.map((b) => [btn(`${b.name} (${fmtMoneyPlain(b.currentBalance)})`, `b:${b.id}`)]);
   await setSession(user.id, chatId, "bl.biller", { branchId });
   await sendMessage(chatId, "📱 ဖုန်းဘေဖြည့်\n\nဘယ် Operator လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
@@ -226,7 +226,7 @@ async function blStepBiller(chatId: string, user: AuthUser, data: Record<string,
   });
   await sendMessage(
     chatId,
-    `${biller.name}\nလက်ရှိ ဘေလက်ကျန်: ${fmtMoney(biller.currentBalance)}\n\nဘာကို မှတ်မလဲ?`,
+    `${biller.name}\nလက်ရှိ ဘေလက်ကျန်: ${fmtMoneyPlain(biller.currentBalance)}\n\nဘာကို မှတ်မလဲ?`,
     { replyMarkup: keyboard([...rows, CANCEL_ROW]) }
   );
 }
@@ -257,7 +257,7 @@ async function blStepFaceText(chatId: string, user: AuthUser, data: Record<strin
   // A bill sells for a round sum: offered as a button, the next thousand up.
   const round = data.kind === "SALE" ? roundUpBillMinor(face) : 0n;
   await sendMessage(chatId, `${prompt}\n\nလျှော့ဈေး မရှိရင် ပမာဏ အတူတူ ပို့ပါ။`, {
-    replyMarkup: keyboard([...(round > 0n ? [[btn(`💵 ${fmtMoney(round)}`, `c:${(round / 100n).toString()}`)]] : []), CANCEL_ROW]),
+    replyMarkup: keyboard([...(round > 0n ? [[btn(`💵 ${fmtMoneyPlain(round)}`, `c:${(round / 100n).toString()}`)]] : []), CANCEL_ROW]),
   });
 }
 
@@ -288,11 +288,11 @@ async function blStepWallet(chatId: string, user: AuthUser, data: Record<string,
   const lines = [
     kind === "TOPUP" ? "📥 ဘေလက်ကျန် ဝယ်" : "📤 ဖောက်သည်ကို ရောင်း",
     `${data.billerName}`,
-    `ဘေ: ${fmtMoney(face)}`,
-    `ငွေသား: ${fmtMoney(cash)} (${wallet.name} ${kind === "TOPUP" ? "မှ ထွက်" : "ထဲ ဝင်"})`,
-    ...(commission > 0n ? [`Commission ပြန်ရ: ${fmtMoney(commission)}`] : []),
-    `အမြတ်: ${fmtMoney(margin)}${kind === "SALE" && margin > 0n ? " (ဝင်ငွေ Bill Profit ထဲ ထည့်မည်)" : ""}`,
-    `ပြီးရင် ဘေလက်ကျန်: ${fmtMoney(after)}`,
+    `ဘေ: ${fmtMoneyPlain(face)}`,
+    `ငွေသား: ${fmtMoneyPlain(cash)} (${wallet.name} ${kind === "TOPUP" ? "မှ ထွက်" : "ထဲ ဝင်"})`,
+    ...(commission > 0n ? [`Commission ပြန်ရ: ${fmtMoneyPlain(commission)}`] : []),
+    `အမြတ်: ${fmtMoneyPlain(margin)}${kind === "SALE" && margin > 0n ? " (ဝင်ငွေ Bill Profit ထဲ ထည့်မည်)" : ""}`,
+    `ပြီးရင် ဘေလက်ကျန်: ${fmtMoneyPlain(after)}`,
   ];
   await sendMessage(chatId, lines.join("\n"), {
     replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]),
@@ -335,7 +335,7 @@ async function blConfirm(chatId: string, user: AuthUser, data: Record<string, un
       await setSession(user.id, chatId, "bl.expense", { txnId: txn.id, txnNo: txn.txnNo, cash: txn.cashAmount.toString(), billerName: data.billerName });
       await sendMessage(
         chatId,
-        `ဘေဝယ်ငွေ ${fmtMoney(txn.cashAmount)} ကို ထွက်ငွေ (Daily Bill Expense) ထဲ ထည့်မလား?\n\nငွေက ဒီဝယ်ယူမှုနဲ့ wallet ထဲက ထွက်ပြီးပါပြီ — ထွက်ငွေ စာရင်းမှာ မှတ်ရုံပဲ ဖြစ်လို့ နှစ်ခါ မနှုတ်ပါ။`,
+        `ဘေဝယ်ငွေ ${fmtMoneyPlain(txn.cashAmount)} ကို ထွက်ငွေ (Daily Bill Expense) ထဲ ထည့်မလား?\n\nငွေက ဒီဝယ်ယူမှုနဲ့ wallet ထဲက ထွက်ပြီးပါပြီ — ထွက်ငွေ စာရင်းမှာ မှတ်ရုံပဲ ဖြစ်လို့ နှစ်ခါ မနှုတ်ပါ။`,
         { replyMarkup: keyboard([[btn("✅ ထွက်ငွေထဲ ထည့်မည်", "fx:yes"), btn("မထည့်ပါ", "fx:no")]]) }
       );
       return;
@@ -352,8 +352,8 @@ async function blAddExpense(chatId: string, user: AuthUser, data: Record<string,
   try {
     await prisma.$transaction((tx) => recordFloatExpense(tx, { businessId: user.businessId, userId: user.id, billerTxnId: String(data.txnId) }));
     await clearSession(user.id, chatId);
-    notifyAuditFeed(user.businessId, `💸 ထွက်ငွေ — ${fmtMoney(BigInt(String(data.cash)))} · Daily Bill Expense\nဘေဝယ် ${data.billerName ?? ""} (${data.txnNo})\n👤 ${user.name}`, chatId);
-    await showMenu(chatId, user, `✅ ${fmtMoney(BigInt(String(data.cash)))} ကို ထွက်ငွေထဲ ထည့်ပြီးပါပြီ။`);
+    notifyAuditFeed(user.businessId, `💸 ထွက်ငွေ — ${fmtMoneyPlain(BigInt(String(data.cash)))} · Daily Bill Expense\nဘေဝယ် ${data.billerName ?? ""} (${data.txnNo})\n👤 ${user.name}`, chatId);
+    await showMenu(chatId, user, `✅ ${fmtMoneyPlain(BigInt(String(data.cash)))} ကို ထွက်ငွေထဲ ထည့်ပြီးပါပြီ။`);
   } catch (e) {
     await prisma.telegramSession.updateMany({ where: { ownerUserId: user.id, chatId, step: "bl.saving" }, data: { step: "bl.expense" } });
     await sendMessage(chatId, `❌ ${e instanceof ApiError ? e.message : "အမှားတစ်ခု ဖြစ်သွားပါတယ်။"}`);
@@ -636,8 +636,8 @@ async function msAskConfirm(chatId: string, user: AuthUser, data: Record<string,
   const transfer = data.kind === "TRANSFER";
   if (!transfer && fee >= amount) return sendMessage(chatId, "ခ က ပမာဏထက် နည်းရပါမယ်။");
   const lines = transfer
-    ? ["💸 ငွေလွဲပေး", `ပမာဏ: ${fmtMoney(amount)} (${data.accountName} မှ လွဲ)`, `ခ: ${fmtMoney(fee)}`, `ဖောက်သည် ငွေသား ပေးရ: ${fmtMoney(amount + fee)} (${data.cashName} ထဲ ဝင်)`]
-    : ["💵 ငွေထုတ်ပေး", `ပမာဏ: ${fmtMoney(amount)} (${data.accountName} ထဲ ဝင်)`, `ခ: ${fmtMoney(fee)}`, `ဖောက်သည်ကို ငွေသား ပေး: ${fmtMoney(amount - fee)} (${data.cashName} မှ)`];
+    ? ["💸 ငွေလွဲပေး", `ပမာဏ: ${fmtMoneyPlain(amount)} (${data.accountName} မှ လွဲ)`, `ခ: ${fmtMoneyPlain(fee)}`, `ဖောက်သည် ငွေသား ပေးရ: ${fmtMoneyPlain(amount + fee)} (${data.cashName} ထဲ ဝင်)`]
+    : ["💵 ငွေထုတ်ပေး", `ပမာဏ: ${fmtMoneyPlain(amount)} (${data.accountName} ထဲ ဝင်)`, `ခ: ${fmtMoneyPlain(fee)}`, `ဖောက်သည်ကို ငွေသား ပေး: ${fmtMoneyPlain(amount - fee)} (${data.cashName} မှ)`];
   if (fee > 0n) lines.push("ခ ကို ဝင်ငွေ (Transfer & Cash-out Fee) ထဲ အလိုလို ထည့်ပါမယ်။");
   await setSession(user.id, chatId, "ms.confirm", { ...data, fee: raw });
   await sendMessage(chatId, lines.join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု", "confirm:yes"), btn("✕ မလုပ်တော့ပါ", "confirm:no")]]) });
@@ -973,7 +973,7 @@ async function showMyRepairs(chatId: string, user: AuthUser) {
     `မပြင်နိုင်: ${mine.cannotRepair}`,
     `ပြင်နေဆဲ: ${mine.working}`,
     `ပျမ်းမျှ ရက်: ${mine.avgDays ?? "—"}`,
-    mine.userId ? `💰 ကော်မရှင်: ${fmtMoney(mine.commission.toString())}` : null,
+    mine.userId ? `💰 ကော်မရှင်: ${fmtMoneyPlain(mine.commission.toString())}` : null,
   ].filter(Boolean);
   return showMenu(chatId, user, lines.join("\n"));
 }

@@ -1,15 +1,27 @@
 // Client-safe formatting helpers. API money values arrive as strings of minor
 // units (1/100). No floating point is used for display math.
 
-export function fmtMoney(minor: string | number | bigint | null | undefined, currency?: string): string {
+function money(minor: string | number | bigint | null | undefined, currency: string | undefined, cents: (digits: string) => string): string {
   if (minor === null || minor === undefined) return "-";
   const v = BigInt(minor);
   const neg = v < 0n;
   const abs = neg ? -v : v;
   const whole = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const frac = abs % 100n;
-  const s = frac === 0n ? whole : `${whole}.${frac.toString().padStart(2, "0")}`;
+  const s = frac === 0n ? whole : `${whole}.${cents(frac.toString().padStart(2, "0"))}`;
   return `${neg ? "-" : ""}${s}${currency ? " " + currency : ""}`;
+}
+
+const RAISED = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+
+/** For the screen: the digits after the point are small and raised, 1,234.⁵⁰ */
+export function fmtMoney(minor: string | number | bigint | null | undefined, currency?: string): string {
+  return money(minor, currency, (digits) => digits.replace(/\d/g, (d) => RAISED[Number(d)]));
+}
+
+/** For text that leaves the app, such as a Telegram message: ordinary digits, 1,234.50 */
+export function fmtMoneyPlain(minor: string | number | bigint | null | undefined, currency?: string): string {
+  return money(minor, currency, (digits) => digits);
 }
 
 export function fmtDateTime(iso: string | Date): string {
