@@ -15,6 +15,7 @@ import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
 import { NetModeCard } from "@/components/NetModeBar";
 import { DeviceShopCard } from "@/components/DeviceShopCard";
+import { DeviceShopAllowCard } from "@/components/DeviceShopAllowCard";
 import { isDeviceShop } from "@/lib/device";
 import {
   defaultFeaturesForMode,
@@ -313,6 +314,7 @@ export default function SettingsPage() {
       {/* Online only / Sync later / Offline for this device's till; a shop kept on this device
           only has no server to reach. */}
       {deviceShop ? <DeviceShopCard /> : featureEnabled("pos") && <NetModeCard />}
+      {!deviceShop && me?.user.roleName === "Owner" && <DeviceShopAllowCard />}
 
       {!deviceShop && <Card>
         <h3 className="text-sm font-semibold">Privacy and account</h3>

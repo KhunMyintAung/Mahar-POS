@@ -15,6 +15,8 @@ interface PurchaseVoucherData {
   lines: { id: string; quantity: number; unitCost: string; lineTotal: string; imeis: string[]; item: { name: string; sku: string } }[];
   business: { name: string; phone?: string | null; address?: string | null } | null;
   supplierName: string | null; supplierPhone: string | null; walletName: string | null; createdByName: string | null;
+  /** What it was bought for (its expense side), and whether it was a trade-in phone. */
+  line?: "SALE" | "SERVICE" | null; tradeIn?: boolean;
 }
 
 /** A purchase as a voucher, opened by its id: the items, their cost, the supplier and how
@@ -66,6 +68,8 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
             <span>Voucher no</span><b className="text-right">{data.txnNo}</b>
             <span>Date</span><span className="text-right">{fmtDateTime(data.createdAt)}</span>
             <span>Supplier</span><span className="text-right">{data.supplierName ?? "—"}{data.supplierPhone ? ` · ${data.supplierPhone}` : ""}</span>
+            {data.line && <><span>Bought for</span><span className="text-right">{data.line === "SERVICE" ? "Daily Service Expense" : "Daily Sale Expense"}</span></>}
+            {data.tradeIn && <><span>Type</span><span className="text-right">Trade-in</span></>}
             {data.reference && <><span>Reference</span><span className="text-right">{data.reference}</span></>}
             {data.createdByName && <><span>Recorded by</span><span className="text-right">{data.createdByName}</span></>}
           </div>

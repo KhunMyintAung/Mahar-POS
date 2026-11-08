@@ -12,6 +12,7 @@ import { api } from "@/lib/client";
 import { Eye, EyeOff, HardDrive } from "lucide-react";
 import { isDeviceShop } from "@/lib/device";
 import { useInstalledApp } from "@/lib/installedApp";
+import { useDeviceShopAllowed } from "@/lib/deviceShopAllowed";
 
 /** The username is kept on this device so the next sign-in only needs the password, which
  *  the browser's own password manager saves (never this page). */
@@ -39,6 +40,7 @@ export default function LoginPage() {
   const [shown, setShown] = useState(false);
   const [remember, setRemember] = useState(true);
   const installed = useInstalledApp();
+  const deviceShopAllowed = useDeviceShopAllowed();
 
   useEffect(() => {
     // Read straight from the URL rather than through useSearchParams, which would make
@@ -117,7 +119,8 @@ export default function LoginPage() {
             Create a free account
           </Link>
         </p>
-        {installed ? (
+        {/* "This device only": only on a device the owner turned it on for (Settings → Account). */}
+        {installed && deviceShopAllowed && (
           <Link href="/device-setup" className="mt-4 flex items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 text-left text-sm hover:border-blue-300 dark:border-gray-700">
             <HardDrive size={20} className="shrink-0 text-gray-500" />
             <span>
@@ -125,15 +128,6 @@ export default function LoginPage() {
               <span className="block text-xs text-gray-500">{"Use on this device only: no account, works offline."}</span>
             </span>
           </Link>
-        ) : (
-          // Without the internet only in the installed app (src/lib/installedApp.ts).
-          <div className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-left text-sm dark:border-gray-700">
-            <HardDrive size={20} className="shrink-0 text-gray-400" />
-            <span>
-              <span className="block font-medium">{"No internet at the shop?"}</span>
-              <span className="block text-xs text-gray-500">{"Install the app on the phone or computer (or the Android app), then open it: This device only works without the internet."}</span>
-            </span>
-          </div>
         )}
         <div className="mt-3 flex justify-center">
           <PwaInstall />
@@ -142,9 +136,6 @@ export default function LoginPage() {
           <a className="text-gray-500 hover:text-blue-600" href="https://maharpos.shop">Home page</a>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- /manual is a route handler serving plain HTML */}
           <a className="text-gray-500 hover:text-blue-600" href="/manual">User manual</a>
-          <Link className="text-gray-500 hover:text-blue-600" href="/features">What is Mahar Mini POS?</Link>
-          <Link className="text-gray-500 hover:text-blue-600" href="/privacy">Privacy</Link>
-          <Link className="text-gray-500 hover:text-red-600" href="/account-deletion">Delete account</Link>
         </div>
       </Card>
     </main>

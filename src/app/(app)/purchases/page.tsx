@@ -292,8 +292,8 @@ export default function PurchasesPage() {
           {tab === "suppliers" && hasPerm("customer.manage") && (
             <Button variant={hasPerm("purchase.create") ? "secondary" : "primary"} onClick={() => setNewSupplier(true)}><Plus size={16} className="mr-1 inline" />New supplier</Button>
           )}
-          {phoneShop && hasPerm("purchase.create") && (
-            <Button variant={tab === "tradein" ? "primary" : "secondary"} onClick={() => setShowTradeIn(true)}><Plus size={16} className="mr-1 inline" />Trade-in phone</Button>
+          {phoneShop && tab === "tradein" && hasPerm("purchase.create") && (
+            <Button onClick={() => setShowTradeIn(true)}><Plus size={16} className="mr-1 inline" />Trade-in phone</Button>
           )}
           {hasPerm("purchase.create") && tab !== "tradein" && (
             <Button onClick={() => openNew(tab === "purchases" ? supplierFilter ?? undefined : undefined)}><Plus size={16} className="mr-1 inline" />New purchase</Button>
@@ -344,9 +344,10 @@ export default function PurchasesPage() {
           {pageRows.map((p) => (
             <tr key={p.id} className={p.status === "CANCELLED" ? "opacity-50" : ""}>
               <td className="px-3 py-2 text-xs">
-                <button type="button" className="font-medium text-blue-600 hover:underline" onClick={() => setVoucherFor(p.id)}>{p.txnNo}</button>
+                <button type="button" className="whitespace-nowrap font-medium text-blue-600 hover:underline" onClick={() => setVoucherFor(p.id)}>{p.txnNo}</button>
+                {p.tradeIn && <div className="mt-0.5"><span className="inline-block whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Trade-in</span></div>}
               </td>
-              <td className="px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDateTime(p.createdAt)}</td>
               <td className="px-3 py-2">
                 {p.supplierId && p.supplierName ? (
                   <button type="button" className="text-left text-blue-600 hover:underline" onClick={() => setSupplierFilterId(p.supplierId!)}>{p.supplierName}</button>
@@ -372,23 +373,9 @@ export default function PurchasesPage() {
               </td>
               <td className="px-3 py-2 text-right font-medium tabular-nums">{fmtMoney(p.total)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(p.paidAmount)}</td>
-              <td className="px-3 py-2">
-                <Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} />
-                {p.tradeIn && <span className="ml-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Trade-in</span>}
-              </td>
+              <td className="px-3 py-2"><Badge status={p.status === "CANCELLED" ? "CANCELLED" : p.paymentStatus} /></td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
-                  {(() => {
-                    // In expense already, or on credit with its side kept for when it is paid.
-                    const side = p.expenseLine ?? (BigInt(p.paidAmount) < BigInt(p.total) ? p.line : null);
-                    if (!side || p.status !== "COMPLETED") return null;
-                    // A label only: Sale or Service is chosen once, in the purchase form.
-                    const look = cn("inline-flex items-center rounded-md border px-2 text-xs font-medium",
-                      side === "SERVICE" ? "border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-300" : "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-300");
-                    const text = side === "SERVICE" ? "Service" : "Sale";
-                    const title = p.expenseLine ? `In expense as ${LINE_EXPENSE[side]}` : `Goes into ${LINE_EXPENSE[side]} as the supplier is paid`;
-                    return <span title={title} className={look}>{text}</span>;
-                  })()}
                   <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
                   {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
                     <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
