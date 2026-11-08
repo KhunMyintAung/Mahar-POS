@@ -7,6 +7,7 @@ import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { createPurchase } from "@/services/posService";
 import { todayBusinessDate, isValidBusinessDate } from "@/lib/dates";
+import { withPaymentsSince } from "@/lib/purchasePaid";
 
 export const GET = withAuth("purchase.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -52,7 +53,7 @@ export const GET = withAuth("purchase.view", async ({ req, user }) => {
   const laterOf = new Map(paidLater.map((g) => [g.fromPurchaseId, g._sum.amount ?? 0n]));
   const lineOf = new Map(expenses.map((e) => [e.purchaseId, serviceCat && e.categoryId === serviceCat.id ? "SERVICE" : "SALE"]));
   return json({
-    purchases: purchases.map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined, expenseLine: lineOf.get(p.id) ?? (laterOf.has(p.id) ? (p.line === "SERVICE" ? "SERVICE" : "SALE") : null), line: p.line ?? null })),
+    purchases: (await withPaymentsSince(user.businessId, purchases)).map((p) => ({ ...p, supplierName: p.supplierId ? byId.get(p.supplierId) : undefined, expenseLine: lineOf.get(p.id) ?? (laterOf.has(p.id) ? (p.line === "SERVICE" ? "SERVICE" : "SALE") : null), line: p.line ?? null })),
     total, page, pageSize,
     totalAmount: agg._sum.total ?? 0n,
   });

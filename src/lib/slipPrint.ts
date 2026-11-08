@@ -138,7 +138,8 @@ export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null 
  *  page as the sale receipt, with what was bought, its cost, the supplier and how it was paid. */
 export interface PurchaseSlipData {
   txnNo: string; createdAt: string; status: string; paymentStatus: string;
-  subtotal: number; discount: number; total: number; paid: number;
+  /** paid: in all; paidSince: of it, paid to the supplier after the purchase. */
+  subtotal: number; discount: number; total: number; paid: number; paidSince?: number;
   reference?: string | null; notes?: string | null;
   lines: { name: string; quantity: number; unitCost: number; lineTotal: number; imeis: string[] }[];
   shopName: string; shopPhone?: string | null; shopAddress?: string | null;
@@ -161,7 +162,7 @@ export function printPurchaseVoucher(p: PurchaseSlipData, targetWindow: Window |
     ${cancelled ? '<div class="void">CANCELLED</div>' : ""}
     <div class="meta"><div><span>Voucher</span><b>${escapeHtml(p.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(p.createdAt))}</b></div><div><span>Supplier</span><b>${escapeHtml(p.supplierName ?? "—")}${p.supplierPhone ? ` · ${escapeHtml(p.supplierPhone)}` : ""}</b></div>${p.reference ? `<div><span>Reference</span><b>${escapeHtml(p.reference)}</b></div>` : ""}${p.createdByName ? `<div><span>Recorded by</span><b>${escapeHtml(p.createdByName)}</b></div>` : ""}</div>
     <table class="items"><thead><tr><th>Item</th><th class="center c-qty">Qty</th><th class="right c-price">Cost</th><th class="right c-total">Amount</th></tr></thead><tbody>${items}</tbody></table>
-    <div class="summary">${p.discount > 0 ? `<div><span>Subtotal</span><b>${money(p.subtotal)}</b></div><div><span>Discount</span><b>-${money(p.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(p.total)} MMK</b></div><div><span>Paid${p.walletName ? ` (${escapeHtml(p.walletName)})` : ""}</span><b>${money(p.paid)}</b></div>${owed > 0 ? `<div><span>Credit (still owed)</span><b>${money(owed)}</b></div>` : ""}<div><span>Status</span><b>${state}</b></div></div>
+    <div class="summary">${p.discount > 0 ? `<div><span>Subtotal</span><b>${money(p.subtotal)}</b></div><div><span>Discount</span><b>-${money(p.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(p.total)} MMK</b></div><div><span>Paid${p.walletName ? ` (${escapeHtml(p.walletName)})` : ""}</span><b>${money(p.paid - (p.paidSince ?? 0))}</b></div>${p.paidSince ? `<div><span>Paid to supplier since</span><b>${money(p.paidSince)}</b></div>` : ""}${owed > 0 ? `<div><span>Credit (still owed)</span><b>${money(owed)}</b></div>` : ""}<div><span>Status</span><b>${state}</b></div></div>
     ${p.notes ? `<p class="muted left">${nl2br(p.notes)}</p>` : ""}
     <div class="sign"><div>Received by</div><div>Supplier</div></div>
     ${autoPrint(true)}</body></html>`;

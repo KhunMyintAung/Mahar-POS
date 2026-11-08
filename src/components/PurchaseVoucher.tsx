@@ -9,7 +9,9 @@ import { openPrintWindow, printPurchaseVoucher } from "@/lib/slipPrint";
 
 interface PurchaseVoucherData {
   id: string; txnNo: string; date: string; createdAt: string; status: string; paymentStatus: string;
-  subtotal: string; discount: string; total: string; paidAmount: string; reference?: string | null; notes?: string | null;
+  subtotal: string; discount: string; total: string; reference?: string | null; notes?: string | null;
+  /** Paid in all; of it, at purchase (from walletName) and to the supplier since. */
+  paidAmount: string; paidAtPurchase?: string; paidSince?: string;
   lines: { id: string; quantity: number; unitCost: string; lineTotal: string; imeis: string[]; item: { name: string; sku: string } }[];
   business: { name: string; phone?: string | null; address?: string | null } | null;
   supplierName: string | null; supplierPhone: string | null; walletName: string | null; createdByName: string | null;
@@ -43,7 +45,7 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
             const n = (v: string) => Number(v) / 100;
             printPurchaseVoucher({
               txnNo: data.txnNo, createdAt: data.createdAt, status: data.status, paymentStatus: data.paymentStatus,
-              subtotal: n(data.subtotal), discount: n(data.discount), total: n(data.total), paid: n(data.paidAmount),
+              subtotal: n(data.subtotal), discount: n(data.discount), total: n(data.total), paid: n(data.paidAmount), paidSince: n(data.paidSince ?? "0"),
               reference: data.reference, notes: data.notes,
               lines: data.lines.map((l) => ({ name: l.item.name, quantity: l.quantity, unitCost: n(l.unitCost), lineTotal: n(l.lineTotal), imeis: l.imeis })),
               shopName: data.business?.name ?? "", shopPhone: data.business?.phone, shopAddress: data.business?.address,
@@ -94,7 +96,8 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
             {BigInt(data.discount) > 0n && <><span>Subtotal</span><span className="text-right tabular-nums">{fmtMoney(data.subtotal)}</span>
               <span>Discount</span><span className="text-right tabular-nums">-{fmtMoney(data.discount)}</span></>}
             <b>Total</b><b className="text-right tabular-nums">{fmtMoney(data.total, "MMK")}</b>
-            <span>Paid{data.walletName ? ` (${data.walletName})` : ""}</span><span className="text-right tabular-nums">{fmtMoney(data.paidAmount)}</span>
+            <span>Paid{data.walletName ? ` (${data.walletName})` : ""}</span><span className="text-right tabular-nums">{fmtMoney(data.paidAtPurchase ?? data.paidAmount)}</span>
+            {BigInt(data.paidSince ?? "0") > 0n && <><span>Paid to supplier since</span><span className="text-right tabular-nums">{fmtMoney(data.paidSince ?? "0")}</span></>}
             {unpaid > 0n && <><span>Still owed</span><b className="text-right tabular-nums text-amber-700">{fmtMoney(unpaid.toString())}</b></>}
           </div>
           <div className="flex items-center justify-between">

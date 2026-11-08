@@ -1,6 +1,7 @@
 import { withAuth, json, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { canAccessBranch } from "@/lib/auth";
+import { withPaymentsSince } from "@/lib/purchasePaid";
 
 // One purchase as a voucher: what came in, from whom, at what cost, and how it was paid.
 // Opened from Purchases and from the "Stock purchase PUR-…" line in Income & Expense.
@@ -17,8 +18,9 @@ export const GET = withAuth("purchase.view", async ({ user, params }) => {
     prisma.user.findUnique({ where: { id: purchase.createdById }, select: { name: true } }),
     prisma.itemSerial.findMany({ where: { businessId: user.businessId, purchaseId: purchase.id }, select: { itemId: true, imei: true }, orderBy: { imei: "asc" } }),
   ]);
+  const [paid] = await withPaymentsSince(user.businessId, [purchase]);
   return json({
-    ...purchase,
+    ...paid,
     lines: purchase.lines.map((l) => ({ ...l, imeis: serials.filter((s) => s.itemId === l.itemId).map((s) => s.imei) })),
     business,
     supplierName: supplier?.name ?? null,

@@ -1515,6 +1515,7 @@ const MM: Record<string, string> = {
   "Voucher no": "ဘောက်ချာ နံပါတ်",
   "Recorded by": "မှတ်သူ",
   "Still owed": "ပေးရန် ကျန်",
+  "Paid to supplier since": "နောက်မှ Supplier ကို ပေးပြီး",
   "Edit cards": "ကတ်ပမာဏ ပြင်မည်",
   "Card amounts (comma between)": "ကတ်ပမာဏများ (ကော်မာ ခြား)",
   "Tap each card sold; two 5,000 cards make 10,000.": "ရောင်းတဲ့ ကတ်တစ်ခုချင်း နှိပ်ပါ။ 5,000 ကတ် နှစ်ခါ နှိပ်ရင် 10,000 ဖြစ်ပါတယ်။",
