@@ -54,6 +54,12 @@ const QtyPill = ({ qty, minStock }: { qty: number; minStock: number }) => (
   <span className={cn("inline-block min-w-8 rounded-md px-1.5 py-0.5 text-center", qtyTone(qty, minStock))}>{qty}</span>
 );
 
+/** The form's number boxes hold what was typed. A zero shows as an empty box with a grey 0, so
+ *  there is nothing to delete before typing; an empty box is saved as 0. */
+const moneyBox = (minor: string) => (BigInt(minor) === 0n ? "" : (Number(BigInt(minor)) / 100).toString());
+const minStockBox = (n: number) => (n === 0 ? "" : String(n));
+const minStockValue = (box: string) => Math.max(0, parseInt(box) || 0);
+
 const UnlimitedPill = () => (
   <span className="inline-block rounded-md bg-blue-50 px-1.5 py-0.5 text-center text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Unlimited</span>
 );
@@ -135,7 +141,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "0", sellingPrice: "0", minStock: 0, trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "", sellingPrice: "", minStock: "", trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -184,7 +190,7 @@ export default function ItemsPage() {
           body: {
             name: form.name, barcode: form.barcode || undefined,
             categoryId: form.categoryId || null, unitId: form.unitId || null,
-            costPrice: form.costPrice, sellingPrice: form.sellingPrice, minStock: form.minStock,
+            costPrice: form.costPrice || "0", sellingPrice: form.sellingPrice || "0", minStock: minStockValue(form.minStock),
             trackSerial: form.trackSerial,
             trackStock: form.trackStock,
             model: form.model, variant: form.model ? form.variant : "",
@@ -199,6 +205,9 @@ export default function ItemsPage() {
           method: "POST",
           body: {
             ...form,
+            costPrice: form.costPrice || "0",
+            sellingPrice: form.sellingPrice || "0",
+            minStock: minStockValue(form.minStock),
             barcode: form.barcode || undefined,
             categoryId: form.categoryId || undefined,
             unitId: form.unitId || undefined,
@@ -485,9 +494,9 @@ export default function ItemsPage() {
                         name: it.name, sku: it.sku, barcode: it.barcode ?? "",
                         // Start from what the item has, or saving the edit would clear them.
                         categoryId: it.categoryId ?? "", unitId: it.unitId ?? "",
-                        costPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
-                        sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
-                        minStock: it.minStock,
+                        costPrice: moneyBox(it.costPrice),
+                        sellingPrice: moneyBox(it.sellingPrice),
+                        minStock: minStockBox(it.minStock),
                         trackSerial: Boolean(it.trackSerial),
                         trackStock: it.trackStock !== false,
                         model: it.model ?? "", variant: it.variant ?? "",
@@ -507,9 +516,9 @@ export default function ItemsPage() {
                       setForm({
                         ...empty,
                         categoryId: it.categoryId ?? "", unitId: it.unitId ?? "",
-                        costPrice: (Number(BigInt(it.costPrice)) / 100).toString(),
-                        sellingPrice: (Number(BigInt(it.sellingPrice)) / 100).toString(),
-                        minStock: it.minStock,
+                        costPrice: moneyBox(it.costPrice),
+                        sellingPrice: moneyBox(it.sellingPrice),
+                        minStock: minStockBox(it.minStock),
                         trackSerial: Boolean(it.trackSerial),
                         trackStock: it.trackStock !== false,
                         model: it.model || it.name,
@@ -683,9 +692,9 @@ export default function ItemsPage() {
             </div>
           )}
           <div className={cn("grid gap-3", form.trackStock ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-            <Input label="Cost price" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
-            <Input label="Selling price" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
-            {form.trackStock && <Input label="Min stock" type="number" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseInt(e.target.value) || 0 })} />}
+            <Input label="Cost price" value={form.costPrice} placeholder="0" onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
+            <Input label="Selling price" value={form.sellingPrice} placeholder="0" onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
+            {form.trackStock && <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />}
           </div>
           {/* Best before: a mini mart's food, drinks and medicine. */}
           {(!phoneShop || form.expiresAt) && (
@@ -696,7 +705,7 @@ export default function ItemsPage() {
               type="checkbox"
               className="mt-0.5 h-4 w-4"
               checked={!form.trackStock}
-              onChange={(e) => setForm({ ...form, trackStock: !e.target.checked, ...(e.target.checked ? { trackSerial: false, minStock: 0 } : {}) })}
+              onChange={(e) => setForm({ ...form, trackStock: !e.target.checked, ...(e.target.checked ? { trackSerial: false, minStock: "" } : {}) })}
             />
             <span>
               <span className="font-medium">No track stock</span>
