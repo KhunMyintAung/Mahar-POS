@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CheckCircle2, Minus, Plus, Printer, Search, ShieldCheck, Trash2, ShoppingCart } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
+import { categoryChoices, inCategoryChoice } from "@/lib/categoryChoice";
 import { Button, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
@@ -262,9 +263,10 @@ export default function PosPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [cart.length]);
 
+  // Each main category, with its sub-categories right after it. Picking the main one shows all of them.
   const categories = useMemo(() => {
     if (!items) return [];
-    return [...new Set(items.map((item) => item.category?.name).filter(Boolean) as string[])].sort();
+    return categoryChoices(items);
   }, [items]);
 
   const filtered = useMemo(() => {
@@ -277,7 +279,7 @@ export default function PosPage() {
       .reduce((total, level) => total + level.quantity, 0) > 0;
     return items.filter((item) =>
       inStock(item) &&
-      (category === "ALL" || item.category?.name === category) &&
+      inCategoryChoice(item, category) &&
       (!needle || item.name.toLowerCase().includes(needle) || item.sku.toLowerCase().includes(needle) || item.barcode?.toLowerCase().includes(needle))
     );
   }, [category, items, q, defaultBranchId]);

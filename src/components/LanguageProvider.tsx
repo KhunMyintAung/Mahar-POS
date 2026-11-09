@@ -1305,6 +1305,7 @@ const MM: Record<string, string> = {
   "Credit": "အကြွေး",
   "stock": "လက်ကျန်",
   "Value:": "တန်ဖိုး:",
+  "Stock Qty:": "လက်ကျန်:",
   "levels": "လက်ကျန်",
   "movements": "အဝင်အထွက်",
   "users": "Users",

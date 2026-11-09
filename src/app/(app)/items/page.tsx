@@ -254,6 +254,7 @@ export default function ItemsPage() {
   const stockOf = (it: Item) => it.stockLevels.reduce((a, l) => a + l.quantity, 0);
   const lowCount = items.filter(isLow).length;
   const stockValue = shownItems.reduce((sum, it) => sum + BigInt(it.costPrice) * BigInt(Math.max(0, stockOf(it))), 0n);
+  const stockQty = shownItems.reduce((sum, it) => sum + Math.max(0, stockOf(it)), 0);
   const chosen = items.filter((it) => selected.has(it.id));
   const chosenWithStock = chosen.filter((it) => stockOf(it) > 0);
 
@@ -278,6 +279,11 @@ export default function ItemsPage() {
             {view === "items" && canStock && showCost && (
               <span className="whitespace-nowrap text-sm text-gray-500">
                 <span>Value:</span> <b className="tabular-nums text-gray-800 dark:text-gray-200">{fmtMoney(stockValue.toString())}</b>
+              </span>
+            )}
+            {view === "items" && canStock && (
+              <span className="whitespace-nowrap text-sm text-gray-500">
+                <span>Stock Qty:</span> <b className="tabular-nums text-gray-800 dark:text-gray-200">{stockQty.toLocaleString("en-US")}</b>
               </span>
             )}
             {view === "items" && lowCount > 0 && (
