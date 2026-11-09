@@ -28,7 +28,7 @@ import { NetModeBar } from "@/components/NetModeBar";
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
   sellingPrice: string; stockLevels: { branchId: string; quantity: number }[];
-  category?: { name: string }; unit?: { name: string };
+  category?: { name: string; parentName?: string | null }; unit?: { name: string };
   /** One IMEI per unit: picked at the till, one line per phone model. */
   trackSerial?: boolean;
   /** False: unlimited quantity. */
@@ -42,8 +42,9 @@ interface Item {
 const conditionText = (it: { condition?: string | null; batteryHealth?: number | null }) =>
   [it.condition, it.batteryHealth != null ? `Battery ${it.batteryHealth}%` : ""].filter(Boolean).join(" · ");
 
-/** FOC is offered only on accessories (Accessories / Accessory, any case). */
-const isAccessory = (item: Item) => /accessor/i.test(item.category?.name ?? "");
+/** FOC is offered only on accessories (Accessories / Accessory, any case), sub-categories too:
+ *  an item under Accessories › Case has "Case" as its category and Accessories as the parent. */
+const isAccessory = (item: Item) => /acc?ess?or/i.test(`${item.category?.parentName ?? ""} ${item.category?.name ?? ""}`);
 
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Contact { id: string; name: string; type: string }
