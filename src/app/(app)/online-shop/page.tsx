@@ -10,6 +10,7 @@ import { resizeImage } from "@/lib/imageResize";
 import { Button, Card, Empty, Input, Spinner, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
+import { matchesWords } from "@/lib/searchWords";
 
 /** Online Shop: the orders customers send from the shop's public page, the items shown
  *  there with their photos, and the page's address and words. */
@@ -226,7 +227,7 @@ function ProductsTab() {
 
   if (!items) return <Spinner />;
   const needle = q.trim().toLowerCase();
-  const shown = items.filter((i) => (!onlyOnline || i.onlineVisible) && (!needle || `${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(needle)));
+  const shown = items.filter((i) => (!onlyOnline || i.onlineVisible) && (!needle || matchesWords(needle, i.name, i.sku, i.category)));
   const onlineCount = items.filter((i) => i.onlineVisible).length;
 
   return (

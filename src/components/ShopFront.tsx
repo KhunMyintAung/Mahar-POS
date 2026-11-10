@@ -6,6 +6,7 @@ import { CheckCircle2, ChevronRight, Gamepad2, MapPin, Minus, Navigation, Phone,
 import { fmtMoney } from "@/lib/format";
 import { cn } from "@/components/ui";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
+import { matchesWords } from "@/lib/searchWords";
 
 /** The customer's side of the Online Shop: the shop's items as cards with photos, price and
  *  stock; a cart; and a short form (name, phone, address) that sends the order. Written in
@@ -41,7 +42,7 @@ export function ShopFront({ slug, shop, items }: { slug: string; shop: ShopInfo;
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const categories = useMemo(() => [...new Set(items.map((i) => i.category).filter(Boolean))].sort(), [items]);
   const needle = q.trim().toLowerCase();
-  const shown = items.filter((i) => (!category || i.category === category) && (!needle || i.name.toLowerCase().includes(needle)));
+  const shown = items.filter((i) => (!category || i.category === category) && (!needle || matchesWords(needle, i.name)));
   const lines = Object.entries(cart).flatMap(([id, quantity]) => { const item = byId.get(id); return item && quantity > 0 ? [{ item, quantity }] : []; });
   const count = lines.reduce((n, l) => n + l.quantity, 0);
   const total = lines.reduce((t, l) => t + BigInt(l.item.price) * BigInt(l.quantity), 0n);

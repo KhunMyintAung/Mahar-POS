@@ -1,6 +1,7 @@
 import { shopLinkHref, shopMapHref } from "./onlineShop";
 import type { PublicShop } from "./onlineOrder";
 import { groupByModel, variantLabel } from "./variants";
+import { matchesWords } from "./searchWords";
 
 /** maharpos.shop/shop/<address> is the storefront page from the first Mahar POS
  *  (storefront.html on the landing site), which reads its shop through
@@ -48,7 +49,7 @@ export function storefrontProducts(items: ShopItem[], q: StorefrontQuery) {
   const shown = items.filter((i) =>
     (!q.categoryId || i.category === q.categoryId) &&
     (q.stockLevel !== "IN_STOCK" || i.stock > 0) &&
-    (!needle || [i.name, i.model, i.category].some((s) => s?.toLowerCase().includes(needle))));
+    (!needle || matchesWords(needle, i.name, i.model, i.category)));
   const groups = groupByModel(shown);
   const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
   const page = Math.min(Math.max(1, q.page), totalPages);

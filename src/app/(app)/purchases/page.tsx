@@ -16,6 +16,7 @@ import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
 import { ContactCsvTools } from "@/components/ContactCsv";
 import { NewTradeInModal, TradeInList } from "@/components/TradeIn";
 import { QuickItemModal } from "@/components/QuickItemModal";
+import { matchesWords } from "@/lib/searchWords";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -146,7 +147,7 @@ export default function PurchasesPage() {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return items
-      .filter((it) => it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || (it.barcode ?? "").toLowerCase() === q)
+      .filter((it) => matchesWords(q, it.name, it.sku) || (it.barcode ?? "").toLowerCase() === q)
       .slice(0, 8);
   }, [items, query]);
 

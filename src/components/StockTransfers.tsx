@@ -8,6 +8,7 @@ import { Badge, Button, Card, Empty, Input, Modal, Select, cn, useToast } from "
 import { ImeiAdjustFields } from "@/components/ImeiTools";
 import { useAuth } from "@/components/AppShell";
 import type { StockLevel } from "@/components/StockTools";
+import { matchesWords } from "@/lib/searchWords";
 
 /** Stock sent between branches: the month's transfer vouchers, a new one, and cancelling one. */
 
@@ -137,7 +138,7 @@ function NewTransfer({ branches, fromChoices, defaultFrom, onClose, onDone }: {
     if (!needle) return [];
     return stock
       .filter((it) => !lines.some((l) => l.item.itemId === it.itemId))
-      .filter((it) => `${it.name} ${it.sku}`.toLowerCase().includes(needle))
+      .filter((it) => matchesWords(needle, it.name, it.sku))
       .slice(0, 8);
   }, [q, stock, lines]);
 

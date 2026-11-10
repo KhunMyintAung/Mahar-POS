@@ -7,6 +7,7 @@ import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, CardTitle, Input, Select, Modal, Spinner, StatCard, cn, useToast } from "@/components/ui";
 import { normalizeImei } from "@/lib/imeiInput";
 import { BODY_CONDITIONS, QC_GRADES, QC_GRADE_TEXT, type QcGrade } from "@/lib/tradeInQc";
+import { matchesWords } from "@/lib/searchWords";
 
 /** Second-hand phones bought from customers: buy (into QC), check, then route each one to the
  *  shelf or to the shop's own repair bench. Repair costs go onto the phone's own cost. */
@@ -413,7 +414,7 @@ export function NewTradeInModal({ open, onClose, onSaved, items, wallets, branch
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
-    return phones.filter((it) => it.name.toLowerCase().includes(q) || it.sku.toLowerCase().includes(q) || (it.model ?? "").toLowerCase().includes(q)).slice(0, 8);
+    return phones.filter((it) => matchesWords(q, it.name, it.sku, it.model)).slice(0, 8);
   }, [phones, query]);
   const mmk = wallets.filter((w) => w.currency === "MMK");
   const wallet = walletId || mmk[0]?.id || "";

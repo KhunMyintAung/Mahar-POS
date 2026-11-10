@@ -10,6 +10,7 @@ import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { isPhoneShop } from "@/lib/modules";
 import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
+import { searchWords } from "@/lib/searchWords";
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -17,13 +18,16 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
   const where = {
     businessId: user.businessId,
     deletedAt: null,
-    ...(sp.get("q")
+    // Word by word, in any order: "realme c15" finds "Oppo A15/A16k/Realme C12/C15/C11".
+    ...(sp.get("q")?.trim()
       ? {
-          OR: [
-            { name: { contains: sp.get("q")!, mode: "insensitive" as const } },
-            { sku: { contains: sp.get("q")!, mode: "insensitive" as const } },
-            { barcode: { contains: sp.get("q")!, mode: "insensitive" as const } },
-          ],
+          AND: searchWords(sp.get("q")!).map((w) => ({
+            OR: [
+              { name: { contains: w, mode: "insensitive" as const } },
+              { sku: { contains: w, mode: "insensitive" as const } },
+              { barcode: { contains: w, mode: "insensitive" as const } },
+            ],
+          })),
         }
       : {}),
     ...(sp.get("categoryId") ? { categoryId: sp.get("categoryId")! } : {}),

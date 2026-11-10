@@ -25,6 +25,7 @@ import { enqueueSale } from "@/lib/offlineSales";
 import { posDataUrls } from "@/lib/posData";
 import { businessDateOf } from "@/lib/dates";
 import { NetModeBar } from "@/components/NetModeBar";
+import { matchesWords } from "@/lib/searchWords";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -280,7 +281,7 @@ export default function PosPage() {
     return items.filter((item) =>
       inStock(item) &&
       inCategoryChoice(item, category) &&
-      (!needle || item.name.toLowerCase().includes(needle) || item.sku.toLowerCase().includes(needle) || item.barcode?.toLowerCase().includes(needle))
+      (!needle || matchesWords(needle, item.name, item.sku) || item.barcode?.toLowerCase().includes(needle))
     );
   }, [category, items, q, defaultBranchId]);
 
@@ -1234,7 +1235,7 @@ export default function PosPage() {
         {newBarcode && (() => {
           const needle = barcodeSearch.trim().toLowerCase();
           const matches = (items ?? [])
-            .filter((it) => !needle || it.name.toLowerCase().includes(needle) || it.sku.toLowerCase().includes(needle))
+            .filter((it) => !needle || matchesWords(needle, it.name, it.sku))
             .slice(0, 30);
           return (
             <div className="space-y-3">
