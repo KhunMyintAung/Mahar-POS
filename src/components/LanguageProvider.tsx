@@ -3,8 +3,12 @@
 import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useState } from "react";
 import { Languages } from "lucide-react";
 import { cn } from "./ui";
+import { TH } from "@/lib/i18n/th";
 
-type Language = "en" | "mm";
+type Language = "en" | "mm" | "th";
+const LANGUAGES: Language[] = ["mm", "en", "th"];
+const HTML_LANG: Record<Language, string> = { en: "en", mm: "my", th: "th" };
+const isLanguage = (v: string | null): v is Language => v === "en" || v === "mm" || v === "th";
 
 const LanguageContext = createContext<{
   language: Language;
@@ -1967,6 +1971,24 @@ const MM: Record<string, string> = {
 const originalText = new WeakMap<Node, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
 
+/** Thai: the exact-text map only; a label not in it stays in English. */
+function translateTh(value: string) {
+  const trimmed = value.trim();
+  const exact = TH[trimmed];
+  return exact ? value.replace(trimmed, exact) : value;
+}
+
+function translateTo(value: string, language: Language) {
+  if (language === "mm") return translate(value);
+  if (language === "th") return translateTh(value);
+  return value;
+}
+
+/** True when the text on screen is the English original or one of its translations, so a
+ *  language switch keeps the English as the source. */
+const isOwnTranslation = (current: string, original: string) =>
+  current === original || current === translate(original) || current === translateTh(original);
+
 function translate(value: string) {
   const trimmed = value.trim();
   const exact = MM[trimmed];
@@ -2167,11 +2189,11 @@ function applyLanguage(root: ParentNode, language: Language) {
   while (node) {
     const current = node.nodeValue ?? "";
     const stored = originalText.get(node);
-    if (!stored || (current !== stored && current !== translate(stored))) {
+    if (!stored || !isOwnTranslation(current, stored)) {
       originalText.set(node, current);
     }
     const original = originalText.get(node) ?? current;
-    const next = language === "mm" ? translate(original) : original;
+    const next = translateTo(original, language);
     if (current !== next) node.nodeValue = next;
     node = walker.nextNode();
   }
@@ -2187,9 +2209,9 @@ function applyLanguage(root: ParentNode, language: Language) {
         originalAttributes.set(element, stored);
       }
       const original = stored.get(attribute);
-      if (!original || (current !== original && current !== translate(original))) stored.set(attribute, current);
+      if (!original || !isOwnTranslation(current, original)) stored.set(attribute, current);
       const source = stored.get(attribute) ?? current;
-      const next = language === "mm" ? translate(source) : source;
+      const next = translateTo(source, language);
       if (current !== next) element.setAttribute(attribute, next);
     }
   }
@@ -2198,27 +2220,29 @@ function applyLanguage(root: ParentNode, language: Language) {
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
 
-  // Myanmar before the first paint, so a page never shows its English first and then
-  // changes over; the state (and the buttons) follow on the next frame.
+  // The saved language before the first paint, so a page never shows its English first and
+  // then changes over; the state (and the buttons) follow on the next frame.
   useLayoutEffect(() => {
-    if (localStorage.getItem("wn-language") !== "mm") return;
-    document.documentElement.lang = "my";
-    applyLanguage(document.body, "mm");
+    const saved = localStorage.getItem("wn-language");
+    if (!isLanguage(saved) || saved === "en") return;
+    document.documentElement.lang = HTML_LANG[saved];
+    applyLanguage(document.body, saved);
   }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("wn-language");
     const frame = window.requestAnimationFrame(() => {
-      if (saved === "mm") setLanguageState("mm");
+      if (isLanguage(saved) && saved !== "en") setLanguageState(saved);
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
-    // Still "en" only because the saved choice is read a frame late: leave the Myanmar the
+    // Still "en" only because the saved choice is read a frame late: leave the language the
     // layout effect already put on, rather than turning it back to English for a moment.
-    if (language === "en" && localStorage.getItem("wn-language") === "mm") return;
-    document.documentElement.lang = language === "mm" ? "my" : "en";
+    const saved = localStorage.getItem("wn-language");
+    if (language === "en" && isLanguage(saved) && saved !== "en") return;
+    document.documentElement.lang = HTML_LANG[language];
     applyLanguage(document.body, language);
     let frame = 0;
     const observer = new MutationObserver(() => {
@@ -2258,7 +2282,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
       aria-label="Language"
     >
       <Languages size={16} className="mx-1.5 text-gray-500" />
-      {(["mm", "en"] as const).map((item) => (
+      {LANGUAGES.map((item) => (
         <button
           key={item}
           type="button"
@@ -2270,7 +2294,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
               : "text-gray-500 dark:text-gray-400"
           )}
         >
-          {item === "mm" ? "MM" : "EN"}
+          {item === "mm" ? "MM" : item === "th" ? "TH" : "EN"}
         </button>
       ))}
     </div>
