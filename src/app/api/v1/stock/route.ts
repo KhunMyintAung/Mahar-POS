@@ -28,11 +28,26 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
         ...(sp.get("itemId") ? { itemId: sp.get("itemId")! } : {}),
         ...(range ? { createdAt: range } : {}),
       },
-      include: { item: { select: { name: true, sku: true } } },
+      include: { item: { select: { name: true, sku: true, costPrice: true, category: { select: { name: true, parentId: true } } } } },
       orderBy: { createdAt: "desc" },
       take: range ? 5000 : 100,
     });
-    return json(movements);
+    // Each item's category with its main category's name (Spare Parts › LCD), so the list can be
+    // narrowed to a category; the cost price only for those who may see it.
+    const parentIds = [...new Set(movements.map((m) => m.item.category?.parentId).filter((x): x is string => Boolean(x)))];
+    const parents = parentIds.length
+      ? new Map((await prisma.itemCategory.findMany({ where: { id: { in: parentIds } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]))
+      : new Map<string, string>();
+    const seeCost = canSeeCost(user.permissions);
+    return json(movements.map((m) => ({
+      ...m,
+      item: {
+        name: m.item.name,
+        sku: m.item.sku,
+        costPrice: seeCost ? m.item.costPrice : 0n,
+        category: m.item.category ? { name: m.item.category.name, parentName: m.item.category.parentId ? parents.get(m.item.category.parentId) ?? null : null } : null,
+      },
+    })));
   }
 
   const items = await prisma.item.findMany({

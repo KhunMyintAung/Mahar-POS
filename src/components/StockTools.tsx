@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDateTime, fmtMoney } from "@/lib/format";
+import { categoryChoices, inCategoryChoice } from "@/lib/categoryChoice";
 import { Button, Card, Input, Modal, Select, Table, Empty, cn, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
 import { ImeiAdjustFields } from "@/components/ImeiTools";
@@ -129,8 +130,15 @@ export interface StockLevel {
 }
 interface Movement {
   id: string; type: string; quantity: number; qtyAfter: number; notes?: string;
-  createdAt: string; item: { name: string; sku: string };
+  createdAt: string;
+  item: { name: string; sku: string; costPrice?: string; category?: { name: string; parentName?: string | null } | null };
 }
+
+/** The shop's own day ("YYYY-MM-DD") a movement happened on. */
+const shopDay = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+/** What the units moved are worth at the item's cost price, in minor units. */
+const costOf = (m: Movement) => BigInt(Math.abs(m.quantity)) * BigInt(m.item.costPrice ?? "0");
 
 /** Adjust one item's stock. Open it with the item; it closes itself, and calls onDone after a change. */
 export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { target: StockLevel | null; onClose: () => void; onDone: () => void }) {
@@ -326,8 +334,14 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
 
 /** The stock movements of a day or a month: in, out, sold, used in repairs, and each one. */
 export function StockMovements() {
-  const [movements, setMovements] = useState<Movement[]>([]);
+  const { hasPerm } = useAuth();
+  const seeCost = hasPerm("report.view") || hasPerm("item.manage");
+  const [allMovements, setMovements] = useState<Movement[]>([]);
   const [moveType, setMoveType] = useState("ALL");
+  // One category (Spare Parts, and every sub-category under it) or everything.
+  const [category, setCategory] = useState("ALL");
+  const categories = useMemo(() => categoryChoices(allMovements.map((m) => m.item)), [allMovements]);
+  const movements = useMemo(() => allMovements.filter((m) => inCategoryChoice(m.item, category)), [allMovements, category]);
   // Movements are looked at a day or a month at a time.
   const [periodKind, setPeriodKind] = useState<"day" | "month">("day");
   const [period, setPeriod] = useState(today);
@@ -340,15 +354,28 @@ export function StockMovements() {
   // The cards over the movement list: what came in, what went out, and the two outs a
   // phone shop watches, sales and parts used in repairs.
   const totals = useMemo(() => {
-    let stockIn = 0, stockOut = 0, sold = 0, repair = 0;
+    let stockIn = 0, stockOut = 0, sold = 0, repair = 0, inValue = 0n, outValue = 0n;
     for (const m of movements) {
-      if (m.quantity > 0) stockIn += m.quantity; else stockOut -= m.quantity;
+      if (m.quantity > 0) { stockIn += m.quantity; inValue += costOf(m); } else { stockOut -= m.quantity; outValue += costOf(m); }
       if (m.type === "SALE") sold -= m.quantity;
       if (m.type === "SALE_RETURN") sold -= m.quantity;
       if (m.type === "REPAIR_USE") repair -= m.quantity;
     }
-    return { stockIn, stockOut, sold, repair };
+    return { stockIn, stockOut, sold, repair, inValue, outValue };
   }, [movements]);
+
+  // A month, day by day: how many came in and went out, and what they are worth at cost.
+  const byDay = useMemo(() => {
+    const days = new Map<string, { stockIn: number; stockOut: number; inValue: bigint; outValue: bigint }>();
+    for (const m of movements) {
+      const d = shopDay(m.createdAt);
+      const row = days.get(d) ?? { stockIn: 0, stockOut: 0, inValue: 0n, outValue: 0n };
+      if (m.quantity > 0) { row.stockIn += m.quantity; row.inValue += costOf(m); } else { row.stockOut -= m.quantity; row.outValue += costOf(m); }
+      days.set(d, row);
+    }
+    return [...days].sort(([a], [b]) => b.localeCompare(a));
+  }, [movements]);
+  const [showDays, setShowDays] = useState(true);
 
   function choosePeriodKind(kind: "day" | "month") {
     setPeriodKind(kind);
@@ -394,16 +421,30 @@ export function StockMovements() {
             <Button size="sm" variant="secondary" onClick={() => choosePeriodKind(periodKind)}>{periodKind === "month" ? "This month" : "Today"}</Button>
           )}
         </div>
+        {(categories.length > 0 || category !== "ALL") && (
+          <select
+            aria-label="Category"
+            value={category}
+            onChange={(e) => { setCategory(e.target.value); setMoveType("ALL"); }}
+            className="min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          >
+            <option value="ALL">All categories</option>
+            {category !== "ALL" && !categories.includes(category) && <option value={category}>{category}</option>}
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Stock in</div>
           <div className="text-xl font-bold tabular-nums text-green-600">+{totals.stockIn.toLocaleString()}</div>
+          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.inValue.toString(), "MMK")}</div>}
         </Card>
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Stock out</div>
           <div className="text-xl font-bold tabular-nums text-red-600">−{totals.stockOut.toLocaleString()}</div>
+          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.outValue.toString(), "MMK")}</div>}
         </Card>
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Sold</div>
@@ -416,6 +457,28 @@ export function StockMovements() {
       </div>
 
       {movements.length === 0 ? <Card><Empty message={periodKind === "month" ? "No movements this month" : "No movements on this day"} /></Card> : <>
+      {periodKind === "month" && (
+        <Card className="space-y-2 p-0">
+          <button type="button" onClick={() => setShowDays(!showDays)} className="flex w-full items-center justify-between px-4 pt-3 text-sm font-medium">
+            <span>{"Day by day"}</span>
+            <span className="text-xs text-blue-600">{showDays ? "Hide" : "Show"}</span>
+          </button>
+          {showDays && (
+            <Table headers={seeCost ? ["Day", "In", "Out", "In value", "Out value"] : ["Day", "In", "Out"]} rightAlign={seeCost ? [1, 2, 3, 4] : [1, 2]}>
+              {byDay.map(([d, r]) => (
+                <tr key={d}>
+                  <td className="px-3 py-2 text-sm tabular-nums">{d}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-green-600">{r.stockIn ? `+${r.stockIn.toLocaleString()}` : "—"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-red-600">{r.stockOut ? `−${r.stockOut.toLocaleString()}` : "—"}</td>
+                  {seeCost && <td className="px-3 py-2 text-right tabular-nums">{r.inValue ? fmtMoney(r.inValue.toString()) : "—"}</td>}
+                  {seeCost && <td className="px-3 py-2 text-right tabular-nums">{r.outValue ? fmtMoney(r.outValue.toString()) : "—"}</td>}
+                </tr>
+              ))}
+            </Table>
+          )}
+          {seeCost && <p className="px-4 pb-3 text-xs text-gray-500">{"Values are at each item’s cost price now."}</p>}
+        </Card>
+      )}
       {/* Filter by what happened: every part used in repairs, everything damaged… */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {["ALL", ...[...new Set(movements.map((m) => m.type))]].map((t) => (
@@ -437,7 +500,7 @@ export function StockMovements() {
           </button>
         ))}
       </div>
-      <Paginated rows={movementsShown} resetKey={[moveType, period]}>{(pageRows) => (
+      <Paginated rows={movementsShown} resetKey={[moveType, period, category]}>{(pageRows) => (
       <Table headers={["Date", "Item", "Type", "Qty", "After", "Notes"]} rightAlign={[3, 4]}>
         {pageRows.map((m) => (
           <tr key={m.id}>
