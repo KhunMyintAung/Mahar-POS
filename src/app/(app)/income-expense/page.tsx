@@ -30,6 +30,37 @@ const SUPPLIER_KEYS = ["DAILY_SERVICE", "DAILY_SALE"];
 /** systemKey marks one of the eight standard daily categories: renamed, never deleted. */
 interface Category { id: string; type: string; name: string; systemKey?: string | null }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
+/** What the app already counts for a day, beside what was already entered by hand. */
+interface AppMoney {
+  date: string;
+  repair: { amount: string; jobs: number; entered: string };
+  sales: { amount: string; count: number; entered: string };
+}
+
+/** Shown while Daily Service or Daily Sale income is entered: a day's total copied from a
+ *  notebook often already holds repairs paid or sales rung up in the app, and would count them twice. */
+function AlreadyCounted({ money, kind }: { money: AppMoney; kind: "DAILY_SERVICE" | "DAILY_SALE" }) {
+  const part = kind === "DAILY_SERVICE" ? money.repair : money.sales;
+  const fromApp = BigInt(part.amount);
+  const entered = BigInt(part.entered);
+  if (fromApp === 0n && entered === 0n) return null;
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-medium">{"This day already has:"}</p>
+      <ul className="mt-1 space-y-0.5 tabular-nums">
+        {fromApp !== 0n && (
+          <li>
+            <span>{kind === "DAILY_SERVICE" ? "Repair money taken in the app" : "POS sales in the app"}</span>{" "}
+            <b>{fmtMoney(part.amount, "MMK")}</b>{" "}
+            <span>{`(${"jobs" in part ? part.jobs : part.count})`}</span>
+          </li>
+        )}
+        {entered !== 0n && <li><span>{"Entered here already"}</span> <b>{fmtMoney(part.entered, "MMK")}</b></li>}
+      </ul>
+      <p className="mt-1 text-xs">{"Enter only money the app does not have yet, or Total Income counts it twice."}</p>
+    </div>
+  );
+}
 
 
 export default function IncomeExpensePage() {
@@ -71,6 +102,8 @@ export default function IncomeExpensePage() {
   // The stock purchase whose voucher is open (from its "Stock purchase PUR-…" line).
   const [voucherFor, setVoucherFor] = useState<string | null>(null);
   const [form, setForm] = useState({ type: "EXPENSE", categoryName: "", amount: "", walletId: "", date: "", description: "", reference: "", supplierId: "" });
+  // The day's repair money / POS sales the app already counts, for the Daily Service / Daily Sale warning.
+  const [appMoney, setAppMoney] = useState<AppMoney | null>(null);
 
   const load = useCallback(() => {
     api<{ items: Item[]; totals: { income: string; expense: string; withdraw: string } }>(`/api/v1/income-expense?pageSize=100${allDates ? "" : `&date=${day}`}`)
@@ -87,6 +120,17 @@ export default function IncomeExpensePage() {
       .then((d) => setCancelledItems(d.items))
       .catch((e) => push(e.message, "error"));
   }, [showCancelled, day, allDates, push, items]);
+
+  const moneyDay = form.date || todayDate();
+  const wantsAppMoney = showNew && form.type === "INCOME" && !!form.categoryName;
+  useEffect(() => {
+    if (!wantsAppMoney) return;
+    let live = true;
+    api<AppMoney>(`/api/v1/income-expense/app-money?date=${moneyDay}`)
+      .then((d) => { if (live) setAppMoney(d); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [wantsAppMoney, moneyDay, items]);
 
   /** Save, asking first when the date is not today. */
   function save() {
@@ -214,6 +258,7 @@ export default function IncomeExpensePage() {
   // adds up per supplier.
   const chosenKey = catOptions.find((c) => c.name === form.categoryName)?.systemKey;
   const offerSupplier = canSuppliers && form.type === "EXPENSE" && !newCategory && SUPPLIER_KEYS.includes(chosenKey ?? "");
+  const warnKind = form.type === "INCOME" && !newCategory && (chosenKey === "DAILY_SERVICE" || chosenKey === "DAILY_SALE") ? chosenKey : null;
   if (!items) return <Spinner />;
   const canSave =
     !!form.amount &&
@@ -481,6 +526,7 @@ export default function IncomeExpensePage() {
             </div>
           )}
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          {warnKind && appMoney && appMoney.date === (form.date || todayDate()) && <AlreadyCounted money={appMoney} kind={warnKind} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
             <Button onClick={save} disabled={busy || !canSave}>Save</Button>

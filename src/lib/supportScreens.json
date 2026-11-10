@@ -558,6 +558,9 @@
    "labels": [
     "+ ကုန်သွင်းသူ အသစ် (+ New supplier)",
     "+ အမျိုးအစားအသစ် ထည့်မည် (+ Add new category)",
+    "App ထဲ POS ရောင်းအား (POS sales in the app)",
+    "App ထဲ ဖုန်းပြင်ငွေ ရပြီး (Repair money taken in the app)",
+    "App ထဲ မရှိသေးတဲ့ ငွေကိုသာ ထည့်ပါ။ မဟုတ်ရင် Total Income မှာ နှစ်ခါ ပေါင်းမိပါမယ်။ (Enter only money the app does not have yet, or Total Income counts it twice.)",
     "Supplier ထည့်ပြီး (Supplier created)",
     "ကုန်သွင်းသူ (SUPPLIER)",
     "ကုန်သွင်းသူ (Supplier)",
@@ -589,6 +592,8 @@
     "ဒီနေ့ ဝင်ငွေ (Today's income)",
     "ဒီနေ့အတွက် ပယ်ဖျက်ထားတာ မရှိပါ (Nothing was cancelled for this day)",
     "ဒီနေ့အတွက် မှတ်တမ်း မရှိပါ (No entries on this day)",
+    "ဒီနေ့အတွက် ရှိပြီးသား: (This day already has:)",
+    "ဒီမှာ ထည့်ပြီးသား (Entered here already)",
     "ဒီလ ကုန်သွင်းသူကို ပေးထားတဲ့ ထွက်ငွေ မရှိသေးပါ (No expenses paid to a supplier this month)",
     "နောက်နေ့ (Next day)",
     "နောက်မှ Supplier ကို ပေးပြီး (Paid to supplier since)",
