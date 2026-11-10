@@ -4,6 +4,7 @@ import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useSt
 import { Languages } from "lucide-react";
 import { cn } from "./ui";
 import { TH } from "@/lib/i18n/th";
+import { TH_PATTERNS } from "@/lib/i18n/thPatterns";
 import { inCurrency } from "@/lib/currency";
 
 type Language = "en" | "mm" | "th";
@@ -1973,11 +1974,17 @@ const MM: Record<string, string> = {
 const originalText = new WeakMap<Node, string>();
 const originalAttributes = new WeakMap<Element, Map<string, string>>();
 
-/** Thai: the exact-text map only; a label not in it stays in English. */
+/** Thai: the exact-text map, then the rules for labels built from a number or a name; a
+ *  label matching neither stays in English. */
 function translateTh(value: string) {
   const trimmed = value.trim();
   const exact = TH[trimmed];
-  return exact ? value.replace(trimmed, exact) : value;
+  if (exact) return value.replace(trimmed, exact);
+  for (const [pattern, formatter] of TH_PATTERNS) {
+    const match = trimmed.match(pattern);
+    if (match) return value.replace(trimmed, formatter(...match.slice(1)));
+  }
+  return value;
 }
 
 function translateTo(value: string, language: Language) {
