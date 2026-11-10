@@ -90,7 +90,7 @@ const GROUPS: { title: string; blurb: string; items: { icon: typeof Wallet; labe
 const POINTS = [
   { title: "Your workspace is yours", text: "Each business is separate. No other business can see your records." },
   { title: "Only what you use", text: "Pick your kind of business at sign-up and the rest stays out of the way." },
-  { title: "Myanmar or English", text: "Switch language whenever you like." },
+  { title: "Myanmar, English or Thai", text: "Switch language whenever you like." },
   { title: "Works like an app", text: "Install it on a phone from the browser — no store needed." },
   { title: "Many branches, one picture", text: "Keep branches apart, then see the whole business together." },
   { title: "Free to start", text: "Create an account and begin. Nothing to pay up front." },

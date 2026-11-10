@@ -127,7 +127,7 @@ const MM: Record<string, string> = {
   "Each business is separate. No other business can see your records.": "လုပ်ငန်းတစ်ခုချင်းစီ သီးခြားဖြစ်သည်။ အခြားလုပ်ငန်းများ သင့်မှတ်တမ်းကို မမြင်နိုင်ပါ။",
   "Only what you use": "သုံးတာကိုပဲ ပြသည်",
   "Pick your kind of business at sign-up and the rest stays out of the way.": "အကောင့်ဖွင့်စဉ် လုပ်ငန်းအမျိုးအစား ရွေးလိုက်ရုံဖြင့် မလိုအပ်တာများ ဖုံးထားပေးပါသည်။",
-  "Myanmar or English": "မြန်မာ သို့မဟုတ် အင်္ဂလိပ်",
+  "Myanmar, English or Thai": "မြန်မာ၊ အင်္ဂလိပ် သို့မဟုတ် ထိုင်း",
   "Switch language whenever you like.": "ဘာသာစကားကို အချိန်မရွေး ပြောင်းနိုင်ပါသည်။",
   "Works like an app": "App တစ်ခုလို အလုပ်လုပ်သည်",
   "Install it on a phone from the browser — no store needed.": "Browser ကနေ ဖုန်းထဲ တင်နိုင်ပါသည် — Store မလိုအပ်ပါ။",
