@@ -44,7 +44,15 @@ interface Report {
   otherIncomeBy?: Record<string, { label: string; amount: Money }[]>;
   serviceBy?: Record<string, { date: string; label: string; amount: Money }[]>;
   repairParts?: "stock" | "job";
+  days?: OffDayReport;
 }
+interface DayCounts { open: number; off: number; none: number; noneDates: string[]; offDates: string[] }
+interface OffDayReport {
+  config: { weekly: number[]; days: string[] };
+  period: DayCounts;
+  year: DayCounts & { year: string };
+}
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const big = (m: Money) => BigInt(m);
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
@@ -77,6 +85,17 @@ export default function ReportsPage() {
   // The report and the query it answers, so a newer pick shows as loading.
   const [loaded, setLoaded] = useState<{ query: string; report: Report } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [weeklyOpen, setWeeklyOpen] = useState(false);
+
+  /** Marks a day off (or takes the mark away): owner only. */
+  async function setOff(date: string, off: boolean) {
+    try {
+      await api("/api/v1/reports/off-days", { method: "PUT", body: { date, off } });
+      load();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    }
+  }
 
   const query = useMemo(() => {
     const p = new URLSearchParams({ period: kind });
@@ -182,7 +201,10 @@ export default function ReportsPage() {
                     const half = parts.length + 2;
                     return (
                       <tr key={r.period} className={cn(total && "bg-gray-50 font-semibold dark:bg-gray-800/60", empty && "text-gray-400")}>
-                        <td className="whitespace-nowrap px-1.5 py-1.5">{report.groupBy === "day" && !total ? r.period.slice(5) : r.period}</td>
+                        <td className="whitespace-nowrap px-1.5 py-1.5">
+                          {report.groupBy === "day" && !total ? r.period.slice(5) : r.period}
+                          {report.groupBy === "day" && !total && <DayTag date={r.period} days={report.days} owner={owner} onSet={setOff} />}
+                        </td>
                         {cells.map((v, i) => {
                           const tappable = i === parts.length && (report.otherIncomeBy?.[r.period]?.length ?? 0) > 0;
                           // The Service income cell opens the repair payments behind it.
@@ -206,6 +228,8 @@ export default function ReportsPage() {
               </table>
             </div>
           </Card>
+
+          {report.days && <OffDaySummary days={report.days} owner={owner} onWeekly={() => setWeeklyOpen(true)} />}
 
           <GrossMargin report={report} parts={parts} />
 
@@ -242,8 +266,101 @@ export default function ReportsPage() {
         </ul>
       </Modal>
 
+      {owner && report?.days && (
+        <WeeklyOffModal key={weeklyOpen ? "open" : "shut"} open={weeklyOpen} onClose={() => setWeeklyOpen(false)} weekly={report.days.config.weekly} onSaved={load} />
+      )}
+
       {owner && <ReportSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} shown={report?.shown ?? { sales: true, service: true, topup: true }} />}
     </div>
+  );
+}
+
+/** Beside a day in the Daily summary: Off day, or No records (which the owner can mark off). */
+function DayTag({ date, days, owner, onSet }: { date: string; days?: OffDayReport; owner: boolean; onSet: (date: string, off: boolean) => void }) {
+  if (!days) return null;
+  const pill = "ml-1.5 rounded px-1 py-0.5 text-[10px] font-medium";
+  if (days.period.offDates.includes(date)) {
+    // A date marked off can be unmarked; a weekly off day is changed in its own setting.
+    const marked = days.config.days.includes(date);
+    return owner && marked
+      ? <button type="button" title="Take the off day mark away" className={cn(pill, "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200")} onClick={() => onSet(date, false)}>{"Off day"} ×</button>
+      : <span className={cn(pill, "bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200")}>{"Off day"}</span>;
+  }
+  if (days.period.noneDates.includes(date)) {
+    return owner
+      ? <button type="button" className={cn(pill, "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-200")} onClick={() => onSet(date, true)}>{"No records · Mark off"}</button>
+      : <span className={cn(pill, "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200")}>{"No records"}</span>;
+  }
+  return null;
+}
+
+/** Open days, off days and days with nothing recorded: this period and its year. */
+function OffDaySummary({ days, owner, onWeekly }: { days: OffDayReport; owner: boolean; onWeekly: () => void }) {
+  const stat = (label: string, n: number, cls = "") => (
+    <span className="whitespace-nowrap"><span className="text-gray-500">{label}</span> <b className={cn("tabular-nums", cls)}>{n}</b></span>
+  );
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{"Off days"}</h3>
+        {owner && (
+          <Button size="sm" variant="ghost" onClick={onWeekly}>
+            {days.config.weekly.length ? `${"Weekly off day"}: ${days.config.weekly.map((d) => WEEKDAYS[d]).join(", ")}` : "Weekly off day"}
+          </Button>
+        )}
+      </div>
+      <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="w-full text-xs font-medium text-gray-500">{"This period"}</span>
+          {stat("Open days", days.period.open)}
+          {stat("Off day", days.period.off)}
+          {stat("No records", days.period.none, days.period.none > 0 ? "text-amber-600" : "")}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span className="w-full text-xs font-medium text-gray-500">{days.year.year}</span>
+          {stat("Open days", days.year.open)}
+          {stat("Off day", days.year.off)}
+          {stat("No records", days.year.none, days.year.none > 0 ? "text-amber-600" : "")}
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">{"A day with nothing recorded counts as Off day only once it is marked off, or falls on the weekly off day. Days to come are not counted."}</p>
+    </Card>
+  );
+}
+
+/** The weekdays the shop is shut every week. Owner only. */
+function WeeklyOffModal({ open, onClose, weekly, onSaved }: { open: boolean; onClose: () => void; weekly: number[]; onSaved: () => void }) {
+  const { push } = useToast();
+  const [picked, setPicked] = useState<number[]>(weekly);
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try {
+      await api("/api/v1/reports/off-days", { method: "PUT", body: { weekly: picked } });
+      onSaved();
+      onClose();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal open={open} onClose={onClose} title="Weekly off day">
+      <p className="mb-2 text-xs text-gray-500">{"The shop is shut on these days every week. A day worked anyway counts as open."}</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {WEEKDAYS.map((name, d) => (
+          <label key={d} className="flex min-h-9 items-center gap-2 text-sm">
+            <input type="checkbox" checked={picked.includes(d)} onChange={(e) => setPicked(e.target.checked ? [...picked, d] : picked.filter((x) => x !== d))} />
+            {name}
+          </label>
+        ))}
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button disabled={busy} onClick={save}>Save</Button>
+      </div>
+    </Modal>
   );
 }
 
