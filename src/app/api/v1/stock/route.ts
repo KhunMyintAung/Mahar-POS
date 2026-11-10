@@ -39,8 +39,29 @@ export const GET = withAuth("stock.view", async ({ req, user }) => {
       ? new Map((await prisma.itemCategory.findMany({ where: { id: { in: parentIds } }, select: { id: true, name: true } })).map((p) => [p.id, p.name]))
       : new Map<string, string>();
     const seeCost = canSeeCost(user.permissions);
+    // A delivery shows what each unit was bought for, the purchase no and the supplier.
+    const purchaseIds = seeCost ? [...new Set(movements.filter((m) => m.refType === "PURCHASE" && m.refId).map((m) => m.refId!))] : [];
+    const purchases = purchaseIds.length
+      ? await prisma.purchase.findMany({
+          where: { id: { in: purchaseIds }, businessId: user.businessId },
+          select: { id: true, txnNo: true, supplierId: true, lines: { select: { itemId: true, unitCost: true, quantity: true } } },
+        })
+      : [];
+    const supplierIds = [...new Set(purchases.map((p) => p.supplierId).filter((x): x is string => Boolean(x)))];
+    const suppliers = supplierIds.length
+      ? new Map((await prisma.contact.findMany({ where: { id: { in: supplierIds }, businessId: user.businessId }, select: { id: true, name: true } })).map((c) => [c.id, c.name]))
+      : new Map<string, string>();
+    const purchaseOf = new Map(purchases.map((p) => [p.id, p]));
+    const boughtAt = (m: (typeof movements)[number]) => {
+      const p = m.refType === "PURCHASE" && m.refId ? purchaseOf.get(m.refId) : undefined;
+      if (!p) return null;
+      const lines = p.lines.filter((l) => l.itemId === m.itemId);
+      const line = lines.find((l) => l.quantity === m.quantity) ?? lines[0];
+      return line ? { unitCost: line.unitCost, txnNo: p.txnNo, supplier: p.supplierId ? suppliers.get(p.supplierId) ?? null : null } : null;
+    };
     return json(movements.map((m) => ({
       ...m,
+      bought: boughtAt(m),
       item: {
         name: m.item.name,
         sku: m.item.sku,

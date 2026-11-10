@@ -131,14 +131,17 @@ export interface StockLevel {
 interface Movement {
   id: string; type: string; quantity: number; qtyAfter: number; notes?: string;
   createdAt: string;
+  /** For a delivery: what each unit was bought for, the purchase no and the supplier. */
+  bought?: { unitCost: string; txnNo: string; supplier?: string | null } | null;
   item: { name: string; sku: string; costPrice?: string; category?: { name: string; parentName?: string | null } | null };
 }
 
 /** The shop's own day ("YYYY-MM-DD") a movement happened on. */
 const shopDay = (iso: string) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
-/** What the units moved are worth at the item's cost price, in minor units. */
-const costOf = (m: Movement) => BigInt(Math.abs(m.quantity)) * BigInt(m.item.costPrice ?? "0");
+/** What the units moved are worth: a delivery at the price it was bought for, anything else at
+ *  the item's cost price now. In minor units. */
+const costOf = (m: Movement) => BigInt(Math.abs(m.quantity)) * BigInt(m.bought?.unitCost ?? m.item.costPrice ?? "0");
 
 /** Adjust one item's stock. Open it with the item; it closes itself, and calls onDone after a change. */
 export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { target: StockLevel | null; onClose: () => void; onDone: () => void }) {
@@ -476,7 +479,7 @@ export function StockMovements() {
               ))}
             </Table>
           )}
-          {seeCost && <p className="px-4 pb-3 text-xs text-gray-500">{"Values are at each item’s cost price now."}</p>}
+          {seeCost && <p className="px-4 pb-3 text-xs text-gray-500">{"Purchases are valued at the price paid; everything else at the item’s cost price now."}</p>}
         </Card>
       )}
       {/* Filter by what happened: every part used in repairs, everything damaged… */}
@@ -501,7 +504,7 @@ export function StockMovements() {
         ))}
       </div>
       <Paginated rows={movementsShown} resetKey={[moveType, period, category]}>{(pageRows) => (
-      <Table headers={["Date", "Item", "Type", "Qty", "After", "Notes"]} rightAlign={[3, 4]}>
+      <Table headers={seeCost ? ["Date", "Item", "Type", "Qty", "Bought at", "After", "Notes"] : ["Date", "Item", "Type", "Qty", "After", "Notes"]} rightAlign={seeCost ? [3, 4, 5] : [3, 4]}>
         {pageRows.map((m) => (
           <tr key={m.id}>
             <td className="px-3 py-2 text-xs text-gray-500">{fmtDateTime(m.createdAt)}</td>
@@ -510,6 +513,14 @@ export function StockMovements() {
             <td className={cn("px-3 py-2 text-right font-medium tabular-nums", m.quantity > 0 ? "text-green-600" : "text-red-600")}>
               {m.quantity > 0 ? "+" : ""}{m.quantity}
             </td>
+            {seeCost && (
+              <td className="px-3 py-2 text-right tabular-nums">
+                {m.bought ? <>
+                  <div className="font-medium">{fmtMoney(m.bought.unitCost)}</div>
+                  <div className="text-xs text-gray-500">{m.bought.txnNo}{m.bought.supplier ? ` · ${m.bought.supplier}` : ""}</div>
+                </> : <span className="text-gray-400">—</span>}
+              </td>
+            )}
             <td className="px-3 py-2 text-right tabular-nums">{m.qtyAfter}</td>
             <td className="px-3 py-2 text-xs text-gray-500">{m.notes ?? ""}</td>
           </tr>
