@@ -150,7 +150,7 @@ export default function PosPage() {
   const [handBack, setHandBack] = useState<HandBackJob | null>(null);
   const [canScan, setCanScan] = useState(false);
   const { push } = useToast();
-  const { defaultBranchId, me, hasPerm, phoneShop } = useAuth();
+  const { defaultBranchId, me, hasPerm, phoneShop, featureEnabled } = useAuth();
   const netMode = useNetMode();
   // The id of the sale being completed; a new one once the cart changes (see checkout).
   const attemptRef = useRef<string | null>(null);
@@ -423,7 +423,7 @@ export default function PosPage() {
    *  opens the hand-back window; not found, the scan is reported as an unknown code. */
   async function openRepairByCode(code: string): Promise<boolean> {
     const text = code.trim();
-    if (!hasPerm("repair.view") || !(/\/track\//.test(text) || /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/.test(text))) return false;
+    if (!featureEnabled("repair") || !hasPerm("repair.view") || !(/\/track\//.test(text) || /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/.test(text))) return false;
     try {
       const job = await api<HandBackJob>(`/api/v1/repairs/lookup?code=${encodeURIComponent(text)}`);
       playBeep();
@@ -1099,12 +1099,12 @@ export default function PosPage() {
             <div className="space-y-3">
               <p className="text-xs text-gray-500">{"Not in stock here: fetched from another shop for this sale. Nothing comes off the shelf; the profit is the selling price less the other shop's best price."}</p>
               <Input label="Item name" value={outsideForm.name} autoFocus onChange={(e) => setOutsideForm({ ...outsideForm, name: e.target.value })} />
-              {/* A phone gets the warranty picker in the cart, and its warranty card. */}
-              <Select label="What is it?" value={outsideForm.kind} onChange={(e) => setOutsideForm({ ...outsideForm, kind: e.target.value as OutsideKind })}>
+              {/* A phone gets the warranty picker in the cart, and its warranty card (phone shops only). */}
+              {phoneShop && <Select label="What is it?" value={outsideForm.kind} onChange={(e) => setOutsideForm({ ...outsideForm, kind: e.target.value as OutsideKind })}>
                 <option value="">Other (accessory, part…)</option>
                 <option value="NEW">Phone — new (warranty card)</option>
                 <option value="SECOND">Phone — second-hand (warranty card)</option>
-              </Select>
+              </Select>}
               <div className="grid grid-cols-3 gap-2">
                 <Input label="Qty" value={outsideForm.quantity} inputMode="numeric" onChange={(e) => setOutsideForm({ ...outsideForm, quantity: e.target.value })} />
                 <Input label="Selling price" value={outsideForm.price} inputMode="decimal" onChange={(e) => setOutsideForm({ ...outsideForm, price: e.target.value })} />

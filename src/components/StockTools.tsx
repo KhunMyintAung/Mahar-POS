@@ -151,10 +151,13 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
   // the same line.
   const repairOnly = !hasPerm("item.manage");
   // They can also bring an unused part back from a repair.
-  const reasons = repairOnly ? STOCK_REASONS.filter((r) => r.key === "REPAIR_USE" || r.key === "RETURN_IN") : STOCK_REASONS;
+  // A shop without repairs (a mini mart) is never offered "Used for repair".
+  const repairs = featureEnabled("repair");
+  const reasons = repairOnly ? STOCK_REASONS.filter((r) => r.key === "REPAIR_USE" || r.key === "RETURN_IN")
+    : repairs ? STOCK_REASONS : STOCK_REASONS.filter((r) => r.key !== "REPAIR_USE");
   const startOf = (l: StockLevel | null) => ({
     // Spare parts mostly leave for repairs; anything else starts on a correction.
-    ...blankAdjust, reasonType: (repairOnly || /spare|part|lcd|battery|အပို/i.test(l?.category ?? "") ? "REPAIR_USE" : "CORRECTION") as StockReason,
+    ...blankAdjust, reasonType: (repairOnly || (repairs && /spare|part|lcd|battery|အပို/i.test(l?.category ?? "")) ? "REPAIR_USE" : "CORRECTION") as StockReason,
   });
   const [adjust, setAdjust] = useState(() => startOf(adjustTarget));
   // A tracked phone moves by IMEI: the units picked or typed, and for a +/− correction which way.
@@ -337,7 +340,8 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
 
 /** The stock movements of a day or a month: in, out, sold, used in repairs, and each one. */
 export function StockMovements() {
-  const { hasPerm } = useAuth();
+  const { hasPerm, featureEnabled } = useAuth();
+  const repairs = featureEnabled("repair");
   const seeCost = hasPerm("report.view") || hasPerm("item.manage");
   const [allMovements, setMovements] = useState<Movement[]>([]);
   const [moveType, setMoveType] = useState("ALL");
@@ -357,14 +361,15 @@ export function StockMovements() {
   // The cards over the movement list: what came in, what went out, and the two outs a
   // phone shop watches, sales and parts used in repairs.
   const totals = useMemo(() => {
-    let stockIn = 0, stockOut = 0, sold = 0, repair = 0, inValue = 0n, outValue = 0n;
+    let stockIn = 0, stockOut = 0, sold = 0, repair = 0, damaged = 0, inValue = 0n, outValue = 0n;
     for (const m of movements) {
       if (m.quantity > 0) { stockIn += m.quantity; inValue += costOf(m); } else { stockOut -= m.quantity; outValue += costOf(m); }
       if (m.type === "SALE") sold -= m.quantity;
       if (m.type === "SALE_RETURN") sold -= m.quantity;
       if (m.type === "REPAIR_USE") repair -= m.quantity;
+      if (m.type === "DAMAGE") damaged -= m.quantity;
     }
-    return { stockIn, stockOut, sold, repair, inValue, outValue };
+    return { stockIn, stockOut, sold, repair, damaged, inValue, outValue };
   }, [movements]);
 
   // A month, day by day: how many came in and went out, and what they are worth at cost.
@@ -454,8 +459,8 @@ export function StockMovements() {
           <div className="text-xl font-bold tabular-nums">{totals.sold.toLocaleString()}</div>
         </Card>
         <Card className="space-y-1">
-          <div className="text-xs text-gray-500">Used in repairs</div>
-          <div className="text-xl font-bold tabular-nums">{totals.repair.toLocaleString()}</div>
+          <div className="text-xs text-gray-500">{repairs ? "Used in repairs" : "Damaged"}</div>
+          <div className="text-xl font-bold tabular-nums">{(repairs ? totals.repair : totals.damaged).toLocaleString()}</div>
         </Card>
       </div>
 
