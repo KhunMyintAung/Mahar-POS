@@ -121,6 +121,10 @@ export interface PeriodRow {
   cashIn: bigint; cashOut: bigint;
   /** expense split by the section it comes out of (salary not included). */
   expSales: bigint; expService: bigint; expTopup: bigint; expGeneral: bigint;
+  /** The direct cost of each section: its own Daily Sale / Service / Bill Expense, repair
+   *  parts and Service purchases. General expenses (rent, power), even when Report settings
+   *  put them under a section, are not in it: they are not what the goods or work cost. */
+  directSales: bigint; directService: bigint; directTopup: bigint;
   /** Float bought from billers, recorded as expense from the Biller page (no second wallet move). */
   floatBought: bigint;
   /** Stock bought, recorded as expense from the Purchases page (no second wallet move). */
@@ -148,7 +152,28 @@ export function addRow(t: PeriodRow, r: PeriodRow) {
   return t;
 }
 
-type Finished = { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint } & ReturnType<typeof incomeExpenseOf>;
+/** One section's gross margin: income less its direct cost; percent is null with no income. */
+export interface Margin { income: bigint; cost: bigint; profit: bigint; percent: number | null }
+
+const marginOf = (income: bigint, cost: bigint): Margin => ({
+  income, cost, profit: income - cost,
+  // One decimal place, worked in whole numbers so money stays exact.
+  percent: income > 0n ? Number(((income - cost) * 1000n) / income) / 10 : null,
+});
+
+/** Gross margin by section, before general expenses and salary. Sales: goods at cost (or the
+ *  stock bought, see countCosts) and Daily Sale Expense. Service: Daily Service Expense,
+ *  Service purchases and, buying per job, the parts typed in at Mark as paid. Top-up: its
+ *  cost and Daily Bill Expense. Run `countCosts` on the row first. */
+export function grossMarginOf(r: PeriodRow) {
+  const sales = marginOf(r.sales, r.costOfSales + r.directSales);
+  const service = marginOf(r.service, r.directService);
+  const topup = marginOf(r.topup, r.topupCost + r.directTopup);
+  const all = marginOf(sales.income + service.income + topup.income, sales.cost + service.cost + topup.cost);
+  return { sales, service, topup, all };
+}
+
+type Finished = { totalIncome: bigint; grossProfit: bigint; netProfit: bigint; netCash: bigint; margin: ReturnType<typeof grossMarginOf> } & ReturnType<typeof incomeExpenseOf>;
 
 export interface SectionResult { section: Section; income: { label: string; amount: bigint }[]; expense: { label: string; amount: bigint }[]; profit: bigint }
 
@@ -176,12 +201,12 @@ function sectionsFor(features: FeatureVisibility): ReportSections {
 function foldHidden(r: PeriodRow, shown: ReportSections) {
   if (!shown.service) {
     r.otherIncome += r.service; r.expGeneral += r.expService;
-    r.service = 0n; r.expService = 0n;
+    r.service = 0n; r.expService = 0n; r.directService = 0n;
   }
   if (!shown.topup) {
     // Only the margin is the shop's; the rest of top-up cash belongs to the operator.
     r.otherIncome += r.topupMargin; r.expGeneral += r.expTopup;
-    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n; r.floatBought = 0n;
+    r.topup = 0n; r.topupMargin = 0n; r.expTopup = 0n; r.floatBought = 0n; r.directTopup = 0n;
   }
 }
 
@@ -207,6 +232,8 @@ export interface Report {
   salesByItem: { name: string; quantity: number; revenue: bigint; cost: bigint; profit: bigint }[];
   repairs: { received: number; finished: number; delivered: number; cancelled: number; collected: bigint };
   wallets: { name: string; currency: string; opening: bigint; moneyIn: bigint; moneyOut: bigint; closing: bigint }[];
+  /** How repair parts are costed (Settings → Repairs), which says how to read Service margin. */
+  repairParts: "stock" | "job";
   purchases: { count: number; total: bigint };
   sections: SectionResult[];
   distribution: Distribution;
@@ -215,8 +242,8 @@ export interface Report {
 const zeroRow = (period: string): PeriodRow => ({
   period, sales: 0n, salesCost: 0n, service: 0n, topup: 0n, topupMargin: 0n, billProfit: 0n, otherIncome: 0n,
   expense: 0n, salary: 0n, shares: 0n, cashIn: 0n, cashOut: 0n,
-  expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, floatBought: 0n, stockBought: 0n,
-  costOfSales: 0n, topupCost: 0n,
+  expSales: 0n, expService: 0n, expTopup: 0n, expGeneral: 0n, directSales: 0n, directService: 0n, directTopup: 0n,
+  floatBought: 0n, stockBought: 0n, costOfSales: 0n, topupCost: 0n,
 });
 
 /** Section profits for one row (or the totals). */
@@ -417,7 +444,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       incomeCats.set(name, (incomeCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId) && expenseSection(name) === "service") {
       // A purchase bought for Service (repair parts): a service expense, not goods to sell.
-      r.expense += e.amount; r.expService += e.amount;
+      r.expense += e.amount; r.expService += e.amount; r.directService += e.amount;
       expenseCats.set(name, (expenseCats.get(name) ?? 0n) + e.amount);
     } else if (e.type === "EXPENSE" && (e.purchaseId || e.fromPurchaseId)) {
       r.stockBought += e.amount;
@@ -430,6 +457,11 @@ export async function buildReport(businessId: string, from: string, to: string, 
       else {
         r.expense += e.amount;
         const sec = expenseSection(name);
+        // Direct cost only for the section's own category, not general ones sent to it.
+        const own = expenseKey.get(name.toLowerCase());
+        if (own === "DAILY_SALE") r.directSales += e.amount;
+        else if (own === "DAILY_SERVICE") r.directService += e.amount;
+        else if (own === "DAILY_BILL") r.directTopup += e.amount;
         if (sec === "sales") r.expSales += e.amount;
         else if (sec === "service") r.expService += e.amount;
         else if (sec === "topup") r.expTopup += e.amount;
@@ -458,7 +490,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     for (const j of await jobsPaidBetween(businessId, from, to, branchIds)) {
       if (j.partsCost <= 0n) continue;
       const r = at(j.paidDate);
-      r.expense += j.partsCost; r.expService += j.partsCost;
+      r.expense += j.partsCost; r.expService += j.partsCost; r.directService += j.partsCost;
       expenseCats.set(REPAIR_PARTS_LABEL, (expenseCats.get(REPAIR_PARTS_LABEL) ?? 0n) + j.partsCost);
     }
   }
@@ -486,7 +518,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     // is the operator's credit passing through.
     const grossProfit = r.sales - r.costOfSales + r.service + (r.topup - r.topupCost) + r.otherIncome;
     const netProfit = grossProfit - r.expense - r.salary;
-    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, ...incomeExpenseOf(r) };
+    return { ...r, totalIncome, grossProfit, netProfit, netCash: r.cashIn - r.cashOut, margin: grossMarginOf(r), ...incomeExpenseOf(r) };
   };
   const grouped = new Map<string, PeriodRow>();
   for (const r of [...rows.values()].sort((a, b) => a.period.localeCompare(b.period))) {
@@ -538,6 +570,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
       const moneyOut = inRange.filter((l) => l.direction === "CREDIT").reduce((a, l) => a + l.amount, 0n);
       return { name: w.name, currency: w.currency, opening: closing - moneyIn + moneyOut, moneyIn, moneyOut, closing };
     }),
+    repairParts: repairFlow.parts,
     purchases: { count: purchases._count, total: purchases._sum.total ?? 0n },
     stock: await stockOf(businessId, settings.stockCategoryIds, stockByBrand, branchIds),
   };

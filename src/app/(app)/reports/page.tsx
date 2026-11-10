@@ -18,7 +18,11 @@ type Kind = "day" | "month" | "year" | "range";
 type Money = string;
 type Sec = "sales" | "service" | "topup" | "general";
 interface Cols { sales: Money; service: Money; topup: Money; other: Money; total: Money }
-interface Row { period: string; inc: Cols; exp: Cols; net: Money; salary: Money; netProfit: Money }
+interface Margin { income: Money; cost: Money; profit: Money; percent: number | null }
+interface Row {
+  period: string; inc: Cols; exp: Cols; net: Money; salary: Money; netProfit: Money;
+  margin: { sales: Margin; service: Margin; topup: Margin; all: Margin };
+}
 interface Settings {
   salaryCategories: string[]; showShares: boolean; generalExpenseTo: Sec;
   reserve: { mode: "percent" | "amount"; value: number }; partners: { name: string; percent: number }[];
@@ -39,6 +43,7 @@ interface Report {
   /** What makes up Other income, per period and for "Total". */
   otherIncomeBy?: Record<string, { label: string; amount: Money }[]>;
   serviceBy?: Record<string, { date: string; label: string; amount: Money }[]>;
+  repairParts?: "stock" | "job";
 }
 
 const big = (m: Money) => BigInt(m);
@@ -202,6 +207,8 @@ export default function ReportsPage() {
             </div>
           </Card>
 
+          <GrossMargin report={report} parts={parts} />
+
           {owner && (
             <Link href="/settings#sheets" className="no-print flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white p-3 text-sm hover:border-green-400 dark:border-gray-800 dark:bg-gray-900">
               <span className="flex items-center gap-2"><FileSpreadsheet size={18} className="text-green-600" />Google Sheet sync</span>
@@ -237,6 +244,65 @@ export default function ReportsPage() {
 
       {owner && <ReportSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={load} shown={report?.shown ?? { sales: true, service: true, topup: true }} />}
     </div>
+  );
+}
+
+const pct = (m: Margin) => (m.percent === null ? "—" : `${m.percent.toFixed(1)}%`);
+
+/** Gross margin of each part of the shop: income less what the goods or work directly cost,
+ *  before rent, salary and other general expenses. How repair parts are costed (Settings →
+ *  Repairs) says how to read Service: bought into stock, they count when bought, so the
+ *  month is the unit that means something; bought per job, they count on the day paid. */
+function GrossMargin({ report, parts }: { report: Report; parts: readonly (readonly [Exclude<Sec, "general">, string])[] }) {
+  const rows = [...report.rows, { ...report.totals, period: "Total" }];
+  const byDay = report.groupBy === "day";
+  const stockParts = (report.repairParts ?? "stock") === "stock" && report.shown.service;
+  return (
+    <Card>
+      <h3 className="mb-1 text-sm font-semibold">{"Gross margin"}</h3>
+      <p className="mb-3 text-xs text-gray-500">{"Income less what the goods or work directly cost. Rent, salary and other general expenses are not taken off."}</p>
+      <div className="max-w-full overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800">
+        <table className="w-full min-w-max text-xs lg:min-w-0">
+          <thead className="bg-gray-50 text-[11px] text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
+            <tr>
+              <th />
+              {[...parts.map(([, l]) => l), "All"].map((l) => (
+                <th key={l} colSpan={3} className="border-l border-gray-200 px-1.5 pt-1.5 text-center font-semibold uppercase tracking-wide dark:border-gray-700">{l}</th>
+              ))}
+            </tr>
+            <tr className="border-b border-gray-200 dark:border-gray-800">
+              <th className="px-1.5 py-1.5 text-left font-medium">{byDay ? "Date" : "Month"}</th>
+              {[...parts, ["all", "All"] as const].flatMap(([k]) => [
+                <th key={`${k}c`} className="border-l border-gray-200 px-1.5 py-1.5 text-right font-medium dark:border-gray-700">{"Direct cost"}</th>,
+                <th key={`${k}p`} className="px-1.5 py-1.5 text-right font-medium">{"Gross profit"}</th>,
+                <th key={`${k}m`} className="px-1.5 py-1.5 text-right font-medium">{"Margin %"}</th>,
+              ])}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-900">
+            {rows.map((r) => {
+              const total = r.period === "Total";
+              return (
+                <tr key={r.period} className={cn(total && "bg-gray-50 font-semibold dark:bg-gray-800/60")}>
+                  <td className="whitespace-nowrap px-1.5 py-1.5">{byDay && !total ? r.period.slice(5) : r.period}</td>
+                  {[...parts.map(([k]) => r.margin[k]), r.margin.all].flatMap((m, i) => [
+                    <td key={`${i}c`} className="border-l border-gray-100 px-1.5 py-1.5 text-right tabular-nums dark:border-gray-800">{fmtMoney(m.cost)}</td>,
+                    <td key={`${i}p`} className={cn("px-1.5 py-1.5 text-right tabular-nums", big(m.income) > 0n && tone(m.profit))}>{fmtMoney(m.profit)}</td>,
+                    <td key={`${i}m`} className={cn("px-1.5 py-1.5 text-right font-semibold tabular-nums", m.percent !== null && m.percent < 0 && "text-red-600 dark:text-red-400")}>{pct(m)}</td>,
+                  ])}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-gray-500">
+        {stockParts && <li>{"Repair parts count on the day they are bought (Settings → Repairs: From stock). A month that stocks up shows a lower Service margin, the next a higher one."}</li>}
+        {!stockParts && report.shown.service && <li>{"Repair parts count on the day the job is paid (Settings → Repairs: Bought per job)."}</li>}
+        {stockParts && byDay && <li>{"Day by day the margin swings with what was bought that day; read it by Month or Year."}</li>}
+        {report.shown.sales && <li>{"Daily Sale Income typed as a day's total has no cost behind it unless the stock bought is put into expense, so its margin shows too high."}</li>}
+      </ul>
+    </Card>
   );
 }
 
