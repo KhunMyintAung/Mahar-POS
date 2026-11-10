@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api";
 import { DEFAULT_ROLES } from "@/lib/permissions";
 import { addItemCategoryPresets, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 import type { AuthUser } from "@/lib/auth";
+import type { Currency } from "@/lib/currency";
 import { ensureStandardCategories } from "@/lib/incomeCategories";
 import {
   moduleSetting,
@@ -20,7 +21,7 @@ export interface TenantRegistration {
   email: string;
   phone?: string;
   password: string;
-  currency: "MMK" | "THB";
+  currency: Currency;
   timezone: string;
   businessCategory?: BusinessCategory;
   moduleMode?: ModuleMode;

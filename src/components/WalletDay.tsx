@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Card, StatCard, cn } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
+import { useCurrency } from "@/components/AppShell";
 
 interface Entry {
   id: string; walletId: string; walletName: string; currency: string; direction: "DEBIT" | "CREDIT";
@@ -40,6 +41,7 @@ const shiftDay = (d: string, by: number) => {
 /** The Wallets page's day view: the day's money in and out, transfers and withdrawals, and
  *  every movement across the wallets, for today or any day picked. */
 export function WalletDay({ refreshKey }: { refreshKey?: unknown }) {
+  const cur = useCurrency();
   const [date, setDate] = useState(today);
   const [day, setDay] = useState<Day | null>(null);
   const [filter, setFilter] = useState("all");
@@ -49,8 +51,8 @@ export function WalletDay({ refreshKey }: { refreshKey?: unknown }) {
     api<Day>(`/api/v1/wallets/day?date=${date}`).then((d) => { setDay(d); setError(""); }).catch((e) => setError(e.message));
   }, [date, refreshKey]);
 
-  const mmk = day?.totals.MMK;
-  const others = Object.entries(day?.totals ?? {}).filter(([c]) => c !== "MMK");
+  const mmk = day?.totals[cur];
+  const others = Object.entries(day?.totals ?? {}).filter(([c]) => c !== cur);
   const test = FILTERS.find(([k]) => k === filter)?.[2] ?? (() => true);
   const rows = (day?.entries ?? []).filter(test);
   const isToday = date === today();
@@ -70,20 +72,20 @@ export function WalletDay({ refreshKey }: { refreshKey?: unknown }) {
 
       {/* Money in, out and net; transfers and withdrawals only on a day that has them. */}
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Money in" value={fmtMoney(mmk?.moneyIn ?? "0", "MMK")} tone="green" />
-        <StatCard label="Money out" value={fmtMoney(mmk?.moneyOut ?? "0", "MMK")} tone="red" />
-        <StatCard label="Net" value={fmtMoney((BigInt(mmk?.moneyIn ?? "0") - BigInt(mmk?.moneyOut ?? "0")).toString(), "MMK")} tone={BigInt(mmk?.moneyIn ?? "0") >= BigInt(mmk?.moneyOut ?? "0") ? "blue" : "red"} />
+        <StatCard label="Money in" value={fmtMoney(mmk?.moneyIn ?? "0", cur)} tone="green" />
+        <StatCard label="Money out" value={fmtMoney(mmk?.moneyOut ?? "0", cur)} tone="red" />
+        <StatCard label="Net" value={fmtMoney((BigInt(mmk?.moneyIn ?? "0") - BigInt(mmk?.moneyOut ?? "0")).toString(), cur)} tone={BigInt(mmk?.moneyIn ?? "0") >= BigInt(mmk?.moneyOut ?? "0") ? "blue" : "red"} />
       </div>
       {(BigInt(mmk?.transfers ?? "0") > 0n || BigInt(mmk?.withdrawals ?? "0") > 0n) && (
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           {BigInt(mmk?.transfers ?? "0") > 0n && (
             <button type="button" onClick={() => setFilter("transfer")} className="text-gray-600 hover:underline dark:text-gray-300">
-              {"Transfers"} <b className="tabular-nums">{fmtMoney(mmk!.transfers, "MMK")}</b>
+              {"Transfers"} <b className="tabular-nums">{fmtMoney(mmk!.transfers, cur)}</b>
             </button>
           )}
           {BigInt(mmk?.withdrawals ?? "0") > 0n && (
             <button type="button" onClick={() => setFilter("withdraw")} className="text-amber-700 hover:underline dark:text-amber-300">
-              {"Withdrawals"} <b className="tabular-nums">{fmtMoney(mmk!.withdrawals, "MMK")}</b>
+              {"Withdrawals"} <b className="tabular-nums">{fmtMoney(mmk!.withdrawals, cur)}</b>
             </button>
           )}
         </div>

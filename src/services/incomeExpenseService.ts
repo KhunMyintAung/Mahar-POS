@@ -6,6 +6,7 @@ import { assertDateOpen } from "./closeGuard";
 import { audit } from "@/lib/audit";
 import { businessDateOf } from "@/lib/dates";
 import { ensureStandardCategories } from "@/lib/incomeCategories";
+import { businessCurrency } from "@/services/currencyService";
 
 // Shared by the HTTP API and the Telegram bot so both stay in lockstep.
 // WITHDRAW behaves like EXPENSE (money leaves the wallet) but is tracked as
@@ -219,7 +220,7 @@ export async function recordPurchaseExpense(tx: Tx, opts: { businessId: string; 
   // The wallet that paid, or for a purchase on credit the branch's first MMK wallet.
   const wallet = purchase.walletId
     ? await tx.wallet.findUnique({ where: { id: purchase.walletId } })
-    : await tx.wallet.findFirst({ where: { businessId: opts.businessId, branchId: purchase.branchId, currency: "MMK", deletedAt: null }, orderBy: { createdAt: "asc" } })
+    : await tx.wallet.findFirst({ where: { businessId: opts.businessId, branchId: purchase.branchId, currency: await businessCurrency(opts.businessId, tx), deletedAt: null }, orderBy: { createdAt: "asc" } })
       ?? await tx.wallet.findFirst({ where: { businessId: opts.businessId, deletedAt: null }, orderBy: { createdAt: "asc" } });
   if (!wallet) throw new ApiError(422, "Add a wallet first");
   const supplier = purchase.supplierId ? await tx.contact.findUnique({ where: { id: purchase.supplierId }, select: { name: true } }) : null;
@@ -286,7 +287,7 @@ export async function recordPayablePaymentExpense(tx: Tx, opts: {
       categoryId: category?.id,
       categoryName,
       amount,
-      currency: wallet?.currency ?? "MMK",
+      currency: wallet?.currency ?? (await businessCurrency(opts.businessId, tx)),
       walletId: opts.walletId,
       date: opts.date,
       reference: purchase.txnNo,

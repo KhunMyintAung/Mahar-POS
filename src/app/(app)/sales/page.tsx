@@ -8,7 +8,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { type ReceiptData } from "@/components/SaleReceipt";
 import { receiptForSale, SaleReprintDialog } from "@/components/SaleReprint";
 import { PageHeader } from "@/components/PageHeader";
@@ -25,6 +25,7 @@ interface Sale {
 }
 
 export default function SalesPage() {
+  const cur = useCurrency();
   const [sales, setSales] = useState<Sale[] | null>(null);
   const [totals, setTotals] = useState({ amount: "0", profit: "0" });
   const [q, setQ] = useState("");
@@ -94,8 +95,8 @@ export default function SalesPage() {
               )}
             </div>
             <span className="flex flex-wrap gap-x-3 text-sm text-gray-600 dark:text-gray-300">
-              <span className="whitespace-nowrap"><span>Total sales</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(totals.amount, "MMK")}</b></span>
-              {showProfit && <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, "MMK")}</b></span>}
+              <span className="whitespace-nowrap"><span>Total sales</span>: <b className="tabular-nums text-gray-900 dark:text-gray-100">{fmtMoney(totals.amount, cur)}</b></span>
+              {showProfit && <span className="whitespace-nowrap"><span>Total profit</span>: <b className={`tabular-nums ${BigInt(totals.profit) >= 0n ? "text-green-600" : "text-red-600"}`}>{fmtMoney(totals.profit, cur)}</b></span>}
             </span>
           </>
         }

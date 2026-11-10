@@ -6,7 +6,7 @@ import { ChevronDown, Plus, Printer } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { DayPicker, todayDate } from "@/components/DayPicker";
@@ -64,6 +64,7 @@ interface Contact { id: string; name: string; type: string }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 
 function CreditContent() {
+  const cur = useCurrency();
   const search = useSearchParams();
   const [tab, setTab] = useState<"receivable" | "payable">(search.get("tab") === "payable" ? "payable" : "receivable");
   const [items, setItems] = useState<Item[] | null>(null);
@@ -295,7 +296,7 @@ function CreditContent() {
             <>
               <Select label="Paid out from wallet" value={form.walletId} onChange={(e) => setForm({ ...form, walletId: e.target.value })}>
                 <option value="">Select…</option>
-                {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                {wallets.filter((w) => w.currency === cur).map((w) => (
                   <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)} {w.currency})</option>
                 ))}
               </Select>
@@ -329,7 +330,7 @@ function CreditContent() {
           </div>
           <Select label={isRec ? "Customer paid into" : "Pay from wallet"} value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
             <option value="">Select…</option>
-            {wallets.filter((w) => w.currency === (payItem?.currency ?? "MMK")).map((w) => (
+            {wallets.filter((w) => w.currency === (payItem?.currency ?? cur)).map((w) => (
               <option key={w.id} value={w.id}>{isRec ? w.name : `${w.name} (${fmtMoney(w.currentBalance)})`}</option>
             ))}
           </Select>

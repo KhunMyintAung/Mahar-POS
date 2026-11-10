@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/currency";
+import { businessCurrency } from "@/services/currencyService";
 import { withAuth, json, parseBody, pagination } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
@@ -47,7 +49,7 @@ const schema = z.object({
   person: z.object({ name: z.string().trim().min(1, "Enter a name").max(120), phone: z.string().trim().max(40).optional() }).optional(),
   branchId: z.string().min(1),
   amount: z.string().min(1),
-  currency: z.enum(["MMK", "THB"]).default("MMK"),
+  currency: z.enum(CURRENCIES).optional(),
   creditDate: z.string().refine(isValidBusinessDate).default(todayBusinessDate),
   dueDate: z.string().optional(),
   reference: z.string().optional(),
@@ -78,7 +80,7 @@ export const POST = withAuth("credit.create", async ({ req, user }) => {
       userId: user.id,
       customerId: customerId!,
       amount: toMinor(body.amount),
-      currency: body.currency,
+      currency: body.currency ?? (await businessCurrency(user.businessId)),
       creditDate: body.creditDate,
       dueDate: body.dueDate,
       reference: body.reference,

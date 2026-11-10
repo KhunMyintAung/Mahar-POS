@@ -1,6 +1,7 @@
 import { Tx } from "@/lib/prisma";
 import { dateRangeUtc } from "@/lib/dates";
 import { bucketForKey } from "@/lib/incomeCategories";
+import { businessCurrency } from "@/services/currencyService";
 
 // Computes the daily business summary used by both the dashboard and daily close.
 
@@ -26,11 +27,14 @@ export async function computeDaySummary(
     where: { businessId, deletedAt: null, active: true, ...(branchIds ? { branchId: { in: branchIds } } : {}) },
     select: { id: true, name: true, currency: true, currentBalance: true, minBalance: true },
   });
+  // totalMmk is the shop's main currency (MMK, USD or THB); THB is counted on its own only
+  // as a second currency held beside it.
+  const main = await businessCurrency(businessId, tx);
   let totalMmk = 0n, totalThb = 0n, thbWallets = 0;
   const lowBalance = [];
   for (const w of wallets) {
-    if (w.currency === "MMK") totalMmk += w.currentBalance;
-    if (w.currency === "THB") { totalThb += w.currentBalance; thbWallets++; }
+    if (w.currency === main) totalMmk += w.currentBalance;
+    else if (w.currency === "THB") { totalThb += w.currentBalance; thbWallets++; }
     if (w.minBalance > 0n && w.currentBalance < w.minBalance) {
       lowBalance.push({ id: w.id, name: w.name, currentBalance: w.currentBalance, minBalance: w.minBalance });
     }
@@ -129,13 +133,14 @@ export async function computeDayIncome(
 ): Promise<DayIncome> {
   const range = dateRangeUtc(date);
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
+  const main = await businessCurrency(businessId, tx);
   const [repairIn, repairOut, topup, sales, incomeByCategory, keyed] = await Promise.all([
     tx.walletLedgerEntry.aggregate({
-      where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
+      where: { businessId, direction: "DEBIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: main }, ...branch },
       _sum: { amount: true },
     }),
     tx.walletLedgerEntry.aggregate({
-      where: { businessId, direction: "CREDIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" }, ...branch },
+      where: { businessId, direction: "CREDIT", createdAt: range, refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: main }, ...branch },
       _sum: { amount: true },
     }),
     tx.billerTxn.aggregate({
@@ -153,7 +158,7 @@ export async function computeDayIncome(
     // that profit as Other income.)
     tx.incomeExpense.groupBy({
       by: ["categoryName"],
-      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: null, date, currency: "MMK", ...branch },
+      where: { businessId, deletedAt: null, type: "INCOME", status: "COMPLETED", billerTxnId: null, date, currency: main, ...branch },
       _sum: { amount: true },
     }),
     // Entries carry the category's name; the standard ones are told apart by their key, so
@@ -185,9 +190,10 @@ export async function computeDayIncome(
 
 /** What went out on a day, by expense category, biggest first. */
 export async function computeDayExpense(tx: Tx, businessId: string, date: string, branchIds?: string[]) {
+  const main = await businessCurrency(businessId, tx);
   const rows = await tx.incomeExpense.groupBy({
     by: ["categoryName"],
-    where: { businessId, deletedAt: null, type: "EXPENSE", status: "COMPLETED", date, currency: "MMK", ...(branchIds ? { branchId: { in: branchIds } } : {}) },
+    where: { businessId, deletedAt: null, type: "EXPENSE", status: "COMPLETED", date, currency: main, ...(branchIds ? { branchId: { in: branchIds } } : {}) },
     _sum: { amount: true },
   });
   const lines: DayLine[] = rows

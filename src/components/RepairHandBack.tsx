@@ -5,7 +5,7 @@ import { CheckCircle2, Printer } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { Button, Input, Modal, Select, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "@/lib/repairStatus";
 import { printRepairVoucher } from "@/lib/slipPrint";
 import { playSuccess } from "@/lib/sound";
@@ -27,13 +27,14 @@ interface Wallet { id: string; name: string; currency: string }
 const kyat = (minor: string) => Number(minor) / 100;
 
 export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | null; wallets: Wallet[]; onClose: () => void }) {
+  const cur = useCurrency();
   const { me, hasPerm } = useAuth();
   const { push } = useToast();
   const [current, setCurrent] = useState<HandBackJob | null>(job);
   const [charge, setCharge] = useState("");
   const [walletId, setWalletId] = useState("");
   const [busy, setBusy] = useState(false);
-  const mmk = wallets.filter((w) => w.currency === "MMK");
+  const mmk = wallets.filter((w) => w.currency === cur);
   // Record only (Settings → Repairs): handing back takes no money into a wallet.
   const [recordOnly, setRecordOnly] = useState(false);
   useEffect(() => {

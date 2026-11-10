@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Badge, Table, Empty, cn, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { duplicateImei, splitImeis } from "@/lib/imeiInput";
 import { PageHeader } from "@/components/PageHeader";
@@ -47,6 +47,7 @@ const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", du
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
 
 export default function PurchasesPage() {
+  const cur = useCurrency();
   const [purchases, setPurchases] = useState<Purchase[] | null>(null);
   // The purchase whose voucher is open.
   const [voucherFor, setVoucherFor] = useState<string | null>(null);
@@ -138,7 +139,7 @@ export default function PurchasesPage() {
   }, [purchases, supplierExpense, day, allDates]);
   const shownPurchases = (purchases ?? []).filter((p) => inPeriod(p.date) && (!supplierFilterId || p.supplierId === supplierFilterId));
 
-  const mmkWallets = wallets.filter((w) => w.currency === "MMK");
+  const mmkWallets = wallets.filter((w) => w.currency === cur);
   // The first cash wallet is picked until the user chooses another, also when the form opens from ?new=1.
   const walletId = form.walletId || mmkWallets[0]?.id || "";
   const itemById = useMemo(() => new Map(items.map((it) => [it.id, it])), [items]);

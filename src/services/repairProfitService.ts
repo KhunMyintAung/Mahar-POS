@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { businessDateOf, dateRangeUtc } from "@/lib/dates";
 import { DEFAULT_REPAIR_FLOW, parseRepairFlow, REPAIR_FLOW_KEY, type RepairFlow } from "@/lib/repairFlow";
+import { businessCurrency } from "@/services/currencyService";
 
 export async function loadRepairFlow(businessId: string): Promise<RepairFlow> {
   const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: REPAIR_FLOW_KEY } }, select: { value: true } });
@@ -47,7 +48,7 @@ export async function jobsPaidBetween(businessId: string, from: string, to: stri
 export async function serviceEntriesOn(businessId: string, date: string, branchIds?: string[]) {
   const cats = await prisma.category.findMany({ where: { businessId, systemKey: "DAILY_SERVICE" }, select: { name: true, type: true } });
   const names = (type: string) => cats.filter((c) => c.type === type).map((c) => c.name);
-  const where = { businessId, deletedAt: null, status: "COMPLETED" as const, date, currency: "MMK", ...(branchIds ? { branchId: { in: branchIds } } : {}) };
+  const where = { businessId, deletedAt: null, status: "COMPLETED" as const, date, currency: await businessCurrency(businessId), ...(branchIds ? { branchId: { in: branchIds } } : {}) };
   const [income, expense] = await Promise.all([
     prisma.incomeExpense.aggregate({ where: { ...where, type: "INCOME", billerTxnId: null, categoryName: { in: names("INCOME") } }, _sum: { amount: true } }),
     prisma.incomeExpense.aggregate({ where: { ...where, type: "EXPENSE", categoryName: { in: names("EXPENSE") } }, _sum: { amount: true } }),

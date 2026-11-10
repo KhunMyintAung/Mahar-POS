@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { itemLines, saleNotice } from "@/lib/telegramNotify";
+import { inShopCurrency, itemLines, saleNotice as rawSaleNotice } from "@/lib/telegramNotify";
+
+const saleNotice = (...a: Parameters<typeof rawSaleNotice>) => inShopCurrency(rawSaleNotice(...a), "MMK");
 
 describe("saleNotice", () => {
   it("says what was sold, not only what it came to", () => {

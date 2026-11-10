@@ -7,7 +7,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { fmtMoney } from "@/lib/format";
 import { ContactCsvTools, type ContactBalanceRow } from "@/components/ContactCsv";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -28,6 +28,7 @@ const CONTACT_TYPES = [
 ];
 
 export default function CustomersPage() {
+  const cur = useCurrency();
   const [contacts, setContacts] = useState<ContactBalanceRow[] | null>(null);
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
@@ -91,8 +92,8 @@ export default function CustomersPage() {
 
       {(showRec || showPay) && (
         <div className="grid gap-2 sm:grid-cols-2">
-          {showRec && <StatCard label="Customers owe us" value={fmtMoney(sumOf("theyOwe").toString(), "MMK")} tone="amber" />}
-          {showPay && <StatCard label="We owe suppliers" value={fmtMoney(sumOf("weOwe").toString(), "MMK")} tone="red" />}
+          {showRec && <StatCard label="Customers owe us" value={fmtMoney(sumOf("theyOwe").toString(), cur)} tone="amber" />}
+          {showPay && <StatCard label="We owe suppliers" value={fmtMoney(sumOf("weOwe").toString(), cur)} tone="red" />}
         </div>
       )}
 

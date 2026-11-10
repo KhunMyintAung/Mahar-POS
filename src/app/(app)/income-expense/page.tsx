@@ -5,7 +5,7 @@ import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { NewSupplierModal, type Supplier } from "@/components/SupplierList";
@@ -42,6 +42,7 @@ interface AppMoney {
 /** Shown while a Daily Sale or Service Expense is entered on a day a purchase was paid from a
  *  wallet: that money already left with the purchase, so typing it again takes it out twice. */
 function PurchasePaid({ money }: { money: AppMoney }) {
+  const cur = useCurrency();
   const list = money.purchases ?? [];
   if (list.length === 0) return null;
   return (
@@ -49,7 +50,7 @@ function PurchasePaid({ money }: { money: AppMoney }) {
       <p className="font-medium">{"Purchases paid this day:"}</p>
       <ul className="mt-1 space-y-0.5 tabular-nums">
         {list.map((p) => (
-          <li key={p.txnNo}><span>{p.txnNo}</span>{p.supplier ? <span>{` · ${p.supplier}`}</span> : null} <b>{fmtMoney(p.paid, "MMK")}</b></li>
+          <li key={p.txnNo}><span>{p.txnNo}</span>{p.supplier ? <span>{` · ${p.supplier}`}</span> : null} <b>{fmtMoney(p.paid, cur)}</b></li>
         ))}
       </ul>
       <p className="mt-1 text-xs">{"This money already left the wallet with the purchase. To put it into expense, use Add to expense on the purchase, not a new entry here, or it is counted twice."}</p>
@@ -60,6 +61,7 @@ function PurchasePaid({ money }: { money: AppMoney }) {
 /** Shown while Daily Service or Daily Sale income is entered: a day's total copied from a
  *  notebook often already holds repairs paid or sales rung up in the app, and would count them twice. */
 function AlreadyCounted({ money, kind }: { money: AppMoney; kind: "DAILY_SERVICE" | "DAILY_SALE" }) {
+  const cur = useCurrency();
   const part = kind === "DAILY_SERVICE" ? money.repair : money.sales;
   const fromApp = BigInt(part.amount);
   const entered = BigInt(part.entered);
@@ -71,11 +73,11 @@ function AlreadyCounted({ money, kind }: { money: AppMoney; kind: "DAILY_SERVICE
         {fromApp !== 0n && (
           <li>
             <span>{kind === "DAILY_SERVICE" ? "Repair money taken in the app" : "POS sales in the app"}</span>{" "}
-            <b>{fmtMoney(part.amount, "MMK")}</b>{" "}
+            <b>{fmtMoney(part.amount, cur)}</b>{" "}
             <span>{`(${"jobs" in part ? part.jobs : part.count})`}</span>
           </li>
         )}
-        {entered !== 0n && <li><span>{"Entered here already"}</span> <b>{fmtMoney(part.entered, "MMK")}</b></li>}
+        {entered !== 0n && <li><span>{"Entered here already"}</span> <b>{fmtMoney(part.entered, cur)}</b></li>}
       </ul>
       <p className="mt-1 text-xs">{"Enter only money the app does not have yet, or Total Income counts it twice."}</p>
     </div>
@@ -84,6 +86,7 @@ function AlreadyCounted({ money, kind }: { money: AppMoney; kind: "DAILY_SERVICE
 
 
 export default function IncomeExpensePage() {
+  const cur = useCurrency();
   const [items, setItems] = useState<Item[] | null>(null);
   const [totals, setTotals] = useState({ income: "0", expense: "0", withdraw: "0" });
   // The day shown, or every day when "All dates" is picked.
@@ -305,14 +308,14 @@ export default function IncomeExpensePage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className={typeFilter === "INCOME" ? "rounded-lg ring-2 ring-green-500" : ""}>
-          <StatCard label={allDates ? "Total income" : day === todayDate() ? "Today's income" : "Income"} value={fmtMoney(totals.income, "MMK")} tone="green" onClick={() => pickType("INCOME")} sub={typeFilter === "INCOME" ? "Showing income only" : "Tap to list income"} />
+          <StatCard label={allDates ? "Total income" : day === todayDate() ? "Today's income" : "Income"} value={fmtMoney(totals.income, cur)} tone="green" onClick={() => pickType("INCOME")} sub={typeFilter === "INCOME" ? "Showing income only" : "Tap to list income"} />
         </div>
         <div className={typeFilter === "EXPENSE" ? "rounded-lg ring-2 ring-red-500" : ""}>
-          <StatCard label={allDates ? "Total expense" : day === todayDate() ? "Today's expense" : "Expense"} value={fmtMoney(totals.expense, "MMK")} tone="red" onClick={() => pickType("EXPENSE")} sub={typeFilter === "EXPENSE" ? "Showing expense only" : "Tap to list expense"} />
+          <StatCard label={allDates ? "Total expense" : day === todayDate() ? "Today's expense" : "Expense"} value={fmtMoney(totals.expense, cur)} tone="red" onClick={() => pickType("EXPENSE")} sub={typeFilter === "EXPENSE" ? "Showing expense only" : "Tap to list expense"} />
         </div>
-        <StatCard label="Income − expense" value={fmtMoney((BigInt(totals.income) - BigInt(totals.expense)).toString(), "MMK")} tone={BigInt(totals.income) >= BigInt(totals.expense) ? "blue" : "red"} onClick={() => setTypeFilter("")} sub={typeFilter ? "Tap to show all" : undefined} />
+        <StatCard label="Income − expense" value={fmtMoney((BigInt(totals.income) - BigInt(totals.expense)).toString(), cur)} tone={BigInt(totals.income) >= BigInt(totals.expense) ? "blue" : "red"} onClick={() => setTypeFilter("")} sub={typeFilter ? "Tap to show all" : undefined} />
         <div className={typeFilter === "WITHDRAW" ? "rounded-lg ring-2 ring-amber-500" : ""}>
-          <StatCard label="Withdrawals" value={fmtMoney(totals.withdraw ?? "0", "MMK")} tone="amber" onClick={() => pickType("WITHDRAW")} />
+          <StatCard label="Withdrawals" value={fmtMoney(totals.withdraw ?? "0", cur)} tone="amber" onClick={() => pickType("WITHDRAW")} />
         </div>
       </div>
 

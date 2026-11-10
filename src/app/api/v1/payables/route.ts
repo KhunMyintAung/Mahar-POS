@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/currency";
+import { businessCurrency } from "@/services/currencyService";
 import { withAuth, json, parseBody, ApiError, pagination } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
@@ -44,7 +46,7 @@ const schema = z.object({
   supplierId: z.string().min(1),
   branchId: z.string().min(1),
   amount: z.string().min(1),
-  currency: z.enum(["MMK", "THB"]).default("MMK"),
+  currency: z.enum(CURRENCIES).optional(),
   payableDate: z.string().refine(isValidBusinessDate).default(todayBusinessDate),
   dueDate: z.string().optional(),
   category: z.string().optional(),
@@ -71,7 +73,7 @@ export const POST = withAuth("payable.create", async ({ req, user }) => {
         supplierId: body.supplierId,
         originalAmount: amount,
         remainingAmount: amount,
-        currency: body.currency,
+        currency: body.currency ?? (await businessCurrency(user.businessId)),
         payableDate: body.payableDate,
         dueDate: body.dueDate,
         category: body.category,

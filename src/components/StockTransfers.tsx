@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Badge, Button, Card, Empty, Input, Modal, Select, cn, useToast } from "@/components/ui";
 import { ImeiAdjustFields } from "@/components/ImeiTools";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import type { StockLevel } from "@/components/StockTools";
 import { matchesWords } from "@/lib/searchWords";
 
@@ -28,6 +28,7 @@ function shiftMonth(month: string, step: number) {
 }
 
 export function StockTransfers() {
+  const cur = useCurrency();
   const { hasPerm, branches: myBranches, defaultBranchId } = useAuth();
   const { push } = useToast();
   const canSend = hasPerm("stock.adjust") && hasPerm("item.manage");
@@ -80,7 +81,7 @@ export function StockTransfers() {
                 <span className="flex items-center gap-1 text-sm font-medium">
                   <span>{t.fromBranch}</span><ArrowRight size={14} className="text-gray-400" /><span>{t.toBranch}</span>
                 </span>
-                {seeCost && <span className="ml-auto text-sm tabular-nums">{fmtMoney(valueOf(t).toString(), "MMK")}</span>}
+                {seeCost && <span className="ml-auto text-sm tabular-nums">{fmtMoney(valueOf(t).toString(), cur)}</span>}
               </div>
               <ul className="space-y-0.5 text-sm">
                 {t.lines.map((l) => (

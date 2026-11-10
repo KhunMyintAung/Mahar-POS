@@ -5,7 +5,7 @@ import { ArrowLeftRight } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -29,6 +29,7 @@ const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
  *  amount swaps between that account and the drawer; the fee is the shop's, filed as income
  *  (Transfer & Cash-out Fee) so it shows under Other income. */
 export default function MoneyServicePage() {
+  const cur = useCurrency();
   const [records, setRecords] = useState<Record_[] | null>(null);
   const [today, setToday] = useState<{ kind: Kind; count: number; amount: string; fee: string }[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
@@ -44,8 +45,8 @@ export default function MoneyServicePage() {
     api<{ records: Record_[]; today: { kind: Kind; count: number; amount: string; fee: string }[] }>("/api/v1/money-service?pageSize=100")
       .then((d) => { setRecords(d.records); setToday(d.today); })
       .catch((e) => push(e.message, "error"));
-    api<Wallet[]>("/api/v1/wallets").then((list) => setWallets(list.filter((w) => w.currency === "MMK"))).catch(() => {});
-  }, [push]);
+    api<Wallet[]>("/api/v1/wallets").then((list) => setWallets(list.filter((w) => w.currency === cur))).catch(() => {});
+  }, [push, cur]);
 
   useEffect(load, [load]);
 

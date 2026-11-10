@@ -4,6 +4,7 @@ import { bucketForKey } from "@/lib/incomeCategories";
 import { isPhoneShop, type FeatureVisibility } from "@/lib/modules";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { jobsPaidBetween, loadRepairFlow } from "@/services/repairProfitService";
+import { businessCurrency } from "@/services/currencyService";
 
 /** The business report for any period: a day, a month, a year or a range.
  *
@@ -232,6 +233,8 @@ export interface Report {
   salesByItem: { name: string; quantity: number; revenue: bigint; cost: bigint; profit: bigint }[];
   repairs: { received: number; finished: number; delivered: number; cancelled: number; collected: bigint };
   wallets: { name: string; currency: string; opening: bigint; moneyIn: bigint; moneyOut: bigint; closing: bigint }[];
+  /** The shop's main currency: every amount in the report is in it. */
+  currency: string;
   /** How repair parts are costed (Settings → Repairs), which says how to read Service margin. */
   repairParts: "stock" | "job";
   purchases: { count: number; total: bigint };
@@ -330,7 +333,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const keyOf = (date: string) => (groupBy === "day" ? date : date.slice(0, 7));
   const range = { gte: dateRangeUtc(from).gte, lt: dateRangeUtc(to).lt };
   const branch = branchIds ? { branchId: { in: branchIds } } : {};
-  const [settings, access, repairFlow] = await Promise.all([loadReportSettings(businessId), loadModuleAccess(businessId), loadRepairFlow(businessId)]);
+  const [settings, access, repairFlow, main] = await Promise.all([loadReportSettings(businessId), loadModuleAccess(businessId), loadRepairFlow(businessId), businessCurrency(businessId)]);
   const shown = sectionsFor(access.features);
   const phoneShop = isPhoneShop(access);
   const salarySet = new Set(settings.salaryCategories.map((c) => c.toLowerCase()));
@@ -347,7 +350,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
     }),
     prisma.billerTxn.findMany({ where: { businessId, voidedAt: null, kind: { in: ["SALE", "TOPUP"] }, createdAt: range, ...branch }, select: { id: true, kind: true, cashAmount: true, profit: true, createdAt: true } }),
     prisma.incomeExpense.findMany({
-      where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: "MMK", ...branch },
+      where: { businessId, deletedAt: null, status: "COMPLETED", date: { gte: from, lte: to }, currency: main, ...branch },
       select: { type: true, categoryName: true, amount: true, date: true, billerTxnId: true, purchaseId: true, fromPurchaseId: true },
     }),
     prisma.category.findMany({ where: { businessId, systemKey: { not: null } }, select: { name: true, type: true, systemKey: true } }),
@@ -365,7 +368,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const at = (date: string) => rows.get(date) ?? rows.set(date, zeroRow(date)).get(date)!;
 
   for (const s of sales) { const r = at(s.date); r.sales += s.total; r.salesCost += s.totalCost; }
-  const mmkWallets = new Set(wallets.filter((w) => w.currency === "MMK").map((w) => w.id));
+  const mmkWallets = new Set(wallets.filter((w) => w.currency === main).map((w) => w.id));
   // What the Service column is made of, line by line: each repair payment under its voucher.
   const serviceBy = new Map<string, { date: string; label: string; amount: bigint }[]>();
   const addService = (period: string, date: string, label: string, amount: bigint) => {
@@ -498,7 +501,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   // float purchase as expense, over all its records, not only this range: from that day on
   // what it bought is the cost, before it what it sold (see countCosts).
   const NEVER = "9999-12-31";
-  const recorded = { businessId, deletedAt: null, status: "COMPLETED", type: "EXPENSE", currency: "MMK", ...branch };
+  const recorded = { businessId, deletedAt: null, status: "COMPLETED", type: "EXPENSE", currency: main, ...branch };
   const [boughtFrom, floatFrom] = await Promise.all([
     prisma.incomeExpense.groupBy({
       by: ["categoryName"],
@@ -552,7 +555,7 @@ export async function buildReport(businessId: string, from: string, to: string, 
   const totals = finish(sum);
   const stockByBrand = settings.stockColumns === "auto" ? phoneShop : settings.stockColumns === "brand";
   return {
-    from, to, groupBy, settings, shown, phoneShop, stockByBrand,
+    from, to, groupBy, settings, shown, phoneShop, stockByBrand, currency: main,
     sections: sectionsOf(sum),
     distribution: distribute(totals.netProfit, settings, periodKeys(from, to, "month").length),
     rows: ordered,

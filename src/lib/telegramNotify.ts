@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { sendMessage, withBotToken } from "./telegram";
+import { businessCurrency } from "@/services/currencyService";
 import { notifyReportTargets } from "./telegramReports";
 import { REPAIR_STATUS_MM } from "./repairStatus";
 
@@ -13,11 +14,21 @@ import { REPAIR_STATUS_MM } from "./repairStatus";
 // delivery. Recipients are messaged in parallel, and every failure is caught
 // internally so a bad send can never surface as an unhandled rejection or
 // affect the transaction that already committed.
-export function notifyAuditFeed(businessId: string, text: string, excludeChatId?: string, actorUserId?: string): void {
-  run(businessId, text, excludeChatId, actorUserId).catch((e) => console.error("[telegram notify] failed:", e));
-  // The shop's send-only reports bot gets the same feed, in the chats set up for it.
-  notifyReportTargets(businessId, text);
+export function notifyAuditFeed(businessId: string, raw: string, excludeChatId?: string, actorUserId?: string): void {
+  (async () => {
+    // Amounts written without a currency are in the shop's main one, filled in here.
+    const text = inShopCurrency(raw, await businessCurrency(businessId));
+    // The shop's send-only reports bot gets the same feed, in the chats set up for it.
+    notifyReportTargets(businessId, text);
+    await run(businessId, text, excludeChatId, actorUserId);
+  })().catch((e) => console.error("[telegram notify] failed:", e));
 }
+
+/** Stands for the shop's main currency in a notice until notifyAuditFeed sends it. */
+const MAIN_CURRENCY = "{{shop-currency}}";
+
+/** A notice with its amounts in the shop's main currency. */
+export const inShopCurrency = (raw: string, currency: string) => raw.split(MAIN_CURRENCY).join(currency);
 
 async function run(businessId: string, text: string, excludeChatId?: string, actorUserId?: string) {
   const users = await prisma.user.findMany({
@@ -43,7 +54,7 @@ async function run(businessId: string, text: string, excludeChatId?: string, act
   );
 }
 
-function money(minor: bigint | string, currency = "MMK") {
+function money(minor: bigint | string, currency = MAIN_CURRENCY) {
   const v = typeof minor === "string" ? BigInt(minor) : minor;
   const neg = v < 0n;
   const abs = neg ? -v : v;

@@ -213,7 +213,7 @@ export function Modal({ open, onClose, title, children, wide, footer }: {
 function tableToCsv(table: HTMLTableElement, skipLast: boolean): string {
   const cell = (el: Element) => {
     const text = ((el as HTMLElement).innerText ?? el.textContent ?? "").split(/\n+/).map((t) => t.trim()).filter(Boolean).join(" · ");
-    const amount = /^([-+]?[\d,]+(\.\d+)?)( ?(MMK|THB|Ks|ကျပ်))?$/.exec(text);
+    const amount = /^([-+]?[\d,]+(\.\d+)?)( ?(MMK|THB|USD|Ks|ကျပ်))?$/.exec(text);
     const plain = amount ? amount[1].replace(/,/g, "") : text;
     return /[",\r\n]/.test(plain) ? `"${plain.replace(/"/g, '""')}"` : plain;
   };

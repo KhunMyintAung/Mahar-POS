@@ -7,7 +7,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { minorToDecimalString } from "@/lib/money";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { WalletDay } from "@/components/WalletDay";
 import { PageHeader } from "@/components/PageHeader";
@@ -51,8 +51,8 @@ function RowMenu({ items }: { items: { label: string; icon: ReactNode; danger?: 
   );
 }
 
-const emptyWalletForm = (branchId: string) => ({
-  name: "", code: "", type: "CASH", currency: "MMK",
+const emptyWalletForm = (branchId: string, currency = "MMK") => ({
+  name: "", code: "", type: "CASH", currency,
   branchId, openingBalance: "0", minBalance: "0",
 });
 
@@ -76,6 +76,7 @@ export default function WalletsPage() {
   const [busy, setBusy] = useState(false);
   const { push } = useToast();
   const { hasPerm, branches, defaultBranchId } = useAuth();
+  const cur = useCurrency();
   const router = useRouter();
 
   const [form, setForm] = useState(() => emptyWalletForm(""));
@@ -119,7 +120,7 @@ export default function WalletsPage() {
             </Button>
           )}
           {hasPerm("wallet.create") && (
-            <Button onClick={() => { setForm(emptyWalletForm(defaultBranchId || branches[0]?.id || "")); setShowNew(true); }}>
+            <Button onClick={() => { setForm(emptyWalletForm(defaultBranchId || branches[0]?.id || "", cur)); setShowNew(true); }}>
               <Plus size={16} className="mr-1 inline" />New wallet
             </Button>
           )}
@@ -184,7 +185,7 @@ export default function WalletsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Select label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-              <option value="MMK">MMK</option><option value="THB">THB</option>
+              <option value="MMK">MMK</option><option value="USD">USD</option><option value="THB">THB</option>
             </Select>
             <Select label="Branch" value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -200,7 +201,7 @@ export default function WalletsPage() {
               disabled={busy || !form.name || !form.code}
               onClick={() => run(
                 () => api("/api/v1/wallets", { method: "POST", body: form }),
-                () => { setShowNew(false); setForm(emptyWalletForm(defaultBranchId || branches[0]?.id || "")); },
+                () => { setShowNew(false); setForm(emptyWalletForm(defaultBranchId || branches[0]?.id || "", cur)); },
                 "Wallet created"
               )}
             >Create</Button>

@@ -9,7 +9,7 @@ import { OtherDayConfirm } from "@/components/OtherDayConfirm";
 import { todayDate } from "@/components/DayPicker";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import type { CardReportRow, CardTally } from "@/lib/billerCards";
@@ -84,6 +84,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export default function BillersPage() {
+  const cur = useCurrency();
   const [billers, setBillers] = useState<Biller[] | null>(null);
   const [totalFloat, setTotalFloat] = useState("0");
   const [txns, setTxns] = useState<Txn[]>([]);
@@ -293,7 +294,7 @@ export default function BillersPage() {
       leftAmount: "",
       cashAmount: "",
       cashTouched: false,
-      walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
+      walletId: wallets.find((w) => w.currency === cur)?.id ?? "",
       customerPhone: "",
       note: "",
       date: "",
@@ -873,7 +874,7 @@ export default function BillersPage() {
                   />
                   <Select label={trading.kind === "TOPUP" ? "Paid out of" : "Paid into"} value={trade.walletId} onChange={(e) => setTrade({ ...trade, walletId: e.target.value })}>
                     <option value="">Choose…</option>
-                    {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                    {wallets.filter((w) => w.currency === cur).map((w) => (
                       <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
                     ))}
                   </Select>

@@ -30,6 +30,7 @@ import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
 import { handleCustomerUpdate } from "./telegramShop";
+import { businessCurrency } from "@/services/currencyService";
 
 // ---------------------------------------------------------------------------
 // Session state: one row per (owner user, chat), tracking the guided-entry
@@ -265,8 +266,8 @@ async function blStepCashText(chatId: string, user: AuthUser, data: Record<strin
   if (!isValidDecimalString(text)) return sendMessage(chatId, "ဂဏန်း ရိုက်ထည့်ပါ၊ ဥပမာ 10000");
   const cash = toMinor(text);
   if (cash < 0n) return sendMessage(chatId, "ငွေသားက အနုတ် မဖြစ်ရပါ။");
-  const { rows } = await walletButtons(user.businessId, String(data.branchId ?? ""), "MMK");
-  if (rows.length === 0) return sendMessage(chatId, "MMK wallet မရှိပါ။ Mahar Mini POS မှာ အရင် ဖွင့်ပါ။");
+  const { rows } = await walletButtons(user.businessId, String(data.branchId ?? ""), await businessCurrency(user.businessId));
+  if (rows.length === 0) return sendMessage(chatId, "Wallet မရှိပါ။ Mahar Mini POS မှာ အရင် ဖွင့်ပါ။");
   await setSession(user.id, chatId, "bl.wallet", { ...data, cash: cash.toString() });
   const prompt = data.kind === "TOPUP" ? "ငွေသား ဘယ် wallet ကနေ ထွက်လဲ?" : "ငွေသား ဘယ် wallet ထဲ ဝင်လဲ?";
   await sendMessage(chatId, prompt, { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
@@ -590,7 +591,7 @@ async function trConfirm(chatId: string, user: AuthUser, data: Record<string, un
 async function startMoneyService(chatId: string, user: AuthUser) {
   const branchId = await defaultBranchId(user);
   if (!branchId) return sendMessage(chatId, "သင့်အကောင့်အတွက် ဆိုင်ခွဲ မရှိပါ။");
-  const { rows } = await walletButtons(user.businessId, branchId, "MMK");
+  const { rows } = await walletButtons(user.businessId, branchId, await businessCurrency(user.businessId));
   if (rows.length < 2) return sendMessage(chatId, "KBZPay / Wave wallet နဲ့ ငွေသား wallet နှစ်ခု လိုပါတယ်။");
   await setSession(user.id, chatId, "ms.kind", { branchId });
   await sendMessage(chatId, "💸 ငွေလွဲ / ငွေထုတ် ပေး\n\nဘာလုပ်ပေးမလဲ?", {
@@ -600,7 +601,7 @@ async function startMoneyService(chatId: string, user: AuthUser) {
 
 async function msStepKind(chatId: string, user: AuthUser, data: Record<string, unknown>, kind: string) {
   if (kind !== "TRANSFER" && kind !== "CASHOUT") return;
-  const { rows } = await walletButtons(user.businessId, String(data.branchId), "MMK", "MOBILE");
+  const { rows } = await walletButtons(user.businessId, String(data.branchId), await businessCurrency(user.businessId), "MOBILE");
   await setSession(user.id, chatId, "ms.account", { ...data, kind });
   await sendMessage(chatId, kind === "TRANSFER" ? "ဘယ် KBZPay / Wave ကနေ လွဲပေးလဲ?" : "ဘယ် KBZPay / Wave ထဲ ဝင်လဲ?", { replyMarkup: keyboard([...rows, CANCEL_ROW]) });
 }
@@ -608,7 +609,7 @@ async function msStepKind(chatId: string, user: AuthUser, data: Record<string, u
 async function msStepAccount(chatId: string, user: AuthUser, data: Record<string, unknown>, walletId: string) {
   const wallet = await prisma.wallet.findFirst({ where: { id: walletId, businessId: user.businessId } });
   if (!wallet) return sendMessage(chatId, "Wallet မတွေ့ပါ။");
-  const { rows } = await walletButtons(user.businessId, String(data.branchId), "MMK", "CASH");
+  const { rows } = await walletButtons(user.businessId, String(data.branchId), await businessCurrency(user.businessId), "CASH");
   const others = rows.filter((r) => !("callback_data" in r[0] && r[0].callback_data.endsWith(walletId)));
   await setSession(user.id, chatId, "ms.cash", { ...data, accountWalletId: walletId, accountName: wallet.name });
   await sendMessage(chatId, data.kind === "TRANSFER" ? "ငွေသား ဘယ် wallet ထဲ ဝင်လဲ?" : "ငွေသား ဘယ် wallet ကနေ ပေးလဲ?", { replyMarkup: keyboard([...others, CANCEL_ROW]) });

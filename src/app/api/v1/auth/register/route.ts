@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CURRENCIES } from "@/lib/currency";
 import { z } from "zod";
 import { createSession, SESSION_COOKIE } from "@/lib/auth";
 import { errorJson, handleError, parseBody } from "@/lib/api";
@@ -14,7 +15,7 @@ const schema = z.object({
   email: z.string().trim().toLowerCase().email().max(160),
   phone: z.string().trim().max(30).optional(),
   password: z.string().min(8, "Password must be at least 8 characters").max(72),
-  currency: z.enum(["MMK", "THB"]).default("MMK"),
+  currency: z.enum(CURRENCIES).default("MMK"),
   timezone: z.string().trim().min(1).max(80).default("Asia/Yangon"),
   businessCategory: z.enum(["PERSONAL", "MINI_MART", "MOBILE_SHOP", "ALL_IN_ONE"]).optional(),
   moduleMode: z.enum(["WALLET_ONLY", "MINI_MART_ONLY", "BOTH"]).optional(),

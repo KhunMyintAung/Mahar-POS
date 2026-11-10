@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Empty, Modal, Spinner } from "@/components/ui";
+import { useCurrency } from "@/components/AppShell";
 
 interface Entry { id: string; txnNo: string; date: string; categoryName?: string | null; description?: string | null; amount: string }
 interface Row { supplierId: string; name: string; total: string; entries: Entry[] }
@@ -18,6 +19,7 @@ const shiftMonth = (m: string, by: number) => {
 
 /** A month's expense entries added up per supplier, biggest first; tap one to see its entries. */
 export function SupplierPayments({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const cur = useCurrency();
   const [month, setMonth] = useState(thisMonth);
   const [data, setData] = useState<{ month: string; total: string; suppliers: Row[] } | null>(null);
   const [error, setError] = useState("");
@@ -44,7 +46,7 @@ export function SupplierPayments({ open, onClose }: { open: boolean; onClose: ()
               className="min-h-9 min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm" />
             <button type="button" aria-label="Next month" disabled={month >= thisMonth()} onClick={() => setMonth(shiftMonth(month, 1))} className="rounded-lg p-2 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-800"><ChevronRight size={18} /></button>
           </div>
-          {shown && <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-red-600">{fmtMoney(shown.total, "MMK")}</span>}
+          {shown && <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-red-600">{fmtMoney(shown.total, cur)}</span>}
         </div>
 
         {error ? (

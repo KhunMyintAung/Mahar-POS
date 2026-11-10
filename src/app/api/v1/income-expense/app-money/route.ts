@@ -2,6 +2,7 @@ import { withAuth, json, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { dateRangeUtc, isValidBusinessDate } from "@/lib/dates";
+import { businessCurrency } from "@/services/currencyService";
 
 // GET ?date=YYYY-MM-DD: the money the app already counts for that day (repair money taken, till
 // sales) and the Daily Service / Daily Sale income already entered by hand. Shown in the income
@@ -10,9 +11,10 @@ export const GET = withAuth("income_expense.create", async ({ req, user }) => {
   const date = req.nextUrl.searchParams.get("date") ?? "";
   if (!isValidBusinessDate(date)) throw new ApiError(422, "Choose a day");
   const where = { businessId: user.businessId, ...branchScope(user) };
+  const main = await businessCurrency(user.businessId);
   const [repair, sales, keyed] = await Promise.all([
     prisma.walletLedgerEntry.findMany({
-      where: { ...where, createdAt: dateRangeUtc(date), refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: "MMK" } },
+      where: { ...where, createdAt: dateRangeUtc(date), refType: { in: ["REPAIR_DEPOSIT", "REPAIR_PAYMENT"] }, wallet: { currency: main } },
       select: { direction: true, amount: true, refId: true },
     }),
     prisma.sale.aggregate({ where: { ...where, deletedAt: null, status: "COMPLETED", date }, _sum: { total: true }, _count: true }),
@@ -20,7 +22,7 @@ export const GET = withAuth("income_expense.create", async ({ req, user }) => {
   ]);
   const typed = await prisma.incomeExpense.groupBy({
     by: ["categoryName"],
-    where: { ...where, deletedAt: null, status: "COMPLETED", type: "INCOME", currency: "MMK", billerTxnId: null, date, categoryName: { in: keyed.map((k) => k.name) } },
+    where: { ...where, deletedAt: null, status: "COMPLETED", type: "INCOME", currency: main, billerTxnId: null, date, categoryName: { in: keyed.map((k) => k.name) } },
     _sum: { amount: true },
   });
   // Purchases paid from a wallet that day: that money already left the wallet with the

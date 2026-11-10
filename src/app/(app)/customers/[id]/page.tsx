@@ -7,7 +7,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Modal, Spinner, Badge, Table, Empty, StatCard, useToast } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 
 interface Data {
   contact: { id: string; name: string; phone?: string; telegram?: string; address?: string; type: string; creditLimit: string; notes?: string };
@@ -21,6 +21,7 @@ interface Data {
 }
 
 export default function CustomerDetail({ params }: { params: Promise<{ id: string }> }) {
+  const cur = useCurrency();
   const { id } = use(params);
   const [data, setData] = useState<Data | null>(null);
   const [edit, setEdit] = useState<{ name: string; phone: string; address: string; notes: string } | null>(null);
@@ -74,9 +75,9 @@ export default function CustomerDetail({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Current receivable" value={fmtMoney(data.currentReceivable, "MMK")} tone="blue" />
-        <StatCard label="Current payable" value={fmtMoney(data.currentPayable, "MMK")} tone="amber" />
-        <StatCard label="Credit limit" value={fmtMoney(c.creditLimit, "MMK")} />
+        <StatCard label="Current receivable" value={fmtMoney(data.currentReceivable, cur)} tone="blue" />
+        <StatCard label="Current payable" value={fmtMoney(data.currentPayable, cur)} tone="amber" />
+        <StatCard label="Credit limit" value={fmtMoney(c.creditLimit, cur)} />
       </div>
 
       <Card>

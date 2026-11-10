@@ -10,7 +10,7 @@ import { RepairPartPicker } from "@/components/RepairPartPicker";
 import { RepairDailyProfit } from "@/components/RepairDailyProfit";
 import { parseRepairFlow, REPAIR_FLOW_KEY, type RepairParts } from "@/lib/repairFlow";
 import { Paginated } from "@/components/Pager";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printRepairVoucher } from "@/lib/slipPrint";
@@ -195,6 +195,7 @@ function RecordOnlyNote() {
 }
 
 export default function RepairsPage() {
+  const cur = useCurrency();
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
   // Empty means "this month", which the server works out in the shop's own timezone.
@@ -381,7 +382,7 @@ export default function RepairsPage() {
     setPay({
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
       partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
-      walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
+      walletId: wallets.find((w) => w.currency === cur)?.id ?? "",
     });
   }
 
@@ -497,7 +498,7 @@ export default function RepairsPage() {
       // Pre-filled with whatever is known: the final charge if set, otherwise the quote.
       finalCost: String((Number(job.finalCost) || Number(job.estimatedCost) || 0) / 100),
       partsCost: Number(job.partsCost) ? String(Number(job.partsCost) / 100) : "",
-      walletId: wallets.find((w) => w.currency === "MMK")?.id ?? "",
+      walletId: wallets.find((w) => w.currency === cur)?.id ?? "",
       notes: "",
     });
   }
@@ -748,7 +749,7 @@ export default function RepairsPage() {
           {Number(form.depositAmount) > 0 && !recordOnly && (
             <Select label="Deposit went into" value={form.depositWalletId} onChange={(e) => setForm({ ...form, depositWalletId: e.target.value })}>
               <option value="">Choose…</option>
-              {wallets.filter((w) => w.currency === "MMK").map((w) => (
+              {wallets.filter((w) => w.currency === cur).map((w) => (
                 <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
               ))}
             </Select>
@@ -830,7 +831,7 @@ export default function RepairsPage() {
               {toCollect > 0 && !recordOnly && (
                 <Select label="Paid into" value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
                   <option value="">Choose…</option>
-                  {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                  {wallets.filter((w) => w.currency === cur).map((w) => (
                     <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
                   ))}
                 </Select>
@@ -936,7 +937,7 @@ export default function RepairsPage() {
                 {balance > 0 && !recordOnly && (
                   <Select label="Balance paid into" value={move.walletId} onChange={(e) => setMove({ ...move, walletId: e.target.value })}>
                     <option value="">Choose…</option>
-                    {wallets.filter((w) => w.currency === "MMK").map((w) => (
+                    {wallets.filter((w) => w.currency === cur).map((w) => (
                       <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
                     ))}
                   </Select>

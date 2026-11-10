@@ -1,10 +1,12 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/currency";
 import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
+import { businessCurrency } from "@/services/currencyService";
 
 /** Cash first: every "pay with" picker lists wallets in this order, and the ones that
  *  pick the first MMK wallet for you then pick cash. */
@@ -16,9 +18,10 @@ export const GET = withAuth("wallet.view", async ({ user }) => {
     where: { businessId: user.businessId, deletedAt: null, ...branchScope(user) },
     orderBy: { name: "asc" },
   });
+  const main = await businessCurrency(user.businessId);
   wallets.sort((a, b) =>
     cashRank(a) - cashRank(b) ||
-    Number(b.currency === "MMK") - Number(a.currency === "MMK") ||
+    Number(b.currency === main) - Number(a.currency === main) ||
     a.name.localeCompare(b.name));
   return json(wallets);
 });
@@ -27,7 +30,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1),
   code: z.string().trim().min(1).max(50),
   type: z.enum(["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"]),
-  currency: z.enum(["MMK", "THB"]),
+  currency: z.enum(CURRENCIES),
   branchId: z.string().min(1),
   openingBalance: z.string().default("0"),
   minBalance: z.string().default("0"),

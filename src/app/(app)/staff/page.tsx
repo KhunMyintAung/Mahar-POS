@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, StatCard, cn, useToast } from "@/components/ui";
 import { PageHeader } from "@/components/PageHeader";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 
 interface Staff {
   id: string; name: string; phone?: string | null; position?: string | null; salary: string;
@@ -116,6 +116,7 @@ export default function StaffPage() {
 }
 
 function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; reload: () => void }) {
+  const cur = useCurrency();
   const blank = {
     name: "", phone: "", position: "", salary: "", attendanceBonus: "", deposit: "", startDate: "", userId: "", note: "",
     endDate: "", nrc: "", dateOfBirth: "", address: "", emergencyContact: "", payAccount: "",
@@ -176,7 +177,7 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
   return (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-gray-600 dark:text-gray-300">Monthly salaries: <b className="tabular-nums">{fmtMoney(total.toString(), "MMK")}</b></span>
+        <span className="text-sm text-gray-600 dark:text-gray-300">Monthly salaries: <b className="tabular-nums">{fmtMoney(total.toString(), cur)}</b></span>
         <Button onClick={() => open("new")}><Plus size={16} className="mr-1 inline" />New staff</Button>
       </div>
       {fromUsers.length > 0 && (
@@ -305,6 +306,7 @@ function AttendanceTab({ staff }: { staff: Staff[] }) {
 }
 
 function AdvancesTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
+  const cur = useCurrency();
   const [rows, setRows] = useState<Advance[] | null>(null);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ staffId: "", amount: "", walletId: "", date: today(), note: "" });
@@ -329,7 +331,7 @@ function AdvancesTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) 
   return (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-gray-600 dark:text-gray-300">Not yet taken off a salary: <b className="tabular-nums">{fmtMoney(open.toString(), "MMK")}</b></span>
+        <span className="text-sm text-gray-600 dark:text-gray-300">Not yet taken off a salary: <b className="tabular-nums">{fmtMoney(open.toString(), cur)}</b></span>
         <Button onClick={() => { setForm({ staffId: staff.find((s) => s.active)?.id ?? "", amount: "", walletId: wallets[0]?.id ?? "", date: today(), note: "" }); setShow(true); }}>
           <Plus size={16} className="mr-1 inline" />Give advance
         </Button>
@@ -375,7 +377,7 @@ function AdvancesTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) 
           <Button variant="secondary" onClick={() => setVoiding(null)}>Close</Button>
           <Button variant="danger" disabled={busy} onClick={() => voiding && void run(() => api(`/api/v1/staff/advances/${voiding.id}/void`, { method: "POST", body: { reason: "Advance cancelled" } }), "Cancelled")}>Cancel advance</Button>
         </>}>
-        <p className="text-sm">{voiding && `${name(voiding.staffId)} · ${fmtMoney(voiding.amount, "MMK")}`}</p>
+        <p className="text-sm">{voiding && `${name(voiding.staffId)} · ${fmtMoney(voiding.amount, cur)}`}</p>
         <p className="mt-1 text-xs text-gray-500">The money goes back into its wallet.</p>
       </Modal>
     </>
@@ -383,6 +385,7 @@ function AdvancesTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) 
 }
 
 function PayrollTab({ wallets }: { wallets: Wallet[] }) {
+  const cur = useCurrency();
   const [month, setMonth] = useState(today().slice(0, 7));
   const [rows, setRows] = useState<PayRow[] | null>(null);
   const [paying, setPaying] = useState<PayRow | null>(null);
@@ -431,8 +434,8 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
         <div className="w-44"><Input label="Month" type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <StatCard label="Still to pay" value={fmtMoney(totals.due.toString(), "MMK")} tone="amber" />
-        <StatCard label="Paid this month" value={fmtMoney(totals.paid.toString(), "MMK")} tone="green" />
+        <StatCard label="Still to pay" value={fmtMoney(totals.due.toString(), cur)} tone="amber" />
+        <StatCard label="Paid this month" value={fmtMoney(totals.paid.toString(), cur)} tone="green" />
       </div>
       <Card>
         {!rows ? <Spinner /> : rows.length === 0 ? <Empty message="No staff yet" /> : (
@@ -502,7 +505,7 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
           <Button variant="secondary" onClick={() => setVoiding(null)}>Close</Button>
           <Button variant="danger" disabled={busy} onClick={() => voiding?.payment && void run(() => api(`/api/v1/staff/payroll/${voiding.payment!.id}/void`, { method: "POST", body: { reason: "Salary cancelled" } }), "Cancelled")}>Cancel salary</Button>
         </>}>
-        <p className="text-sm">{voiding?.payment && `${voiding.staff.name} · ${month} · ${fmtMoney(voiding.payment.net, "MMK")}`}</p>
+        <p className="text-sm">{voiding?.payment && `${voiding.staff.name} · ${month} · ${fmtMoney(voiding.payment.net, cur)}`}</p>
         <p className="mt-1 text-xs text-gray-500">The money goes back into its wallet and the advances taken off are open again.</p>
       </Modal>
     </>
@@ -512,6 +515,7 @@ function PayrollTab({ wallets }: { wallets: Wallet[] }) {
 /** Bonuses paid on their own (year end, Thingyan…), and the deposit kept from salaries:
  *  what each person has held, and paying it back once ${months} months were kept. */
 function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
+  const cur = useCurrency();
   const [bonuses, setBonuses] = useState<Bonus[] | null>(null);
   const [dep, setDep] = useState<{ months: number; balances: DepositBal[]; returns: DepositReturn[] } | null>(null);
   const [form, setForm] = useState<{ kind: "bonus" | "deposit"; staffId: string; amount: string; walletId: string; date: string; note: string; early: boolean } | null>(null);
@@ -541,8 +545,8 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
   return (
     <>
       <div className="grid gap-2 sm:grid-cols-2">
-        <StatCard label="Bonuses this year" value={fmtMoney(bonuses.filter((b) => !b.voidedAt && b.date.startsWith(today().slice(0, 4))).reduce((n, b) => n + BigInt(b.amount), 0n).toString(), "MMK")} tone="green" />
-        <StatCard label="Held for staff" value={fmtMoney(held.toString(), "MMK")} tone="amber" />
+        <StatCard label="Bonuses this year" value={fmtMoney(bonuses.filter((b) => !b.voidedAt && b.date.startsWith(today().slice(0, 4))).reduce((n, b) => n + BigInt(b.amount), 0n).toString(), cur)} tone="green" />
+        <StatCard label="Held for staff" value={fmtMoney(held.toString(), cur)} tone="amber" />
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -561,7 +565,7 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(b.amount)}</td>
                 <td className="px-3 py-2 text-sm">{b.held ? `Held · ${b.month ?? ""}` : wallet(b.walletId ?? "")}</td>
                 <td className="px-3 py-2 text-sm">{b.note ?? ""}</td>
-                <td className="px-3 py-2">{!b.voidedAt && <Button size="sm" variant="ghost" onClick={() => setVoiding({ kind: "bonus", id: b.id, label: `${name(b.staffId)} · ${fmtMoney(b.amount, "MMK")}` })}>Cancel</Button>}</td>
+                <td className="px-3 py-2">{!b.voidedAt && <Button size="sm" variant="ghost" onClick={() => setVoiding({ kind: "bonus", id: b.id, label: `${name(b.staffId)} · ${fmtMoney(b.amount, cur)}` })}>Cancel</Button>}</td>
               </tr>
             ))}
           </Table>
@@ -594,7 +598,7 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
               <div key={r.id} className={cn("flex items-center justify-between gap-2 py-0.5", r.voidedAt && "opacity-50 line-through")}>
                 <span>{`${r.date} · ${name(r.staffId)} · ${wallet(r.walletId)}`}</span>
                 <span className="flex items-center gap-2 tabular-nums">{fmtMoney(r.amount)}
-                  {!r.voidedAt && <Button size="sm" variant="ghost" onClick={() => setVoiding({ kind: "deposit", id: r.id, label: `${name(r.staffId)} · ${fmtMoney(r.amount, "MMK")}` })}>Cancel</Button>}
+                  {!r.voidedAt && <Button size="sm" variant="ghost" onClick={() => setVoiding({ kind: "deposit", id: r.id, label: `${name(r.staffId)} · ${fmtMoney(r.amount, cur)}` })}>Cancel</Button>}
                 </span>
               </div>
             ))}
@@ -624,7 +628,7 @@ function BonusTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
             <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
             <div className="sm:col-span-2"><Input label="Note" placeholder={form.kind === "bonus" ? "Year end, Thingyan…" : ""} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
             {form.kind === "deposit" && picked && (
-              <p className="text-sm sm:col-span-2">{`Held ${fmtMoney(picked.held, "MMK")} · free to withdraw ${fmtMoney(picked.months >= dep.months ? picked.held : picked.free, "MMK")} · deposit ${picked.months} of ${dep.months} months`}</p>
+              <p className="text-sm sm:col-span-2">{`Held ${fmtMoney(picked.held, cur)} · free to withdraw ${fmtMoney(picked.months >= dep.months ? picked.held : picked.free, cur)} · deposit ${picked.months} of ${dep.months} months`}</p>
             )}
             {tooEarly && (
               <label className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 sm:col-span-2">
@@ -652,6 +656,7 @@ const yearOptions = () => { const y = Number(today().slice(0, 4)); return [y, y 
 
 /** What each person has earned: month by month for a year, the year, and all time. */
 function EarningsTab() {
+  const cur = useCurrency();
   const [year, setYear] = useState(today().slice(0, 4));
   const [data, setData] = useState<{ months: string[]; rows: EarnRow[] } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -670,9 +675,9 @@ function EarningsTab() {
         </Select></div>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
-        <StatCard label={`Paid to staff in ${year}`} value={fmtMoney(sum((r) => r.year.total), "MMK")} />
-        <StatCard label="Paid to staff, all time" value={fmtMoney(sum((r) => r.allTime.total), "MMK")} />
-        <StatCard label="Held for staff" value={fmtMoney(sum((r) => r.depositHeld), "MMK")} tone="amber" />
+        <StatCard label={`Paid to staff in ${year}`} value={fmtMoney(sum((r) => r.year.total), cur)} />
+        <StatCard label="Paid to staff, all time" value={fmtMoney(sum((r) => r.allTime.total), cur)} />
+        <StatCard label="Held for staff" value={fmtMoney(sum((r) => r.depositHeld), cur)} tone="amber" />
       </div>
       <Card>
         {data.rows.length === 0 ? <Empty message="Nothing paid yet" /> : (
@@ -729,6 +734,7 @@ function EarningsTab() {
  *  is over its share is taken out of a wallet first (a withdrawal, not an expense); then what
  *  the partners leave can be given to staff as a profit bonus, into their held balances. */
 function BossTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
+  const cur = useCurrency();
   const [year, setYear] = useState(today().slice(0, 4));
   const [data, setData] = useState<BossShare | null>(null);
   const [editing, setEditing] = useState<{ name: string; percent: string }[] | null>(null);
@@ -794,9 +800,9 @@ function BossTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
       ) : (
         <>
           <div className="grid gap-2 sm:grid-cols-3">
-            <StatCard label={`Net profit ${year}`} value={fmtMoney(profit, "MMK")} tone={BigInt(profit) < 0n ? "red" : "green"} />
+            <StatCard label={`Net profit ${year}`} value={fmtMoney(profit, cur)} tone={BigInt(profit) < 0n ? "red" : "green"} />
             {data.partners.map((p) => (
-              <StatCard key={p.name} label={`${p.name} · ${p.percent}%`} value={fmtMoney(p.total, "MMK")} tone="blue" />
+              <StatCard key={p.name} label={`${p.name} · ${p.percent}%`} value={fmtMoney(p.total, cur)} tone="blue" />
             ))}
           </div>
           <Card>
@@ -907,7 +913,7 @@ function BossTab({ staff, wallets }: { staff: Staff[]; wallets: Wallet[] }) {
           <Button variant="secondary" onClick={() => setUndoing(null)}>Close</Button>
           <Button variant="danger" disabled={busy} onClick={() => undoing?.taken && void run(() => api(`/api/v1/staff/boss-share/${undoing.taken!.id}/void`, { method: "POST", body: { reason: "Boss Share cancelled" } }), "Cancelled")}>Cancel it</Button>
         </>}>
-        <p className="text-sm">{undoing?.taken && `${monthName(undoing.month)} ${undoing.month.slice(0, 4)} · ${fmtMoney(undoing.taken.amount, "MMK")}`}</p>
+        <p className="text-sm">{undoing?.taken && `${monthName(undoing.month)} ${undoing.month.slice(0, 4)} · ${fmtMoney(undoing.taken.amount, cur)}`}</p>
         <p className="mt-1 text-xs text-gray-500">The money goes back into its wallet.</p>
       </Modal>
     </>

@@ -153,6 +153,7 @@ export default function RegisterPage() {
               onChange={(event) => update("currency", event.target.value)}
             >
               <option value="MMK">MMK</option>
+              <option value="USD">USD</option>
               <option value="THB">THB</option>
             </Select>
           </div>

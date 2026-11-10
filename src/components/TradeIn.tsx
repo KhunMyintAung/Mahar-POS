@@ -8,6 +8,7 @@ import { Button, Card, CardTitle, Input, Select, Modal, Spinner, StatCard, cn, u
 import { normalizeImei } from "@/lib/imeiInput";
 import { BODY_CONDITIONS, QC_GRADES, QC_GRADE_TEXT, type QcGrade } from "@/lib/tradeInQc";
 import { matchesWords } from "@/lib/searchWords";
+import { useCurrency } from "@/components/AppShell";
 
 /** Second-hand phones bought from customers: buy (into QC), check, then route each one to the
  *  shelf or to the shop's own repair bench. Repair costs go onto the phone's own cost. */
@@ -302,6 +303,7 @@ function QcModal({ phone, onClose, onDone }: { phone: Phone | null; onClose: () 
 }
 
 function RepairedModal({ phone, wallets, onClose, onDone }: { phone: Phone | null; wallets: Wallet[]; onClose: () => void; onDone: () => void }) {
+  const cur = useCurrency();
   const [fee, setFee] = useState("");
   const [paidNow, setPaidNow] = useState(true);
   const [walletId, setWalletId] = useState("");
@@ -316,7 +318,7 @@ function RepairedModal({ phone, wallets, onClose, onDone }: { phone: Phone | nul
     setShownFor(phone.id); setFee(""); setPaidNow(true); setWalletId(""); setNote("");
     setGrade(phone.qcGrade ?? ""); setBody(phone.bodyCondition ?? "");
   }
-  const mmk = wallets.filter((w) => w.currency === "MMK");
+  const mmk = wallets.filter((w) => w.currency === cur);
   const wallet = walletId || mmk[0]?.id || "";
   const parts = BigInt(phone?.repair?.partsCost ?? "0");
   const feeMinor = toMinor(fee);
@@ -391,6 +393,7 @@ export function NewTradeInModal({ open, onClose, onSaved, items, wallets, branch
   open: boolean; onClose: () => void; onSaved: (saved: { id: string; txnNo: string; paid: string }) => void;
   items: TradeInItem[]; wallets: Wallet[]; branchId: string; onItemAdded: (it: TradeInItem) => void;
 }) {
+  const cur = useCurrency();
   const [sellerName, setSellerName] = useState("");
   const [sellerPhone, setSellerPhone] = useState("");
   const [query, setQuery] = useState("");
@@ -416,7 +419,7 @@ export function NewTradeInModal({ open, onClose, onSaved, items, wallets, branch
     if (!q) return [];
     return phones.filter((it) => matchesWords(q, it.name, it.sku, it.model)).slice(0, 8);
   }, [phones, query]);
-  const mmk = wallets.filter((w) => w.currency === "MMK");
+  const mmk = wallets.filter((w) => w.currency === cur);
   const wallet = walletId || mmk[0]?.id || "";
   const imeiClean = normalizeImei(imei);
 

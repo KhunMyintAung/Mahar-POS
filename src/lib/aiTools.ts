@@ -135,7 +135,7 @@ async function shopReport(user: AuthUser, args: Record<string, unknown>) {
   const r = await buildReport(user.businessId, from, to, user.allBranches ? undefined : user.branchIds);
   const t = r.totals;
   return {
-    from, to, currency: "MMK",
+    from, to, currency: r.currency,
     sale_count: t.saleCount,
     sections: r.sections.map((s) => ({
       section: s.section,

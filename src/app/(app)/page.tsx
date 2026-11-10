@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { StatCard, Card, Select, Input, Spinner, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 
 interface Summary {
@@ -43,6 +43,7 @@ const todayDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", ye
 function DayLines({ title, total, lines, tone, empty }: {
   title: string; total: string; lines: { label: string; amount: string }[]; tone: "green" | "red"; empty: string;
 }) {
+  const cur = useCurrency();
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
@@ -50,7 +51,7 @@ function DayLines({ title, total, lines, tone, empty }: {
           <span aria-hidden className={tone === "green" ? "h-1.5 w-1.5 rounded-full bg-emerald-500/60" : "h-1.5 w-1.5 rounded-full bg-red-500/60"} />
           {title}
         </span>
-        <span className="text-lg font-bold tabular-nums">{fmtMoney(total, "MMK")}</span>
+        <span className="text-lg font-bold tabular-nums">{fmtMoney(total, cur)}</span>
       </div>
       {lines.length === 0 ? (
         <div className="text-xs text-gray-400">{empty}</div>
@@ -69,6 +70,7 @@ function DayLines({ title, total, lines, tone, empty }: {
 }
 
 export default function DashboardPage() {
+  const cur = useCurrency();
   const [data, setData] = useState<DashData | null>(null);
   const [date, setDate] = useState("");
   const [branchId, setBranchId] = useState("");
@@ -141,9 +143,9 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {featureEnabled("pos") && data.pos && (
           <>
-            <StatCard label="Today's Sales" value={fmtMoney(data.pos.salesTotal, "MMK")} sub={`${data.pos.salesCount} sale(s)`} onClick={() => router.push("/sales")} />
+            <StatCard label="Today's Sales" value={fmtMoney(data.pos.salesTotal, cur)} sub={`${data.pos.salesCount} sale(s)`} onClick={() => router.push("/sales")} />
             {data.pos.salesProfit !== null && (
-              <StatCard label="Sales Profit" value={fmtMoney(data.pos.salesProfit, "MMK")} tone={BigInt(data.pos.salesProfit) >= 0n ? "green" : "red"} onClick={() => router.push("/sales")} />
+              <StatCard label="Sales Profit" value={fmtMoney(data.pos.salesProfit, cur)} tone={BigInt(data.pos.salesProfit) >= 0n ? "green" : "red"} onClick={() => router.push("/sales")} />
             )}
           </>
         )}
@@ -151,11 +153,11 @@ export default function DashboardPage() {
           <>
             <StatCard
               label="Repair income"
-              value={fmtMoney(data.service.charge, "MMK")}
-              sub={BigInt(data.service.otherIncome ?? "0") > 0n ? `Other income ${fmtMoney(data.service.otherIncome ?? "0", "MMK")}` : undefined}
+              value={fmtMoney(data.service.charge, cur)}
+              sub={BigInt(data.service.otherIncome ?? "0") > 0n ? `Other income ${fmtMoney(data.service.otherIncome ?? "0", cur)}` : undefined}
               onClick={() => router.push("/repairs")}
             />
-            <StatCard label="Repair profit" value={fmtMoney(data.service.profit, "MMK")} sub={`Repair expense ${fmtMoney(data.service.expense ?? "0", "MMK")}`} tone={BigInt(data.service.profit) >= 0n ? "green" : "red"} onClick={() => router.push("/repairs")} />
+            <StatCard label="Repair profit" value={fmtMoney(data.service.profit, cur)} sub={`Repair expense ${fmtMoney(data.service.expense ?? "0", cur)}`} tone={BigInt(data.service.profit) >= 0n ? "green" : "red"} onClick={() => router.push("/repairs")} />
           </>
         )}
         {featureEnabled("stock") && data.pos && (
@@ -166,16 +168,16 @@ export default function DashboardPage() {
             {data.pos.stockCost !== null && (
               <StatCard
                 label="Stock Value (cost)"
-                value={fmtMoney(data.pos.stockCost, "MMK")}
+                value={fmtMoney(data.pos.stockCost, cur)}
                 sub={`${data.pos.stockItems} item(s) in stock`}
                 onClick={() => router.push("/items")}
               />
             )}
             <StatCard
               label="Stock Value (retail)"
-              value={fmtMoney(data.pos.stockRetail, "MMK")}
+              value={fmtMoney(data.pos.stockRetail, cur)}
               sub={data.pos.stockCost !== null
-                ? `${fmtMoney(String(BigInt(data.pos.stockRetail) - BigInt(data.pos.stockCost)), "MMK")} if it all sells`
+                ? `${fmtMoney(String(BigInt(data.pos.stockRetail) - BigInt(data.pos.stockCost)), cur)} if it all sells`
                 : `${data.pos.stockItems} item(s) in stock`}
               tone="green"
               onClick={() => router.push("/items")}
@@ -183,24 +185,24 @@ export default function DashboardPage() {
           </>
         )}
         {featureEnabled("wallets") && <>
-        <StatCard label="Total MMK Balance" value={fmtMoney(s.wallets.totalMmk, "MMK")} onClick={() => router.push("/wallets")} />
+        <StatCard label="Total MMK Balance" value={fmtMoney(s.wallets.totalMmk, cur)} onClick={() => router.push("/wallets")} />
         {/* A shop with no THB wallet has nothing to show here, so the card stays out of the way. */}
         {s.wallets.thbWallets > 0 && (
           <StatCard label="Total THB Balance" value={fmtMoney(s.wallets.totalThb, "THB")} onClick={() => router.push("/wallets")} />
         )}
         </>}
         {featureEnabled("credit") && <>
-        <StatCard label="Customer Receivable" value={fmtMoney(s.credit.outstanding, "MMK")} tone="blue" onClick={() => router.push("/credit")} />
-        <StatCard label="Business Payable" value={fmtMoney(s.payable.outstanding, "MMK")} tone="amber" onClick={() => router.push("/credit?tab=payable")} />
+        <StatCard label="Customer Receivable" value={fmtMoney(s.credit.outstanding, cur)} tone="blue" onClick={() => router.push("/credit")} />
+        <StatCard label="Business Payable" value={fmtMoney(s.payable.outstanding, cur)} tone="amber" onClick={() => router.push("/credit?tab=payable")} />
         </>}
         {featureEnabled("incomeExpense") && <>
-        <StatCard label="Today's Income" value={fmtMoney(s.general.otherIncome, "MMK")} tone="green" onClick={() => router.push("/income-expense")} />
-        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, "MMK")} tone="red" onClick={() => router.push("/income-expense")} />
-        <StatCard label="Net Cash Movement" value={fmtMoney(s.general.netCashMovement, "MMK")} tone={BigInt(s.general.netCashMovement) >= 0n ? "green" : "red"} />
+        <StatCard label="Today's Income" value={fmtMoney(s.general.otherIncome, cur)} tone="green" onClick={() => router.push("/income-expense")} />
+        <StatCard label="Today's Expense" value={fmtMoney(s.general.expense, cur)} tone="red" onClick={() => router.push("/income-expense")} />
+        <StatCard label="Net Cash Movement" value={fmtMoney(s.general.netCashMovement, cur)} tone={BigInt(s.general.netCashMovement) >= 0n ? "green" : "red"} />
         </>}
         {featureEnabled("credit") && <>
-        <StatCard label="Credit Collected Today" value={fmtMoney(s.credit.collected, "MMK")} tone="green" onClick={() => router.push("/credit")} />
-        <StatCard label="Payable Paid Today" value={fmtMoney(s.payable.paid, "MMK")} onClick={() => router.push("/credit?tab=payable")} />
+        <StatCard label="Credit Collected Today" value={fmtMoney(s.credit.collected, cur)} tone="green" onClick={() => router.push("/credit")} />
+        <StatCard label="Payable Paid Today" value={fmtMoney(s.payable.paid, cur)} onClick={() => router.push("/credit?tab=payable")} />
         </>}
       </div>
 

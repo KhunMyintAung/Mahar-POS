@@ -29,7 +29,7 @@ export function NewSupplierModal({ open, onClose, onCreated }: { open: boolean; 
     try {
       const created = await api<Supplier>("/api/v1/customers", {
         method: "POST",
-        body: { ...form, type: "SUPPLIER", currency: "MMK", creditLimit: "0" },
+        body: { ...form, type: "SUPPLIER", creditLimit: "0" },
       });
       push("Supplier created");
       setForm(emptyForm);

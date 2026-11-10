@@ -1826,6 +1826,7 @@
     "အင်တာနက် ရှိလျှင် ချက်ချင်း ပို့သည်။ မရှိလျှင် ဒီစက်ထဲ သိမ်းထားပြီး အင်တာနက် ပြန်ရလျှင် အလိုအလျောက် ပို့ပေးသည်။ (Sent at once when there is internet; without it the sale is kept on this device and sent by itself when the internet is back.)",
     "အင်တာနက် လိုသည် (Needs the internet)",
     "အင်တာနက် အားနည်းချိန် သို့မဟုတ် မရှိချိန် ဒီစက်က POS ရောင်းပုံ။ (How the till on this device sells when the internet is weak or gone.)",
+    "အဓိကငွေကြေး (Main currency)",
     "အပိုပစ္စည်း Stock မထား — Job တစ်ခုချင်းအတွက် ဝယ်ပြီး Mark as paid တွင် ဝယ်ဈေး ရိုက်ထည့်သည်။ ငွေရှင်းသည့်နေ့၏ ဝန်ဆောင်မှု အမြတ်မှ ထိုကုန်ကျစရိတ်ကို Reports က နုတ်မည်။ (No parts stock: the part is bought for each job and its price typed in at Mark as paid. Reports take that cost off service profit on the day the job was paid.)",
     "အပြီးဖျက်မည် (Delete permanently)",
     "အရင် Backup လုပ်ထားပါ။ ဒီစက်ထဲက စာရင်းများ ကျန်နေမည်ဖြစ်သော်လည်း ထို့နောက် App သည် အကောင့်ဖြင့် အလုပ်လုပ်ပါမည်။ (Make a backup first. The books on this device are kept, but the app works with the account from then on.)",

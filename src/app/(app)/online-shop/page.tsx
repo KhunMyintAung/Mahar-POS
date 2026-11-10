@@ -8,7 +8,7 @@ import { api } from "@/lib/client";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { resizeImage } from "@/lib/imageResize";
 import { Button, Card, Empty, Input, Spinner, cn, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { matchesWords } from "@/lib/searchWords";
 
@@ -99,6 +99,7 @@ function putOrderInPos(key: string, order: Order): "ok" | "kept" | "failed" {
 }
 
 function OrdersTab() {
+  const cur = useCurrency();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [filter, setFilter] = useState<"" | Order["status"]>("NEW");
@@ -179,7 +180,7 @@ function OrdersTab() {
                     <b className="w-24 shrink-0 text-right tabular-nums">{fmtMoney(BigInt(l.unitPrice) * BigInt(l.quantity))}</b>
                   </div>
                 ))}
-                <div className="flex justify-between px-2.5 py-1.5 font-semibold"><span>Total</span><span className="tabular-nums text-blue-600">{fmtMoney(o.total, "MMK")}</span></div>
+                <div className="flex justify-between px-2.5 py-1.5 font-semibold"><span>Total</span><span className="tabular-nums text-blue-600">{fmtMoney(o.total, cur)}</span></div>
               </div>
               {canAct && (o.status === "NEW" || o.status === "CONFIRMED") && (
                 <div className="flex flex-wrap gap-2">

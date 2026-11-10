@@ -6,7 +6,7 @@ import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { categoryChoices, inCategoryChoice } from "@/lib/categoryChoice";
 import { Button, Input, Modal, Select, Spinner, cn, useToast } from "@/components/ui";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { playBeep, playSuccess } from "@/lib/sound";
 import { SaleReceipt, type ReceiptData } from "@/components/SaleReceipt";
 import { ProductKindIcon } from "@/components/ProductKindIcon";
@@ -105,6 +105,7 @@ function cashSuggestions(total: number) {
 }
 
 export default function PosPage() {
+  const cur = useCurrency();
   const [items, setItems] = useState<Item[] | null>(null);
   // A scanned barcode no item has yet: pick the product it belongs to and it is saved on it.
   const [newBarcode, setNewBarcode] = useState<string | null>(null);
@@ -173,7 +174,7 @@ export default function PosPage() {
       .catch(() => {});
     api<Wallet[]>(urls.wallets).then((data) => {
       setWallets(data);
-      const cash = data.find((wallet) => wallet.currency === "MMK");
+      const cash = data.find((wallet) => wallet.currency === cur);
       if (cash) setWalletId((current) => current || cash.id);
     }).catch(() => {});
     api<{ contacts: Contact[] }>(urls.customers)
@@ -181,7 +182,7 @@ export default function PosPage() {
     api<{ settings: Record<string, unknown> }>(urls.warranty)
       .then((data) => setWarrantySettings(parseWarrantySettings(data.settings[WARRANTY_SETTING])))
       .catch(() => {});
-  }, [push, defaultBranchId]);
+  }, [push, defaultBranchId, cur]);
 
   useEffect(load, [load]);
 
@@ -970,7 +971,7 @@ export default function PosPage() {
               {outsideMode === "PAID" && (
                 <Select label="Paid out of" value={outsideWalletId} onChange={(event) => setOutsideWalletId(event.target.value)}>
                   <option value="">Choose…</option>
-                  {wallets.filter((wallet) => wallet.currency === "MMK").map((wallet) => (
+                  {wallets.filter((wallet) => wallet.currency === cur).map((wallet) => (
                     <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
                   ))}
                 </Select>
@@ -1018,7 +1019,7 @@ export default function PosPage() {
             )}
             {paidAmount > 0 && (
               <Select label={split ? "First wallet" : "Receive into wallet"} value={walletId} onChange={(event) => setWalletId(event.target.value)}>
-                {wallets.filter((wallet) => wallet.currency === "MMK").map((wallet) => (
+                {wallets.filter((wallet) => wallet.currency === cur).map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
                 ))}
               </Select>
@@ -1026,7 +1027,7 @@ export default function PosPage() {
             {paidAmount > 0 && !splitOn && (
               <button type="button" className="text-xs font-medium text-blue-600 hover:underline" onClick={() => {
                 setSplitOn(true);
-                setWallet2Id(wallets.find((w) => w.currency === "MMK" && w.id !== walletId)?.id ?? "");
+                setWallet2Id(wallets.find((w) => w.currency === cur && w.id !== walletId)?.id ?? "");
                 setSplitAmount(String(Math.round(paidAmount / 2)));
               }}>
                 Split into two wallets
@@ -1037,7 +1038,7 @@ export default function PosPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <Select label="Second wallet" value={wallet2Id} onChange={(event) => setWallet2Id(event.target.value)}>
                     <option value="">Choose…</option>
-                    {wallets.filter((wallet) => wallet.currency === "MMK" && wallet.id !== walletId).map((wallet) => (
+                    {wallets.filter((wallet) => wallet.currency === cur && wallet.id !== walletId).map((wallet) => (
                       <option key={wallet.id} value={wallet.id}>{wallet.name}</option>
                     ))}
                   </Select>

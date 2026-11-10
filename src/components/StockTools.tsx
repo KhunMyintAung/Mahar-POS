@@ -8,7 +8,7 @@ import { categoryChoices, inCategoryChoice } from "@/lib/categoryChoice";
 import { Button, Card, Input, Modal, Select, Table, Empty, cn, useToast } from "@/components/ui";
 import { Paginated } from "@/components/Pager";
 import { ImeiAdjustFields } from "@/components/ImeiTools";
-import { useAuth } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 import { MOVEMENT_LABELS, STOCK_REASONS, type StockReason } from "@/lib/stockReasons";
 import { partModelCodes, repairFitsPart } from "@/lib/partMatch";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -340,6 +340,7 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
 
 /** The stock movements of a day or a month: in, out, sold, used in repairs, and each one. */
 export function StockMovements() {
+  const cur = useCurrency();
   const { hasPerm, featureEnabled, me } = useAuth();
   const repairs = featureEnabled("repair");
   // Seen across every branch, a transfer between branches is one unit out and the same unit
@@ -452,12 +453,12 @@ export function StockMovements() {
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Stock in</div>
           <div className="text-xl font-bold tabular-nums text-green-600">+{totals.stockIn.toLocaleString()}</div>
-          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.inValue.toString(), "MMK")}</div>}
+          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.inValue.toString(), cur)}</div>}
         </Card>
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Stock out</div>
           <div className="text-xl font-bold tabular-nums text-red-600">−{totals.stockOut.toLocaleString()}</div>
-          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.outValue.toString(), "MMK")}</div>}
+          {seeCost && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(totals.outValue.toString(), cur)}</div>}
         </Card>
         <Card className="space-y-1">
           <div className="text-xs text-gray-500">Sold</div>

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/currency";
+import { businessCurrency } from "@/services/currencyService";
 import { withAuth, json, parseBody, pagination } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
@@ -28,7 +30,7 @@ const schema = z.object({
   telegram: z.string().optional(),
   address: z.string().optional(),
   type: z.enum(["CUSTOMER", "SUPPLIER", "AGENT", "CREDITOR", "DEBTOR", "OTHER"]).default("CUSTOMER"),
-  currency: z.enum(["MMK", "THB"]).default("MMK"),
+  currency: z.enum(CURRENCIES).optional(),
   creditLimit: z.string().default("0"),
   notes: z.string().optional(),
 });
@@ -44,7 +46,7 @@ export const POST = withAuth("customer.manage", async ({ req, user }) => {
         telegram: body.telegram,
         address: body.address,
         type: body.type,
-        currency: body.currency,
+        currency: body.currency ?? (await businessCurrency(user.businessId)),
         creditLimit: toMinor(body.creditLimit),
         notes: body.notes,
       },

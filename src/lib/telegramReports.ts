@@ -136,22 +136,22 @@ export async function buildDailyReport(businessId: string, date: string): Promis
     "💰 ဝင်ငွေ",
     ...parts.map(([k, label]) => col(label, t.inc[k])),
     col("အခြား ဝင်ငွေ", t.inc.other),
-    `   = ဝင်ငွေ စုစုပေါင်း: ${money(t.inc.total)} MMK`,
+    `   = ဝင်ငွေ စုစုပေါင်း: ${money(t.inc.total)} ${day.currency}`,
     "",
     "💸 ထွက်ငွေ",
     ...parts.map(([k, label]) => col(label, t.exp[k])),
     col("အခြား ထွက်ငွေ", t.exp.other),
-    `   = ထွက်ငွေ စုစုပေါင်း: ${money(t.exp.total)} MMK`,
+    `   = ထွက်ငွေ စုစုပေါင်း: ${money(t.exp.total)} ${day.currency}`,
     "",
-    `${t.net >= 0n ? "📈 အသားတင် အမြတ်" : "📉 အသားတင် အရှုံး"}: ${money(t.net)} MMK`,
+    `${t.net >= 0n ? "📈 အသားတင် အမြတ်" : "📉 အသားတင် အရှုံး"}: ${money(t.net)} ${day.currency}`,
     "",
     `🔧 ပြင်ဆင်မှု လက်ခံ: ${repairsIn} · ပြီး: ${repairsDone}`,
     "",
     "👛 လက်ရှိ Wallet များ:",
     ...wallets.map((w) => `   • ${w.name}: ${money(w.currentBalance)} ${w.currency}`),
   ];
-  if (summary.credit.outstanding > 0n) lines.push("", `🧾 ဖောက်သည် အကြွေး: ${money(summary.credit.outstanding)} MMK`);
-  if (summary.payable.outstanding > 0n) lines.push(`🏷️ ပေးသွင်းသူ ပေးရန်: ${money(summary.payable.outstanding)} MMK`);
+  if (summary.credit.outstanding > 0n) lines.push("", `🧾 ဖောက်သည် အကြွေး: ${money(summary.credit.outstanding)} ${day.currency}`);
+  if (summary.payable.outstanding > 0n) lines.push(`🏷️ ပေးသွင်းသူ ပေးရန်: ${money(summary.payable.outstanding)} ${day.currency}`);
   return lines.join("\n");
 }
 

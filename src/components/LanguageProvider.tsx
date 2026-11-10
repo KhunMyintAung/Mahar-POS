@@ -4,6 +4,7 @@ import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useSt
 import { Languages } from "lucide-react";
 import { cn } from "./ui";
 import { TH } from "@/lib/i18n/th";
+import { inCurrency } from "@/lib/currency";
 
 type Language = "en" | "mm" | "th";
 const LANGUAGES: Language[] = ["mm", "en", "th"];
@@ -13,7 +14,8 @@ const isLanguage = (v: string | null): v is Language => v === "en" || v === "mm"
 const LanguageContext = createContext<{
   language: Language;
   setLanguage: (language: Language) => void;
-}>({ language: "en", setLanguage: () => {} });
+  setCurrency: (currency: string) => void;
+}>({ language: "en", setLanguage: () => {}, setCurrency: () => {} });
 
 const MM: Record<string, string> = {
   "All months": "လအားလုံး",
@@ -1984,10 +1986,22 @@ function translateTo(value: string, language: Language) {
   return value;
 }
 
+/** The shop's main currency. Screens are written for an MMK shop ("Total MMK Balance",
+ *  "{amount} MMK"); in a USD or THB shop the code is shown as that currency instead. */
+let shopCurrency = "MMK";
+
+/** A label in the language and the shop's currency. Text naming two currencies (a THB/MMK
+ *  exchange) is about those currencies, not the shop's, so it is left as written. */
+function localize(value: string, language: Language) {
+  const out = translateTo(value, language);
+  if (shopCurrency === "MMK" || !/\bMMK\b/.test(value) || /\b(THB|USD)\b/.test(value)) return out;
+  return inCurrency(out, shopCurrency).replace(/ကျပ်/g, shopCurrency);
+}
+
 /** True when the text on screen is the English original or one of its translations, so a
  *  language switch keeps the English as the source. */
 const isOwnTranslation = (current: string, original: string) =>
-  current === original || current === translate(original) || current === translateTh(original);
+  current === original || LANGUAGES.some((l) => current === localize(original, l));
 
 function translate(value: string) {
   const trimmed = value.trim();
@@ -2193,7 +2207,7 @@ function applyLanguage(root: ParentNode, language: Language) {
       originalText.set(node, current);
     }
     const original = originalText.get(node) ?? current;
-    const next = translateTo(original, language);
+    const next = localize(original, language);
     if (current !== next) node.nodeValue = next;
     node = walker.nextNode();
   }
@@ -2211,7 +2225,7 @@ function applyLanguage(root: ParentNode, language: Language) {
       const original = stored.get(attribute);
       if (!original || !isOwnTranslation(current, original)) stored.set(attribute, current);
       const source = stored.get(attribute) ?? current;
-      const next = translateTo(source, language);
+      const next = localize(source, language);
       if (current !== next) element.setAttribute(attribute, next);
     }
   }
@@ -2219,6 +2233,7 @@ function applyLanguage(root: ParentNode, language: Language) {
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("en");
+  const [currency, setCurrency] = useState("MMK");
 
   // The saved language before the first paint, so a page never shows its English first and
   // then changes over; the state (and the buttons) follow on the next frame.
@@ -2243,6 +2258,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem("wn-language");
     if (language === "en" && isLanguage(saved) && saved !== "en") return;
     document.documentElement.lang = HTML_LANG[language];
+    shopCurrency = currency;
     applyLanguage(document.body, language);
     let frame = 0;
     const observer = new MutationObserver(() => {
@@ -2257,7 +2273,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       observer.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [language]);
+  }, [language, currency]);
 
   function setLanguage(next: Language) {
     localStorage.setItem("wn-language", next);
@@ -2265,7 +2281,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, setCurrency }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -2305,4 +2321,10 @@ export function LanguageSwitch({ className }: { className?: string }) {
  *  the English (one English "Save" that has to say what it saves in Myanmar). */
 export function useLanguage(): Language {
   return useContext(LanguageContext).language;
+}
+
+/** Tells the page-wide label pass the signed-in shop's main currency. */
+export function useShowCurrency(currency: string) {
+  const { setCurrency } = useContext(LanguageContext);
+  useEffect(() => { setCurrency(currency); }, [currency, setCurrency]);
 }

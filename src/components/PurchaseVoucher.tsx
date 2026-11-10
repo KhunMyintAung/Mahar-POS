@@ -6,6 +6,7 @@ import { Badge, Button, Modal, Spinner } from "@/components/ui";
 import { api } from "@/lib/client";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { openPrintWindow, printPurchaseVoucher } from "@/lib/slipPrint";
+import { useCurrency } from "@/components/AppShell";
 
 interface PurchaseVoucherData {
   id: string; txnNo: string; date: string; createdAt: string; status: string; paymentStatus: string;
@@ -22,6 +23,7 @@ interface PurchaseVoucherData {
 /** A purchase as a voucher, opened by its id: the items, their cost, the supplier and how
  *  it was paid, with a Print button. */
 export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: string | null; onClose: () => void }) {
+  const cur = useCurrency();
   const [data, setData] = useState<PurchaseVoucherData | null>(null);
   const [error, setError] = useState("");
 
@@ -99,7 +101,7 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
           <div className="grid grid-cols-2 gap-y-0.5 text-xs">
             {BigInt(data.discount) > 0n && <><span>Subtotal</span><span className="text-right tabular-nums">{fmtMoney(data.subtotal)}</span>
               <span>Discount</span><span className="text-right tabular-nums">-{fmtMoney(data.discount)}</span></>}
-            <b>Total</b><b className="text-right tabular-nums">{fmtMoney(data.total, "MMK")}</b>
+            <b>Total</b><b className="text-right tabular-nums">{fmtMoney(data.total, cur)}</b>
             <span>Paid{data.walletName ? ` (${data.walletName})` : ""}</span><span className="text-right tabular-nums">{fmtMoney(data.paidAtPurchase ?? data.paidAmount)}</span>
             {BigInt(data.paidSince ?? "0") > 0n && <><span>Paid to supplier since</span><span className="text-right tabular-nums">{fmtMoney(data.paidSince ?? "0")}</span></>}
             {unpaid > 0n && <><span>Still owed</span><b className="text-right tabular-nums text-amber-700">{fmtMoney(unpaid.toString())}</b></>}

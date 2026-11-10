@@ -17,7 +17,7 @@ import { CLOUD_PRINT_EVENT, setCloudPrintAllowed, type CloudPrintNotice } from "
 import { PwaInstall } from "./PwaInstall";
 import { SoundToggle } from "./SoundToggle";
 import { ThemeToggle } from "./ThemeToggle";
-import { LanguageSwitch } from "./LanguageProvider";
+import { LanguageSwitch, useShowCurrency } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
@@ -93,6 +93,11 @@ const AuthCtx = createContext<{
 
 export function useAuth() {
   return useContext(AuthCtx);
+}
+
+/** The shop's main currency (MMK, USD or THB): totals, the till and the dashboard count in it. */
+export function useCurrency(): string {
+  return useContext(AuthCtx).me?.business?.currency ?? "MMK";
 }
 
 /** What "+" creates, per section. A section is listed only if it has something to create:
@@ -186,6 +191,7 @@ const FOLDED_SIDEBAR = ["/pos", "/repairs"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
+  useShowCurrency(me?.business?.currency ?? "MMK");
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
   // Sidebar groups opened or closed by hand (by label); otherwise a group is open while

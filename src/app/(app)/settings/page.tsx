@@ -8,6 +8,7 @@ import { Button, Card, CardTitle, Input, Spinner, Switch, cn, useToast } from "@
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
 import { RepairFlowCard } from "@/components/RepairFlowCard";
+import { CurrencyCard } from "@/components/CurrencyCard";
 import { BusinessLogoCard } from "@/components/BusinessLogoCard";
 import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
@@ -229,10 +230,12 @@ export default function SettingsPage() {
           <p className="-mt-1 text-xs text-gray-500">
             The website button on the repair QR page shows this text, for example Game Shop or Visit Our Website.
           </p>
-          <p className="text-xs text-gray-500">{`Default currency: ${data.business.currency} · Time zone: ${data.business.timezone}`}</p>
+          <p className="text-xs text-gray-500">{`Time zone: ${data.business.timezone}`}</p>
           <Button disabled={busy} onClick={() => save(() => api("/api/v1/settings", { method: "PATCH", body: biz }))}>Save profile</Button>
         </div>
       </Card>
+
+      <CurrencyCard onSaved={() => { refreshAuth(); }} />
 
       <BusinessLogoCard initial={data.business.logoUrl ?? null} onSaved={() => { refreshAuth(); }} />
 
