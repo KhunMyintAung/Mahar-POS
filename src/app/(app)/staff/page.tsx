@@ -12,6 +12,22 @@ interface Staff {
   id: string; name: string; phone?: string | null; position?: string | null; salary: string;
   attendanceBonus: string; deposit: string;
   startDate?: string | null; userId?: string | null; note?: string | null; active: boolean;
+  endDate?: string | null; nrc?: string | null; dateOfBirth?: string | null; address?: string | null;
+  emergencyContact?: string | null; payAccount?: string | null;
+}
+
+/** How long someone has worked: "2y 3m", "5m", "12d", from the hiring date to the leaving
+ *  date (or today). Empty without a hiring date. */
+function servedFor(start?: string | null, end?: string | null): string {
+  if (!start) return "";
+  const from = new Date(`${start}T00:00:00Z`);
+  const to = end ? new Date(`${end}T00:00:00Z`) : new Date();
+  if (Number.isNaN(from.getTime()) || to < from) return "";
+  let months = (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth());
+  if (to.getUTCDate() < from.getUTCDate()) months -= 1;
+  if (months < 1) return `${Math.max(0, Math.floor((to.getTime() - from.getTime()) / 86400000))}d`;
+  const y = Math.floor(months / 12), m = months % 12;
+  return [y ? `${y}y` : "", m ? `${m}m` : ""].filter(Boolean).join(" ");
 }
 interface Advance { id: string; staffId: string; amount: string; date: string; walletId: string; salaryPaymentId?: string | null; note?: string | null; voidedAt?: string | null }
 interface Payment {
@@ -100,7 +116,10 @@ export default function StaffPage() {
 }
 
 function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; reload: () => void }) {
-  const blank = { name: "", phone: "", position: "", salary: "", attendanceBonus: "", deposit: "", startDate: "", userId: "", note: "" };
+  const blank = {
+    name: "", phone: "", position: "", salary: "", attendanceBonus: "", deposit: "", startDate: "", userId: "", note: "",
+    endDate: "", nrc: "", dateOfBirth: "", address: "", emergencyContact: "", payAccount: "",
+  };
   const [editing, setEditing] = useState<Staff | "new" | null>(null);
   const [form, setForm] = useState(blank);
   const [busy, setBusy] = useState(false);
@@ -129,13 +148,18 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
       name: s.name, phone: s.phone ?? "", position: s.position ?? "", salary: minorToInput(s.salary),
       attendanceBonus: minorToInput(s.attendanceBonus ?? "0"), deposit: minorToInput(s.deposit ?? "0"),
       startDate: s.startDate ?? "", userId: s.userId ?? "", note: s.note ?? "",
+      endDate: s.endDate ?? "", nrc: s.nrc ?? "", dateOfBirth: s.dateOfBirth ?? "", address: s.address ?? "",
+      emergencyContact: s.emergencyContact ?? "", payAccount: s.payAccount ?? "",
     });
   }
   async function save(extra?: { active: boolean }) {
     if (!editing) return;
     setBusy(true);
     try {
-      const body = { ...form, salary: form.salary || "0", attendanceBonus: form.attendanceBonus || "0", deposit: form.deposit || "0", ...extra };
+      // The leaving date is only edited once someone has left; switching off sets it to today.
+      const { endDate, ...rest } = form;
+      const left = editing !== "new" && !editing.active && extra?.active !== true;
+      const body = { ...rest, ...(left ? { endDate } : {}), salary: form.salary || "0", attendanceBonus: form.attendanceBonus || "0", deposit: form.deposit || "0", ...extra };
       if (editing === "new") await api("/api/v1/staff", { method: "POST", body });
       else await api(`/api/v1/staff/${editing.id}`, { method: "PATCH", body });
       push("Saved");
@@ -165,7 +189,7 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
       )}
       <Card>
         {staff.length === 0 ? <Empty message="No staff yet" /> : (
-          <Table headers={["Name", "Position", "Phone", "Start date", "Salary", "Status", ""]} rightAlign={[4]}>
+          <Table headers={["Name", "Position", "Phone", "Hiring date", "Worked", "Salary", "Status", ""]} rightAlign={[5]}>
             {staff.map((s) => (
               <tr key={s.id} className={cn(!s.active && "opacity-60")}>
                 <td className="px-3 py-2 font-medium">{s.name}{(() => {
@@ -175,9 +199,10 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
                 })()}</td>
                 <td className="px-3 py-2 text-sm">{s.position ?? "—"}</td>
                 <td className="px-3 py-2 text-sm">{s.phone ?? "—"}</td>
-                <td className="px-3 py-2 text-sm">{s.startDate ?? "—"}</td>
+                <td className="px-3 py-2 text-sm tabular-nums">{s.startDate ?? "—"}</td>
+                <td className="px-3 py-2 text-sm tabular-nums">{servedFor(s.startDate, s.active ? null : s.endDate) || "—"}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(s.salary)}</td>
-                <td className="px-3 py-2 text-sm">{s.active ? "Active" : "Off"}</td>
+                <td className="px-3 py-2 text-sm">{s.active ? "Active" : <><span>{"Has left"}</span>{s.endDate ? <span className="ml-1 text-xs text-gray-500 tabular-nums">{s.endDate}</span> : null}</>}</td>
                 <td className="px-3 py-2"><Button size="sm" variant="secondary" onClick={() => open(s)}>Edit</Button></td>
               </tr>
             ))}
@@ -199,11 +224,23 @@ function StaffTab({ staff, users, reload }: { staff: Staff[]; users: UserRow[]; 
           <Input label="Monthly salary" inputMode="decimal" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
           <Input label="No days off bonus (monthly)" inputMode="decimal" placeholder="20000" value={form.attendanceBonus} onChange={(e) => setForm({ ...form, attendanceBonus: e.target.value })} />
           <Input label="Deposit kept from salary (monthly)" inputMode="decimal" placeholder="10000" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} />
-          <Input label="Start date" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+          <Input label="Hiring date" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
           <Select label="Login (for repair commission)" value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })}>
             <option value="">— None —</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.role ? ` (${u.role.name})` : ""}</option>)}
           </Select>
+          {/* The staff file: who they are and how to reach their family, and where pay goes. */}
+          <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:col-span-2">{"Staff file"}</p>
+          <Input label="NRC no" value={form.nrc} placeholder="12/LaMaNa(N)123456" onChange={(e) => setForm({ ...form, nrc: e.target.value })} />
+          <Input label="Date of birth" type="date" value={form.dateOfBirth} onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
+          <div className="sm:col-span-2">
+            <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          </div>
+          <Input label="Emergency contact (name, phone)" value={form.emergencyContact} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} />
+          <Input label="Salary account (KPay, Wave, bank)" value={form.payAccount} onChange={(e) => setForm({ ...form, payAccount: e.target.value })} />
+          {editing && editing !== "new" && !editing.active && (
+            <Input label="Leaving date" type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+          )}
           <div className="sm:col-span-2">
             <Input label="Note" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </div>

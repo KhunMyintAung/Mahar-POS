@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { audit } from "@/lib/audit";
+import { todayBusinessDate } from "@/lib/dates";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
@@ -13,6 +14,12 @@ const schema = z.object({
   deposit: z.string().optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
   userId: z.string().optional().or(z.literal("")),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  nrc: z.string().trim().max(40).optional(),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  address: z.string().trim().max(200).optional(),
+  emergencyContact: z.string().trim().max(120).optional(),
+  payAccount: z.string().trim().max(120).optional(),
   note: z.string().trim().max(280).optional(),
   active: z.boolean().optional(),
 });
@@ -34,6 +41,16 @@ export const PATCH = withAuth("staff.manage", async ({ req, user, params }) => {
       startDate: body.startDate === undefined ? undefined : body.startDate || null,
       userId: body.userId === undefined ? undefined : body.userId || null,
       note: body.note === undefined ? undefined : body.note || null,
+      nrc: body.nrc === undefined ? undefined : body.nrc || null,
+      dateOfBirth: body.dateOfBirth === undefined ? undefined : body.dateOfBirth || null,
+      address: body.address === undefined ? undefined : body.address || null,
+      emergencyContact: body.emergencyContact === undefined ? undefined : body.emergencyContact || null,
+      payAccount: body.payAccount === undefined ? undefined : body.payAccount || null,
+      // Switching someone off without a leaving date keeps today as their last day.
+      endDate: body.endDate !== undefined ? body.endDate || null
+        : body.active === false && before.active && !before.endDate ? todayBusinessDate()
+        : body.active === true && !before.active ? null
+        : undefined,
       active: body.active,
     },
   });

@@ -1121,7 +1121,18 @@ model Staff {
   attendanceBonus BigInt @default(0)
   /// Kept from each month's salary; paid back after six months.
   deposit     BigInt    @default(0)
+  /// Hiring date (YYYY-MM-DD).
   startDate   String?
+  /// The last day worked, when they left (YYYY-MM-DD).
+  endDate     String?
+  /// NRC (national ID) number, date of birth and home address, for the staff file.
+  nrc         String?
+  dateOfBirth String?
+  address     String?
+  /// Who to call in an emergency: name and phone.
+  emergencyContact String?
+  /// Where the salary is paid when not in cash: KPay / Wave / bank account.
+  payAccount  String?
   /// The login this person uses, if any: a Service Tech's repair commission comes from it.
   userId      String?
   note        String?
