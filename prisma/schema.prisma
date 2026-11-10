@@ -732,6 +732,7 @@ model Item {
   serials       ItemSerial[]
   movements     StockMovement[]
   purchaseLines PurchaseLine[]
+  transferLines StockTransferLine[]
   saleLines     SaleLine[]
   images        ItemImage[]
 
@@ -1261,4 +1262,42 @@ model BossShareTake {
   voidedAt    DateTime?
 
   @@index([businessId, month])
+}
+
+/// Stock sent from one branch to another (STR-000001). Both sides move at once: out of the
+/// sending branch, into the receiving one, at the item's cost then. Cancelling sends it back.
+model StockTransfer {
+  id            String    @id @default(uuid())
+  businessId    String
+  txnNo         String
+  fromBranchId  String
+  toBranchId    String
+  date          String // YYYY-MM-DD
+  notes         String?
+  status        String    @default("COMPLETED") // COMPLETED CANCELLED
+  createdById   String
+  createdAt     DateTime  @default(now())
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelReason  String?
+
+  lines StockTransferLine[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, date])
+}
+
+model StockTransferLine {
+  id         String        @id @default(uuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id])
+  itemId     String
+  item       Item          @relation(fields: [itemId], references: [id])
+  quantity   Int
+  /// The item's cost price when sent (minor units), for the value moved.
+  unitCost   BigInt        @default(0)
+  /// IMEI-tracked phones: the units sent, comma-separated.
+  imeis      String?
+
+  @@index([transferId])
 }

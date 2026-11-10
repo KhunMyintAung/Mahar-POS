@@ -340,8 +340,11 @@ export function StockAdjustModal({ target: adjustTarget, onClose, onDone }: { ta
 
 /** The stock movements of a day or a month: in, out, sold, used in repairs, and each one. */
 export function StockMovements() {
-  const { hasPerm, featureEnabled } = useAuth();
+  const { hasPerm, featureEnabled, me } = useAuth();
   const repairs = featureEnabled("repair");
+  // Seen across every branch, a transfer between branches is one unit out and the same unit
+  // in: the shop's stock does not change, so the in and out totals leave it out.
+  const wholeShop = Boolean(me?.user.allBranches);
   const seeCost = hasPerm("report.view") || hasPerm("item.manage");
   const [allMovements, setMovements] = useState<Movement[]>([]);
   const [moveType, setMoveType] = useState("ALL");
@@ -363,6 +366,7 @@ export function StockMovements() {
   const totals = useMemo(() => {
     let stockIn = 0, stockOut = 0, sold = 0, repair = 0, damaged = 0, inValue = 0n, outValue = 0n;
     for (const m of movements) {
+      if (wholeShop && (m.type === "TRANSFER_IN" || m.type === "TRANSFER_OUT")) continue;
       if (m.quantity > 0) { stockIn += m.quantity; inValue += costOf(m); } else { stockOut -= m.quantity; outValue += costOf(m); }
       if (m.type === "SALE") sold -= m.quantity;
       if (m.type === "SALE_RETURN") sold -= m.quantity;
@@ -370,19 +374,20 @@ export function StockMovements() {
       if (m.type === "DAMAGE") damaged -= m.quantity;
     }
     return { stockIn, stockOut, sold, repair, damaged, inValue, outValue };
-  }, [movements]);
+  }, [movements, wholeShop]);
 
   // A month, day by day: how many came in and went out, and what they are worth at cost.
   const byDay = useMemo(() => {
     const days = new Map<string, { stockIn: number; stockOut: number; inValue: bigint; outValue: bigint }>();
     for (const m of movements) {
+      if (wholeShop && (m.type === "TRANSFER_IN" || m.type === "TRANSFER_OUT")) continue;
       const d = shopDay(m.createdAt);
       const row = days.get(d) ?? { stockIn: 0, stockOut: 0, inValue: 0n, outValue: 0n };
       if (m.quantity > 0) { row.stockIn += m.quantity; row.inValue += costOf(m); } else { row.stockOut -= m.quantity; row.outValue += costOf(m); }
       days.set(d, row);
     }
     return [...days].sort(([a], [b]) => b.localeCompare(a));
-  }, [movements]);
+  }, [movements, wholeShop]);
   const [showDays, setShowDays] = useState(true);
 
   function choosePeriodKind(kind: "day" | "month") {

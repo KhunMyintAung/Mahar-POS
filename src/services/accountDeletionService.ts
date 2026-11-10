@@ -29,6 +29,7 @@ export async function purgeBusiness(tx: Tx, businessId: string) {
   // 1. Line items and payments — they point at documents that are themselves going.
   await run("saleLine", () => tx.saleLine.deleteMany({ where: { saleId: { in: saleIds } } }));
   await run("purchaseLine", () => tx.purchaseLine.deleteMany({ where: { purchaseId: { in: purchaseIds } } }));
+  await run("stockTransferLine", () => tx.stockTransferLine.deleteMany({ where: { transfer: { businessId } } }));
   await run("receivablePayment", () => tx.receivablePayment.deleteMany({ where: { receivableId: { in: receivableIds } } }));
   await run("payablePayment", () => tx.payablePayment.deleteMany({ where: { payableId: { in: payableIds } } }));
   await run("stockLevel", () => tx.stockLevel.deleteMany({ where: { itemId: { in: itemIds } } }));
@@ -43,6 +44,7 @@ export async function purgeBusiness(tx: Tx, businessId: string) {
   await run("sale", () => tx.sale.deleteMany({ where: { businessId } }));
   await run("purchase", () => tx.purchase.deleteMany({ where: { businessId } }));
   await run("stockMovement", () => tx.stockMovement.deleteMany({ where: { businessId } }));
+  await run("stockTransfer", () => tx.stockTransfer.deleteMany({ where: { businessId } }));
   await run("incomeExpense", () => tx.incomeExpense.deleteMany({ where: { businessId } }));
   await run("receivable", () => tx.receivable.deleteMany({ where: { businessId } }));
   await run("payable", () => tx.payable.deleteMany({ where: { businessId } }));

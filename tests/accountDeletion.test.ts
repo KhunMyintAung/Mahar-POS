@@ -24,6 +24,8 @@ function fakeTx(order: string[]) {
     payable: del("payable"),
     saleLine: del("saleLine"),
     purchaseLine: del("purchaseLine"),
+    stockTransferLine: del("stockTransferLine"),
+    stockTransfer: del("stockTransfer"),
     receivablePayment: del("receivablePayment"),
     payablePayment: del("payablePayment"),
     stockLevel: del("stockLevel"),
@@ -71,6 +73,8 @@ describe("purgeBusiness", () => {
 
     before("saleLine", "sale");
     before("purchaseLine", "purchase");
+    before("stockTransferLine", "stockTransfer");
+    before("stockTransferLine", "item");
     before("receivablePayment", "receivable");
     before("payablePayment", "payable");
     before("stockLevel", "item");

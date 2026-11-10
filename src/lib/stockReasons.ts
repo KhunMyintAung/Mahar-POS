@@ -26,8 +26,8 @@ export const MOVEMENT_LABELS: Record<string, string> = {
   SALE: "Sale",
   PURCHASE_RETURN: "Purchase return",
   SALE_RETURN: "Sale return",
-  TRANSFER_IN: "Transfer in",
-  TRANSFER_OUT: "Transfer out",
+  TRANSFER_IN: "Branch transfer in",
+  TRANSFER_OUT: "Branch transfer out",
   IMPORT: "CSV import",
 };
 

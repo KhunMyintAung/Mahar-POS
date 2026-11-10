@@ -18,6 +18,7 @@ import { repriced, validRule, type RepriceDirection, type RepriceMode, type Repr
 import { PageHeader } from "@/components/PageHeader";
 import { groupByModel, variantLabel, variantName } from "@/lib/variants";
 import { StockAdjustModal, StockMovements, type StockLevel } from "@/components/StockTools";
+import { StockTransfers } from "@/components/StockTransfers";
 import { ImeiListModal, ImeiMatches } from "@/components/ImeiTools";
 import { EXPIRY_WARN_DAYS, daysLeft } from "@/lib/expiry";
 import { useRefreshOnReturn } from "@/lib/useRefreshOnReturn";
@@ -149,7 +150,7 @@ export default function ItemsPage() {
   const [form, setForm] = useState(empty);
   // Stock, merged in from the old Stock page: the movements tab, each item's stock levels,
   // a low-stock filter, and the Adjust and IMEI dialogs.
-  const [view, setView] = useState<"items" | "movements">("items");
+  const [view, setView] = useState<"items" | "movements" | "transfers">("items");
   const [levels, setLevels] = useState<Map<string, StockLevel>>(new Map());
   const [lowOnly, setLowOnly] = useState(false);
   const [expiringOnly, setExpiringOnly] = useState(false);
@@ -275,7 +276,7 @@ export default function ItemsPage() {
           <>
             {canStock && (
               <div className="flex shrink-0 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
-                {([["items", "Items"], ["movements", "Movements"]] as const).map(([k, label]) => (
+                {([["items", "Items"], ["movements", "Movements"], ["transfers", "Branch transfer"]] as const).map(([k, label]) => (
                   <button key={k} type="button" onClick={() => setView(k)} className={cn("rounded-md px-3 py-1 text-sm font-medium", view === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
                     {label}
                   </button>
@@ -328,7 +329,7 @@ export default function ItemsPage() {
         </div>}
       </PageHeader>
 
-      {view === "movements" ? <StockMovements /> : (<>
+      {view === "transfers" ? <StockTransfers /> : view === "movements" ? <StockMovements /> : (<>
       {q.trim() && [...levels.values()].some((l) => l.trackSerial) && <ImeiMatches query={q} />}
 
       {items.length > 0 && (
