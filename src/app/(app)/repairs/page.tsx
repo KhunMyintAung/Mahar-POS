@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { autoCorrectDevice } from "@/lib/autoCorrect";
-import { CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench } from "lucide-react";
+import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -72,7 +72,7 @@ interface Job {
   serialId?: string | null;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; month: string }
+interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; unpaid?: number; month: string }
 interface Suggestions { brands: string[]; pairs: { brand: string; model: string }[] }
 
 const STATUS_TONE: Record<string, string> = {
@@ -553,6 +553,7 @@ export default function RepairsPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 flex-1 sm:w-40 sm:flex-none">
               <option value="">All statuses</option>
               <option value="WORKING">Working (all in work)</option>
+              <option value="UNPAID">Done, not paid</option>
               {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </select>
           </>
@@ -574,6 +575,8 @@ export default function RepairsPage() {
           { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: "WORKING" },
           { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "DONE" },
           { label: "Delivered", value: summary.delivered, icon: PackageCheck, tone: "text-purple-600", status: "DELIVERED" },
+          // Repaired with nothing taken on the job: shown once there is one, to close each.
+          ...(summary.unpaid ? [{ label: "Not paid", value: summary.unpaid, icon: Banknote, tone: "text-red-600", status: "UNPAID" }] : []),
         ].map(({ label, value, icon: Icon, tone, status: to }) => (
           <button
             key={label}

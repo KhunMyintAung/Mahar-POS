@@ -35,6 +35,26 @@ interface AppMoney {
   date: string;
   repair: { amount: string; jobs: number; entered: string };
   sales: { amount: string; count: number; entered: string };
+  /** Purchases paid from a wallet that day and not yet put into expense from the purchase. */
+  purchases?: { txnNo: string; paid: string; supplier?: string | null }[];
+}
+
+/** Shown while a Daily Sale or Service Expense is entered on a day a purchase was paid from a
+ *  wallet: that money already left with the purchase, so typing it again takes it out twice. */
+function PurchasePaid({ money }: { money: AppMoney }) {
+  const list = money.purchases ?? [];
+  if (list.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-medium">{"Purchases paid this day:"}</p>
+      <ul className="mt-1 space-y-0.5 tabular-nums">
+        {list.map((p) => (
+          <li key={p.txnNo}><span>{p.txnNo}</span>{p.supplier ? <span>{` · ${p.supplier}`}</span> : null} <b>{fmtMoney(p.paid, "MMK")}</b></li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs">{"This money already left the wallet with the purchase. To put it into expense, use Add to expense on the purchase, not a new entry here, or it is counted twice."}</p>
+    </div>
+  );
 }
 
 /** Shown while Daily Service or Daily Sale income is entered: a day's total copied from a
@@ -122,7 +142,7 @@ export default function IncomeExpensePage() {
   }, [showCancelled, day, allDates, push, items]);
 
   const moneyDay = form.date || todayDate();
-  const wantsAppMoney = showNew && form.type === "INCOME" && !!form.categoryName;
+  const wantsAppMoney = showNew && !!form.categoryName;
   useEffect(() => {
     if (!wantsAppMoney) return;
     let live = true;
@@ -259,6 +279,7 @@ export default function IncomeExpensePage() {
   const chosenKey = catOptions.find((c) => c.name === form.categoryName)?.systemKey;
   const offerSupplier = canSuppliers && form.type === "EXPENSE" && !newCategory && SUPPLIER_KEYS.includes(chosenKey ?? "");
   const warnKind = form.type === "INCOME" && !newCategory && (chosenKey === "DAILY_SERVICE" || chosenKey === "DAILY_SALE") ? chosenKey : null;
+  const warnPurchase = form.type === "EXPENSE" && !newCategory && (chosenKey === "DAILY_SERVICE" || chosenKey === "DAILY_SALE");
   if (!items) return <Spinner />;
   const canSave =
     !!form.amount &&
@@ -527,6 +548,7 @@ export default function IncomeExpensePage() {
           )}
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           {warnKind && appMoney && appMoney.date === (form.date || todayDate()) && <AlreadyCounted money={appMoney} kind={warnKind} />}
+          {warnPurchase && appMoney && appMoney.date === (form.date || todayDate()) && <PurchasePaid money={appMoney} />}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
             <Button onClick={save} disabled={busy || !canSave}>Save</Button>

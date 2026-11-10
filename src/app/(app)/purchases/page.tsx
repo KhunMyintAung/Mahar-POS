@@ -15,6 +15,7 @@ import { DayPicker, todayDate } from "@/components/DayPicker";
 import { PurchaseVoucherDialog } from "@/components/PurchaseVoucher";
 import { ContactCsvTools } from "@/components/ContactCsv";
 import { NewTradeInModal, TradeInList } from "@/components/TradeIn";
+import { QuickItemModal } from "@/components/QuickItemModal";
 
 /** On this device, purchases go into expense without asking. */
 const PURCHASE_EXPENSE_KEY = "mahar.purchaseExpense";
@@ -41,7 +42,7 @@ type PayMode = "full" | "none" | "part";
 type ExpenseLine = "SALE" | "SERVICE";
 const LINE_EXPENSE: Record<ExpenseLine, string> = { SALE: "Daily Sale Expense", SERVICE: "Daily Service Expense" };
 
-const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "" };
+const blankForm = { supplierId: "", discount: "", partPaid: "", walletId: "", dueDate: "", reference: "" };
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
 
 export default function PurchasesPage() {
@@ -81,6 +82,9 @@ export default function PurchasesPage() {
   const [payMode, setPayMode] = useState<PayMode>("full");
   const [forLine, setForLine] = useState<ExpenseLine | "">("");
   const [query, setQuery] = useState("");
+  // A part on the supplier's slip that is not in Items yet: made here, then put on the list.
+  const [quickItem, setQuickItem] = useState<string | null>(null);
+  const canMakeItems = hasPerm("item.manage");
 
   const load = useCallback(() => {
     api<{ purchases: Purchase[] }>("/api/v1/purchases?pageSize=1000")
@@ -236,6 +240,7 @@ export default function PurchasesPage() {
           walletId: paid > 0 ? walletId : undefined,
           dueDate: unpaid > 0 && form.dueDate ? form.dueDate : undefined,
           line: forLine || undefined,
+          reference: form.reference.trim() || undefined,
         },
       });
       push("Purchase recorded — stock updated");
@@ -383,6 +388,11 @@ export default function PurchasesPage() {
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-1">
                   <Button size="sm" variant="secondary" onClick={() => setVoucherFor(p.id)}>Voucher</Button>
+                  {/* Paid, but its cost never went into expense: put it there now, without
+                      taking the money out of the wallet a second time. */}
+                  {p.status === "COMPLETED" && !p.tradeIn && !p.expenseLine && BigInt(p.paidAmount) > 0n && hasPerm("purchase.create") && (
+                    <Button size="sm" variant="ghost" onClick={() => { setRememberExpense(false); setExpenseAsk({ id: p.id, txnNo: p.txnNo, total: p.paidAmount, line: p.line ?? "SALE" }); }}>Add to expense</Button>
+                  )}
                   {p.status === "COMPLETED" && hasPerm("purchase.cancel") && (
                     <Button size="sm" variant="ghost" onClick={() => setCancelTarget(p)}>Cancel</Button>
                   )}
@@ -433,6 +443,7 @@ export default function PurchasesPage() {
               </button>
             )}
           </div>
+          <Input label="Supplier voucher no (optional)" value={form.reference} placeholder="SO/11/26/170879" onChange={(e) => setForm({ ...form, reference: e.target.value })} />
 
           {/* Type or scan to find an item; picking it puts it on the list straight away. */}
           <div className="relative">
@@ -447,9 +458,17 @@ export default function PurchasesPage() {
             />
             {query.trim() && (
               <div className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                {matches.length === 0 ? (
-                  <div className="px-3 py-2.5 text-sm text-gray-500">No items found</div>
-                ) : matches.map((it) => (
+                {matches.length === 0 && <div className="px-3 py-2.5 text-sm text-gray-500">No items found</div>}
+                {canMakeItems && (
+                  <button
+                    type="button"
+                    onClick={() => setQuickItem(query.trim())}
+                    className="flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2.5 text-left text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                  >
+                    <Plus size={14} /><span>{"New item"}</span><span className="min-w-0 truncate font-normal text-gray-500">“{query.trim()}”</span>
+                  </button>
+                )}
+                {matches.map((it) => (
                   <button
                     key={it.id}
                     type="button"
@@ -644,6 +663,7 @@ export default function PurchasesPage() {
           <div className="space-y-3">
             <p className="text-sm">{`Add ${fmtMoney(expenseAsk.total)} paid for purchase ${expenseAsk.txnNo} to expense as ${LINE_EXPENSE[expenseAsk.line]}?`}</p>
             <p className="text-xs text-gray-500">The money already left the wallet with the purchase; this only records it as an expense, so it is not taken out twice. Any amount still owed goes into expense when the supplier is paid.</p>
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{"Already typed this expense yourself in Income & Expense? Choose No, or it is counted twice."}</p>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={rememberExpense} onChange={(e) => setRememberExpense(e.target.checked)} />
               Always add, don&apos;t ask again
@@ -669,6 +689,18 @@ export default function PurchasesPage() {
       </Modal>
 
       {/* Last, so it opens over the purchase form when added from there. */}
+      {quickItem !== null && (
+        <QuickItemModal
+          name={quickItem}
+          onClose={() => setQuickItem(null)}
+          onMade={(made) => {
+            setQuickItem(null);
+            const it = { id: made.id, name: made.name, sku: made.sku, costPrice: made.costPrice, trackSerial: made.trackSerial, trackStock: made.trackStock };
+            setItems((prev) => [it, ...prev]);
+            addItem(it);
+          }}
+        />
+      )}
       <NewSupplierModal
         open={newSupplier}
         onClose={() => setNewSupplier(false)}

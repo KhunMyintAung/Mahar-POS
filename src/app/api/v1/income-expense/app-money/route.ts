@@ -23,6 +23,22 @@ export const GET = withAuth("income_expense.create", async ({ req, user }) => {
     where: { ...where, deletedAt: null, status: "COMPLETED", type: "INCOME", currency: "MMK", billerTxnId: null, date, categoryName: { in: keyed.map((k) => k.name) } },
     _sum: { amount: true },
   });
+  // Purchases paid from a wallet that day: that money already left the wallet with the
+  // purchase, so a Daily Sale / Service Expense typed for it takes it out a second time.
+  // One already put into expense from the purchase itself moves no money and is left out.
+  const paidPurchases = await prisma.purchase.findMany({
+    where: { ...where, status: "COMPLETED", deletedAt: null, date, paidAmount: { gt: 0n } },
+    select: { id: true, txnNo: true, paidAmount: true, supplierId: true },
+  });
+  const linked = new Set((await prisma.incomeExpense.findMany({
+    where: { businessId: user.businessId, deletedAt: null, purchaseId: { in: paidPurchases.map((p) => p.id) } },
+    select: { purchaseId: true },
+  })).map((e) => e.purchaseId));
+  const open = paidPurchases.filter((p) => !linked.has(p.id));
+  const supplierIds = [...new Set(open.map((p) => p.supplierId).filter((x): x is string => Boolean(x)))];
+  const supplierName = new Map((supplierIds.length
+    ? await prisma.contact.findMany({ where: { businessId: user.businessId, id: { in: supplierIds } }, select: { id: true, name: true } })
+    : []).map((c) => [c.id, c.name]));
   const typedFor = (key: string) =>
     typed.filter((t) => keyed.find((k) => k.name === t.categoryName)?.systemKey === key).reduce((n, t) => n + (t._sum.amount ?? 0n), 0n);
   return json({
@@ -33,5 +49,6 @@ export const GET = withAuth("income_expense.create", async ({ req, user }) => {
       entered: typedFor("DAILY_SERVICE"),
     },
     sales: { amount: sales._sum.total ?? 0n, count: sales._count, entered: typedFor("DAILY_SALE") },
+    purchases: open.map((p) => ({ txnNo: p.txnNo, paid: p.paidAmount, supplier: p.supplierId ? supplierName.get(p.supplierId) ?? null : null })),
   });
 });

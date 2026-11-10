@@ -40,7 +40,9 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const where = {
     ...scope,
     // "WORKING" is every status still on the bench, the Working count on the page.
-    ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } } : status ? { status } : {}),
+    // "UNPAID": repaired, but no money taken on the job yet (its payment typed elsewhere, or
+    // still to collect), so the shop can close each one with its real amount.
+    ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } } : status === "UNPAID" ? { status: "DONE", paidAmount: 0n } : status ? { status } : {}),
     ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
     // ?listMonth=1: the list too is the month's intake, matching the counts above it.
     ...(sp.get("listMonth") === "1" ? { receivedAt: monthRangeUtc(month) } : {}),
@@ -58,7 +60,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       : {}),
   };
 
-  const [jobs, total, byStatus] = await Promise.all([
+  const [jobs, total, byStatus, unpaid] = await Promise.all([
     prisma.repairJob.findMany({ where, orderBy: { receivedAt: "desc" }, skip, take }),
     prisma.repairJob.count({ where }),
     prisma.repairJob.groupBy({
@@ -66,6 +68,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       where: { ...scope, receivedAt: monthRangeUtc(month) },
       _count: { _all: true },
     }),
+    prisma.repairJob.count({ where: { ...scope, receivedAt: monthRangeUtc(month), status: "DONE", paidAmount: 0n } }),
   ]);
 
   const count = (statuses: string[]) =>
@@ -75,6 +78,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
     inWorkflow: count(BENCH_STATUSES),
     completed: count(["DONE", "CANNOT_REPAIR"]),
     delivered: count(["DELIVERED"]),
+    unpaid,
   };
 
   return json({
