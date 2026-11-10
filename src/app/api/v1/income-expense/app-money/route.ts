@@ -31,7 +31,8 @@ export const GET = withAuth("income_expense.create", async ({ req, user }) => {
     select: { id: true, txnNo: true, paidAmount: true, supplierId: true },
   });
   const linked = new Set((await prisma.incomeExpense.findMany({
-    where: { businessId: user.businessId, deletedAt: null, purchaseId: { in: paidPurchases.map((p) => p.id) } },
+    // A link since cancelled no longer counts: the purchase is back to not being in expense.
+    where: { businessId: user.businessId, deletedAt: null, status: "COMPLETED", purchaseId: { in: paidPurchases.map((p) => p.id) } },
     select: { purchaseId: true },
   })).map((e) => e.purchaseId));
   const open = paidPurchases.filter((p) => !linked.has(p.id));
