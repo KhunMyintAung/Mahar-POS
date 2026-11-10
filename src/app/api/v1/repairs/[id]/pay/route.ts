@@ -3,6 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { payRepairBalance } from "@/services/repairService";
+import { loadRepairFlow } from "@/services/repairProfitService";
 import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 
 /** Mark as paid: collect whatever is left of the charge into a wallet. */
@@ -16,7 +17,7 @@ const schema = z.object({
 
 export const POST = withAuth("repair.update", async ({ req, user, params }) => {
   // Taking money goes into a wallet; a technician, who cannot see wallets, cannot take it.
-  if (!user.permissions.includes("wallet.view")) throw new ApiError(403, "You don't have permission for that.");
+  if (!user.permissions.includes("wallet.view") && (await loadRepairFlow(user.businessId)).money !== "record") throw new ApiError(403, "You don't have permission for that.");
   const body = await parseBody(req, schema);
   const before = await prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId }, select: { status: true, paidAmount: true } });
   const job = await prisma.$transaction((tx) =>

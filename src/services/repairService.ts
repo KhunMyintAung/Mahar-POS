@@ -4,9 +4,18 @@ import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { postLedger } from "./walletService";
 import { BENCH_STATUSES, canMove, type RepairPriority, type RepairStatus } from "@/lib/repairStatus";
+import { parseRepairFlow, REPAIR_FLOW_KEY } from "@/lib/repairFlow";
 import { formatVoucherNo, parseRepairVoucherSettings, shopPrefix } from "@/lib/repairVoucherSettings";
 
 export const REPAIR_VOUCHER_SETTING = "repair_voucher";
+
+/** True when the shop keeps repair jobs as a record only (Settings → Repairs): no money moves
+ *  on a job, the day's repair money is typed as Daily Service Income instead. */
+export async function repairRecordOnly(tx: Tx, businessId: string): Promise<boolean> {
+  const row = await tx.systemSetting.findUnique({ where: { businessId_key: { businessId, key: REPAIR_FLOW_KEY } }, select: { value: true } });
+  if (!row) return false;
+  try { return parseRepairFlow(JSON.parse(row.value)).money === "record"; } catch { return false; }
+}
 
 /** Repair jobs: a device in, a device out, and the money in between.
  *
@@ -63,7 +72,8 @@ export async function createRepairJob(
   if (opts.estimatedCost < 0n || opts.depositAmount < 0n) {
     throw new ApiError(422, "Amounts cannot be negative");
   }
-  if (opts.depositAmount > 0n && !opts.depositWalletId) {
+  const recordOnly = await repairRecordOnly(tx, opts.businessId);
+  if (opts.depositAmount > 0n && !opts.depositWalletId && !recordOnly) {
     throw new ApiError(422, "Choose the wallet the deposit went into");
   }
 
@@ -96,7 +106,7 @@ export async function createRepairJob(
 
   // The deposit is real money in the drawer the moment it is taken, so it lands in the
   // wallet now rather than waiting for the repair to finish.
-  if (opts.depositAmount > 0n && opts.depositWalletId) {
+  if (opts.depositAmount > 0n && opts.depositWalletId && !recordOnly) {
     await postLedger(tx, {
       businessId: opts.businessId,
       walletId: opts.depositWalletId,
@@ -218,11 +228,13 @@ export async function payRepairBalance(
     throw new ApiError(422, "The charge is less than what has already been paid");
   }
   const balance = finalCost - job.paidAmount;
-  if (balance > 0n && !opts.walletId) throw new ApiError(422, "Choose the wallet the money went into");
+  // Record only: the job is marked paid, the money itself goes in as Daily Service Income.
+  const recordOnly = await repairRecordOnly(tx, opts.businessId);
+  if (balance > 0n && !opts.walletId && !recordOnly) throw new ApiError(422, "Choose the wallet the money went into");
   const partsCost = opts.partsCost ?? job.partsCost;
   if (partsCost < 0n) throw new ApiError(422, "Amounts cannot be negative");
 
-  if (balance > 0n && opts.walletId) {
+  if (balance > 0n && opts.walletId && !recordOnly) {
     await postLedger(tx, {
       businessId: opts.businessId,
       walletId: opts.walletId,
@@ -249,7 +261,7 @@ export async function payRepairBalance(
     resourceType: "RepairJob",
     resourceId: job.id,
     before: { finalCost: job.finalCost.toString(), paidAmount: job.paidAmount.toString(), partsCost: job.partsCost.toString() },
-    after: { finalCost: updated.finalCost.toString(), paidAmount: updated.paidAmount.toString(), partsCost: updated.partsCost.toString(), collected: balance.toString() },
+    after: { finalCost: updated.finalCost.toString(), paidAmount: updated.paidAmount.toString(), partsCost: updated.partsCost.toString(), collected: recordOnly ? "0" : balance.toString(), recordOnly },
   });
   return updated;
 }
@@ -301,12 +313,14 @@ export async function updateRepairStatus(
     if (finalCost < job.paidAmount) {
       throw new ApiError(422, "The charge is less than the deposit already taken");
     }
-    if (balance > 0n && !opts.walletId) {
+    const recordOnly = await repairRecordOnly(tx, opts.businessId);
+    if (balance > 0n && !opts.walletId && !recordOnly) {
       throw new ApiError(422, "Choose the wallet the balance was paid into");
     }
+    if (recordOnly) paidAmount = finalCost;
     // Only the outstanding part is taken now; the deposit was banked at drop-off, and
     // charging it twice is the mistake this guards against.
-    if (balance > 0n && opts.walletId) {
+    if (balance > 0n && opts.walletId && !recordOnly) {
       await postLedger(tx, {
         businessId: opts.businessId,
         walletId: opts.walletId,

@@ -9,6 +9,7 @@ import { useAuth } from "@/components/AppShell";
 import { REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "@/lib/repairStatus";
 import { printRepairVoucher } from "@/lib/slipPrint";
 import { playSuccess } from "@/lib/sound";
+import { parseRepairFlow, REPAIR_FLOW_KEY } from "@/lib/repairFlow";
 import type { RepairVoucherData } from "@/components/RepairVoucher";
 
 /** A repair voucher scanned at the till: the phone goes back to its owner in one step —
@@ -33,6 +34,13 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
   const [walletId, setWalletId] = useState("");
   const [busy, setBusy] = useState(false);
   const mmk = wallets.filter((w) => w.currency === "MMK");
+  // Record only (Settings → Repairs): handing back takes no money into a wallet.
+  const [recordOnly, setRecordOnly] = useState(false);
+  useEffect(() => {
+    api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${REPAIR_FLOW_KEY}`)
+      .then((d) => setRecordOnly(parseRepairFlow(d.settings[REPAIR_FLOW_KEY]).money === "record"))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // A fresh scan starts from that job's own figures.
@@ -47,7 +55,7 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
   if (!current) return null;
   const delivered = current.status === "DELIVERED";
   const cancelled = current.status === "CANCELLED";
-  const canHandBack = hasPerm("repair.update") && hasPerm("wallet.view");
+  const canHandBack = hasPerm("repair.update") && (hasPerm("wallet.view") || recordOnly);
   const chargeKyat = Number(charge) || 0;
   const paid = kyat(current.paidAmount);
   const balance = Math.max(0, chargeKyat - paid);
@@ -86,7 +94,7 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
         body: {
           status: "DELIVERED",
           finalCost: chargeKyat > 0 ? String(chargeKyat) : undefined,
-          walletId: balance > 0 ? walletId : undefined,
+          walletId: balance > 0 && !recordOnly ? walletId : undefined,
         },
       });
       playSuccess();
@@ -149,14 +157,15 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
               {paid > 0 && <div className="flex justify-between"><span>Already paid</span><span className="tabular-nums">{fmtMoney(current.paidAmount)}</span></div>}
               <div className="flex justify-between text-base font-bold"><span>To collect now</span><span className="tabular-nums">{balance.toLocaleString("en-US")} MMK</span></div>
             </div>
-            {balance > 0 && (
+            {recordOnly && <p className="text-xs text-amber-700 dark:text-amber-300">{"Record only: no money goes into a wallet. Type the day's repair money as Daily Service Income."}</p>}
+            {balance > 0 && !recordOnly && (
               <Select label="Receive into wallet" value={walletId} onChange={(e) => setWalletId(e.target.value)}>
                 {mmk.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </Select>
             )}
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button onClick={handBack} disabled={busy || needsCharge || (balance > 0 && !walletId)}>
+              <Button onClick={handBack} disabled={busy || needsCharge || (balance > 0 && !walletId && !recordOnly)}>
                 {busy ? "Saving…" : "Hand back"}
               </Button>
             </div>

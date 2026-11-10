@@ -185,6 +185,15 @@ function correctedDevice(f: { deviceBrand: string; deviceModel: string }) {
   return { deviceBrand: brand, deviceModel: model };
 }
 
+/** Under the money of a record-only job: where its money is counted instead. */
+function RecordOnlyNote() {
+  return (
+    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+      {"Record only: no money goes into a wallet. Type the day's repair money as Daily Service Income."}
+    </p>
+  );
+}
+
 export default function RepairsPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
@@ -225,7 +234,11 @@ export default function RepairsPage() {
   const { hasPerm, defaultBranchId, me } = useAuth();
   // Handing a phone back and marking it paid take money into a wallet; someone who cannot
   // see wallets (a technician) is not offered either.
-  const canTakeMoney = hasPerm("wallet.view");
+  // Record only (Settings → Repairs): no wallet on a job; the day's money is typed as Daily
+  // Service Income, so anyone who may update a job can close it.
+  const [recordOnly, setRecordOnly] = useState(false);
+  const seesWallets = hasPerm("wallet.view");
+  const canTakeMoney = seesWallets || recordOnly;
   // A shop phone (trade-in) is never handed back or charged here: its repair is finished from
   // Purchases → Trade-in, which adds the cost onto the phone.
   const moves = (from: string, shopPhone?: string | null) => nextStatuses(from)
@@ -264,7 +277,7 @@ export default function RepairsPage() {
   const canSeeProfit = hasPerm("report.view") || hasPerm("item.manage");
   useEffect(() => {
     api<{ settings: Record<string, unknown> }>(`/api/v1/settings?key=${REPAIR_FLOW_KEY}`)
-      .then((d) => setPartsFlow(parseRepairFlow(d.settings[REPAIR_FLOW_KEY]).parts))
+      .then((d) => { const f = parseRepairFlow(d.settings[REPAIR_FLOW_KEY]); setPartsFlow(f.parts); setRecordOnly(f.money === "record"); })
       .catch(() => {});
   }, []);
 
@@ -285,8 +298,8 @@ export default function RepairsPage() {
     api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(e.message, "error"));
-    if (canTakeMoney) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status, month, canTakeMoney]);
+    if (seesWallets) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
+  }, [push, q, status, month, seesWallets]);
 
   useEffect(load, [load]);
 
@@ -732,7 +745,7 @@ export default function RepairsPage() {
           </div>
           <Input label="Problem" value={form.problem} onChange={(e) => setForm({ ...form, problem: e.target.value })} placeholder="Screen cracked, no display" />
           <TechnicianPicker techs={technicians} value={form.technicianName} onChange={(technicianName) => setForm({ ...form, technicianName })} canAddUser={hasPerm("users.manage")} />
-          {Number(form.depositAmount) > 0 && (
+          {Number(form.depositAmount) > 0 && !recordOnly && (
             <Select label="Deposit went into" value={form.depositWalletId} onChange={(e) => setForm({ ...form, depositWalletId: e.target.value })}>
               <option value="">Choose…</option>
               {wallets.filter((w) => w.currency === "MMK").map((w) => (
@@ -785,7 +798,7 @@ export default function RepairsPage() {
                   onChange={(e) => setPay({ ...pay, finalCost: e.target.value })}
                 />
                 {/* What the repair cost the shop (parts bought for it…), so the profit is known. */}
-                <Input label={partsFlow === "job" ? "Parts bought (cost)" : "Cost (parts)"} value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />
+                {!recordOnly && <Input label={partsFlow === "job" ? "Parts bought (cost)" : "Cost (parts)"} value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />}
               </div>
               {paying.status !== "DELIVERED" && partsFlow === "stock" && (
                 <RepairPartPicker
@@ -800,7 +813,7 @@ export default function RepairsPage() {
                 />
               )}
               {payParts.length > 0 && <p className="text-xs text-gray-500">{`From stock: ${payParts.join(", ")}`}</p>}
-              {charge > 0 && (
+              {charge > 0 && !recordOnly && (
                 <div className="flex justify-between rounded-lg bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-900/20">
                   <span>Profit</span>
                   <b className={cn("tabular-nums", charge - cost < 0 ? "text-red-600" : "text-emerald-700 dark:text-emerald-300")}>{fmtMoney(String(charge - cost))}</b>
@@ -813,7 +826,8 @@ export default function RepairsPage() {
                   <b className="tabular-nums text-green-600">{fmtMoney(String(toCollect))}</b>
                 </div>
               </Card>
-              {toCollect > 0 && (
+              {recordOnly && <RecordOnlyNote />}
+              {toCollect > 0 && !recordOnly && (
                 <Select label="Paid into" value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
                   <option value="">Choose…</option>
                   {wallets.filter((w) => w.currency === "MMK").map((w) => (
@@ -823,7 +837,7 @@ export default function RepairsPage() {
               )}
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="secondary" onClick={() => setPaying(null)}>Cancel</Button>
-                <Button onClick={savePay} disabled={busy || charge <= 0 || (toCollect > 0 && !pay.walletId)}>
+                <Button onClick={savePay} disabled={busy || charge <= 0 || (toCollect > 0 && !pay.walletId && !recordOnly)}>
                   {busy ? "Saving…" : "Mark as paid"}
                 </Button>
               </div>
@@ -918,7 +932,8 @@ export default function RepairsPage() {
                     <b className="tabular-nums text-green-600">{fmtMoney(String(Math.round(balance * 100)))}</b>
                   </div>
                 </Card>
-                {balance > 0 && (
+                {recordOnly && <RecordOnlyNote />}
+                {balance > 0 && !recordOnly && (
                   <Select label="Balance paid into" value={move.walletId} onChange={(e) => setMove({ ...move, walletId: e.target.value })}>
                     <option value="">Choose…</option>
                     {wallets.filter((w) => w.currency === "MMK").map((w) => (

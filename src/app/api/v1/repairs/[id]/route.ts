@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { REPAIR_STATUSES, deleteRepairJob, updateRepairStatus } from "@/services/repairService";
 import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
+import { loadRepairFlow } from "@/services/repairProfitService";
 
 export const GET = withAuth("repair.view", async ({ user, params }) => {
   const job = await prisma.repairJob.findFirst({
@@ -26,7 +27,7 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
   const body = await parseBody(req, patchSchema);
   // Handing a phone back takes its balance into a wallet; a technician, who cannot see
   // wallets, leaves that to the counter.
-  if (body.status === "DELIVERED" && !user.permissions.includes("wallet.view")) {
+  if (body.status === "DELIVERED" && !user.permissions.includes("wallet.view") && (await loadRepairFlow(user.businessId)).money !== "record") {
     throw new ApiError(403, "You don't have permission for that.");
   }
   const before = await prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId }, select: { status: true, paidAmount: true } });
