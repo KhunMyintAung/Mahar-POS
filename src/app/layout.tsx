@@ -14,21 +14,28 @@ const notoMyanmar = Noto_Sans_Myanmar({ variable: "--font-noto-myanmar", subsets
  *  Search engines treat a relative canonical as no canonical at all. */
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://maharpos.shop";
 
+/** What a search result or a shared link says under the title, in Myanmar, English and Thai. */
+const SHARE_TEXT =
+  "အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ငွေစာရင်းနှင့် Report — ဖုန်းတစ်လုံးထဲမှ၊ အခမဲ့။ " +
+  "Sales, stock and IMEI, repair jobs, wallets and reports from one phone — free. " +
+  "ขาย สต็อกและ IMEI งานซ่อม กระเป๋าเงิน และรายงาน ในมือถือเครื่องเดียว — ใช้ฟรี";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  // One line in the three languages the app speaks: a shared link is read by shops in
+  // Myanmar and in Thailand, and a link preview cannot know which one is looking.
   title: {
-    default: "Mahar Mini POS — ဆိုင်စာရင်းနှင့် ပိုက်ဆံအိတ် စီမံခန့်ခွဲမှု",
+    default: "Mahar Mini POS — ဖုန်းဆိုင် POS · Phone shop POS · POS ร้านมือถือ",
     // Every other page reads "<its title> · Mahar Mini POS", so a search result says which
     // page it is without each page repeating the brand itself.
     template: "%s · Mahar Mini POS",
   },
-  description:
-    "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်း၊ ဝင်ငွေထွက်ငွေ၊ အကြွေးနှင့် ဖုန်းပြင်ဆင်ခ — " +
-    "မြန်မာဆိုင်ငယ်များအတွက် အခမဲ့ စာရင်းကိုင် app။ ဖုန်းပေါ်မှာပဲ သုံးလို့ရပြီး Telegram နဲ့လည်း ချိတ်လို့ရပါတယ်။",
+  description: SHARE_TEXT,
   keywords: [
-    "ပိုက်ဆံအိတ်", "ငွေစာရင်း", "ဆိုင်စာရင်း", "အကြွေးစာရင်း", "ဝင်ငွေ ထွက်ငွေ",
-    "Mahar Mini POS", "မြန်မာ POS", "မီနီမတ် စာရင်း", "ဖုန်းဆိုင် စာရင်း",
-    "ကုန်ပစ္စည်းစာရင်း", "Myanmar accounting app", "small business app Myanmar",
+    "Mahar POS", "Mahar Mini POS",
+    "ဖုန်းဆိုင် POS", "ဖုန်းပြင်ဆိုင် စာရင်း", "IMEI စာရင်း", "မြန်မာ POS", "အရောင်း စာရင်း", "Stock စာရင်း", "Mini Mart POS",
+    "phone shop POS", "mobile repair shop software", "IMEI tracking", "free cloud POS", "POS Myanmar", "POS Thailand",
+    "โปรแกรมร้านมือถือ", "POS ร้านมือถือ", "ระบบร้านซ่อมมือถือ", "โปรแกรมขายหน้าร้าน ฟรี", "ระบบ IMEI",
   ],
   manifest: "/manifest.webmanifest",
   applicationName: "Mahar Mini POS",
@@ -38,16 +45,16 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Mahar Mini POS",
     locale: "my_MM",
+    alternateLocale: ["en_US", "th_TH"],
     url: SITE_URL,
-    title: "Mahar Mini POS — ဆိုင်စာရင်းနှင့် ပိုက်ဆံအိတ်",
-    description:
-      "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်းနှင့် အကြွေးစာရင်း — မြန်မာဆိုင်ငယ်များအတွက် အခမဲ့ စာရင်းကိုင် app။",
+    title: "Mahar Mini POS — ဖုန်းဆိုင် POS · Phone shop POS · POS ร้านมือถือ",
+    description: SHARE_TEXT,
     images: [{ url: "/mahar-icon-512.png", width: 512, height: 512, alt: "Mahar Mini POS" }],
   },
   twitter: {
     card: "summary",
-    title: "Mahar Mini POS — ဆိုင်စာရင်းနှင့် ပိုက်ဆံအိတ်",
-    description: "မြန်မာဆိုင်ငယ်များအတွက် အခမဲ့ စာရင်းကိုင် app။",
+    title: "Mahar Mini POS — ဖုန်းဆိုင် POS · Phone shop POS · POS ร้านมือถือ",
+    description: SHARE_TEXT,
     images: ["/mahar-icon-512.png"],
   },
   icons: {

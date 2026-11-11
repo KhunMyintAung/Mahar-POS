@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS</title>
 <meta name="description" content="Mahar POS — အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ အကြွေးနှင့် Report များကို ဖုန်းတစ်လုံးထဲမှ စီမံပါ။ မြန်မာ · English · ไทย။ အခမဲ့ စတင်နိုင်ပါသည်။">
+<meta name="keywords" content="Mahar POS, ဖုန်းဆိုင် POS, ဖုန်းပြင်ဆိုင် စာရင်း, IMEI စာရင်း, မြန်မာ POS, Mini Mart POS, phone shop POS, mobile repair shop software, IMEI tracking, free cloud POS, POS Myanmar, POS Thailand, โปรแกรมร้านมือถือ, POS ร้านมือถือ, ระบบร้านซ่อมมือถือ, โปรแกรมขายหน้าร้าน ฟรี">
 <link rel="canonical" href="https://maharpos.shop/">
 <link rel="alternate" hreflang="my" href="https://maharpos.shop/?lang=my">
 <link rel="alternate" hreflang="en" href="https://maharpos.shop/?lang=en">
@@ -13,8 +14,11 @@
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Mahar POS">
-<meta property="og:title" content="Mahar POS — Free cloud POS for phone shops and small shops">
-<meta property="og:description" content="Sales, stock and IMEI, repair jobs, top-up, wallets, credit and reports in one place. Myanmar · English · Thai.">
+<meta property="og:title" content="Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS">
+<meta property="og:description" content="Mahar POS — အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ အကြွေးနှင့် Report များကို ဖုန်းတစ်လုံးထဲမှ စီမံပါ။ မြန်မာ · English · ไทย။ အခမဲ့ စတင်နိုင်ပါသည်။">
+<meta property="og:locale" content="my_MM">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:locale:alternate" content="th_TH">
 <meta property="og:url" content="https://maharpos.shop/">
 <meta property="og:image" content="https://maharpos.shop/mahar-pos-logo.png?v=20261022">
 <meta name="twitter:card" content="summary">
@@ -548,9 +552,9 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
     my: {}
   };
   var META = {
-    my: { title: "Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS", loc: "my-MM" },
-    en: { title: "Mahar POS — Free cloud POS for phone shops and small shops", loc: "en-GB" },
-    th: { title: "Mahar POS — ระบบ POS บนคลาวด์ ฟรี สำหรับร้านมือถือและร้านค้าขนาดเล็ก", loc: "th-TH" }
+    my: { title: "Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS", desc: "Mahar POS — အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ အကြွေးနှင့် Report များကို ဖုန်းတစ်လုံးထဲမှ စီမံပါ။ မြန်မာ · English · ไทย။ အခမဲ့ စတင်နိုင်ပါသည်။", loc: "my-MM" },
+    en: { title: "Mahar POS — Free cloud POS for phone shops and small shops", desc: "Mahar POS — sales, stock and IMEI, repair jobs, top-up, wallets, credit and reports from one phone. Myanmar, English and Thai. Free to start.", loc: "en-GB" },
+    th: { title: "Mahar POS — ระบบ POS บนคลาวด์ ฟรี สำหรับร้านมือถือและร้านค้าขนาดเล็ก", desc: "Mahar POS — ขายหน้าร้าน สต็อกและ IMEI งานซ่อม เติมเงิน กระเป๋าเงิน ลูกหนี้ และรายงาน จัดการได้จากมือถือเครื่องเดียว รองรับภาษาไทย พม่า อังกฤษ เริ่มใช้ฟรี", loc: "th-TH" }
   };
   // Words that come from the server in English.
   var TYPE = {
@@ -600,6 +604,12 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
     lang = l;
     document.documentElement.lang = l;
     document.title = META[l].title;
+    // Search engines read the page after this script has run: the description, the social
+    // tags and the canonical address say the same language as the page.
+    var head = { 'meta[name="description"]': META[l].desc, 'meta[property="og:title"]': META[l].title, 'meta[property="og:description"]': META[l].desc };
+    Object.keys(head).forEach(function (q) { var m = document.querySelector(q); if (m) m.setAttribute("content", head[q]); });
+    var canon = document.querySelector('link[rel="canonical"]');
+    if (canon) canon.setAttribute("href", "https://maharpos.shop/" + (new URLSearchParams(location.search).get("lang") === l ? "?lang=" + l : ""));
     nodes.forEach(function (n) { var v = T[l][n.dataset.t]; if (v != null) n.innerHTML = v; });
     document.querySelectorAll("[data-ph]").forEach(function (n) { n.placeholder = T[l][n.dataset.ph]; });
     document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === l)); });

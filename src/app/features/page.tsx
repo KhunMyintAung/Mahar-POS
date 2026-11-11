@@ -32,7 +32,7 @@ const APP_SCHEMA = {
   alternateName: ["ပိုက်ဆံအိတ်", "Mahar Mini POS ပိုက်ဆံအိတ်", "ဆိုင်စာရင်း app"],
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web, Android, iOS",
-  inLanguage: ["my", "en"],
+  inLanguage: ["my", "en", "th"],
   url: `${SITE_URL}/`,
   description:
     "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်း၊ ဝင်ငွေထွက်ငွေ၊ အကြွေးနှင့် ငွေလဲနှုန်း — " +
