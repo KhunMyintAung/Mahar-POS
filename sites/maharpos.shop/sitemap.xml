@@ -65,5 +65,5 @@
   <url><loc>https://maharpos.shop/manual/online-shop</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://maharpos.shop/manual/settings-menu-account</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://maharpos.shop/manual/repair-track-customer</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/privacy</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
+  <url><loc>https://maharpos.shop/privacy/</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>
