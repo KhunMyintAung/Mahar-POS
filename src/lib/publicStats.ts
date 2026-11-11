@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { adminUsers } from "./adminAccess";
 import { parseModuleAccess } from "./modules";
+import { shopCountry } from "./shopCountry";
 
 /** Figures and shop lists for the public landing page (maharpos.shop), in the same shape the
  *  old app served, so the page needs no change. Only what a shop already shows the public
@@ -21,7 +22,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 interface ShopRow {
-  id: string; slug: string; name: string; logo: string; location: string; businessType: string;
+  id: string; slug: string; name: string; logo: string; location: string; country: string; businessType: string;
   description: string; verified: boolean; status: "active"; createdAt: Date;
 }
 
@@ -29,7 +30,7 @@ interface ShopRow {
 async function activeShops(): Promise<ShopRow[]> {
   return cached("shops", async () => {
     const [businesses, users, modules, items, sales] = await Promise.all([
-      prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, city: true, address: true, logoUrl: true, createdAt: true } }),
+      prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, city: true, address: true, logoUrl: true, currency: true, timezone: true, createdAt: true } }),
       prisma.user.findMany({ where: { deletedAt: null }, select: { businessId: true, active: true, email: true } }),
       prisma.systemSetting.findMany({ where: { key: "modules" }, select: { businessId: true, value: true } }),
       prisma.item.groupBy({ by: ["businessId"], where: { deletedAt: null }, _count: true }),
@@ -48,7 +49,9 @@ async function activeShops(): Promise<ShopRow[]> {
         slug: b.id.slice(0, 8),
         name: b.name,
         logo: b.logoUrl ? `${(process.env.APP_URL ?? "").replace(/\/+$/, "")}/api/public/shop-logo/${b.id}` : "",
-        location: b.city ?? "",
+        location: (b.city ?? "").trim(),
+        // Known even for a shop that has typed no city yet.
+        country: shopCountry(b.timezone, b.currency),
         businessType: TYPE_LABEL[kind.get(b.id) ?? "CUSTOM"] ?? "Shop",
         description: `${itemCount.get(b.id) ?? 0} products · ${saleCount.get(b.id) ?? 0} sales records`,
         // The platform owner's own shop carries the badge.
@@ -79,6 +82,7 @@ export async function publicStats() {
       paidShops: 0,
       registeredShops, users, products, sales, repairs, dailyClosings,
       locations: new Set(shops.map((s) => s.location.trim().toLowerCase()).filter(Boolean)).size,
+      countries: new Set(shops.map((s) => s.country).filter(Boolean)).size,
       updatedAt: new Date().toISOString(),
     };
   });
@@ -94,7 +98,7 @@ export async function publicShops(opts: { page: number; limit: number; search: s
   const start = (opts.page - 1) * opts.limit;
   return {
     ok: true, page: opts.page, limit: opts.limit, total: filtered.length,
-    shops: filtered.slice(start, start + opts.limit).map((s) => ({ id: s.id, slug: s.slug, name: s.name, logo: s.logo, location: s.location, businessType: s.businessType, description: s.description, verified: s.verified, status: s.status })),
+    shops: filtered.slice(start, start + opts.limit).map((s) => ({ id: s.id, slug: s.slug, name: s.name, logo: s.logo, location: s.location, country: s.country, businessType: s.businessType, description: s.description, verified: s.verified, status: s.status })),
   };
 }
 

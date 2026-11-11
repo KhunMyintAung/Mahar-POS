@@ -36,7 +36,7 @@ interface Me {
     id: string; name: string; username: string; roleName: string;
     permissions: string[]; allBranches: boolean; branchIds: string[];
   };
-  business: { name: string; phone: string | null; address: string | null; currency: string; timezone?: string; logoUrl: string | null } | null;
+  business: { name: string; phone: string | null; address: string | null; city?: string | null; currency: string; timezone?: string; logoUrl: string | null } | null;
   branches: { id: string; name: string; code: string }[];
   modules: {
     mode: ModuleMode;

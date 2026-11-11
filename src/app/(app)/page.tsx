@@ -8,6 +8,7 @@ import { fmtMoney } from "@/lib/format";
 import { StatCard, Card, Select, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth, useCurrency } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
+import { CityPrompt } from "@/components/CityPrompt";
 
 interface Summary {
   wallets: { totalMmk: string; totalThb: string; thbWallets: number; lowBalance: { id: string; name: string; currentBalance: string; minBalance: string }[] };
@@ -104,6 +105,7 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-3">
+      <CityPrompt />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <PageHeader title={<>Dashboard</>} />

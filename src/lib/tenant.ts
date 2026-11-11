@@ -20,6 +20,8 @@ export interface TenantRegistration {
   username: string;
   email: string;
   phone?: string;
+  /** The city or town the shop is in, as the owner typed it at sign-up. */
+  city?: string;
   password: string;
   currency: Currency;
   timezone: string;
@@ -68,6 +70,7 @@ export async function registerTenant(input: TenantRegistration) {
         data: {
           name: input.businessName,
           phone: input.phone,
+          city: input.city || undefined,
           currency: input.currency,
           timezone: input.timezone,
         },

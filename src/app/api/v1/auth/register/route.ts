@@ -15,6 +15,8 @@ const schema = z.object({
     .regex(/^[a-z0-9_.-]+$/, "Username: letters, numbers, dots, dashes and underscores only"),
   email: z.string().trim().toLowerCase().email().max(160),
   phone: z.string().trim().max(30).optional(),
+  // The sign-up form asks for it; older app versions that do not send one still register.
+  city: z.string().trim().max(80).optional(),
   password: z.string().min(8, "Password must be at least 8 characters").max(72),
   currency: z.enum(CURRENCIES).default("MMK"),
   // The zone of the device the shop signed up on. One the server does not know is not kept.

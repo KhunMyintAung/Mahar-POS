@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/adminAccess";
+import { shopCountry } from "@/lib/shopCountry";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await isAdminRequest())) return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
   const [businesses, users, sales, repairs, lastLogins] = await Promise.all([
-    prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, phone: true, city: true, createdAt: true } }),
+    prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, phone: true, city: true, address: true, currency: true, timezone: true, createdAt: true } }),
     prisma.user.findMany({ where: { deletedAt: null }, select: { businessId: true, name: true, email: true, username: true, active: true, role: { select: { name: true } }, createdAt: true } }),
     prisma.sale.groupBy({ by: ["businessId"], where: { deletedAt: null, status: "COMPLETED" }, _count: true }),
     prisma.repairJob.groupBy({ by: ["businessId"], where: { deletedAt: null }, _count: true }),
@@ -23,7 +24,7 @@ export async function GET() {
     const staff = users.filter((u) => u.businessId === b.id);
     const owner = staff.find((u) => u.role.name === "Owner") ?? [...staff].sort((x, y) => +x.createdAt - +y.createdAt)[0];
     return {
-      id: b.id, name: b.name, phone: b.phone, city: b.city, createdAt: b.createdAt,
+      id: b.id, name: b.name, phone: b.phone, city: b.city, address: b.address, country: shopCountry(b.timezone, b.currency), createdAt: b.createdAt,
       owner: owner ? { name: owner.name, email: owner.email, username: owner.username } : null,
       users: staff.length,
       locked: staff.length > 0 && staff.every((u) => !u.active),

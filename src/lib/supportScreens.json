@@ -199,6 +199,7 @@
    "path": "/",
    "labels": [
     "MMK စုစုပေါင်းလက်ကျန် (Total MMK Balance)",
+    "Mahar POS သုံးနေသော ဆိုင်များစာရင်းတွင် ဆိုင်အမည်နှင့်အတူ ပြပါမည်။ (It is shown next to your shop name in the public list of shops using Mahar POS.)",
     "THB စုစုပေါင်းလက်ကျန် (Total THB Balance)",
     "ကုန်လက်ကျန်နည်း သတိပေးချက် (Low stock alerts)",
     "ငွေလက်ကျန်နည်း သတိပေးချက် (Low wallet balance alerts)",
@@ -209,6 +210,8 @@
     "ဖုန်းပြင် အမြတ် (Repair profit)",
     "ဖုန်းပြင်ဝင်ငွေ (Repair income)",
     "ဖောက်သည်ထံမှ ရရန် (Customer Receivable)",
+    "မြို့ / မြို့နယ် (City / Town)",
+    "မြို့ သိမ်းပြီးပါပြီ (City saved)",
     "ယနေ့ ဝင်ငွေ စုစုပေါင်း (Today's Total Income)",
     "ယနေ့ထွက်ငွေ (Today's Expense)",
     "ယနေ့ပေးရန် ပေးချေပြီး (Payable Paid Today)",
@@ -222,6 +225,8 @@
     "ဝင်ငွေ စုစုပေါင်း (Total Income)",
     "ဝင်ငွေ မရှိသေးပါ (No income yet)",
     "သက်တမ်းကုန်ခါနီး ပစ္စည်းများ (Expiring soon)",
+    "သင့်ဆိုင် ဘယ်မြို့မှာ ရှိပါသလဲ? (Which city is your shop in?)",
+    "သိမ်းမည် (Save)",
     "အရောင်းအမြတ် (Sales Profit)",
     "အသားတင်ငွေ အဝင်/အထွက် (Net Cash Movement)"
    ]
@@ -2141,6 +2146,7 @@
     "ဒါတွေအားလုံးကို နောက်မှ Settings မှာ ပြောင်းလို့ ရပါတယ်။ (You can change any of this later in Settings.)",
     "ဘာအတွက်လဲ? (What is this for?)",
     "မေးခွန်းတစ်ခုပါ — သုံးမယ့်အရာတွေပဲ ပြပေးဖို့ပါ။ (One question, so the app only shows what you use.)",
+    "မြို့ / မြို့နယ် (City / Town)",
     "ယခုအတွက် ကျော်မည် (Skip for now)",
     "လုပ်ငန်းအမည် (Business name)"
    ]

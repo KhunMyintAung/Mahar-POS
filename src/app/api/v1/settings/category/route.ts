@@ -14,6 +14,7 @@ import { BUSINESS_CATEGORIES, moduleSettingForCategory } from "@/lib/modules";
 const schema = z.object({
   category: z.enum(BUSINESS_CATEGORIES),
   businessName: z.string().trim().min(2).max(80).optional(),
+  city: z.string().trim().min(1).max(80).optional(),
 });
 
 export const POST = withAuth("settings.manage", async ({ req, user }) => {
@@ -32,10 +33,10 @@ export const POST = withAuth("settings.manage", async ({ req, user }) => {
       update: { value },
     });
 
-    const business = body.businessName
+    const business = body.businessName || body.city
       ? await tx.business.update({
           where: { id: user.businessId },
-          data: { name: body.businessName },
+          data: { name: body.businessName, city: body.city },
         })
       : await tx.business.findUniqueOrThrow({ where: { id: user.businessId } });
 
@@ -47,7 +48,7 @@ export const POST = withAuth("settings.manage", async ({ req, user }) => {
       resourceType: "Business",
       resourceId: user.businessId,
       before: { modules: before?.value },
-      after: { category: body.category, businessName: business.name },
+      after: { category: body.category, businessName: business.name, city: business.city },
     });
 
     return business;

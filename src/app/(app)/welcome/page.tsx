@@ -21,10 +21,11 @@ export default function WelcomePage() {
   const { push } = useToast();
   const [businessName, setBusinessName] = useState("");
   const [category, setCategory] = useState("");
+  const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function save() {
-    if (!category) return;
+    if (!category || !city.trim()) return;
     setBusy(true);
     try {
       await api("/api/v1/settings/category", {
@@ -33,6 +34,7 @@ export default function WelcomePage() {
           category,
           // Left out when untouched, so the name Google gave is kept rather than blanked.
           businessName: businessName.trim() || undefined,
+          city: city.trim(),
         },
       });
       // The shell decides which sections to show from this, so it has to be re-read
@@ -65,6 +67,13 @@ export default function WelcomePage() {
             onChange={(e) => setBusinessName(e.target.value)}
             placeholder={me?.user.name ?? "Your business"}
           />
+          <Input
+            label="City / Town"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            autoComplete="address-level2"
+            maxLength={80}
+          />
           <Select
             label="What is this for?"
             value={category}
@@ -81,7 +90,7 @@ export default function WelcomePage() {
             You can change any of this later in Settings.
           </p>
 
-          <Button onClick={save} disabled={busy || !category} className="w-full">
+          <Button onClick={save} disabled={busy || !category || !city.trim()} className="w-full">
             {busy ? "Setting up…" : "Continue"}
           </Button>
           <button

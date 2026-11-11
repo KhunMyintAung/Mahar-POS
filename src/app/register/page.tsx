@@ -31,6 +31,7 @@ export default function RegisterPage() {
     username: "",
     email: "",
     phone: "",
+    city: "",
     currency: "MMK",
     businessCategory: "",
     password: "",
@@ -75,6 +76,7 @@ export default function RegisterPage() {
           username: form.username,
           email: form.email,
           phone: form.phone || undefined,
+          city: form.city.trim(),
           currency: form.currency,
           // Where the shop is, from this device's clock: a shop in Bangkok keeps Bangkok time.
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Yangon",
@@ -117,6 +119,14 @@ export default function RegisterPage() {
             value={form.phone}
             onChange={(event) => update("phone", event.target.value)}
             autoComplete="tel"
+          />
+          <Input
+            label="City / Town"
+            value={form.city}
+            onChange={(event) => update("city", event.target.value)}
+            autoComplete="address-level2"
+            maxLength={80}
+            required
           />
           <Select
             label="Business category"
@@ -195,6 +205,7 @@ export default function RegisterPage() {
             disabled={
               loading ||
               !form.businessName ||
+              !form.city.trim() ||
               !form.businessCategory ||
               !form.username ||
               !form.email ||
