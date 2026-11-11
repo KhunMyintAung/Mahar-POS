@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS</title>
+<meta name="description" content="Mahar POS — အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ အကြွေးနှင့် Report များကို ဖုန်းတစ်လုံးထဲမှ စီမံပါ။ မြန်မာ · English · ไทย။ အခမဲ့ စတင်နိုင်ပါသည်။">
+<link rel="canonical" href="https://maharpos.shop/">
+<link rel="alternate" hreflang="my" href="https://maharpos.shop/?lang=my">
+<link rel="alternate" hreflang="en" href="https://maharpos.shop/?lang=en">
+<link rel="alternate" hreflang="th" href="https://maharpos.shop/?lang=th">
+<link rel="alternate" hreflang="x-default" href="https://maharpos.shop/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Mahar POS">
+<meta property="og:title" content="Mahar POS — Free cloud POS for phone shops and small shops">
+<meta property="og:description" content="Sales, stock and IMEI, repair jobs, top-up, wallets, credit and reports in one place. Myanmar · English · Thai.">
+<meta property="og:url" content="https://maharpos.shop/">
+<meta property="og:image" content="https://maharpos.shop/mahar-pos-logo.png?v=20261022">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#0b3d2e">
+<link rel="manifest" href="/site.webmanifest?v=20260806-logo-refresh">
+<link rel="icon" type="image/png" href="/mahar-pos-logo-192.png?v=20261022">
+<link rel="apple-touch-icon" href="/mahar-pos-logo-192.png?v=20261022">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Mahar POS","applicationCategory":"BusinessApplication","operatingSystem":"Web, Android, iOS","inLanguage":["my","en","th"],"url":"https://maharpos.shop/","offers":{"@type":"Offer","price":"0","priceCurrency":"MMK"}}
+</script>
+<style>
+:root{
+  --ink:#10231c;--ink2:#40534b;--mute:#6b7c75;--line:#dfe6e1;
+  --bg:#f6f8f5;--card:#fff;--deep:#0b3d2e;--deep2:#0f5540;
+  --green:#12905f;--green-soft:#e3f4ec;--orange:#f59a0c;--orange-ink:#8a5200;--orange-soft:#fff3dc;
+  --r:14px;--wrap:1120px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Myanmar","Myanmar Text",Pyidaungsu,"Noto Sans Thai","Leelawadee UI",Thonburi,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.65;font-size:16px}
+html[lang=my] body{line-height:1.9}
+img{max-width:100%;height:auto;display:block}
+a{color:var(--green);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{line-height:1.3;text-wrap:balance}
+html[lang=my] h1,html[lang=my] h2,html[lang=my] h3{line-height:1.6}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 16px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px;border-radius:6px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 20px;border-radius:999px;font-weight:700;font-size:15px;border:1.5px solid transparent;cursor:pointer;font-family:inherit;text-align:center}
+.btn:hover{text-decoration:none}
+.btn-primary{background:var(--orange);color:#231400}
+.btn-primary:hover{background:#ffab26}
+.btn-light{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}
+.btn-light:hover{background:rgba(255,255,255,.1)}
+.btn-line{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn-line:hover{border-color:var(--green)}
+.btn-sm{min-height:38px;padding:6px 14px;font-size:14px}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:rgba(11,61,46,.97);color:#fff}
+.top .wrap{display:flex;align-items:center;gap:10px;min-height:58px}
+.brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:18px;margin-right:auto;white-space:nowrap}
+.brand:hover{text-decoration:none}
+.brand img{width:34px;height:34px;border-radius:8px;background:#fff;padding:2px}
+.brand b{color:var(--orange)}
+.nav{display:none;gap:20px;margin-right:12px}
+.nav a{color:#d5e6de;font-size:14px;font-weight:600}
+.nav a:hover{color:#fff;text-decoration:none}
+.lang{display:flex;border:1px solid rgba(255,255,255,.3);border-radius:999px;overflow:hidden;flex-shrink:0}
+.lang button{background:none;border:0;color:#d5e6de;font:inherit;font-size:13px;font-weight:700;padding:0 10px;min-height:34px;cursor:pointer;line-height:1.2}
+.lang button[aria-pressed=true]{background:#fff;color:var(--deep)}
+.top .login{display:none;color:#fff;font-weight:700;font-size:14px}
+.top .btn{min-height:36px;padding:4px 14px;font-size:14px}
+@media (max-width:420px){.top .cta-top{display:none}}
+@media (min-width:900px){.nav{display:flex}.top .login{display:inline}}
+
+/* hero */
+.hero{background:linear-gradient(180deg,var(--deep) 0%,var(--deep2) 100%);color:#fff;overflow:hidden}
+.hero .wrap{display:grid;gap:28px;padding-top:36px;padding-bottom:0}
+.eyebrow{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.02em;color:#ffd58a;background:rgba(245,154,12,.14);border:1px solid rgba(245,154,12,.4);padding:3px 12px;border-radius:999px}
+.hero h1{font-size:clamp(28px,7vw,48px);font-weight:800;margin:14px 0 12px;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--orange)}
+.hero .lead{font-size:17px;color:#d5e6de;max-width:36em}
+.hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 14px}
+.ticks{list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:#c4dad0}
+.ticks li::before{content:"✓";color:var(--orange);font-weight:800;margin-right:6px}
+.phones{display:flex;justify-content:center;align-items:flex-end;gap:14px}
+.phone{width:min(46%,230px);border:6px solid #06241b;border-bottom:0;border-radius:26px 26px 0 0;background:#06241b;overflow:hidden;box-shadow:0 -6px 40px rgba(0,0,0,.35)}
+.phone img{width:100%;aspect-ratio:9/13;object-fit:cover;object-position:top}
+.phone.back{transform:translateY(34px);opacity:.92}
+@media (min-width:900px){
+  .hero .wrap{grid-template-columns:1.1fr .9fr;align-items:end;padding-top:64px}
+  .hero-text{padding-bottom:64px}
+}
+
+/* figures */
+.figures{background:#fff;border-bottom:1px solid var(--line)}
+.figures .wrap{display:grid;grid-template-columns:repeat(2,1fr);gap:0}
+.fig{padding:16px 8px;text-align:center}
+.fig b{display:block;font-size:26px;font-weight:800;color:var(--deep);font-variant-numeric:tabular-nums;line-height:1.2}
+.fig span{font-size:13px;color:var(--mute)}
+@media (min-width:700px){.figures .wrap{grid-template-columns:repeat(4,1fr)}}
+
+/* sections */
+section{padding:56px 0}
+.sec-head{max-width:44em;margin-bottom:28px}
+.kicker{font-size:13px;font-weight:800;color:var(--green);letter-spacing:.06em;text-transform:uppercase}
+h2{font-size:clamp(23px,5vw,34px);font-weight:800;margin:6px 0 10px;letter-spacing:-.01em}
+.sub{color:var(--ink2)}
+.alt{background:#fff;border-block:1px solid var(--line)}
+.grid{display:grid;gap:12px}
+@media (min-width:640px){.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.g4{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.alt .card{background:var(--bg)}
+.card h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.card p{font-size:15px;color:var(--ink2)}
+.ico{width:40px;height:40px;border-radius:10px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin-bottom:10px}
+.ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card.o .ico{background:var(--orange-soft);color:var(--orange-ink)}
+
+/* screens */
+.shots{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,1fr);gap:14px;overflow-x:auto;padding-bottom:10px;scroll-snap-type:x mandatory}
+.shot{scroll-snap-align:start;margin:0;background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.shot img{width:100%;aspect-ratio:9/14;object-fit:cover;object-position:top;border-bottom:1px solid var(--line)}
+.shot figcaption{padding:12px 14px;font-size:14px;color:var(--ink2)}
+.shot figcaption b{display:block;color:var(--ink);font-size:15px}
+.note{font-size:13px;color:var(--mute);margin-top:10px}
+
+/* list with ticks */
+.checks{list-style:none;margin:10px 0 0;padding:0;font-size:15px;color:var(--ink2)}
+.checks li{padding-left:24px;position:relative;margin-top:6px}
+.checks li::before{content:"";position:absolute;left:2px;top:.62em;width:12px;height:7px;border-left:2.5px solid var(--green);border-bottom:2.5px solid var(--green);transform:rotate(-45deg)}
+html[lang=my] .checks li::before{top:.8em}
+
+/* steps */
+.steps{counter-reset:s}
+.step{position:relative;padding-left:58px}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:14px;top:16px;width:32px;height:32px;border-radius:50%;background:var(--deep);color:#fff;font-weight:800;display:grid;place-items:center;line-height:1}
+
+/* shops */
+.shop-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.shop-tools input,.shop-tools select{font:inherit;font-size:16px;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:#fff;color:var(--ink);flex:1 1 180px;min-width:0}
+.live{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink2);margin-bottom:12px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(18,144,95,.18)}
+.shops{display:grid;gap:10px}
+@media (min-width:640px){.shops{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:960px){.shops{grid-template-columns:repeat(3,1fr)}}
+.shop{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.shop .av{width:42px;height:42px;border-radius:10px;background:var(--green-soft);color:var(--deep);font-weight:800;display:grid;place-items:center;flex-shrink:0;overflow:hidden;font-size:17px}
+.shop .av img{width:100%;height:100%;object-fit:contain;background:#fff}
+.shop .tx{min-width:0;flex:1}
+.shop .nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.shop .meta{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
+.shop .city{color:var(--deep);font-weight:700}
+.pin{display:inline-block;width:11px;height:11px;margin-right:3px;vertical-align:-1px}
+.more{margin-top:16px;text-align:center}
+.empty{padding:24px;text-align:center;color:var(--mute);background:#fff;border:1px dashed var(--line);border-radius:12px}
+
+/* price */
+.price{max-width:520px;border:2px solid var(--green);background:#fff;border-radius:18px;padding:24px}
+.price .tag{display:inline-block;background:var(--orange-soft);color:var(--orange-ink);font-weight:800;font-size:13px;padding:2px 12px;border-radius:999px}
+.price .amt{font-size:44px;font-weight:800;color:var(--deep);line-height:1.2;margin:8px 0 2px}
+.price .btn{width:100%;margin-top:18px}
+
+/* faq */
+details{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+summary{cursor:pointer;font-weight:700;padding:14px 44px 14px 16px;list-style:none;position:relative}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:22px;font-weight:400;color:var(--green);line-height:1}
+details[open] summary::after{content:"–"}
+details p{padding:0 16px 16px;color:var(--ink2);font-size:15px}
+
+/* final + footer */
+.final{background:var(--deep);color:#fff;text-align:center}
+.final h2{color:#fff}
+.final p{color:#d5e6de;max-width:36em;margin:0 auto}
+.final .hero-cta{justify-content:center}
+footer{background:#06241b;color:#a9c3b8;font-size:14px;padding:28px 0}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between}
+footer a{color:#d5e6de}
+footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L20.5 7H6"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L11 20a2.1 2.1 0 0 1-3-3l8.7-8.7a4 4 0 0 1-2-2Z"/><path d="m14.7 6.3 2.8-2.8"/></symbol>
+  <symbol id="i-sim" viewBox="0 0 24 24"><path d="M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><rect x="8.5" y="11" width="7" height="6" rx="1"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v10a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2Z"/><path d="M16.5 14h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.5a6.5 6.5 0 0 1 3.5 5.5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M8 7h7M8 11h7"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9 5 4h14l2 5M4 9v11h16V9M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M10 20v-6h4v6"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a5 5 0 1 1 1.2-9.9 6 6 0 0 1 11.3 2.4A4 4 0 0 1 18 18H7Z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.800 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/logo.png" width="34" height="34" alt=""><span>Mahar <b>POS</b></span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#features" data-t="nav1">လုပ်ဆောင်ချက်</a>
+      <a href="#who" data-t="nav2">ဘယ်သူ့အတွက်</a>
+      <a href="#shops" data-t="nav3">သုံးနေသော ဆိုင်များ</a>
+      <a href="#pricing" data-t="nav4">ဈေးနှုန်း</a>
+      <a href="#faq" data-t="nav5">မေးခွန်းများ</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="my" aria-pressed="true">မြန်မာ</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      <button type="button" data-lang="th" aria-pressed="false">ไทย</button>
+    </div>
+    <a class="login" href="https://app.maharpos.shop/login" data-t="login">ဝင်မည်</a>
+    <a class="btn btn-primary cta-top" href="https://app.maharpos.shop/register" data-t="start">အခမဲ့ စမည်</a>
+  </div>
+</header>
+
+<main id="top">
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-text">
+      <span class="eyebrow" data-t="eyebrow">ဖုန်းဆိုင် · ဖုန်းပြင်ဆိုင် · ဆိုင်ငယ်များအတွက်</span>
+      <h1 data-t="h1">ဆိုင်တစ်ဆိုင်လုံးကို <em>ဖုန်းတစ်လုံးထဲက</em> စီမံပါ</h1>
+      <p class="lead" data-t="lead">အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ဖုန်းဖြည့်၊ ငွေစာရင်း၊ အကြွေးနှင့် Report — စာအုပ်နှင့် မှတ်စရာမလိုဘဲ တစ်နေရာတည်းမှာ။</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="https://app.maharpos.shop/register" data-t="cta1">အခမဲ့ အကောင့်ဖွင့်မည်</a>
+        <a class="btn btn-light" href="/manual" data-t="cta2">အသုံးပြုနည်း ကြည့်မည်</a>
+      </div>
+      <ul class="ticks">
+        <li data-t="tick1">အခမဲ့ — ကတ် မလို</li>
+        <li data-t="tick2">ဖုန်း၊ Tablet၊ ကွန်ပျူတာ</li>
+        <li data-t="tick3">မြန်မာ · English · ไทย</li>
+      </ul>
+    </div>
+    <div class="phones" aria-hidden="true">
+      <div class="phone back"><img data-shot="b" src="img/repair-my.webp" width="480" height="853" alt="" decoding="async"></div>
+      <div class="phone"><img data-shot="a" src="img/pos-my.webp" width="480" height="853" alt="" fetchpriority="high"></div>
+    </div>
+  </div>
+</div>
+
+<div class="figures" aria-label="Live figures">
+  <div class="wrap">
+    <div class="fig"><b data-fig="activeShops">—</b><span data-t="fig1">သုံးနေသော ဆိုင်</span></div>
+    <div class="fig"><b data-fig="products">—</b><span data-t="fig2">ပစ္စည်း စာရင်း</span></div>
+    <div class="fig"><b data-fig="repairs">—</b><span data-t="fig3">ဖုန်းပြင် Job</span></div>
+    <div class="fig"><b data-fig="sales">—</b><span data-t="fig4">အရောင်း ဘောက်ချာ</span></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="f_k">လုပ်ဆောင်ချက်များ</div>
+      <h2 data-t="f_h">ကောင်တာမှာ လိုတာ အားလုံး၊ တစ်နေရာတည်း</h2>
+      <p class="sub" data-t="f_s">ရောင်းလိုက်တာနဲ့ Stock၊ ငွေစာရင်း၊ အမြတ်နှင့် Report အားလုံး တစ်ပြိုင်နက် ပြောင်းပါတယ်။</p>
+    </div>
+    <div class="grid g3">
+      <div class="card"><div class="ico"><svg><use href="#i-cart"/></svg></div><h3 data-t="f1h">အရောင်း POS</h3><p data-t="f1p">Barcode scan၊ ငွေသား/Wallet ခွဲပေးချေ၊ အကြွေးရောင်း၊ 80mm / 58mm ဘောက်ချာ။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-phone"/></svg></div><h3 data-t="f2h">ဖုန်း IMEI လုံးချင်း</h3><p data-t="f2p">ဖုန်းတစ်လုံးချင်း IMEI ဖြင့် ဝယ်၊ ရောင်း၊ ရှာ — ဘယ်ဖုန်း ဘယ်သူ့ကို ရောင်းခဲ့သည် သိနိုင်။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-box"/></svg></div><h3 data-t="f3h">Stock နှင့် အဝယ်</h3><p data-t="f3p">လက်ကျန်၊ လက်ကျန်နည်း သတိပေး၊ Supplier အဝယ်နှင့် ပေးရန်ကြွေး၊ ဆိုင်ခွဲအကြား ရွှေ့ပြောင်း။</p></div>
+      <div class="card o"><div class="ico"><svg><use href="#i-tool"/></svg></div><h3 data-t="f4h">ဖုန်းပြင် Job</h3><p data-t="f4p">လက်ခံမှ ပြန်အပ်သည်အထိ — စရံ၊ အခြေအနေ၊ ပြင်ဆရာ ကော်မရှင်။ ဖောက်သည်က QR ဖြင့် ကိုယ်တိုင် စစ်နိုင်။</p></div>
+      <div class="card o"><div class="ico"><svg><use href="#i-sim"/></svg></div><h3 data-t="f5h">ဖုန်းဖြည့် / Bill</h3><p data-t="f5p">Biller တစ်ခုချင်း လက်ကျန်၊ Bonus / Discount % ဖြင့် အမြတ်၊ နေ့စဉ်စာရင်း။</p></div>
+      <div class="card o"><div class="ico"><svg><use href="#i-wallet"/></svg></div><h3 data-t="f6h">ငွေစာရင်း နှင့် အကြွေး</h3><p data-t="f6p">ငွေသား၊ KPay၊ Wave စသည့် Wallet လက်ကျန်၊ ငွေလွှဲ၊ ဖောက်သည်အကြွေး၊ ဝင်ငွေ/ထွက်ငွေ။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-chart"/></svg></div><h3 data-t="f7h">Report</h3><p data-t="f7p">နေ့/လ/နှစ်ချုပ်၊ အမြတ်၊ ဝန်ထမ်းလစာ၊ အစုရှင် ခွဲဝေငွေ။ Excel ထုတ်နိုင်။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-users"/></svg></div><h3 data-t="f8h">ဝန်ထမ်း နှင့် ဆိုင်ခွဲ</h3><p data-t="f8p">Role အလိုက် လုပ်ပိုင်ခွင့်၊ ဆိုင်ခွဲများ၊ ဝယ်ဈေးနှင့် အမြတ်ကို ခွင့်ရှိသူသာ မြင်။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-send"/></svg></div><h3 data-t="f9h">Telegram နှင့် Google Sheet</h3><p data-t="f9p">ရောင်းတိုင်း Telegram သတိပေး၊ နေ့စဉ် Report၊ ကိုယ်ပိုင် Google Sheet သို့ အလိုအလျောက် Sync။</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="screens" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="s_k">App ထဲက မြင်ကွင်း</div>
+      <h2 data-t="s_h">ဖုန်းပေါ်မှာ ဒီလို မြင်ရပါတယ်</h2>
+    </div>
+    <div class="shots">
+      <figure class="shot"><img data-shot="a" src="img/pos-my.webp" width="480" height="853" alt="" loading="lazy" decoding="async"><figcaption><b data-t="s1h">အရောင်း</b><span data-t="s1p">ပစ္စည်းရွေး၊ ခြင်းတောင်းထဲထည့်၊ ဘောက်ချာထုတ်။</span></figcaption></figure>
+      <figure class="shot"><img data-shot="b" src="img/repair-my.webp" width="480" height="853" alt="" loading="lazy" decoding="async"><figcaption><b data-t="s2h">ဖုန်းပြင် Job</b><span data-t="s2p">Job တစ်ခုချင်း အခြေအနေ၊ စရံနှင့် ကျန်ငွေ။</span></figcaption></figure>
+      <figure class="shot"><img data-shot="c" src="img/home-th.webp" width="480" height="853" alt="" loading="lazy" decoding="async"><figcaption><b data-t="s3h">နေ့စဉ် ပင်မစာမျက်နှာ</b><span data-t="s3p">ယနေ့ ရောင်းအား၊ အမြတ်၊ Stock တန်ဖိုး။</span></figcaption></figure>
+    </div>
+    <p class="note" data-t="s_n">App အစစ်မှ ရိုက်ထားသော မြင်ကွင်းများ ဖြစ်ပြီး ပြထားသော အချက်အလက်များမှာ နမူနာ ဖြစ်သည်။</p>
+  </div>
+</section>
+
+<section id="who">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="w_k">ဘယ်သူ့အတွက်လဲ</div>
+      <h2 data-t="w_h">ဖုန်းဆိုင် ကိုယ်တိုင် လုပ်နေသူတွေက တည်ဆောက်ထားတာပါ</h2>
+      <p class="sub" data-t="w_s">အကောင့်ဖွင့်စဉ် လုပ်ငန်းအမျိုးအစား ရွေးလိုက်ရင် ကိုယ်သုံးမယ့် အပိုင်းတွေပဲ ပေါ်ပါတယ်။</p>
+    </div>
+    <div class="grid g4">
+      <div class="card"><div class="ico"><svg><use href="#i-phone"/></svg></div><h3 data-t="w1h">ဖုန်းအရောင်းဆိုင်</h3><p data-t="w1p">IMEI၊ အပိုပစ္စည်း Stock၊ အကြွေးရောင်း။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-tool"/></svg></div><h3 data-t="w2h">ဖုန်းပြင်ဆိုင်</h3><p data-t="w2p">Job ဘောက်ချာ၊ QR ဖြင့် အခြေအနေ၊ ပြင်ဆရာ ကော်မရှင်။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-store"/></svg></div><h3 data-t="w3h">Mini Mart / ကုန်စုံဆိုင်</h3><p data-t="w3p">Barcode scan၊ ကုန်ဆုံးရက်၊ လက်ကျန်နည်း သတိပေး။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-sim"/></svg></div><h3 data-t="w4h">ဖုန်းဖြည့် / ငွေလွှဲဆိုင်</h3><p data-t="w4p">Biller လက်ကျန်၊ Wallet အလိုက် ငွေစာရင်း။</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="trust" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="t_k">ယုံကြည်စိတ်ချရမှု</div>
+      <h2 data-t="t_h">ငွေစာရင်း မှန်ဖို့နဲ့ Data လုံခြုံဖို့ကို အဓိကထားပါတယ်</h2>
+    </div>
+    <div class="grid g3">
+      <div class="card"><div class="ico"><svg><use href="#i-book"/></svg></div><h3 data-t="t1h">စာရင်းကိုင် စံနှုန်းအတိုင်း</h3>
+        <ul class="checks"><li data-t="t1a">ငွေ အဝင်အထွက်တိုင်း Ledger တစ်ခုတည်းမှ — လက်ကျန်နှင့် မှတ်တမ်း အမြဲ ကိုက်</li><li data-t="t1b">မဖျက်ပါ — Void / Reverse ဖြင့် အကြောင်းပြချက်နှင့် ပြန်လှန်</li><li data-t="t1c">နေ့ချုပ် ပိတ်ပြီးသော နေ့ကို ပြန်မပြင်နိုင်</li></ul></div>
+      <div class="card"><div class="ico"><svg><use href="#i-shield"/></svg></div><h3 data-t="t2h">လုံခြုံရေး</h3>
+        <ul class="checks"><li data-t="t2a">ဝန်ထမ်းတစ်ယောက်ချင်း ကိုယ်ပိုင်အကောင့်နှင့် ခွင့်ပြုချက်</li><li data-t="t2b">မည်သူ ဘာလုပ်သည် — စစ်ဆေးမှတ်တမ်း (Audit log) အပြည့်</li><li data-t="t2c">ဆက်သွယ်မှု အားလုံး HTTPS၊ စကားဝှက်ကို ဝှက်စာအဖြစ်သာ သိမ်း</li></ul></div>
+      <div class="card"><div class="ico"><svg><use href="#i-cloud"/></svg></div><h3 data-t="t3h">Cloud ပေါ်မှာ</h3>
+        <ul class="checks"><li data-t="t3a">ပိုင်ရှင် ဆိုင်မှာ မရှိလည်း ဖုန်းကနေ ကြည့်နိုင်</li><li data-t="t3b">ဆိုင်တစ်ဆိုင်ချင်း Data သီးသန့်</li><li data-t="t3c">Excel နှင့် ကိုယ်ပိုင် Google Sheet သို့ ထုတ်ယူနိုင်</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="h_k">စတင်ပုံ</div>
+      <h2 data-t="h_h">မိနစ်အနည်းငယ်နဲ့ စရောင်းနိုင်ပါတယ်</h2>
+    </div>
+    <div class="grid g3 steps">
+      <div class="card step"><h3 data-t="h1h">အကောင့်ဖွင့်ပါ</h3><p data-t="h1p">Email သို့မဟုတ် Google ဖြင့်။ ဆိုင်အမည်၊ မြို့နှင့် လုပ်ငန်းအမျိုးအစား ဖြည့်ရုံပါ။</p></div>
+      <div class="card step"><h3 data-t="h2h">ပစ္စည်း ထည့်ပါ</h3><p data-t="h2p">တစ်ခုချင်း ထည့်ပါ၊ သို့မဟုတ် Excel/CSV ဖိုင်ဖြင့် တစ်ခါတည်း သွင်းပါ။</p></div>
+      <div class="card step"><h3 data-t="h3h">ရောင်းပါ</h3><p data-t="h3p">ဘောက်ချာထုတ်ပြီး နေ့စဉ် Report တွင် ရောင်းအားနှင့် အမြတ် ကြည့်ပါ။</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="shops" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="l_k">တိုက်ရိုက်</div>
+      <h2 data-t="l_h">Mahar POS သုံးနေသော ဆိုင်များ</h2>
+      <p class="sub" data-t="l_s">ဆိုင်အမည်၊ မြို့နှင့် ဆိုင်အမျိုးအစားကိုသာ ပြပါသည်။ ဖုန်းနံပါတ်၊ ရောင်းအားနှင့် ဖောက်သည် အချက်အလက်များ မပြပါ။</p>
+    </div>
+    <div class="shop-tools">
+      <input type="search" id="q" data-ph="l_q" placeholder="ဆိုင်အမည် သို့မဟုတ် မြို့ ရှာရန်" aria-label="Search shops">
+      <select id="place" aria-label="Place"><option value="" data-t="l_all">နေရာ အားလုံး</option></select>
+    </div>
+    <div class="live"><span class="dot" aria-hidden="true"></span><span id="count" aria-live="polite" data-t="l_wait">ဆိုင်များ ရှာနေသည်…</span></div>
+    <div class="shops" id="shopList"></div>
+    <div class="more"><button class="btn btn-line" id="more" hidden data-t="l_more">နောက်ထပ် ပြမည်</button></div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="p_k">ဈေးနှုန်း</div>
+      <h2 data-t="p_h">လောလောဆယ် လုံးဝ အခမဲ့</h2>
+      <p class="sub" data-t="p_s">Mahar POS ကို ဆက်လက် တည်ဆောက်နေဆဲ ကာလ ဖြစ်၍ လုပ်ဆောင်ချက် အားလုံးကို အခမဲ့ သုံးနိုင်ပါသည်။ နောင်တွင် ငွေပေးစနစ် ထည့်ပါက ကြိုတင် အသိပေးပါမည် — သင့် Data များ မပျောက်ပါ။</p>
+    </div>
+    <div class="price">
+      <span class="tag" data-t="p_tag">လုပ်ဆောင်ချက် အားလုံး</span>
+      <div class="amt" data-t="p_amt">0 ကျပ်</div>
+      <p class="sub" data-t="p_d">ကတ်၊ ငွေပေးချေမှု မလိုပါ။ စမ်းသုံးကာလ ကုန်ဆုံးခြင်း မရှိပါ။</p>
+      <ul class="checks"><li data-t="p1">အရောင်း POS၊ Stock၊ IMEI</li><li data-t="p2">ဖုန်းပြင် Job နှင့် QR</li><li data-t="p3">ဖုန်းဖြည့်၊ Wallet၊ အကြွေး၊ ဝင်ငွေ/ထွက်ငွေ</li><li data-t="p4">Report၊ Excel၊ Google Sheet၊ Telegram</li><li data-t="p5">ဝန်ထမ်း၊ Role နှင့် ဆိုင်ခွဲ</li></ul>
+      <a class="btn btn-primary" href="https://app.maharpos.shop/register" data-t="cta1">အခမဲ့ အကောင့်ဖွင့်မည်</a>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="q_k">မေးလေ့ရှိသော မေးခွန်းများ</div>
+      <h2 data-t="q_h">သိချင်တာလေးတွေ</h2>
+    </div>
+    <details><summary data-t="q1">တကယ် အခမဲ့လား။ ဘယ်အချိန်ထိလဲ။</summary><p data-t="a1">ဟုတ်ပါသည်။ ယခု တည်ဆောက်နေဆဲ ကာလတွင် လုပ်ဆောင်ချက် အားလုံး အခမဲ့ ဖြစ်ပါသည်။ နောင်တွင် ငွေပေးစနစ် ထည့်ပါက ကြိုတင် အသိပေးပါမည်။</p></details>
+    <details><summary data-t="q2">ဖုန်းနဲ့ သုံးလို့ရလား။</summary><p data-t="a2">ရပါသည်။ ဖုန်း၊ Tablet၊ ကွန်ပျူတာ မည်သည့်စက်မှမဆို Browser ဖြင့် သုံးနိုင်ပြီး Add to Home screen လုပ်၍ App ကဲ့သို့ ဖွင့်နိုင်ပါသည်။</p></details>
+    <details><summary data-t="q3">Data တွေ ပျောက်နိုင်လား။</summary><p data-t="a3">Data များကို Cloud ပေါ်တွင် ဆိုင်တစ်ဆိုင်ချင်း သီးသန့် သိမ်းထားပါသည်။ Report များကို Excel ထုတ်နိုင်ပြီး ကိုယ်ပိုင် Google Sheet သို့ အလိုအလျောက် Sync လုပ်နိုင်ပါသည်။</p></details>
+    <details><summary data-t="q4">ဘယ်ဘာသာစကား၊ ဘယ်ငွေကြေးတွေ ရလဲ။</summary><p data-t="a4">မြန်မာ၊ English၊ ไทย သုံးမျိုး ရပါသည်။ အဓိကငွေကြေးကို MMK၊ USD၊ THB ထဲမှ ရွေးနိုင်ပြီး ဆိုင်၏ ဒေသစံတော်ချိန်အတိုင်း နေ့စဉ်စာရင်း ပိတ်ပါသည်။</p></details>
+    <details><summary data-t="q5">ဝန်ထမ်းတွေကို ဘာမြင်ခွင့်ပေးမလဲ သတ်မှတ်လို့ရလား။</summary><p data-t="a5">ရပါသည်။ Role များ ဖန်တီးပြီး ဝန်ထမ်းတစ်ဦးချင်း လုပ်ပိုင်ခွင့်နှင့် ဆိုင်ခွဲကို သတ်မှတ်နိုင်ပါသည်။ ဝယ်ဈေးနှင့် အမြတ်ကို ခွင့်ရှိသူသာ မြင်ရပါသည်။</p></details>
+    <details><summary data-t="q6">ဘောက်ချာ ဘယ်လို ထုတ်ရလဲ။</summary><p data-t="a6">80mm နှင့် 58mm Thermal printer များဖြင့် ထုတ်နိုင်ပါသည်။ ချိတ်ဆက်ပုံကို <a href="/manual">အသုံးပြုနည်း လမ်းညွှန်</a> တွင် ကြည့်ပါ။</p></details>
+    <details><summary data-t="q7">အကူအညီလိုရင် ဘယ်ကို ဆက်သွယ်ရမလဲ။</summary><p data-t="a7"><a href="https://t.me/+2gc9ml7iMgk1ZThl" rel="noopener">Telegram Community</a> တွင် မေးနိုင်ပါသည်။ <a href="/manual">အသုံးပြုနည်း လမ်းညွှန်များ</a> ကိုလည်း ဖတ်နိုင်ပါသည်။</p></details>
+  </div>
+</section>
+
+<section class="final">
+  <div class="wrap">
+    <h2 data-t="e_h">ဒီနေ့ပဲ စမ်းသုံးကြည့်ပါ</h2>
+    <p data-t="e_p">အကောင့်ဖွင့်ပြီး ချက်ချင်း သုံးနိုင်ပါသည်။ မကြိုက်ရင် ဘာမှ ပေးစရာ မရှိပါ။</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="https://app.maharpos.shop/register" data-t="cta1">အခမဲ့ အကောင့်ဖွင့်မည်</a>
+      <a class="btn btn-light" href="https://t.me/+2gc9ml7iMgk1ZThl" rel="noopener" data-t="e_tg">Telegram မှာ မေးမည်</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© <span id="year">2026</span> Mahar POS · <a href="https://maharshwe.shop" data-t="ft_by">မဟာရွှေ (ဆီဆိုင်မြို့) မှ</a></span>
+    <nav aria-label="Footer">
+      <a href="https://app.maharpos.shop/login" data-t="login">ဝင်မည်</a>
+      <a href="/manual" data-t="ft_guide">အသုံးပြုနည်း</a>
+      <a href="/digital/" data-t="ft_digital">Digital Products</a>
+      <a href="/privacy" data-t="ft_priv">Privacy</a>
+      <a href="https://t.me/+2gc9ml7iMgk1ZThl" rel="noopener">Telegram</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var T = {
+    en: {
+      nav1: "Features", nav2: "Who it is for", nav3: "Shops using it", nav4: "Pricing", nav5: "FAQ",
+      login: "Log in", start: "Start free",
+      eyebrow: "For phone shops · repair shops · small shops",
+      h1: "Run your whole shop <em>from one phone</em>",
+      lead: "Sales, stock and IMEI, repair jobs, top-up, wallets, credit and reports — in one place, with no paper notebook.",
+      cta1: "Create a free account", cta2: "See the user guide",
+      tick1: "Free — no card needed", tick2: "Phone, tablet, computer", tick3: "Myanmar · English · Thai",
+      fig1: "Shops using it", fig2: "Products listed", fig3: "Repair jobs", fig4: "Sales vouchers",
+      f_k: "Features", f_h: "Everything the counter needs, in one place",
+      f_s: "Make a sale and the stock, the wallets, the profit and the reports all update together.",
+      f1h: "Sales POS", f1p: "Barcode scan, split payment between cash and wallets, credit sales, 80mm / 58mm vouchers.",
+      f2h: "IMEI for every phone", f2p: "Buy, sell and search each phone by its IMEI — know which phone went to which customer.",
+      f3h: "Stock and purchases", f3p: "Stock on hand, low-stock alerts, supplier purchases and payables, transfers between branches.",
+      f4h: "Repair jobs", f4p: "From intake to hand-back — deposit, status, technician commission. Customers check progress themselves with a QR code.",
+      f5h: "Top-up and bills", f5p: "A balance for each biller, profit from bonus / discount %, and a daily record.",
+      f6h: "Wallets and credit", f6p: "Balances for cash and each wallet (KPay, Wave, bank…), transfers, customer credit, income and expenses.",
+      f7h: "Reports", f7p: "Daily, monthly and yearly totals, profit, staff pay and partner shares. Export to Excel.",
+      f8h: "Staff and branches", f8p: "Permissions by role, several branches, and cost and profit visible only to those allowed.",
+      f9h: "Telegram and Google Sheet", f9p: "A Telegram alert for every sale, a daily report, and automatic sync to your own Google Sheet.",
+      s_k: "Inside the app", s_h: "This is what you see on your phone",
+      s1h: "Selling", s1p: "Pick items, add to the cart, print the voucher.",
+      s2h: "Repair jobs", s2p: "Each job with its status, deposit and balance due.",
+      s3h: "Daily dashboard", s3p: "Today's sales, profit and stock value.",
+      s_n: "Real screens from the app. The figures shown are sample data.",
+      w_k: "Who it is for", w_h: "Built by people who run a phone shop themselves",
+      w_s: "Choose your kind of business at sign-up and the app shows only the parts you use.",
+      w1h: "Phone shops", w1p: "IMEI, accessory stock, credit sales.",
+      w2h: "Repair shops", w2p: "Job vouchers, QR status page, technician commission.",
+      w3h: "Mini marts / retail", w3p: "Barcode scan, expiry dates, low-stock alerts.",
+      w4h: "Top-up / money service", w4p: "Biller balances and money records for each wallet.",
+      t_k: "Trust", t_h: "Built so the money adds up and your data stays safe",
+      t1h: "Standard accounting", t1a: "Every money movement goes through one ledger — balance and history always match",
+      t1b: "Nothing is deleted — a void or reversal is recorded with its reason", t1c: "A closed day cannot be edited afterwards",
+      t2h: "Security", t2a: "Each staff member has their own account and permissions",
+      t2b: "A full audit log of who did what", t2c: "All traffic over HTTPS; passwords stored only as hashes",
+      t3h: "In the cloud", t3a: "The owner can check the shop from a phone, wherever they are",
+      t3b: "Each shop's data is kept separate", t3c: "Export to Excel and to your own Google Sheet",
+      h_k: "Getting started", h_h: "You can be selling in a few minutes",
+      h1h: "Create an account", h1p: "With email or Google. Just the shop name, city and kind of business.",
+      h2h: "Add your products", h2p: "One by one, or import them all from an Excel/CSV file.",
+      h3h: "Sell", h3p: "Print vouchers and see sales and profit in the daily report.",
+      l_k: "Live", l_h: "Shops using Mahar POS",
+      l_s: "Only the shop name, city and kind of shop are shown. No phone numbers, sales figures or customer details.",
+      l_q: "Search by shop name or city", l_all: "All places", l_wait: "Loading shops…", l_more: "Show more",
+      p_k: "Pricing", p_h: "Completely free for now",
+      p_s: "Mahar POS is still being built, so every feature is free to use. If paid plans come later you will be told well in advance — and your data stays.",
+      p_tag: "Every feature", p_amt: "0 MMK", p_d: "No card, no payment. No trial that runs out.",
+      p1: "Sales POS, stock, IMEI", p2: "Repair jobs with QR", p3: "Top-up, wallets, credit, income / expenses",
+      p4: "Reports, Excel, Google Sheet, Telegram", p5: "Staff, roles and branches",
+      q_k: "Frequently asked", q_h: "Good to know",
+      q1: "Is it really free? Until when?", a1: "Yes. While the product is still being built, every feature is free. If paid plans are added later, you will be told in advance.",
+      q2: "Can I use it on a phone?", a2: "Yes. It runs in the browser on any phone, tablet or computer, and Add to Home screen opens it like an app.",
+      q3: "Can my data be lost?", a3: "Your data is kept in the cloud, separate for each shop. You can export reports to Excel and sync them automatically to your own Google Sheet.",
+      q4: "Which languages and currencies?", a4: "Myanmar, English and Thai. Choose MMK, USD or THB as your main currency; the daily books close on your shop's own local time.",
+      q5: "Can I limit what staff can see?", a5: "Yes. Create roles and set each person's permissions and branch. Cost and profit are visible only to those you allow.",
+      q6: "How do I print vouchers?", a6: "On 80mm and 58mm thermal printers. See the <a href=\"/manual\">user guide</a> for how to connect one.",
+      q7: "Where do I get help?", a7: "Ask in the <a href=\"https://t.me/+2gc9ml7iMgk1ZThl\" rel=\"noopener\">Telegram community</a>, or read the <a href=\"/manual\">user guides</a>.",
+      e_h: "Try it today", e_p: "Create an account and start right away. If it is not for you, there is nothing to pay.",
+      e_tg: "Ask on Telegram",
+      ft_by: "by Mahar Shwe, Hsihseng", ft_guide: "User guide", ft_digital: "Digital products", ft_priv: "Privacy"
+    },
+    th: {
+      nav1: "ฟีเจอร์", nav2: "เหมาะกับใคร", nav3: "ร้านที่ใช้อยู่", nav4: "ราคา", nav5: "คำถามที่พบบ่อย",
+      login: "เข้าสู่ระบบ", start: "เริ่มใช้ฟรี",
+      eyebrow: "สำหรับร้านมือถือ · ร้านซ่อมมือถือ · ร้านค้าขนาดเล็ก",
+      h1: "จัดการทั้งร้าน <em>ได้จากมือถือเครื่องเดียว</em>",
+      lead: "ขายหน้าร้าน สต็อกและ IMEI งานซ่อม เติมเงิน กระเป๋าเงิน ลูกหนี้ และรายงาน — รวมไว้ที่เดียว ไม่ต้องจดสมุด",
+      cta1: "สมัครใช้ฟรี", cta2: "ดูคู่มือการใช้งาน",
+      tick1: "ฟรี — ไม่ต้องใช้บัตร", tick2: "มือถือ แท็บเล็ต คอมพิวเตอร์", tick3: "พม่า · English · ไทย",
+      fig1: "ร้านที่ใช้อยู่", fig2: "รายการสินค้า", fig3: "งานซ่อม", fig4: "ใบเสร็จขาย",
+      f_k: "ฟีเจอร์", f_h: "ทุกอย่างที่หน้าร้านต้องใช้ รวมไว้ที่เดียว",
+      f_s: "ขายหนึ่งครั้ง สต็อก กระเป๋าเงิน กำไร และรายงานอัปเดตพร้อมกันทั้งหมด",
+      f1h: "ขายหน้าร้าน (POS)", f1p: "สแกนบาร์โค้ด แบ่งจ่ายเงินสด/กระเป๋าเงิน ขายเชื่อ พิมพ์ใบเสร็จ 80 มม. / 58 มม.",
+      f2h: "IMEI รายเครื่อง", f2p: "ซื้อ ขาย และค้นหามือถือแต่ละเครื่องด้วย IMEI — รู้ว่าเครื่องไหนขายให้ใคร",
+      f3h: "สต็อกและการซื้อ", f3p: "ยอดคงเหลือ แจ้งเตือนสต็อกต่ำ การซื้อจากซัพพลายเออร์และเจ้าหนี้ โอนสินค้าระหว่างสาขา",
+      f4h: "งานซ่อม", f4p: "ตั้งแต่รับเครื่องจนส่งคืน — มัดจำ สถานะ ค่าคอมมิชชันช่าง ลูกค้าเช็กสถานะเองได้ด้วย QR",
+      f5h: "เติมเงิน / จ่ายบิล", f5p: "ยอดคงเหลือของผู้ให้บริการแต่ละราย กำไรจากโบนัส / ส่วนลด % และบันทึกรายวัน",
+      f6h: "กระเป๋าเงินและลูกหนี้", f6p: "ยอดเงินสดและกระเป๋าเงินแต่ละใบ (โอนธนาคาร พร้อมเพย์ ฯลฯ) การโอน ลูกหนี้ รายรับ/รายจ่าย",
+      f7h: "รายงาน", f7p: "สรุปรายวัน รายเดือน รายปี กำไร เงินเดือนพนักงาน ส่วนแบ่งหุ้นส่วน ส่งออก Excel ได้",
+      f8h: "พนักงานและสาขา", f8p: "กำหนดสิทธิ์ตามตำแหน่ง หลายสาขา ต้นทุนและกำไรเห็นได้เฉพาะผู้ที่ได้รับอนุญาต",
+      f9h: "Telegram และ Google Sheet", f9p: "แจ้งเตือน Telegram ทุกการขาย รายงานประจำวัน และซิงก์ไปยัง Google Sheet ของคุณอัตโนมัติ",
+      s_k: "หน้าจอในแอป", s_h: "บนมือถือจะเห็นแบบนี้",
+      s1h: "การขาย", s1p: "เลือกสินค้า ใส่ตะกร้า พิมพ์ใบเสร็จ",
+      s2h: "งานซ่อม", s2p: "แต่ละงานพร้อมสถานะ มัดจำ และยอดค้าง",
+      s3h: "แดชบอร์ดประจำวัน", s3p: "ยอดขายวันนี้ กำไร และมูลค่าสต็อก",
+      s_n: "หน้าจอจริงจากแอป ตัวเลขที่แสดงเป็นข้อมูลตัวอย่าง",
+      w_k: "เหมาะกับใคร", w_h: "สร้างโดยคนที่ทำร้านมือถือเอง",
+      w_s: "เลือกประเภทธุรกิจตอนสมัคร แอปจะแสดงเฉพาะส่วนที่คุณใช้",
+      w1h: "ร้านขายมือถือ", w1p: "IMEI สต็อกอุปกรณ์เสริม ขายเชื่อ",
+      w2h: "ร้านซ่อมมือถือ", w2p: "ใบรับซ่อม หน้าสถานะผ่าน QR ค่าคอมมิชชันช่าง",
+      w3h: "มินิมาร์ท / ร้านค้าปลีก", w3p: "สแกนบาร์โค้ด วันหมดอายุ แจ้งเตือนสต็อกต่ำ",
+      w4h: "ร้านเติมเงิน / โอนเงิน", w4p: "ยอดคงเหลือผู้ให้บริการ และบัญชีเงินแยกตามกระเป๋าเงิน",
+      t_k: "ความน่าเชื่อถือ", t_h: "ออกแบบให้บัญชีเงินถูกต้องและข้อมูลปลอดภัย",
+      t1h: "ตามมาตรฐานบัญชี", t1a: "เงินเข้าออกทุกรายการผ่านสมุดบัญชีเดียว — ยอดคงเหลือกับประวัติตรงกันเสมอ",
+      t1b: "ไม่มีการลบ — ยกเลิกหรือกลับรายการพร้อมเหตุผล", t1c: "วันที่ปิดยอดแล้วแก้ไขย้อนหลังไม่ได้",
+      t2h: "ความปลอดภัย", t2a: "พนักงานแต่ละคนมีบัญชีและสิทธิ์ของตัวเอง",
+      t2b: "บันทึกตรวจสอบครบถ้วนว่าใครทำอะไร", t2c: "การเชื่อมต่อทั้งหมดผ่าน HTTPS รหัสผ่านเก็บแบบเข้ารหัสเท่านั้น",
+      t3h: "บนคลาวด์", t3a: "เจ้าของดูร้านจากมือถือได้ทุกที่",
+      t3b: "ข้อมูลของแต่ละร้านแยกจากกัน", t3c: "ส่งออกเป็น Excel และ Google Sheet ของคุณเองได้",
+      h_k: "เริ่มต้นใช้งาน", h_h: "เริ่มขายได้ในไม่กี่นาที",
+      h1h: "สมัครบัญชี", h1p: "ด้วยอีเมลหรือ Google กรอกแค่ชื่อร้าน เมือง และประเภทธุรกิจ",
+      h2h: "เพิ่มสินค้า", h2p: "เพิ่มทีละรายการ หรือนำเข้าทั้งหมดจากไฟล์ Excel/CSV",
+      h3h: "ขาย", h3p: "พิมพ์ใบเสร็จ แล้วดูยอดขายและกำไรในรายงานประจำวัน",
+      l_k: "สด", l_h: "ร้านที่ใช้ Mahar POS",
+      l_s: "แสดงเฉพาะชื่อร้าน เมือง และประเภทร้าน ไม่แสดงเบอร์โทร ยอดขาย หรือข้อมูลลูกค้า",
+      l_q: "ค้นหาชื่อร้านหรือเมือง", l_all: "ทุกพื้นที่", l_wait: "กำลังโหลดรายชื่อร้าน…", l_more: "แสดงเพิ่ม",
+      p_k: "ราคา", p_h: "ตอนนี้ใช้ฟรีทั้งหมด",
+      p_s: "Mahar POS ยังอยู่ระหว่างการพัฒนา จึงใช้ได้ทุกฟีเจอร์ฟรี หากมีแพ็กเกจเสียเงินในอนาคตจะแจ้งล่วงหน้า — ข้อมูลของคุณยังอยู่ครบ",
+      p_tag: "ทุกฟีเจอร์", p_amt: "0 บาท", p_d: "ไม่ต้องใช้บัตร ไม่ต้องชำระเงิน ไม่มีช่วงทดลองที่หมดอายุ",
+      p1: "ขายหน้าร้าน สต็อก IMEI", p2: "งานซ่อมพร้อม QR", p3: "เติมเงิน กระเป๋าเงิน ลูกหนี้ รายรับ/รายจ่าย",
+      p4: "รายงาน Excel Google Sheet Telegram", p5: "พนักงาน ตำแหน่ง และสาขา",
+      q_k: "คำถามที่พบบ่อย", q_h: "เรื่องที่ควรรู้",
+      q1: "ฟรีจริงไหม ฟรีถึงเมื่อไร", a1: "ฟรีจริง ระหว่างที่ยังพัฒนาอยู่ ทุกฟีเจอร์ใช้ได้ฟรี หากมีแพ็กเกจเสียเงินในภายหลังจะแจ้งให้ทราบล่วงหน้า",
+      q2: "ใช้บนมือถือได้ไหม", a2: "ได้ ใช้ผ่านเบราว์เซอร์บนมือถือ แท็บเล็ต หรือคอมพิวเตอร์ และกด Add to Home screen เพื่อเปิดเหมือนแอป",
+      q3: "ข้อมูลจะหายไหม", a3: "ข้อมูลเก็บบนคลาวด์ แยกตามแต่ละร้าน ส่งออกรายงานเป็น Excel และซิงก์ไปยัง Google Sheet ของคุณเองอัตโนมัติได้",
+      q4: "รองรับภาษาและสกุลเงินอะไรบ้าง", a4: "ภาษาพม่า อังกฤษ และไทย เลือกสกุลเงินหลักได้ระหว่าง MMK, USD และ THB และปิดยอดประจำวันตามเวลาท้องถิ่นของร้าน",
+      q5: "จำกัดสิ่งที่พนักงานเห็นได้ไหม", a5: "ได้ สร้างตำแหน่งและกำหนดสิทธิ์กับสาขาของพนักงานแต่ละคน ต้นทุนและกำไรเห็นได้เฉพาะคนที่คุณอนุญาต",
+      q6: "พิมพ์ใบเสร็จอย่างไร", a6: "ใช้เครื่องพิมพ์ความร้อน 80 มม. และ 58 มม. ดูวิธีเชื่อมต่อได้ใน<a href=\"/manual\">คู่มือการใช้งาน</a>",
+      q7: "ต้องการความช่วยเหลือติดต่อที่ไหน", a7: "ถามได้ที่ <a href=\"https://t.me/+2gc9ml7iMgk1ZThl\" rel=\"noopener\">กลุ่ม Telegram</a> หรืออ่าน<a href=\"/manual\">คู่มือการใช้งาน</a>",
+      e_h: "ลองใช้วันนี้", e_p: "สมัครแล้วใช้ได้ทันที ถ้าไม่ถูกใจก็ไม่มีค่าใช้จ่ายใด ๆ",
+      e_tg: "ถามทาง Telegram",
+      ft_by: "โดย Mahar Shwe (Hsihseng)", ft_guide: "คู่มือการใช้งาน", ft_digital: "สินค้าดิจิทัล", ft_priv: "ความเป็นส่วนตัว"
+    },
+    my: {}
+  };
+  var META = {
+    my: { title: "Mahar POS — ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် အခမဲ့ Cloud POS", loc: "my-MM" },
+    en: { title: "Mahar POS — Free cloud POS for phone shops and small shops", loc: "en-GB" },
+    th: { title: "Mahar POS — ระบบ POS บนคลาวด์ ฟรี สำหรับร้านมือถือและร้านค้าขนาดเล็ก", loc: "th-TH" }
+  };
+  // Words that come from the server in English.
+  var TYPE = {
+    "Phone Shop": { my: "ဖုန်းဆိုင်", th: "ร้านมือถือ" }, "Mini Mart": { my: "Mini Mart", th: "มินิมาร์ท" },
+    "All-in-one Shop": { my: "လုပ်ငန်းစုံဆိုင်", th: "ร้านครบวงจร" }, "Personal": { my: "ကိုယ်ပိုင်စာရင်း", th: "ส่วนตัว" },
+    "Shop": { my: "ဆိုင်", th: "ร้านค้า" }
+  };
+  var COUNTRY = {
+    "Myanmar": { my: "မြန်မာ", th: "เมียนมา" }, "Thailand": { my: "ထိုင်း", th: "ไทย" },
+    "Singapore": { my: "စင်ကာပူ", th: "สิงคโปร์" }, "Malaysia": { my: "မလေးရှား", th: "มาเลเซีย" }
+  };
+  var UI = {
+    my: { count: function (n, at) { return "ဆိုင် " + n + " ဆိုင်" + (at ? " · " + at + " တွင် ယူထားသည်" : ""); }, none: "ကိုက်ညီသော ဆိုင် မရှိပါ", fail: "ဆိုင်စာရင်း ခေတ္တ မရယူနိုင်ပါ။ ခဏအကြာ ပြန်ကြိုးစားပါ။", nocity: "မြို့ မဖြည့်ရသေး" },
+    en: { count: function (n, at) { return n + " shops" + (at ? " · updated " + at : ""); }, none: "No shop matches", fail: "The shop list could not be loaded just now. Please try again shortly.", nocity: "City not given yet" },
+    th: { count: function (n, at) { return n + " ร้าน" + (at ? " · อัปเดต " + at : ""); }, none: "ไม่พบร้านที่ตรงกัน", fail: "โหลดรายชื่อร้านไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง", nocity: "ยังไม่ได้ระบุเมือง" }
+  };
+  var SHOTS = { my: { a: "pos-my", b: "repair-my", c: "home-th" }, en: { a: "pos-my", b: "repair-my", c: "home-th" }, th: { a: "pos-th", b: "repair-th", c: "home-th" } };
+
+  var nodes = document.querySelectorAll("[data-t]");
+  nodes.forEach(function (n) { if (!(n.dataset.t in T.my)) T.my[n.dataset.t] = n.innerHTML; });
+  document.querySelectorAll("[data-ph]").forEach(function (n) { T.my[n.dataset.ph] = n.placeholder; });
+
+  function ok(l) { return l === "my" || l === "en" || l === "th"; }
+  /* The visitor's language: what they chose here before, else their phone's language,
+     else their region from the device clock (Myanmar time, Thai time), else English. */
+  function detect() {
+    var q = new URLSearchParams(location.search).get("lang");
+    if (ok(q)) return q;
+    try { var s = localStorage.getItem("mp-lang"); if (ok(s)) return s; } catch (e) {}
+    var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+    for (var i = 0; i < langs.length; i++) {
+      if (/^my\b/i.test(langs[i])) return "my";
+      if (/^th\b/i.test(langs[i])) return "th";
+    }
+    var zone = "";
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    if (zone === "Asia/Yangon" || zone === "Asia/Rangoon") return "my";
+    if (zone === "Asia/Bangkok") return "th";
+    // A clock 6½ hours ahead of UTC is Myanmar, even when the browser names no zone.
+    if (!zone && new Date().getTimezoneOffset() === -390) return "my";
+    return "en";
+  }
+
+  var lang = "my", shops = [], shown = 12, stats = null, failed = false;
+
+  function setLang(l, keep) {
+    lang = l;
+    document.documentElement.lang = l;
+    document.title = META[l].title;
+    nodes.forEach(function (n) { var v = T[l][n.dataset.t]; if (v != null) n.innerHTML = v; });
+    document.querySelectorAll("[data-ph]").forEach(function (n) { n.placeholder = T[l][n.dataset.ph]; });
+    document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === l)); });
+    document.querySelectorAll("img[data-shot]").forEach(function (im) {
+      var src = "img/" + SHOTS[l][im.dataset.shot] + ".webp";
+      if (im.getAttribute("src") !== src) im.setAttribute("src", src);
+    });
+    if (keep) { try { localStorage.setItem("mp-lang", l); } catch (e) {} }
+    renderFigures(); renderPlaces(); renderShops();
+  }
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.lang, true); });
+  });
+
+  function num(n) { return Number(n).toLocaleString("en-US"); }
+  function word(map, key) { return (map[key] && map[key][lang]) || key; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  /** "City, Country" in the visitor's language; the country alone for a shop with no city yet. */
+  function place(s) { return [s.location, s.country ? word(COUNTRY, s.country) : ""].filter(Boolean).join(", "); }
+
+  function renderFigures() {
+    if (!stats) return;
+    document.querySelectorAll("[data-fig]").forEach(function (n) { var v = stats[n.dataset.fig]; if (v != null) n.textContent = num(v); });
+  }
+  function renderPlaces() {
+    var sel = document.getElementById("place"), cur = sel.value, seen = {}, opts = [];
+    shops.forEach(function (s) { var k = s.location || s.country; if (k && !seen[k]) { seen[k] = 1; opts.push(k); } });
+    opts.sort();
+    sel.innerHTML = '<option value="">' + esc(T[lang].l_all) + "</option>" + opts.map(function (k) { return '<option value="' + esc(k) + '">' + esc(word(COUNTRY, k)) + "</option>"; }).join("");
+    sel.value = cur;
+  }
+  function renderShops() {
+    var box = document.getElementById("shopList"), count = document.getElementById("count"), more = document.getElementById("more");
+    if (failed) { box.innerHTML = '<div class="empty">' + UI[lang].fail + "</div>"; count.textContent = ""; more.hidden = true; return; }
+    if (!stats && !shops.length) return;
+    var q = document.getElementById("q").value.trim().toLowerCase(), p = document.getElementById("place").value;
+    var list = shops.filter(function (s) {
+      return (!q || s.name.toLowerCase().indexOf(q) >= 0 || place(s).toLowerCase().indexOf(q) >= 0) && (!p || s.location === p || (!s.location && s.country === p));
+    });
+    // Shops that have said where they are come first.
+    list.sort(function (a, b) { return (b.location ? 1 : 0) - (a.location ? 1 : 0); });
+    var at = "";
+    if (stats && stats.updatedAt) { try { at = new Date(stats.updatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch (e) {} }
+    count.textContent = UI[lang].count(num(list.length), at);
+    box.innerHTML = list.length ? list.slice(0, shown).map(function (s) {
+      var where = place(s);
+      var av = s.logo ? '<img src="' + esc(s.logo.replace(/^https:\/\/app\.maharpos\.shop/, "")) + '" alt="" loading="lazy" width="42" height="42">' : esc(s.name.trim().charAt(0).toUpperCase());
+      return '<div class="shop"><div class="av">' + av + '</div><div class="tx"><div class="nm">' + esc(s.name) + '</div><div class="meta">' +
+        (where ? '<span class="city"><svg class="pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><use href="#i-pin"/></svg>' + esc(where) + "</span> · " : "") +
+        esc(word(TYPE, s.businessType)) + "</div></div></div>";
+    }).join("") : '<div class="empty">' + UI[lang].none + "</div>";
+    more.hidden = list.length <= shown;
+  }
+  document.getElementById("q").addEventListener("input", function () { shown = 12; renderShops(); });
+  document.getElementById("place").addEventListener("change", function () { shown = 12; renderShops(); });
+  document.getElementById("more").addEventListener("click", function () { shown += 24; renderShops(); });
+
+  function get(path) {
+    return fetch(path, { cache: "no-store" }).then(function (r) { return r.json(); });
+  }
+  function load() {
+    get("/api/public/stats").then(function (d) { if (d && d.ok) { stats = d; renderFigures(); renderShops(); } }).catch(function () {});
+    // The list comes 48 shops at a time; keep asking until every shop is here.
+    var all = [];
+    (function next(page) {
+      return get("/api/public/shops/active?limit=48&page=" + page).then(function (d) {
+        if (!d || !d.ok) throw new Error("no list");
+        all = all.concat(d.shops || []);
+        if (all.length < d.total && d.shops.length && page < 20) return next(page + 1);
+      });
+    })(1).then(function () {
+      failed = false; shops = all; renderPlaces(); renderShops();
+    }).catch(function () { if (!shops.length) { failed = true; renderShops(); } });
+  }
+
+  document.getElementById("year").textContent = new Date().getFullYear();
+  setLang(detect(), false);
+  load();
+  setInterval(function () { if (!document.hidden) load(); }, 60000);
+})();
+</script>
+</body>
+</html>

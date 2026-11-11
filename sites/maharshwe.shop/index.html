@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>မဟာရွှေ Mobile — ဆီဆိုင်မြို့ ဖုန်းအရောင်းနှင့် ဖုန်းပြင်ဆိုင်</title>
+<meta name="description" content="မဟာရွှေ Mobile and IT — ဆီဆိုင်မြို့ရှိ ဖုန်းအသစ်၊ ဖုန်းပြင်၊ ဖုန်းအပိုပစ္စည်း၊ ဖုန်းဘေလ်နှင့် ငွေလွှဲ ဝန်ဆောင်မှု။ Online Shop၊ ဖုန်းပြင် အခြေအနေ QR ဖြင့် စစ်နိုင်။">
+<link rel="canonical" href="https://maharshwe.shop/">
+<link rel="alternate" hreflang="my" href="https://maharshwe.shop/?lang=my">
+<link rel="alternate" hreflang="en" href="https://maharshwe.shop/?lang=en">
+<link rel="alternate" hreflang="th" href="https://maharshwe.shop/?lang=th">
+<link rel="alternate" hreflang="x-default" href="https://maharshwe.shop/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="မဟာရွှေ Mobile — ဆီဆိုင်မြို့ ဖုန်းအရောင်းနှင့် ဖုန်းပြင်ဆိုင်">
+<meta property="og:description" content="Mahar Shwe Mobile, Hsihseng — phones, repairs, accessories, top-up and money transfer.">
+<meta property="og:url" content="https://maharshwe.shop/">
+<meta property="og:image" content="https://maharshwe.shop/assets/shop.jpg">
+<meta name="theme-color" content="#0b3d2e">
+<link rel="icon" type="image/png" href="/assets/maharshwe-logo.png">
+<link rel="apple-touch-icon" href="/assets/maharshwe-logo.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"MobilePhoneStore","name":"Mahar Shwe Mobile","alternateName":"မဟာရွှေ Mobile and IT","url":"https://maharshwe.shop/","image":"https://maharshwe.shop/assets/shop.jpg","telephone":["+959778394052","+959799519545"],"address":{"@type":"PostalAddress","streetAddress":"တောင်ကြီး–လွိုင်ကော်လမ်းမဘေး၊ အောင်ချမ်းသာရပ်","addressLocality":"Hsihseng","addressRegion":"Shan State","addressCountry":"MM"},"hasMap":"https://share.google/f63DKoJGmSid9gGf4"}
+</script>
+<style>
+:root{
+  --ink:#1a2420;--ink2:#46534d;--mute:#6f7c76;--line:#e4e2d8;
+  --bg:#faf8f2;--card:#fff;--deep:#0b3d2e;
+  --green:#12905f;--green-soft:#e3f4ec;--orange:#f59a0c;--orange-ink:#8a5200;--orange-soft:#fff1d6;
+  --r:16px;--wrap:1080px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Myanmar","Myanmar Text",Pyidaungsu,"Noto Sans Thai","Leelawadee UI",Thonburi,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.65;font-size:16px}
+html[lang=my] body{line-height:1.9}
+img{max-width:100%;height:auto;display:block}
+a{color:var(--green);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3,p{margin:0}
+h1,h2,h3{line-height:1.3;text-wrap:balance}
+html[lang=my] h1,html[lang=my] h2,html[lang=my] h3{line-height:1.6}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 16px}
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px;border-radius:6px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 20px;border-radius:12px;font-weight:700;font-size:15px;border:1.5px solid transparent;font-family:inherit;text-align:center}
+.btn:hover{text-decoration:none}
+.btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.btn-primary{background:var(--deep);color:#fff}
+.btn-primary:hover{background:#0f5540}
+.btn-orange{background:var(--orange);color:#231400}
+.btn-orange:hover{background:#ffab26}
+.btn-line{background:#fff;border-color:var(--line);color:var(--ink)}
+.btn-line:hover{border-color:var(--green)}
+.btn-sm{min-height:38px;padding:6px 14px;font-size:14px}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:rgba(250,248,242,.96);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:10px;min-height:60px}
+.brand{display:flex;align-items:center;gap:8px;color:var(--ink);font-weight:800;font-size:17px;margin-right:auto;white-space:nowrap;min-width:0}
+.brand:hover{text-decoration:none}
+.brand img{width:38px;height:38px;object-fit:contain;flex-shrink:0}
+.brand span{overflow:hidden;text-overflow:ellipsis}
+.nav{display:none;gap:20px;margin-right:12px}
+.nav a{color:var(--ink2);font-size:14px;font-weight:600}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#fff;flex-shrink:0}
+.lang button{background:none;border:0;color:var(--ink2);font:inherit;font-size:13px;font-weight:700;padding:0 10px;min-height:34px;cursor:pointer;line-height:1.2}
+.lang button[aria-pressed=true]{background:var(--deep);color:#fff}
+.top .call{display:none}
+@media (min-width:560px){.top .call{display:inline-flex}}
+@media (min-width:900px){.nav{display:flex}}
+
+/* hero */
+.hero .wrap{display:grid;gap:22px;padding-top:26px;padding-bottom:36px}
+.place{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--orange-ink);background:var(--orange-soft);padding:3px 12px;border-radius:999px}
+.place svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4}
+.hero h1{font-size:clamp(28px,7.2vw,46px);font-weight:800;margin:12px 0 10px;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--green)}
+.hero .lead{font-size:17px;color:var(--ink2);max-width:34em}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.photo{margin:0;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#ddd}
+.photo img{width:100%;aspect-ratio:4/3;object-fit:cover}
+.photo figcaption{background:#fff;padding:8px 14px;font-size:13px;color:var(--mute)}
+@media (min-width:900px){.hero .wrap{grid-template-columns:1fr 1fr;align-items:center;padding-top:48px;padding-bottom:56px}}
+
+section{padding:48px 0}
+.alt{background:#fff;border-block:1px solid var(--line)}
+.sec-head{max-width:42em;margin-bottom:24px}
+.kicker{font-size:13px;font-weight:800;color:var(--green);letter-spacing:.06em;text-transform:uppercase}
+h2{font-size:clamp(22px,5vw,32px);font-weight:800;margin:6px 0 8px}
+.sub{color:var(--ink2)}
+.grid{display:grid;gap:12px}
+@media (min-width:600px){.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.g4{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:940px){.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.alt .card{background:var(--bg)}
+.card h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.card p{font-size:15px;color:var(--ink2)}
+.card .btn{margin-top:14px}
+.ico{width:42px;height:42px;border-radius:12px;background:var(--green-soft);color:var(--green);display:grid;place-items:center;margin-bottom:10px}
+.ico svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card.o .ico{background:var(--orange-soft);color:var(--orange-ink)}
+
+/* two big link panels */
+.panel{display:flex;flex-direction:column;align-items:flex-start;border-radius:var(--r);padding:22px;border:1px solid var(--line);background:#fff}
+.panel.dark{background:var(--deep);border-color:var(--deep);color:#fff}
+.panel.dark p{color:#cfe2d9}
+.panel h3{font-size:20px;font-weight:800;margin-bottom:6px}
+.panel p{color:var(--ink2);font-size:15px;flex:1}
+.panel .btn{margin-top:16px}
+.qr{display:flex;gap:14px;align-items:flex-start}
+.qr-art{flex-shrink:0;width:64px;height:64px;border-radius:10px;background:#fff;padding:7px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.qr-art i{background:var(--deep);border-radius:1px}
+.qr-art i.w{background:transparent}
+
+/* visit */
+.visit{display:grid;gap:12px}
+@media (min-width:800px){.visit{grid-template-columns:1.1fr .9fr}}
+.rows{list-style:none;margin:0;padding:0}
+.rows li{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rows li:last-child{border-bottom:0}
+.rows svg{width:20px;height:20px;flex-shrink:0;margin-top:4px;fill:none;stroke:var(--green);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rows small{display:block;font-size:13px;color:var(--mute);line-height:1.4}
+.rows b{font-size:16px;font-weight:700}
+.rows a{color:var(--ink)}
+.rows .tel{font-size:19px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.stack{display:flex;flex-direction:column;gap:10px}
+.stack .btn{width:100%}
+
+/* vpn */
+.dl{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink)}
+.dl:hover{border-color:var(--green);text-decoration:none}
+.dl i{font-style:normal;width:34px;height:34px;border-radius:50%;background:var(--deep);color:#fff;font-weight:800;display:grid;place-items:center;flex-shrink:0}
+.dl b{display:block;font-size:15px;line-height:1.4}
+.dl span{display:block;font-size:13px;color:var(--mute);line-height:1.4}
+.plans{margin-top:14px}
+.plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+.plan.best{border:2px solid var(--green)}
+.plan b{display:block;font-size:15px}
+.plan .p{font-size:22px;font-weight:800;color:var(--deep);line-height:1.4}
+.plan span{font-size:13px;color:var(--mute)}
+.fine{font-size:13px;color:var(--mute);margin-top:12px}
+ol.how{margin:14px 0 0;padding-left:22px;color:var(--ink2);font-size:15px}
+
+.soft{display:flex;gap:14px;align-items:flex-start}
+.soft img{width:52px;height:52px;border-radius:12px;background:#fff;border:1px solid var(--line);padding:3px;flex-shrink:0}
+.pill{display:inline-block;font-size:13px;font-weight:700;color:var(--green);background:var(--green-soft);padding:1px 10px;border-radius:999px;margin-top:8px}
+
+footer{background:#06241b;color:#a9c3b8;font-size:14px;padding:26px 0}
+footer .wrap{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+footer a{color:#d5e6de}
+footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L11 20a2.1 2.1 0 0 1-3-3l8.700-8.700a4 4 0 0 1-2-2Z"/><path d="m14.7 6.3 2.8-2.8"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v10a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1H5a2 2 0 0 1-2-2Z"/><path d="M16.5 14h.01"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 22s7-6.200 7-12a7 7 0 1 0-14 0c0 5.800 7 12 7 12Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-call" viewBox="0 0 24 24"><path d="M5 3h4l2 5-2.500 1.500a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2Z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4 20-7Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="img/logo.png" width="38" height="38" alt=""><span data-t="brand">မဟာရွှေ Mobile</span></a>
+    <nav class="nav" aria-label="Main">
+      <a href="#services" data-t="nav1">ဝန်ဆောင်မှု</a>
+      <a href="#online" data-t="nav2">Online Shop</a>
+      <a href="#visit" data-t="nav3">ဆိုင်တည်နေရာ</a>
+      <a href="#digital" data-t="nav4">VPN / Game</a>
+      <a href="#software" data-t="nav5">Software</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" data-lang="my" aria-pressed="true">မြန်မာ</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      <button type="button" data-lang="th" aria-pressed="false">ไทย</button>
+    </div>
+    <a class="btn btn-primary btn-sm call" href="tel:09778394052"><svg><use href="#i-call"/></svg><span data-t="call">ဖုန်းဆက်မည်</span></a>
+  </div>
+</header>
+
+<main id="top">
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <span class="place"><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg><span data-t="place">ဆီဆိုင်မြို့ · ရှမ်းပြည်နယ် တောင်ပိုင်း</span></span>
+      <h1 data-t="h1">ဖုန်းဝယ်မလား၊ ပြင်မလား — <em>မဟာရွှေ</em> မှာ တစ်နေရာတည်း</h1>
+      <p class="lead" data-t="lead">ဖုန်းအသစ်၊ ဖုန်းပြင်၊ ဖုန်းအပိုပစ္စည်း၊ ဖုန်းဘေလ်နှင့် ငွေလွှဲ။ ပြင်ရန် အပ်ထားသော ဖုန်း၏ အခြေအနေကို ဘောက်ချာပေါ်က QR ဖြင့် အချိန်မရွေး ကြည့်နိုင်ပါသည်။</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="tel:09778394052"><svg><use href="#i-call"/></svg><span>09 778 394 052</span></a>
+        <a class="btn btn-orange" href="https://maharpos.shop/shop/maharshwemobile"><svg><use href="#i-bag"/></svg><span data-t="shopbtn">Online Shop ကြည့်မည်</span></a>
+        <a class="btn btn-line" href="https://share.google/f63DKoJGmSid9gGf4" rel="noopener"><svg><use href="#i-pin"/></svg><span data-t="mapbtn">မြေပုံ</span></a>
+      </div>
+    </div>
+    <figure class="photo">
+      <picture>
+        <source media="(max-width:700px)" srcset="img/shop-640.webp">
+        <img src="img/shop.webp" width="1120" height="840" alt="မဟာရွှေ Mobile ဆိုင်ရှေ့မြင်ကွင်း" fetchpriority="high">
+      </picture>
+      <figcaption data-t="photocap">မဟာရွှေ Mobile and IT — ဆီဆိုင်မြို့</figcaption>
+    </figure>
+  </div>
+</div>
+
+<section id="services" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="s_k">ဝန်ဆောင်မှုများ</div>
+      <h2 data-t="s_h">ဆိုင်မှာ ဘာတွေ ရလဲ</h2>
+    </div>
+    <div class="grid g4">
+      <div class="card"><div class="ico"><svg><use href="#i-phone"/></svg></div><h3 data-t="s1h">ဖုန်းအသစ်</h3><p data-t="s1p">ဖုန်းအမျိုးမျိုး ရောင်းဝယ်ခြင်း။ လက်ရှိ ရနိုင်သော ဖုန်းနှင့် ဈေးနှုန်းများကို Online Shop တွင် ကြည့်နိုင်ပါသည်။</p></div>
+      <div class="card o"><div class="ico"><svg><use href="#i-tool"/></svg></div><h3 data-t="s2h">ဖုန်းပြင်</h3><p data-t="s2p">လက်ခံစဉ် ဘောက်ချာ ထုတ်ပေးပြီး ပြင်ဆင်မှု အခြေအနေကို QR ဖြင့် ကိုယ်တိုင် စစ်နိုင်ပါသည်။</p></div>
+      <div class="card"><div class="ico"><svg><use href="#i-plug"/></svg></div><h3 data-t="s3h">ဖုန်းအပိုပစ္စည်း</h3><p data-t="s3p">နားကြပ်၊ Charger၊ ကြိုး၊ Power bank စသည့် Accessories များ။</p></div>
+      <div class="card o"><div class="ico"><svg><use href="#i-wallet"/></svg></div><h3 data-t="s4h">ဖုန်းဘေလ် · ငွေလွှဲ</h3><p data-t="s4p">ဖုန်းဘေလ်ဖြည့်ခြင်းနှင့် ငွေလွှဲ ဝန်ဆောင်မှု။</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="online">
+  <div class="wrap">
+    <div class="grid g2">
+      <div class="panel dark">
+        <h3 data-t="o1h">Online Shop</h3>
+        <p data-t="o1p">ဆိုင်ရှိ ပစ္စည်းများကို ဖုန်းထဲက ကြည့်ပြီး မှာယူနိုင်ပါသည်။ အိမ်အရောက် ပို့ပေးခြင်း သို့မဟုတ် ဆိုင်မှာ လာယူခြင်း ရွေးနိုင်ပါသည်။</p>
+        <a class="btn btn-orange" href="https://maharpos.shop/shop/maharshwemobile" data-t="o1b">Online Shop သို့ သွားမည် →</a>
+      </div>
+      <div class="panel">
+        <div class="qr">
+          <div class="qr-art" aria-hidden="true"><i></i><i></i><i class="w"></i><i></i><i></i><i></i><i class="w"></i><i></i><i class="w"></i><i></i><i class="w"></i><i></i><i></i><i></i><i class="w"></i><i></i><i class="w"></i><i></i><i class="w"></i><i></i><i></i><i></i><i class="w"></i><i></i><i></i></div>
+          <div>
+            <h3 data-t="o2h">ပြင်နေတဲ့ ဖုန်း ဘယ်အဆင့်ရောက်ပြီလဲ</h3>
+            <p data-t="o2p">ဖုန်းအပ်စဉ် ရရှိသော ဘောက်ချာပေါ်က QR ကို ဖုန်းကင်မရာဖြင့် စကင်ဖတ်ပါ — လက်ခံပြီး၊ ပြင်နေဆဲ၊ ပြင်ပြီး၊ ပေးပြီး အခြေအနေနှင့် ကျသင့်ငွေကို တွေ့ရပါမည်။</p>
+          </div>
+        </div>
+        <a class="btn btn-line" href="tel:09778394052"><svg><use href="#i-call"/></svg><span data-t="o2b">ဘောက်ချာ ပျောက်ရင် ဖုန်းဆက်ပါ</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="visit" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="v_k">ဆိုင်သို့ လာရန်</div>
+      <h2 data-t="v_h">တည်နေရာနှင့် ဆက်သွယ်ရန်</h2>
+    </div>
+    <div class="visit">
+      <div class="card">
+        <ul class="rows">
+          <li><svg viewBox="0 0 24 24"><use href="#i-pin"/></svg><div><small data-t="v_addr_l">လိပ်စာ</small><b data-t="v_addr">တောင်ကြီး–လွိုင်ကော်လမ်းမဘေး၊ အောင်ချမ်းသာရပ်၊ ဆီဆိုင်မြို့။</b></div></li>
+          <li><svg viewBox="0 0 24 24"><use href="#i-call"/></svg><div><small data-t="v_tel_l">ဖုန်း</small><b><a class="tel" href="tel:09778394052">09 778 394 052</a><br><a class="tel" href="tel:09799519545">09 799 519 545</a></b></div></li>
+          <li><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg><div><small data-t="v_time_l">ဆိုင်ရှိရာ ယခုအချိန် (မြန်မာစံတော်ချိန်)</small><b id="shopTime">—</b></div></li>
+        </ul>
+      </div>
+      <div class="card stack">
+        <a class="btn btn-primary" href="https://share.google/f63DKoJGmSid9gGf4" rel="noopener"><svg><use href="#i-pin"/></svg><span data-t="v_map">Google Maps တွင် ဖွင့်မည်</span></a>
+        <a class="btn btn-line" href="tel:09778394052"><svg><use href="#i-call"/></svg><span data-t="call">ဖုန်းဆက်မည်</span></a>
+        <a class="btn btn-line" href="https://t.me/Mylifemychoice68" rel="noopener"><svg><use href="#i-send"/></svg><span data-t="v_tg">Telegram မှ ဆက်သွယ်မည်</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="digital">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="d_k">Digital</div>
+      <h2 data-t="d_h">VPN နှင့် Game Top-up</h2>
+    </div>
+    <div class="grid g2">
+      <div class="card" id="vpn">
+        <h3 data-t="d1h">Mahar Shwe VPN (Android)</h3>
+        <p data-t="d1p">Download 1 ကို အရင် ဆွဲပါ။ ဖုန်းနှင့် မတည့်ပါက 2၊ ထို့နောက် 3 ကို စမ်းပါ။</p>
+        <div class="grid" style="margin-top:12px">
+          <a class="dl" href="/download/maharshwe-vpn-1.0.23-mid-arm64.apk"><i>1</i><div><b>Download 1 · 21.4 MB</b><span data-t="d1a">ဖုန်းအများစု အတွက်</span></div></a>
+          <a class="dl" href="/download/maharshwe-vpn-1.0.23-low-armv7.apk"><i>2</i><div><b>Download 2 · 21.0 MB</b><span data-t="d1b">ဖုန်းအဟောင်း အတွက်</span></div></a>
+          <a class="dl" href="/download/maharshwe-vpn-1.0.23-high-universal.apk"><i>3</i><div><b>Download 3 · 49.4 MB</b><span data-t="d1c">ဖုန်းအားလုံးနှင့် ရ</span></div></a>
+        </div>
+        <div class="grid plans" style="grid-template-columns:repeat(3,1fr);gap:8px">
+          <div class="plan"><b data-t="pl1">အစမ်း</b><div class="p">0</div><span data-t="pl1d">၂ ရက်</span></div>
+          <div class="plan best"><b data-t="pl2">၁ လ</b><div class="p">3,000</div><span data-t="mmk">ကျပ်</span></div>
+          <div class="plan"><b data-t="pl3">၂ လ</b><div class="p">5,000</div><span data-t="mmk">ကျပ်</span></div>
+        </div>
+        <ol class="how"><li data-t="hw1">Telegram bot တွင် Plan ရွေးပါ</li><li data-t="hw2">KBZ Pay ဖြင့် ငွေလွှဲပြီး Screenshot ကို bot ထဲ ပို့ပါ</li><li data-t="hw3">အတည်ပြုပြီးလျှင် VPN Key ကို bot မှ ရပါမည်</li></ol>
+        <a class="btn btn-primary" href="https://t.me/maharshwebot" rel="noopener"><svg><use href="#i-send"/></svg><span data-t="d1bot">Telegram Bot တွင် ဝယ်မည်</span></a>
+        <p class="fine" data-t="d1n">Version 1.0.23 · APK ထည့်ရန် ဖုန်း Settings တွင် "Unknown sources" ကို ခွင့်ပြုပေးရပါမည်။</p>
+      </div>
+      <div class="card">
+        <h3 data-t="d2h">Game Top-up</h3>
+        <p data-t="d2p">Mobile Legends၊ Free Fire၊ PUBG Mobile စသည့် ဂိမ်းများအတွက် Diamond / UC နှင့် Digital voucher များကို Player ID ဖြင့် တိုက်ရိုက် ဝယ်နိုင်ပါသည်။ KBZ Pay ဖြင့် ငွေချေနိုင်ပါသည်။</p>
+        <a class="btn btn-orange" href="https://maharpos.shop/digital/game/" data-t="d2b">Game Top-up သို့ သွားမည် →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="software" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker" data-t="w_k">ကျွန်ုပ်တို့ ရေးသော Software</div>
+      <h2 data-t="w_h">ကိုယ့်ဆိုင်အတွက် ဆောက်ခဲ့တာကို တခြားဆိုင်တွေလည်း သုံးနေပါပြီ</h2>
+      <p class="sub" data-t="w_s">မဟာရွှေ Mobile တွင် နေ့စဉ် သုံးနေသော စနစ်ကိုပင် ဖုန်းဆိုင်များအတွက် အခမဲ့ ဖွင့်ပေးထားပါသည်။</p>
+    </div>
+    <div class="grid g2">
+      <div class="card"><div class="soft"><img src="img/mahar-pos-logo.png" width="52" height="52" alt="">
+        <div><h3>Mahar POS</h3><p data-t="w1p">ဖုန်းဆိုင်နှင့် ဆိုင်ငယ်များအတွက် Cloud POS — အရောင်း၊ Stock နှင့် IMEI၊ ဖုန်းပြင် Job၊ ငွေစာရင်းနှင့် Report။ မြန်မာ · English · ไทย။</p>
+        <span class="pill" id="posLive" hidden></span></div></div>
+        <a class="btn btn-primary" href="https://maharpos.shop" data-t="w1b">Mahar POS အကြောင်း ကြည့်မည် →</a>
+      </div>
+      <div class="card"><div class="soft"><img src="img/walletnote-logo.png" width="52" height="52" alt="">
+        <div><h3>Wallet Note</h3><p data-t="w2p">ဆိုင်ငယ်များအတွက် စာရင်းကိုင် App — ပိုက်ဆံအိတ်၊ ဝင်ငွေ/ထွက်ငွေ၊ အကြွေးနှင့် Mini Mart POS။</p></div></div>
+        <a class="btn btn-line" href="https://walletnote.online" rel="noopener">walletnote.online →</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© <span id="year">2026</span> <span data-t="ft">မဟာရွှေ Mobile and IT · ဆီဆိုင်မြို့</span></span>
+    <nav aria-label="Footer">
+      <a href="https://maharpos.shop/shop/maharshwemobile">Online Shop</a>
+      <a href="https://maharpos.shop">Mahar POS</a>
+      <a href="https://t.me/maharshwebot" rel="noopener">Telegram Bot</a>
+      <a href="tel:09778394052">09 778 394 052</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var T = {
+    en: {
+      brand: "Mahar Shwe", nav1: "Services", nav2: "Online shop", nav3: "Find us", nav4: "VPN / Games", nav5: "Software",
+      call: "Call us", place: "Hsihseng · Southern Shan State, Myanmar",
+      h1: "Buying a phone or fixing one — <em>Mahar Shwe</em> does both",
+      lead: "New phones, repairs, accessories, phone top-up and money transfer. If your phone is in for repair, scan the QR code on your voucher to see how it is going, any time.",
+      shopbtn: "Browse the online shop", mapbtn: "Map", photocap: "Mahar Shwe Mobile and IT — Hsihseng",
+      s_k: "Services", s_h: "What you can get at the shop",
+      s1h: "New phones", s1p: "Phones of many brands, bought and sold. See what is in stock and the prices in the online shop.",
+      s2h: "Phone repair", s2p: "You get a voucher at intake and can check the repair status yourself with its QR code.",
+      s3h: "Accessories", s3p: "Earphones, chargers, cables, power banks and more.",
+      s4h: "Top-up · Money transfer", s4p: "Phone bill top-up and money transfer services.",
+      o1h: "Online shop", o1p: "Browse what is in the shop from your phone and order. Choose delivery or pick-up at the shop.",
+      o1b: "Go to the online shop →",
+      o2h: "How is my repair going?", o2p: "Scan the QR code on the voucher you were given with your phone's camera — you will see whether it is received, in progress, done or handed back, and the amount due.",
+      o2b: "Lost the voucher? Call us",
+      v_k: "Visit us", v_h: "Location and contact",
+      v_addr_l: "Address", v_addr: "Beside the Taunggyi–Loikaw road, Aung Chan Thar quarter, Hsihseng, Shan State, Myanmar",
+      v_tel_l: "Phone", v_time_l: "Time at the shop now (Myanmar time)",
+      v_map: "Open in Google Maps", v_tg: "Message on Telegram",
+      d_k: "Digital", d_h: "VPN and game top-up",
+      d1h: "Mahar Shwe VPN (Android)", d1p: "Try Download 1 first. If it does not suit your phone, try 2, then 3.",
+      d1a: "For most phones", d1b: "For older phones", d1c: "Works on every phone",
+      pl1: "Trial", pl1d: "2 days", pl2: "1 month", pl3: "2 months", mmk: "MMK",
+      hw1: "Choose a plan in the Telegram bot", hw2: "Pay with KBZ Pay and send the screenshot to the bot", hw3: "Once confirmed, the bot sends your VPN key",
+      d1bot: "Buy in the Telegram bot", d1n: "Version 1.0.23 · To install the APK, allow \"Unknown sources\" in your phone's settings.",
+      d2h: "Game top-up", d2p: "Diamonds / UC and digital vouchers for Mobile Legends, Free Fire, PUBG Mobile and more, bought directly with your Player ID. Pay with KBZ Pay.",
+      d2b: "Go to game top-up →",
+      w_k: "Software we make", w_h: "Built for our own shop, now used by other shops too",
+      w_s: "The system Mahar Shwe Mobile runs on every day is open to other phone shops, free.",
+      w1p: "Cloud POS for phone shops and small shops — sales, stock and IMEI, repair jobs, wallets and reports. Myanmar · English · Thai.",
+      w1b: "About Mahar POS →",
+      w2p: "A bookkeeping app for small shops — wallets, income / expenses, credit and a mini-mart POS.",
+      ft: "Mahar Shwe Mobile and IT · Hsihseng"
+    },
+    th: {
+      brand: "Mahar Shwe", nav1: "บริการ", nav2: "ร้านออนไลน์", nav3: "ที่ตั้งร้าน", nav4: "VPN / เกม", nav5: "ซอฟต์แวร์",
+      call: "โทรหาเรา", place: "Hsihseng · รัฐฉานตอนใต้ เมียนมา",
+      h1: "จะซื้อมือถือหรือซ่อมมือถือ — <em>Mahar Shwe</em> มีครบที่เดียว",
+      lead: "มือถือใหม่ ซ่อมมือถือ อุปกรณ์เสริม เติมเงินมือถือ และโอนเงิน หากส่งเครื่องซ่อมไว้ สแกน QR บนใบรับซ่อมเพื่อดูสถานะได้ตลอดเวลา",
+      shopbtn: "ดูร้านออนไลน์", mapbtn: "แผนที่", photocap: "Mahar Shwe Mobile and IT — Hsihseng",
+      s_k: "บริการ", s_h: "ที่ร้านมีอะไรบ้าง",
+      s1h: "มือถือใหม่", s1p: "ซื้อขายมือถือหลากหลายยี่ห้อ ดูรุ่นที่มีและราคาได้ในร้านออนไลน์",
+      s2h: "ซ่อมมือถือ", s2p: "ออกใบรับซ่อมตอนรับเครื่อง และเช็กสถานะการซ่อมเองได้ด้วย QR",
+      s3h: "อุปกรณ์เสริม", s3p: "หูฟัง ที่ชาร์จ สายชาร์จ พาวเวอร์แบงก์ และอื่น ๆ",
+      s4h: "เติมเงิน · โอนเงิน", s4p: "บริการเติมเงินมือถือและโอนเงิน",
+      o1h: "ร้านออนไลน์", o1p: "ดูสินค้าในร้านจากมือถือแล้วสั่งซื้อได้ เลือกจัดส่งหรือมารับที่ร้าน",
+      o1b: "ไปที่ร้านออนไลน์ →",
+      o2h: "เครื่องที่ส่งซ่อมถึงขั้นไหนแล้ว", o2p: "ใช้กล้องมือถือสแกน QR บนใบรับซ่อมที่ได้รับ — จะเห็นสถานะ รับเครื่องแล้ว กำลังซ่อม ซ่อมเสร็จ หรือส่งคืนแล้ว พร้อมยอดที่ต้องชำระ",
+      o2b: "ใบรับซ่อมหาย? โทรหาเรา",
+      v_k: "มาที่ร้าน", v_h: "ที่ตั้งและการติดต่อ",
+      v_addr_l: "ที่อยู่", v_addr: "ริมถนน Taunggyi–Loikaw ย่าน Aung Chan Thar เมือง Hsihseng รัฐฉาน เมียนมา",
+      v_tel_l: "โทรศัพท์", v_time_l: "เวลาที่ร้านตอนนี้ (เวลาเมียนมา)",
+      v_map: "เปิดใน Google Maps", v_tg: "ติดต่อทาง Telegram",
+      d_k: "ดิจิทัล", d_h: "VPN และเติมเกม",
+      d1h: "Mahar Shwe VPN (Android)", d1p: "ลอง Download 1 ก่อน ถ้าใช้กับเครื่องไม่ได้ให้ลอง 2 แล้วจึงลอง 3",
+      d1a: "สำหรับมือถือส่วนใหญ่", d1b: "สำหรับมือถือรุ่นเก่า", d1c: "ใช้ได้กับทุกเครื่อง",
+      pl1: "ทดลอง", pl1d: "2 วัน", pl2: "1 เดือน", pl3: "2 เดือน", mmk: "จ๊าต",
+      hw1: "เลือกแพ็กเกจใน Telegram bot", hw2: "ชำระด้วย KBZ Pay แล้วส่งภาพหน้าจอให้ bot", hw3: "เมื่อยืนยันแล้ว bot จะส่ง VPN Key ให้",
+      d1bot: "ซื้อผ่าน Telegram Bot", d1n: "เวอร์ชัน 1.0.23 · การติดตั้ง APK ต้องอนุญาต \"Unknown sources\" ในการตั้งค่ามือถือ",
+      d2h: "เติมเกม", d2p: "Diamond / UC และ voucher ดิจิทัลสำหรับ Mobile Legends, Free Fire, PUBG Mobile และอื่น ๆ ซื้อได้โดยตรงด้วย Player ID ชำระด้วย KBZ Pay",
+      d2b: "ไปที่หน้าเติมเกม →",
+      w_k: "ซอฟต์แวร์ที่เราทำ", w_h: "สร้างเพื่อร้านของเราเอง ตอนนี้ร้านอื่นก็ใช้ด้วย",
+      w_s: "ระบบที่ Mahar Shwe Mobile ใช้ทุกวัน เปิดให้ร้านมือถืออื่นใช้ได้ฟรี",
+      w1p: "ระบบ POS บนคลาวด์สำหรับร้านมือถือและร้านค้าขนาดเล็ก — ขายหน้าร้าน สต็อกและ IMEI งานซ่อม กระเป๋าเงิน และรายงาน พม่า · English · ไทย",
+      w1b: "เกี่ยวกับ Mahar POS →",
+      w2p: "แอปบัญชีสำหรับร้านค้าขนาดเล็ก — กระเป๋าเงิน รายรับ/รายจ่าย ลูกหนี้ และ POS มินิมาร์ท",
+      ft: "Mahar Shwe Mobile and IT · Hsihseng"
+    },
+    my: {}
+  };
+  var META = {
+    my: { title: "မဟာရွှေ Mobile — ဆီဆိုင်မြို့ ဖုန်းအရောင်းနှင့် ဖုန်းပြင်ဆိုင်", loc: "my-MM", alt: "မဟာရွှေ Mobile ဆိုင်ရှေ့မြင်ကွင်း", live: function (n) { return "ဆိုင် " + n + " ဆိုင် သုံးနေသည်"; } },
+    en: { title: "Mahar Shwe Mobile — phone shop and repairs in Hsihseng", loc: "en-GB", alt: "The front of the Mahar Shwe Mobile shop", live: function (n) { return n + " shops use it"; } },
+    th: { title: "Mahar Shwe Mobile — ร้านขายและซ่อมมือถือ เมือง Hsihseng", loc: "th-TH", alt: "หน้าร้าน Mahar Shwe Mobile", live: function (n) { return n + " ร้านใช้อยู่"; } }
+  };
+
+  var nodes = document.querySelectorAll("[data-t]");
+  nodes.forEach(function (n) { if (!(n.dataset.t in T.my)) T.my[n.dataset.t] = n.innerHTML; });
+
+  function ok(l) { return l === "my" || l === "en" || l === "th"; }
+  /* The visitor's language: what they chose here before, else their phone's language,
+     else their region from the device clock (Myanmar time, Thai time), else English. */
+  function detect() {
+    var q = new URLSearchParams(location.search).get("lang");
+    if (ok(q)) return q;
+    try { var s = localStorage.getItem("ms-lang"); if (ok(s)) return s; } catch (e) {}
+    var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+    for (var i = 0; i < langs.length; i++) {
+      if (/^my\b/i.test(langs[i])) return "my";
+      if (/^th\b/i.test(langs[i])) return "th";
+    }
+    var zone = "";
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+    if (zone === "Asia/Yangon" || zone === "Asia/Rangoon") return "my";
+    if (zone === "Asia/Bangkok") return "th";
+    if (!zone && new Date().getTimezoneOffset() === -390) return "my";
+    return "en";
+  }
+
+  var DAYS_MY = ["တနင်္ဂနွေ", "တနင်္လာ", "အင်္ဂါ", "ဗုဒ္ဓဟူး", "ကြာသပတေး", "သောကြာ", "စနေ"];
+  var lang = "my", posShops = null;
+  function clock() {
+    var el = document.getElementById("shopTime");
+    try {
+      var now = new Date();
+      var day = lang === "my"
+        ? DAYS_MY[["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(now.toLocaleDateString("en-US", { timeZone: "Asia/Yangon", weekday: "short" }))] + "နေ့"
+        : now.toLocaleDateString(META[lang].loc, { timeZone: "Asia/Yangon", weekday: "long" });
+      el.textContent = now.toLocaleTimeString("en-GB", { timeZone: "Asia/Yangon", hour: "2-digit", minute: "2-digit", hour12: false }) + " · " + day;
+    } catch (e) { el.textContent = "UTC+6:30"; }
+  }
+  function live() {
+    var el = document.getElementById("posLive");
+    if (posShops == null) return;
+    el.textContent = "● " + META[lang].live(Number(posShops).toLocaleString("en-US"));
+    el.hidden = false;
+  }
+  function setLang(l, keep) {
+    lang = l;
+    document.documentElement.lang = l;
+    document.title = META[l].title;
+    nodes.forEach(function (n) { var v = T[l][n.dataset.t]; if (v != null) n.innerHTML = v; });
+    document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === l)); });
+    var photo = document.querySelector(".photo img"); if (photo) photo.alt = META[l].alt;
+    if (keep) { try { localStorage.setItem("ms-lang", l); } catch (e) {} }
+    clock(); live();
+  }
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.lang, true); });
+  });
+
+  document.getElementById("year").textContent = new Date().getFullYear();
+  setLang(detect(), false);
+  setInterval(clock, 30000);
+
+  // How many shops use Mahar POS, from the app's public figures.
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  fetch((local ? "" : "https://app.maharpos.shop") + "/api/public/stats", { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.ok) { posShops = d.activeShops; live(); } })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>
