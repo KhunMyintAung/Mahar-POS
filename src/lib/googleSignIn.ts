@@ -5,7 +5,7 @@ import { prisma } from "./prisma";
 import { audit } from "./audit";
 import { registerTenant } from "./tenant";
 import { businessNameFrom, usernameFromEmail, type GoogleIdentity } from "./googleAuth";
-import { notifyNewSignup, sendWelcomeEmail } from "./mail";
+import { notifyNewSignup, sendWelcomeEmail, temporaryPassword } from "./mail";
 
 /** What happens once Google has vouched for someone, whichever way they came: the
  *  redirect flow or Google's own sign-in button.
@@ -15,8 +15,9 @@ import { notifyNewSignup, sendWelcomeEmail } from "./mail";
  *  into a shop that already exists: that would turn knowing an address into access to
  *  someone's money. */
 
-/** No password is chosen, so a long random one is stored: never shown to anyone and not
- *  guessable, which leaves Google as the only way in until the owner sets one. */
+/** No password is chosen, so one is made for them and sent in the welcome email, to the
+ *  address Google has just vouched for: they can then sign in without Google too, and choose
+ *  their own with "Forgot password?". */
 async function signUpWithGoogle(identity: GoogleIdentity, timezone?: string) {
   // A derived username can collide with an existing account, so take the first free one.
   let username = usernameFromEmail(identity.email);
@@ -29,18 +30,19 @@ async function signUpWithGoogle(identity: GoogleIdentity, timezone?: string) {
     username = usernameFromEmail(identity.email, attempt);
   }
 
+  const password = temporaryPassword();
   const { business, owner } = await registerTenant({
     businessName: businessNameFrom(identity),
     ownerName: identity.name?.trim() || undefined,
     username,
     email: identity.email,
     emailVerified: true,
-    password: randomBytes(24).toString("hex"),
+    password,
     currency: "MMK",
     // The zone of the device they signed up on (the button leaves it in a cookie).
     timezone: isTimeZone(timezone) ? timezone : "Asia/Yangon",
   });
-  return { user: await prisma.user.findUniqueOrThrow({ where: { id: owner.id } }), businessName: business.name, username };
+  return { user: await prisma.user.findUniqueOrThrow({ where: { id: owner.id } }), businessName: business.name, username, password };
 }
 
 type MatchedUser = NonNullable<Awaited<ReturnType<typeof prisma.user.findFirst>>>;
@@ -111,7 +113,7 @@ export async function signInWithGoogle(identity: GoogleIdentity, meta: { ip?: st
     try {
       const made = await signUpWithGoogle(identity, meta.timezone);
       user = made.user;
-      sendWelcomeEmail({ to: identity.email, name: identity.name ?? made.username, businessName: made.businessName, username: made.username, viaGoogle: true });
+      sendWelcomeEmail({ to: identity.email, name: identity.name ?? made.username, businessName: made.businessName, username: made.username, currency: "MMK", viaGoogle: true, temporaryPassword: made.password });
       notifyNewSignup({ businessName: made.businessName, email: identity.email, username: made.username, method: "Google" });
     } catch (error) {
       console.error("[google signup]", error);

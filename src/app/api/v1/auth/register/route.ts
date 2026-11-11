@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const input = await parseBody(req, schema);
     const { business, owner } = await registerTenant(input);
     // Neither waits: a slow or missing mail service never holds up the new shop.
-    sendWelcomeEmail({ to: input.email, name: owner.name, businessName: business.name, username: owner.username });
+    sendWelcomeEmail({ to: input.email, name: owner.name, businessName: business.name, username: owner.username, currency: input.currency });
     notifyNewSignup({ businessName: business.name, email: input.email, username: owner.username, method: "Register form" });
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const { token, expiresAt } = await createSession(owner.id, { ip, userAgent });
