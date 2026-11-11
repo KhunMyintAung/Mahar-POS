@@ -5,7 +5,7 @@ import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
 import { createRepairJob, PRIORITIES, REPAIR_STATUSES } from "@/services/repairService";
-import { BENCH_STATUSES } from "@/lib/repairStatus";
+import { BENCH_STATUSES, READY_STATUSES } from "@/lib/repairStatus";
 import { trackToken } from "@/lib/repairTrack";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
@@ -42,7 +42,13 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
     // "WORKING" is every status still on the bench, the Working count on the page.
     // "UNPAID": repaired, but no money taken on the job yet (its payment typed elsewhere, or
     // still to collect), so the shop can close each one with its real amount.
-    ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } } : status === "UNPAID" ? { status: "DONE", paidAmount: 0n } : status ? { status } : {}),
+    // "READY": work is over and the device is waiting to be collected, repaired or not (the
+    // Done count). "RETURNED_UNFIXED": could not be repaired and already handed back.
+    ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } }
+      : status === "READY" ? { status: { in: READY_STATUSES } }
+      : status === "UNPAID" ? { status: "DONE", paidAmount: 0n }
+      : status === "RETURNED_UNFIXED" ? { status: "DELIVERED", cannotRepair: true }
+      : status ? { status } : {}),
     ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
     // ?listMonth=1: the list too is the month's intake, matching the counts above it.
     ...(sp.get("listMonth") === "1" ? { receivedAt: monthRangeUtc(month) } : {}),
@@ -76,7 +82,9 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const summary = {
     total: byStatus.reduce((n, s) => n + s._count._all, 0),
     inWorkflow: count(BENCH_STATUSES),
-    completed: count(["DONE", "CANNOT_REPAIR"]),
+    completed: count(READY_STATUSES),
+    // Of those, the ones that could not be repaired and are still in the shop.
+    cannotRepair: count(["CANNOT_REPAIR"]),
     delivered: count(["DELIVERED"]),
     unpaid,
   };

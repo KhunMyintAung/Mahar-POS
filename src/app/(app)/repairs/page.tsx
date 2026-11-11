@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { autoCorrectDevice } from "@/lib/autoCorrect";
-import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench } from "lucide-react";
+import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench, Ban } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -65,6 +65,8 @@ interface Job {
   estimatedCost: string; partsCost: string; finalCost: string;
   depositAmount: string; paidAmount: string;
   receivedAt: string; deliveredAt?: string; promisedAt?: string | null;
+  /** Could not be repaired; still true once the device has been handed back. */
+  cannotRepair?: boolean;
   trackToken?: string | null; receivedByName?: string;
   /** Who repairs it, by name. */
   technicianName?: string | null;
@@ -73,7 +75,7 @@ interface Job {
   serialId?: string | null;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-interface Summary { total: number; inWorkflow: number; completed: number; delivered: number; unpaid?: number; month: string }
+interface Summary { total: number; inWorkflow: number; completed: number; cannotRepair?: number; delivered: number; unpaid?: number; month: string }
 interface Suggestions { brands: string[]; pairs: { brand: string; model: string }[] }
 
 const STATUS_TONE: Record<string, string> = {
@@ -571,7 +573,9 @@ export default function RepairsPage() {
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm dark:border-gray-700 dark:bg-gray-800 flex-1 sm:w-40 sm:flex-none">
               <option value="">All statuses</option>
               <option value="WORKING">Working (all in work)</option>
+              <option value="READY">Waiting to be collected</option>
               <option value="UNPAID">Done, not paid</option>
+              <option value="RETURNED_UNFIXED">Cannot repair, handed back</option>
               {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </select>
           </>
@@ -591,7 +595,9 @@ export default function RepairsPage() {
         {[
           { label: "Total", value: summary.total, icon: Wrench, tone: "text-blue-600", status: "" },
           { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: "WORKING" },
-          { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "DONE" },
+          { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "READY" },
+          // Could not be repaired and still in the shop: shown once there is one, so it is not forgotten.
+          ...(summary.cannotRepair ? [{ label: "Cannot Repair", value: summary.cannotRepair, icon: Ban, tone: "text-red-600", status: "CANNOT_REPAIR" }] : []),
           { label: "Delivered", value: summary.delivered, icon: PackageCheck, tone: "text-purple-600", status: "DELIVERED" },
           // Repaired with nothing taken on the job: shown once there is one, to close each.
           ...(summary.unpaid ? [{ label: "Not paid", value: summary.unpaid, icon: Banknote, tone: "text-red-600", status: "UNPAID" }] : []),
@@ -683,6 +689,9 @@ export default function RepairsPage() {
                   ) : (
                     <StatusPill status={job.status} />
                   )}
+                  {/* Where a phone that could not be fixed is now: still here, or gone home. */}
+                  {job.status === "CANNOT_REPAIR" && <div className="text-xs font-medium text-red-600">Not handed back yet</div>}
+                  {job.status === "DELIVERED" && job.cannotRepair && <div className="text-xs font-medium text-red-600">Cannot repair, handed back</div>}
                   {quickSaving === job.id && <div className="text-xs text-gray-400">Saving…</div>}
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums">

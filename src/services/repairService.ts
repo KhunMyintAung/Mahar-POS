@@ -352,6 +352,11 @@ export async function updateRepairStatus(
             ? null
             : job.completedAt,
       deliveredAt: opts.status === "DELIVERED" ? new Date() : job.deliveredAt,
+      // Kept through hand-back and cancelling; a job worked on again starts clean.
+      cannotRepair:
+        opts.status === "CANNOT_REPAIR" ? true
+          : opts.status === "DELIVERED" || opts.status === "CANCELLED" ? job.cannotRepair
+            : false,
     },
   });
 

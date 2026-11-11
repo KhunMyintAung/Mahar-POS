@@ -224,6 +224,10 @@ model RepairJob {
   promisedAt  DateTime?
   completedAt DateTime?
   deliveredAt DateTime?
+  /// The repair could not be done. Set with the CANNOT_REPAIR status and kept once the device
+  /// has gone back to its owner (DELIVERED), so "returned, not repaired" can still be told
+  /// from a repaired phone; cleared if the job goes back on the bench or is finished after all.
+  cannotRepair Boolean  @default(false)
 
   /// The shop's own trade-in phone (ItemSerial) being made ready to sell: no customer, no
   /// charge; its parts and repair fee go into the phone's cost.
