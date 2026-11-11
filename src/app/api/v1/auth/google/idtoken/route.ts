@@ -1,3 +1,4 @@
+import { deviceZone, ZONE_COOKIE } from "@/lib/zoneCookie";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createSession, SESSION_COOKIE } from "@/lib/auth";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     }
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || undefined;
     const userAgent = req.headers.get("user-agent") ?? undefined;
-    const result = await signInWithGoogle(identity, { ip, userAgent });
+    const result = await signInWithGoogle(identity, { ip, userAgent, timezone: deviceZone(req.cookies.get(ZONE_COOKIE)?.value) });
     if (!result.ok) return errorJson(403, MESSAGES[result.reason]);
 
     const { token, expiresAt } = await createSession(result.user.id, { ip, userAgent });

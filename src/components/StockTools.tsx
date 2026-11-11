@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
@@ -19,7 +20,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 
 /** Today and this month in the shop's own time zone, for the period picker. */
 function today(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat("en-CA", { timeZone: shopZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 /** Moves a day ("YYYY-MM-DD") or a month ("YYYY-MM") back or forward. */
 function shiftPeriod(value: string, step: number): string {
@@ -138,7 +139,7 @@ interface Movement {
 
 /** The shop's own day ("YYYY-MM-DD") a movement happened on. */
 const shopDay = (iso: string) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  new Intl.DateTimeFormat("en-CA", { timeZone: shopZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 /** What the units moved are worth: a delivery at the price it was bought for, anything else at
  *  the item's cost price now. In minor units. */
 const costOf = (m: Movement) => BigInt(Math.abs(m.quantity)) * BigInt(m.bought?.unitCost ?? m.item.costPrice ?? "0");

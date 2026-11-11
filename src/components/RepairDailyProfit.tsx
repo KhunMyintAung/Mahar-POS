@@ -1,5 +1,6 @@
 "use client";
 
+import { todayBusinessDate } from "@/lib/dates";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
@@ -15,7 +16,7 @@ interface Daily {
   day: { charge: string; otherIncome: string; income: string; parts: string; expense: string; profit: string };
 }
 
-const today = () => new Date(Date.now() + 390 * 60_000).toISOString().slice(0, 10);
+const today = () => todayBusinessDate();
 const shift = (d: string, days: number) => new Date(Date.parse(`${d}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 /** Repairs paid on a day: charge, parts cost and profit per job, per technician and in all. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
@@ -10,7 +11,7 @@ import { useCurrency } from "@/components/AppShell";
 interface Entry { id: string; txnNo: string; date: string; categoryName?: string | null; description?: string | null; amount: string }
 interface Row { supplierId: string; name: string; total: string; entries: Entry[] }
 
-const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date()).slice(0, 7);
+const thisMonth = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone() }).format(new Date()).slice(0, 7);
 const shiftMonth = (m: string, by: number) => {
   const d = new Date(`${m}-01T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + by);

@@ -1,8 +1,9 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export const todayDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+export const todayDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone() }).format(new Date());
 const shiftDay = (d: string, by: number) => {
   const x = new Date(`${d}T00:00:00Z`);
   x.setUTCDate(x.getUTCDate() + by);

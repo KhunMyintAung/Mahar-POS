@@ -1,3 +1,4 @@
+import { dateRangeUtc } from "./dates";
 /** Recording money for a day other than today (yesterday's bill sales, added up, or an
  *  expense forgotten last week) changes figures already looked at, so only the owner or an
  *  admin may do it, and the screen asks first. A day still to come is refused for everyone. */
@@ -12,10 +13,10 @@ export function otherDayProblem(roleName: string | null | undefined, date: strin
   return null;
 }
 
-/** Noon on a business day (Asia/Yangon), the time given to a record entered for that day,
- *  so it falls on that day in every report. */
+/** Noon on a business day in the shop's time zone, the time given to a record entered for
+ *  that day, so it falls on that day in every report. */
 export function businessNoon(date: string): Date {
-  return new Date(Date.parse(`${date}T12:00:00+06:30`));
+  return new Date(dateRangeUtc(date).gte.getTime() + 12 * 3600_000);
 }
 
 /** Cancelling an income, expense or withdrawal entry is the owner's alone. */

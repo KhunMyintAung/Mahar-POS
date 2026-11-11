@@ -1,5 +1,6 @@
 "use client";
 
+import { zoneCookie } from "@/lib/zoneCookie";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client";
 
@@ -43,6 +44,8 @@ export function GoogleSignIn({ label = "Continue with Google" }: { label?: strin
   const holder = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Where this device is, for a shop created by signing in with Google.
+    document.cookie = zoneCookie();
     // Deferred a frame so the update is an ordinary one rather than during mount.
     const frame = window.requestAnimationFrame(() => {
       api<{ enabled: boolean; clientId: string | null }>("/api/v1/auth/google/status")

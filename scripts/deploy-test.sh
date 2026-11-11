@@ -33,7 +33,27 @@ trap 'rm -f "$ARCHIVE" "$BUNDLE"' EXIT
 git archive --format=tar.gz -o "$ARCHIVE" HEAD
 echo "Copying $COMMIT to $BUILD…"
 ssh -o BatchMode=yes "$BUILD" mkdir -p "$BUILD_DIR"
-scp -q -o BatchMode=yes "$ARCHIVE" "$BUILD:$BUILD_DIR/release.tar.gz"
+# Sent in small parts, each on its own connection and tried again if it drops: from Myanmar
+# one long upload is often cut off part-way. The whole is checked before it is used.
+PARTS=$(mktemp -d -t maharpos-parts-XXXX)
+trap 'rm -rf "$ARCHIVE" "$BUNDLE" "$PARTS"' EXIT
+split -b 200k -d -a 3 "$ARCHIVE" "$PARTS/p."
+ssh -o BatchMode=yes "$BUILD" "rm -rf '$BUILD_DIR/parts' && mkdir -p '$BUILD_DIR/parts'"
+for part in "$PARTS"/p.*; do
+  name=$(basename "$part")
+  for attempt in 1 2 3 4 5 6; do
+    if ssh -o BatchMode=yes -o ConnectTimeout=20 "$BUILD" "cat > '$BUILD_DIR/parts/$name'" < "$part" 2>/dev/null \
+      && [ "$(ssh -o BatchMode=yes -o ConnectTimeout=20 "$BUILD" "stat -c %s '$BUILD_DIR/parts/$name'" 2>/dev/null)" = "$(stat -c %s "$part")" ]; then
+      continue 2
+    fi
+    sleep $((attempt * 2))
+  done
+  echo "Could not send $name to $BUILD after 6 tries." >&2
+  exit 1
+done
+SUM=$(sha1sum "$ARCHIVE" | cut -d' ' -f1 | tr -d '\\')
+ssh -o BatchMode=yes "$BUILD" "cd '$BUILD_DIR' && cat parts/p.* > release.tar.gz && rm -rf parts && [ \"\$(sha1sum release.tar.gz | cut -d' ' -f1)\" = '$SUM' ]" \
+  || { echo "The copy on $BUILD does not match what was sent." >&2; exit 1; }
 
 # The build runs detached on the server, so a dropped connection cannot stop it; this side
 # checks on it with short connections until it writes its exit code to build.status.

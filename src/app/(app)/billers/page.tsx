@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
@@ -59,7 +60,7 @@ function readCards(json?: string | null): Record<string, number> | null {
 
 /** Today in the shop's own time zone, as YYYY-MM-DD for the date picker. */
 function today(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  return new Intl.DateTimeFormat("en-CA", { timeZone: shopZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 function shiftDate(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);

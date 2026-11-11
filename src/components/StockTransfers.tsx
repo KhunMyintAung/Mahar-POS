@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/client";
@@ -21,7 +22,7 @@ interface Branch { id: string; name: string }
 interface DraftLine { item: StockLevel; quantity: string; imeis: string[] }
 
 const thisMonth = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
+  new Intl.DateTimeFormat("en-CA", { timeZone: shopZone(), year: "numeric", month: "2-digit" }).format(new Date()).slice(0, 7);
 function shiftMonth(month: string, step: number) {
   const [y, m] = month.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1 + step, 1)).toISOString().slice(0, 7);

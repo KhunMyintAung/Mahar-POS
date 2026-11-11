@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useState } from "react";
 import { correctProductName } from "@/lib/autoCorrect";
 import { Download, Plus } from "lucide-react";
@@ -65,7 +66,7 @@ const UnlimitedPill = () => (
   <span className="inline-block rounded-md bg-blue-50 px-1.5 py-0.5 text-center text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Unlimited</span>
 );
 
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone() }).format(new Date());
 /** Expired (red) or within a month of it (amber); nothing while there is time. */
 const ExpiryPill = ({ expiresAt }: { expiresAt: string }) => {
   const days = daysLeft(expiresAt, today());

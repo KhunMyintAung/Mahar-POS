@@ -1,3 +1,4 @@
+import { inShopZone } from "./shopZone";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, ZodType } from "zod";
 import { getAuthUser, can, AuthUser } from "./auth";
@@ -46,7 +47,8 @@ export function withAuth(perm: Permission | null, handler: Handler) {
         return errorJson(403, "You do not have permission to perform this action");
       }
       const params = props?.params ? await props.params : {};
-      return await handler({ req, user, params });
+      // In the shop's own time zone, so "today" and each day's range are that shop's.
+      return await inShopZone(user.businessId, () => handler({ req, user, params }));
     } catch (e) {
       return handleError(e);
     }

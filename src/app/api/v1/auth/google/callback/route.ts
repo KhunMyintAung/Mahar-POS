@@ -1,3 +1,4 @@
+import { deviceZone, ZONE_COOKIE } from "@/lib/zoneCookie";
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, SESSION_COOKIE } from "@/lib/auth";
 import { exchangeCodeForIdentity, googleConfig, GOOGLE_STATE_COOKIE } from "@/lib/googleAuth";
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     return backToLogin("google_failed");
   }
 
-  const result = await signInWithGoogle(identity, { ip, userAgent });
+  const result = await signInWithGoogle(identity, { ip, userAgent, timezone: deviceZone(req.cookies.get(ZONE_COOKIE)?.value) });
   if (!result.ok) return backToLogin(result.reason);
   const { token, expiresAt } = await createSession(result.user.id, { ip, userAgent });
 

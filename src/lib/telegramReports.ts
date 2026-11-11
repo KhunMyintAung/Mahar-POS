@@ -2,7 +2,8 @@ import { currencyLanguage } from "./currency";
 import { translateNotice } from "./telegramNoticeText";
 import { prisma } from "./prisma";
 import { sendMessageWith } from "./telegram";
-import { dateRangeUtc, todayBusinessDate } from "./dates";
+import { dateRangeUtc, shopClock, todayBusinessDate } from "./dates";
+import { inShopZone } from "./shopZone";
 import { computeDaySummary } from "@/services/summaryService";
 import { buildReport } from "@/services/reportService";
 
@@ -27,7 +28,7 @@ export interface TelegramReports {
   enabled: boolean;
   botToken: string | null;
   botUsername: string | null;
-  /** "HH:MM", shop time (Asia/Yangon). */
+  /** "HH:MM", on the shop's own clock. */
   dailyTime: string;
   targets: ReportTarget[];
   /** The business date the daily report last went out for, so it goes once a day. */
@@ -160,19 +161,23 @@ export async function buildDailyReport(businessId: string, date: string): Promis
 
 /** The shop's clock: today's business date and the time now as "HH:MM". */
 function shopNow(): { date: string; time: string } {
-  const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Yangon", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-  return { date: todayBusinessDate(), time };
+  return { date: todayBusinessDate(), time: shopClock() };
 }
 
 /** Called every minute: sends each shop's daily report once its time has come today. */
 export async function runDueDailyReports() {
   const rows = await prisma.systemSetting.findMany({ where: { key: TELEGRAM_REPORTS_KEY } });
-  const { date, time } = shopNow();
-  for (const row of rows) {
+  // Each shop by its own clock: a shop in Bangkok gets its report at its time, for its day.
+  for (const row of rows) await inShopZone(row.businessId, () => sendDueDailyReport(row));
+}
+
+async function sendDueDailyReport(row: { businessId: string; value: string }) {
+  {
+    const { date, time } = shopNow();
     let cfg: TelegramReports;
-    try { cfg = parseTelegramReports(JSON.parse(row.value)); } catch { continue; }
-    if (!cfg.enabled || !cfg.botToken || !cfg.targets.some((t) => t.daily)) continue;
-    if (time < cfg.dailyTime || cfg.lastDailySent === date) continue;
+    try { cfg = parseTelegramReports(JSON.parse(row.value)); } catch { return; }
+    if (!cfg.enabled || !cfg.botToken || !cfg.targets.some((t) => t.daily)) return;
+    if (time < cfg.dailyTime || cfg.lastDailySent === date) return;
     // Marked first, so a slow send can never go out twice from the next tick.
     await saveTelegramReports(row.businessId, { ...cfg, lastDailySent: date });
     try {

@@ -1,7 +1,7 @@
 import type { AuthUser } from "./auth";
 import type { AiProvider } from "./aiKey";
 import { AI_TOOLS, runAiTool, type AiTool } from "./aiTools";
-import { todayBusinessDate } from "./dates";
+import { todayBusinessDate, shopZone } from "./dates";
 
 /** The Telegram AI helper: a shop's question, answered from its own records with the
  *  shop's own OpenAI, Gemini or DeepSeek key.
@@ -35,7 +35,7 @@ export class AiError extends Error {
 function systemPrompt(user: AuthUser, businessName: string): string {
   return [
     `You are the business assistant inside Mahar Mini POS, talking over Telegram to ${user.name} (${user.roleName}) of the shop "${businessName}" in Myanmar.`,
-    `Today is ${todayBusinessDate()} (Asia/Yangon). Money is Myanmar kyat (MMK) unless a record says otherwise.`,
+    `Today is ${todayBusinessDate()} (${shopZone()}). Money is Myanmar kyat (MMK) unless a record says otherwise.`,
     "Always answer in Myanmar (Burmese) language, briefly and clearly, the way a helpful shop accountant would talk.",
     "Use the tools to look up the shop's real figures before answering any question about its numbers; never guess or invent figures.",
     "If a tool says the user has no permission, say so politely. If the records do not hold the answer, say that.",

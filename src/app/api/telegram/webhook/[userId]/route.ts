@@ -1,3 +1,4 @@
+import { inShopZone } from "@/lib/shopZone";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withBotToken } from "@/lib/telegram";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { active: true, deletedAt: true, telegramBotToken: true, telegramWebhookSecret: true },
+    select: { businessId: true, active: true, deletedAt: true, telegramBotToken: true, telegramWebhookSecret: true },
   });
   if (!user || !user.active || user.deletedAt || !user.telegramBotToken || !user.telegramWebhookSecret) {
     return new NextResponse("Not found", { status: 404 });
@@ -32,7 +33,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
   }
 
   try {
-    await withBotToken(user.telegramBotToken, () => handleUpdate(update, userId));
+    const token = user.telegramBotToken;
+    // What the bot records and reports is counted in the shop's own days.
+    await inShopZone(user.businessId, () => withBotToken(token, () => handleUpdate(update, userId)));
   } catch (e) {
     console.error("[telegram webhook]", e);
   }

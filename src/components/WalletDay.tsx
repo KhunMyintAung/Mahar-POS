@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { api } from "@/lib/client";
@@ -31,7 +32,7 @@ const FILTERS: [string, string, (e: Entry) => boolean][] = [
   ["out", "Money out", (e) => e.direction === "CREDIT"],
 ];
 
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone() }).format(new Date());
 const shiftDay = (d: string, by: number) => {
   const x = new Date(`${d}T00:00:00Z`);
   x.setUTCDate(x.getUTCDate() + by);

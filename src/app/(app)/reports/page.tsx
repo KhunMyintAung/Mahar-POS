@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileSpreadsheet, Settings2 } from "lucide-react";
 import { api } from "@/lib/client";
@@ -55,7 +56,7 @@ interface OffDayReport {
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const big = (m: Money) => BigInt(m);
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon" }).format(new Date());
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone() }).format(new Date());
 const tone = (m: Money) => (big(m) < 0n ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400");
 const field = "min-h-10 rounded-lg border border-gray-300 bg-white px-2 text-base dark:border-gray-700 dark:bg-gray-800 sm:text-sm";
 

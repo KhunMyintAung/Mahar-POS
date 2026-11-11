@@ -1,7 +1,8 @@
 import { randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { TIME_PATTERN } from "./telegramReports";
-import { todayBusinessDate } from "./dates";
+import { shopClock, todayBusinessDate } from "./dates";
+import { inShopZone } from "./shopZone";
 import { reportSheets, resolvePeriod } from "./reportSheets";
 import { buildReport } from "@/services/reportService";
 import type { Sheet } from "./xlsx";
@@ -127,16 +128,21 @@ async function defaultSheets(businessId: string): Promise<Sheet[]> {
 /** Called every minute: each shop's automatic sync, every hour or once a day after its time. */
 export async function runDueGsheetBackups() {
   const rows = await prisma.systemSetting.findMany({ where: { key: GSHEET_KEY } });
-  const date = todayBusinessDate();
-  const time = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Yangon", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
-  for (const row of rows) {
+  // Each shop by its own clock and its own day.
+  for (const row of rows) await inShopZone(row.businessId, () => runDueGsheetBackup(row));
+}
+
+async function runDueGsheetBackup(row: { businessId: string; value: string }) {
+  {
+    const date = todayBusinessDate();
+    const time = shopClock();
     let cfg: GsheetBackup;
-    try { cfg = parseGsheet(JSON.parse(row.value)); } catch { continue; }
-    if (!cfg.auto || !cfg.url) continue;
+    try { cfg = parseGsheet(JSON.parse(row.value)); } catch { return; }
+    if (!cfg.auto || !cfg.url) return;
     const due = cfg.interval === "hourly"
       ? !cfg.lastSyncAt || Date.now() - Date.parse(cfg.lastSyncAt) >= 60 * 60_000
       : time >= cfg.time && cfg.lastSent !== date;
-    if (!due) continue;
+    if (!due) return;
     const stamp = { lastSent: date, lastSyncAt: new Date().toISOString() };
     // Marked first, so a slow sync never runs twice.
     await saveGsheet(row.businessId, { ...cfg, ...stamp });

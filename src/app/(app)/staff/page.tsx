@@ -1,5 +1,6 @@
 "use client";
 
+import { todayBusinessDate } from "@/lib/dates";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { api } from "@/lib/client";
@@ -63,7 +64,7 @@ const STATUSES = [
   { v: "LEAVE", label: "Leave", cls: "bg-blue-600 text-white" },
 ] as const;
 
-const today = () => new Date(Date.now() + 390 * 60_000).toISOString().slice(0, 10);
+const today = () => todayBusinessDate();
 const minorToInput = (v: string) => (BigInt(v) / 100n).toString();
 const num = (v: string) => parseFloat(v.replace(/,/g, "")) || 0;
 

@@ -1,3 +1,4 @@
+import { isTimeZone } from "./dates";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
@@ -16,7 +17,7 @@ import { notifyNewSignup, sendWelcomeEmail } from "./mail";
 
 /** No password is chosen, so a long random one is stored: never shown to anyone and not
  *  guessable, which leaves Google as the only way in until the owner sets one. */
-async function signUpWithGoogle(identity: GoogleIdentity) {
+async function signUpWithGoogle(identity: GoogleIdentity, timezone?: string) {
   // A derived username can collide with an existing account, so take the first free one.
   let username = usernameFromEmail(identity.email);
   for (let attempt = 1; attempt <= 20; attempt += 1) {
@@ -36,7 +37,8 @@ async function signUpWithGoogle(identity: GoogleIdentity) {
     emailVerified: true,
     password: randomBytes(24).toString("hex"),
     currency: "MMK",
-    timezone: "Asia/Yangon",
+    // The zone of the device they signed up on (the button leaves it in a cookie).
+    timezone: isTimeZone(timezone) ? timezone : "Asia/Yangon",
   });
   return { user: await prisma.user.findUniqueOrThrow({ where: { id: owner.id } }), businessName: business.name, username };
 }
@@ -82,7 +84,7 @@ export type GoogleSignInResult =
   | { ok: true; user: { id: string; businessId: string }; isNew: boolean }
   | { ok: false; reason: "google_unverified" | "google_disabled" | "locked" | "google_signup_failed" };
 
-export async function signInWithGoogle(identity: GoogleIdentity, meta: { ip?: string; userAgent?: string }): Promise<GoogleSignInResult> {
+export async function signInWithGoogle(identity: GoogleIdentity, meta: { ip?: string; userAgent?: string; timezone?: string }): Promise<GoogleSignInResult> {
   // An unverified address proves nothing about who is signing in.
   if (!identity.emailVerified) return { ok: false, reason: "google_unverified" };
 
@@ -107,7 +109,7 @@ export async function signInWithGoogle(identity: GoogleIdentity, meta: { ip?: st
   if (!user) {
     isNew = true;
     try {
-      const made = await signUpWithGoogle(identity);
+      const made = await signUpWithGoogle(identity, meta.timezone);
       user = made.user;
       sendWelcomeEmail({ to: identity.email, name: identity.name ?? made.username, businessName: made.businessName, username: made.username, viaGoogle: true });
       notifyNewSignup({ businessName: made.businessName, email: identity.email, username: made.username, method: "Google" });

@@ -1,5 +1,6 @@
 "use client";
 
+import { shopZone } from "@/lib/dates";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/client";
@@ -37,7 +38,7 @@ interface DashData {
 }
 
 /** Today in the shop's time zone, to label the income card. */
-const todayDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Yangon", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: shopZone(), year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 /** A total and the lines that make it up, in small type. */
 function DayLines({ title, total, lines, tone, empty }: {
@@ -122,7 +123,7 @@ export default function DashboardPage() {
         // small enough to sit above the cards, whole enough that nothing entered is missing.
         <Card className="grid gap-3 sm:grid-cols-2">
           <DayLines
-            title={data.date === todayDate ? "Today's Total Income" : "Total Income"}
+            title={data.date === today() ? "Today's Total Income" : "Total Income"}
             total={data.income.total}
             lines={data.income.lines}
             tone="green"
@@ -130,7 +131,7 @@ export default function DashboardPage() {
           />
           {data.expense && (
             <DayLines
-              title={data.date === todayDate ? "Today's Expense" : "Expense"}
+              title={data.date === today() ? "Today's Expense" : "Expense"}
               total={data.expense.total}
               lines={data.expense.lines}
               tone="red"
@@ -225,7 +226,7 @@ export default function DashboardPage() {
           <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
             {data.pos.expiring.map((it) => (
               <li key={it.id}>
-                {it.name}: <b className={it.expiresAt < todayDate ? "text-red-600" : "text-amber-700 dark:text-amber-400"}>{it.expiresAt}</b> {`(${it.qty} left)`}
+                {it.name}: <b className={it.expiresAt < today() ? "text-red-600" : "text-amber-700 dark:text-amber-400"}>{it.expiresAt}</b> {`(${it.qty} left)`}
               </li>
             ))}
           </ul>
