@@ -594,7 +594,7 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
     return "en";
   }
 
-  var lang = "my", shops = [], shown = 12, stats = null, failed = false;
+  var lang = "my", shops = [], shown = 12, stats = null, failed = false, loaded = false;
 
   function setLang(l, keep) {
     lang = l;
@@ -634,7 +634,8 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
   function renderShops() {
     var box = document.getElementById("shopList"), count = document.getElementById("count"), more = document.getElementById("more");
     if (failed) { box.innerHTML = '<div class="empty">' + UI[lang].fail + "</div>"; count.textContent = ""; more.hidden = true; return; }
-    if (!stats && !shops.length) return;
+    // Until the list has arrived the line keeps saying it is loading, never "0 shops".
+    if (!loaded) return;
     var q = document.getElementById("q").value.trim().toLowerCase(), p = document.getElementById("place").value;
     var list = shops.filter(function (s) {
       return (!q || s.name.toLowerCase().indexOf(q) >= 0 || place(s).toLowerCase().indexOf(q) >= 0) && (!p || s.location === p || (!s.location && s.country === p));
@@ -671,7 +672,7 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
         if (all.length < d.total && d.shops.length && page < 20) return next(page + 1);
       });
     })(1).then(function () {
-      failed = false; shops = all; renderPlaces(); renderShops();
+      failed = false; loaded = true; shops = all; renderPlaces(); renderShops();
     }).catch(function () { if (!shops.length) { failed = true; renderShops(); } });
   }
 
