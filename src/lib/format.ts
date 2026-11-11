@@ -24,17 +24,36 @@ export function fmtMoneyPlain(minor: string | number | bigint | null | undefined
   return money(minor, currency, (digits) => digits);
 }
 
+/** The time zone dates and times are shown in. The signed-in shop's own (AppShell sets it
+ *  from Business.timezone); Asia/Yangon until then, and on the server. */
+let shopTimeZone = "Asia/Yangon";
+
+/** True for a zone name the runtime knows ("Asia/Bangkok"), so a bad stored value is never used. */
+export function isTimeZone(zone: unknown): zone is string {
+  if (typeof zone !== "string" || !zone) return false;
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function setShopTimeZone(zone: string | null | undefined) {
+  shopTimeZone = isTimeZone(zone) ? zone : "Asia/Yangon";
+}
+
 export function fmtDateTime(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
   return d.toLocaleString("en-GB", {
-    timeZone: "Asia/Yangon",
+    timeZone: shopTimeZone,
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 }
 
 export function fmtDate(iso: string | Date): string {
   const d = typeof iso === "string" ? new Date(iso) : iso;
-  return d.toLocaleDateString("en-GB", { timeZone: "Asia/Yangon", day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-GB", { timeZone: shopTimeZone, day: "2-digit", month: "short", year: "numeric" });
 }
 
 export const STATUS_COLORS: Record<string, string> = {

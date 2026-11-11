@@ -8,6 +8,7 @@ import { Button, Input, Modal, Select, useToast } from "@/components/ui";
 import { useAuth, useCurrency } from "@/components/AppShell";
 import { REPAIR_STATUS_LABELS, REPAIR_STATUS_MM, type RepairStatus } from "@/lib/repairStatus";
 import { printRepairVoucher } from "@/lib/slipPrint";
+import { currencyLanguage, type AppLanguage } from "@/lib/currency";
 import { playSuccess } from "@/lib/sound";
 import { parseRepairFlow, REPAIR_FLOW_KEY } from "@/lib/repairFlow";
 import type { RepairVoucherData } from "@/components/RepairVoucher";
@@ -53,6 +54,14 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
     return () => window.clearTimeout(t);
   }, [job]); // eslint-disable-line react-hooks/exhaustive-deps -- reset on a new scan only
 
+  // The language the shop's vouchers are in (Settings → Repair voucher), for the receipt.
+  const [voucherLang, setVoucherLang] = useState<AppLanguage | null>(null);
+  useEffect(() => {
+    api<{ printLanguage: AppLanguage }>("/api/v1/settings/repair-voucher")
+      .then((d) => setVoucherLang(d.printLanguage))
+      .catch(() => {});
+  }, []);
+
   if (!current) return null;
   const delivered = current.status === "DELIVERED";
   const cancelled = current.status === "CANCELLED";
@@ -83,6 +92,8 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
       finalCost: kyat(j.finalCost),
       paidAmount: kyat(j.paidAmount),
       trackUrl: j.trackToken ? `${window.location.origin}/track/${j.trackToken}` : undefined,
+      currency: cur,
+      language: voucherLang ?? currencyLanguage(cur),
     };
   }
 
@@ -123,7 +134,7 @@ export function RepairHandBack({ job, wallets, onClose }: { job: HandBackJob | n
             <p>{[current.customerName, current.customerPhone].filter(Boolean).join(" · ")}</p>
           )}
           <p className="text-gray-600 dark:text-gray-300">{current.problem}</p>
-          <p>Status: <b>{REPAIR_STATUS_LABELS[current.status as RepairStatus] ?? current.status}</b> <span className="text-gray-500">({REPAIR_STATUS_MM[current.status] ?? current.status})</span></p>
+          <p>Status: <b>{REPAIR_STATUS_LABELS[current.status as RepairStatus] ?? current.status}</b> {(voucherLang ?? currencyLanguage(cur)) === "mm" && <span className="text-gray-500">({REPAIR_STATUS_MM[current.status] ?? current.status})</span>}</p>
         </div>
 
         {delivered ? (

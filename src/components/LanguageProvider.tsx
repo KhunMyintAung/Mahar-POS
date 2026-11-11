@@ -1,11 +1,11 @@
 "use client";
 
-import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Languages } from "lucide-react";
 import { cn } from "./ui";
 import { TH } from "@/lib/i18n/th";
 import { TH_PATTERNS } from "@/lib/i18n/thPatterns";
-import { inCurrency } from "@/lib/currency";
+import { currencyLanguage, inCurrency } from "@/lib/currency";
 
 type Language = "en" | "mm" | "th";
 const LANGUAGES: Language[] = ["mm", "en", "th"];
@@ -16,7 +16,11 @@ const LanguageContext = createContext<{
   language: Language;
   setLanguage: (language: Language) => void;
   setCurrency: (currency: string) => void;
-}>({ language: "en", setLanguage: () => {}, setCurrency: () => {} });
+  setAccount: (userId: string, currency: string) => void;
+}>({ language: "en", setLanguage: () => {}, setCurrency: () => {}, setAccount: () => {} });
+
+/** The language a user picked by hand, kept per account on this device. */
+const accountKey = (userId: string) => `wn-language:${userId}`;
 
 const MM: Record<string, string> = {
   "All months": "လအားလုံး",
@@ -855,6 +859,8 @@ const MM: Record<string, string> = {
   "Paid into": "ငွေထည့်မည့် Wallet",
   "Voucher number format and the text printed on the repair voucher.": "ဘောက်ချာနံပါတ် ပုံစံနှင့် ဘောက်ချာပေါ်တွင် ထုတ်မည့်စာများ",
   "Voucher prefix": "ဘောက်ချာ ရှေ့စာလုံး",
+  "Voucher language": "ဘောက်ချာ ဘာသာစကား",
+  "The voucher and the customer's status page are written in this language, whatever language the app is shown in.": "App ကို ဘယ်ဘာသာစကားနဲ့ ကြည့်နေပါစေ၊ ဘောက်ချာနှင့် ဖောက်သည်ကြည့်သည့် အခြေအနေစာမျက်နှာကို ဤဘာသာစကားဖြင့် ရေးပါမည်။",
   "Digits": "ဂဏန်းအရေအတွက်",
   "Next number": "နောက်နံပါတ်",
   "Line under shop name": "ဆိုင်နာမည်အောက် စာကြောင်း",
@@ -2205,7 +2211,12 @@ function translate(value: string) {
 }
 
 function applyLanguage(root: ParentNode, language: Language) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  // A part marked data-no-i18n (the repair voucher, printed in the shop's own language) is
+  // left exactly as written.
+  if (root instanceof Element && root.closest("[data-no-i18n]")) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, (n) =>
+    n.nodeType === Node.TEXT_NODE ? NodeFilter.FILTER_ACCEPT
+      : (n as Element).hasAttribute("data-no-i18n") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP);
   let node: Node | null = walker.nextNode();
   while (node) {
     const current = node.nodeValue ?? "";
@@ -2223,7 +2234,7 @@ function applyLanguage(root: ParentNode, language: Language) {
   for (const element of elements) {
     for (const attribute of ["placeholder", "title", "aria-label"]) {
       const current = element.getAttribute(attribute);
-      if (!current) continue;
+      if (!current || element.closest("[data-no-i18n]")) continue;
       let stored = originalAttributes.get(element);
       if (!stored) {
         stored = new Map();
@@ -2251,9 +2262,15 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     applyLanguage(document.body, saved);
   }, []);
 
+  // The signed-in user, so a language picked by hand is remembered for that account only.
+  const account = useRef<string | null>(null);
+
   useEffect(() => {
-    const saved = localStorage.getItem("wn-language");
     const frame = window.requestAnimationFrame(() => {
+      // A frame can come late (a tab opened in the background): by then the account may
+      // have set its own language, which is not to be put back to the device's last one.
+      if (account.current) return;
+      const saved = localStorage.getItem("wn-language");
       if (isLanguage(saved) && saved !== "en") setLanguageState(saved);
     });
     return () => window.cancelAnimationFrame(frame);
@@ -2284,11 +2301,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   function setLanguage(next: Language) {
     localStorage.setItem("wn-language", next);
+    try { if (account.current) localStorage.setItem(accountKey(account.current), next); } catch { /* private mode */ }
     setLanguageState(next);
   }
 
+  /** On sign-in: the language this user picked on this device, or else the one their shop's
+   *  main currency stands for (THB Thai, USD English, MMK Myanmar). The device may have been
+   *  left in another account's language; that one is not carried over. */
+  const setAccount = useCallback((userId: string, accountCurrency: string) => {
+    account.current = userId;
+    let own: string | null = null;
+    try { own = localStorage.getItem(accountKey(userId)); } catch { /* private mode */ }
+    const next = isLanguage(own) ? own : currencyLanguage(accountCurrency);
+    try { localStorage.setItem("wn-language", next); } catch { /* private mode */ }
+    setLanguageState(next);
+  }, []);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, setCurrency }}>
+    <LanguageContext.Provider value={{ language, setLanguage, setCurrency, setAccount }}>
       {children}
     </LanguageContext.Provider>
   );
@@ -2334,4 +2364,10 @@ export function useLanguage(): Language {
 export function useShowCurrency(currency: string) {
   const { setCurrency } = useContext(LanguageContext);
   useEffect(() => { setCurrency(currency); }, [currency, setCurrency]);
+}
+
+/** Shows the app in the signed-in account's language (see setAccount in the provider). */
+export function useAccountLanguage(userId: string | undefined, currency: string | undefined) {
+  const { setAccount } = useContext(LanguageContext);
+  useEffect(() => { if (userId && currency) setAccount(userId, currency); }, [userId, currency, setAccount]);
 }

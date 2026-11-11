@@ -578,6 +578,7 @@ export default function PosPage() {
         shopLogo: me?.business?.logoUrl ?? undefined,
         shopPhone: me?.business?.phone ?? undefined,
         shopAddress: me?.business?.address ?? undefined,
+        currency: me?.business?.currency,
         customerName: customers.find((c) => c.id === customerId)?.name,
         cashierName: me?.user.name,
         lines: cart.map((line) => ({

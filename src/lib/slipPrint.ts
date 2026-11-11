@@ -12,8 +12,9 @@
 import QRCode from "qrcode";
 import type { ReceiptData } from "@/components/SaleReceipt";
 import type { RepairVoucherData } from "@/components/RepairVoucher";
-import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
-import { DEFAULT_REPAIR_VOUCHER } from "@/lib/repairVoucherSettings";
+import type { RepairStatus } from "@/lib/repairStatus";
+import { voucherText } from "@/lib/repairVoucherText";
+import { receiptText } from "@/lib/saleReceiptText";
 import { targetPaperWidth } from "@/lib/printSettings";
 import { cloudPrintActive, sendToCloudPrinter } from "@/lib/cloudPrintSend";
 
@@ -110,26 +111,30 @@ function brandBlock(shop: { name: string; logo?: string; phone?: string; address
 
 /** The sale receipt, as the multishop app prints it. */
 export function printSaleReceipt(sale: ReceiptData, targetWindow: Window | null = null): boolean {
+  // In the shop's currency, and in Thai for a THB shop.
+  const t = receiptText(sale.currency);
+  const cur = escapeHtml(sale.currency ?? "MMK");
+  const foc = escapeHtml(t.foc);
   const items = sale.lines.map((item) => {
     const meta = [
-      item.warranty ? `${item.warrantyUntil ? "✔ " : ""}${item.warranty}${item.warrantyUntil ? ` (until ${new Date(item.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})` : ""}` : "",
+      item.warranty ? `${item.warrantyUntil ? "✔ " : ""}${item.warranty}${item.warrantyUntil ? ` (${t.until} ${new Date(item.warrantyUntil).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })})` : ""}` : "",
       item.imeis?.length ? `IMEI: ${item.imeis.join(", ")}` : "",
-      item.note ? `Note: ${item.note}` : "",
+      item.note ? `${t.note}: ${item.note}` : "",
     ].filter(Boolean).join(" · ");
     return `
     <tr>
       <td>${escapeHtml(item.name)}${meta ? `<small>${escapeHtml(meta)}</small>` : ""}</td>
       <td class="center c-qty">${Number(item.quantity || 0)}</td>
-      <td class="right c-price">${item.unitPrice === 0 ? "FOC" : money(item.unitPrice)}</td>
-      <td class="right c-total">${item.unitPrice === 0 ? "FOC" : money(item.unitPrice * item.quantity)}</td>
+      <td class="right c-price">${item.unitPrice === 0 ? foc : money(item.unitPrice)}</td>
+      <td class="right c-total">${item.unitPrice === 0 ? foc : money(item.unitPrice * item.quantity)}</td>
     </tr>`;
   }).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(sale.txnNo)}</title><style>${baseStyles()}</style></head><body>
-    ${brandBlock({ name: sale.shopName, logo: sale.shopLogo, phone: sale.shopPhone, address: sale.shopAddress }, "Sale Receipt")}
-    <div class="meta"><div><span>Invoice</span><b>${escapeHtml(sale.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(sale.at))}</b></div>${sale.cashierName ? `<div><span>Cashier</span><b>${escapeHtml(sale.cashierName)}</b></div>` : ""}</div>
-    <table class="items"><thead><tr><th>Item</th><th class="center c-qty">Qty</th><th class="right c-price">Price</th><th class="right c-total">Total</th></tr></thead><tbody>${items}</tbody></table>
-    <div class="summary"><div><span>Subtotal</span><b>${money(sale.subtotal)}</b></div>${sale.discount > 0 ? `<div><span>Discount</span><b>${money(sale.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(sale.total)} MMK</b></div>${sale.paid !== sale.total || sale.change > 0 ? `<div><span>Paid</span><b>${money(sale.paid)}</b></div>` : ""}${sale.change > 0 ? `<div><span>Change</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>Owing</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>Customer</span><b>${escapeHtml(sale.customerName || "Walk-in Customer")}</b></div></div>
-    <div class="footer">Thank you.</div>
+    ${brandBlock({ name: sale.shopName, logo: sale.shopLogo, phone: sale.shopPhone, address: sale.shopAddress }, t.title)}
+    <div class="meta"><div><span>${escapeHtml(t.invoice)}</span><b>${escapeHtml(sale.txnNo)}</b></div><div><span>${escapeHtml(t.date)}</span><b>${escapeHtml(when(sale.at))}</b></div>${sale.cashierName ? `<div><span>${escapeHtml(t.cashier)}</span><b>${escapeHtml(sale.cashierName)}</b></div>` : ""}</div>
+    <table class="items"><thead><tr><th>${escapeHtml(t.item)}</th><th class="center c-qty">${escapeHtml(t.qty)}</th><th class="right c-price">${escapeHtml(t.price)}</th><th class="right c-total">${escapeHtml(t.amount)}</th></tr></thead><tbody>${items}</tbody></table>
+    <div class="summary"><div><span>${escapeHtml(t.subtotal)}</span><b>${money(sale.subtotal)}</b></div>${sale.discount > 0 ? `<div><span>${escapeHtml(t.discount)}</span><b>${money(sale.discount)}</b></div>` : ""}<div class="grand"><span>${escapeHtml(t.total)}</span><b>${money(sale.total)} ${cur}</b></div>${sale.paid !== sale.total || sale.change > 0 ? `<div><span>${escapeHtml(t.paid)}</span><b>${money(sale.paid)}</b></div>` : ""}${sale.change > 0 ? `<div><span>${escapeHtml(t.change)}</span><b>${money(sale.change)}</b></div>` : ""}${sale.credit > 0 ? `<div><span>${escapeHtml(t.owing)}</span><b>${money(sale.credit)}</b></div>` : ""}<div><span>${escapeHtml(t.customer)}</span><b>${escapeHtml(sale.customerName || t.walkIn)}</b></div></div>
+    <div class="footer">${escapeHtml(t.thanks)}</div>
     ${autoPrint()}</body></html>`;
   return printWindow(targetWindow, html, sale.txnNo);
 }
@@ -143,6 +148,8 @@ export interface PurchaseSlipData {
   reference?: string | null; notes?: string | null;
   lines: { name: string; quantity: number; unitCost: number; lineTotal: number; imeis: string[] }[];
   shopName: string; shopPhone?: string | null; shopAddress?: string | null;
+  /** The shop's main currency, printed after the total. MMK when not given. */
+  currency?: string;
   supplierName: string | null; supplierPhone: string | null; walletName: string | null; createdByName: string | null;
 }
 
@@ -162,7 +169,7 @@ export function printPurchaseVoucher(p: PurchaseSlipData, targetWindow: Window |
     ${cancelled ? '<div class="void">CANCELLED</div>' : ""}
     <div class="meta"><div><span>Voucher</span><b>${escapeHtml(p.txnNo)}</b></div><div><span>Date</span><b>${escapeHtml(when(p.createdAt))}</b></div><div><span>Supplier</span><b>${escapeHtml(p.supplierName ?? "—")}${p.supplierPhone ? ` · ${escapeHtml(p.supplierPhone)}` : ""}</b></div>${p.reference ? `<div><span>Reference</span><b>${escapeHtml(p.reference)}</b></div>` : ""}${p.createdByName ? `<div><span>Recorded by</span><b>${escapeHtml(p.createdByName)}</b></div>` : ""}</div>
     <table class="items"><thead><tr><th>Item</th><th class="center c-qty">Qty</th><th class="right c-price">Cost</th><th class="right c-total">Amount</th></tr></thead><tbody>${items}</tbody></table>
-    <div class="summary">${p.discount > 0 ? `<div><span>Subtotal</span><b>${money(p.subtotal)}</b></div><div><span>Discount</span><b>-${money(p.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(p.total)} MMK</b></div><div><span>Paid${p.walletName ? ` (${escapeHtml(p.walletName)})` : ""}</span><b>${money(p.paid - (p.paidSince ?? 0))}</b></div>${p.paidSince ? `<div><span>Paid to supplier since</span><b>${money(p.paidSince)}</b></div>` : ""}${owed > 0 ? `<div><span>Credit (still owed)</span><b>${money(owed)}</b></div>` : ""}<div><span>Status</span><b>${state}</b></div></div>
+    <div class="summary">${p.discount > 0 ? `<div><span>Subtotal</span><b>${money(p.subtotal)}</b></div><div><span>Discount</span><b>-${money(p.discount)}</b></div>` : ""}<div class="grand"><span>Total</span><b>${money(p.total)} ${escapeHtml(p.currency ?? "MMK")}</b></div><div><span>Paid${p.walletName ? ` (${escapeHtml(p.walletName)})` : ""}</span><b>${money(p.paid - (p.paidSince ?? 0))}</b></div>${p.paidSince ? `<div><span>Paid to supplier since</span><b>${money(p.paidSince)}</b></div>` : ""}${owed > 0 ? `<div><span>Credit (still owed)</span><b>${money(owed)}</b></div>` : ""}<div><span>Status</span><b>${state}</b></div></div>
     ${p.notes ? `<p class="muted left">${nl2br(p.notes)}</p>` : ""}
     <div class="sign"><div>Received by</div><div>Supplier</div></div>
     ${autoPrint(true)}</body></html>`;
@@ -186,23 +193,27 @@ export async function printRepairVoucher(repair: RepairVoucherData, targetWindow
   // A delivered job prints as the customer's receipt: no drop-off warnings, QR or signatures.
   const receipt = repair.status === "DELIVERED";
   if (receipt) qr = "";
-  const terms = repair.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
-  const qrCaption = repair.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
+  // In the shop's language and currency (not the screen's): the voucher is the customer's.
+  const t = voucherText(repair.language, "print");
+  const cur = escapeHtml(repair.currency ?? "MMK");
+  const terms = repair.terms ?? t.terms;
+  const qrCaption = repair.qrCaption ?? t.qrCaption;
   const device = [repair.deviceBrand, repair.deviceModel].filter(Boolean).join(" ") || "-";
   const charged = repair.finalCost > 0 ? repair.finalCost : repair.estimatedCost;
   const balance = Math.max(0, charged - repair.paidAmount);
   const settled = repair.finalCost > 0 && balance === 0;
+  const collectedSub = [t.collectedSub, repair.deliveredAt ? when(repair.deliveredAt) : ""].filter(Boolean).join(" · ");
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(repair.jobNo)}</title><style>${baseStyles()}</style></head><body>
-    ${brandBlock({ name: repair.shopName, logo: repair.shopLogo, phone: repair.shopPhone, address: repair.shopAddress, subtitle: repair.tagline }, receipt ? "Repair Receipt · ပြေစာ" : "Repair Voucher")}
-    ${receipt ? `<div style="margin:6px auto 4px;width:fit-content;border:2px solid #000;border-radius:4px;padding:3px 10px;text-align:center"><div style="font-size:17px;font-weight:700">✔ ဖုန်းရွေးယူပြီး</div><div style="font-size:10px;font-weight:700">COLLECTED${repair.deliveredAt ? ` · ${escapeHtml(when(repair.deliveredAt))}` : ""}</div></div>` : ""}
-    <div class="voucher-no"><span>ဘောက်ချာနံပါတ်</span><b>${escapeHtml(repair.jobNo)}</b></div>
-    <div class="meta" style="margin-top:2px"><div><span>လက်ခံရက်</span><b>${escapeHtml(when(repair.at))}</b></div>${receipt && repair.deliveredAt ? `<div><span>ပြန်ပေးရက်</span><b>${escapeHtml(when(repair.deliveredAt))}</b></div>` : ""}<div><span>နာမည်</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>ဖုန်း</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
-    <table><tbody><tr><th>Device</th><td>${escapeHtml(device)}</td></tr>${repair.imei ? `<tr><th>IMEI / Serial</th><td>${escapeHtml(repair.imei)}</td></tr>` : ""}<tr><th>Problem</th><td>${escapeHtml(repair.problem || "-")}</td></tr>${repair.accessories ? `<tr><th>Accessories</th><td>${escapeHtml(repair.accessories)}</td></tr>` : ""}<tr><th>Status</th><td>${escapeHtml(REPAIR_STATUS_MM[repair.status] ?? repair.status)}</td></tr></tbody></table>
-    <div class="summary"><div><span>${repair.finalCost > 0 ? "Charge" : "Estimated"}</span><b>${charged > 0 ? `${money(charged)} MMK` : "စစ်ဆေးပြီးမှ အတည်ပြုပါမည်"}</b></div><div><span>${repair.finalCost > 0 ? "Paid" : "Deposit"}</span><b>${money(repair.paidAmount)} MMK</b></div>${charged > 0 ? `<div class="grand"><span>Balance</span><b>${money(balance)} MMK${settled ? '<span class="paid">✔ ရှင်းပြီး</span>' : ""}</b></div>` : ""}</div>
+    ${brandBlock({ name: repair.shopName, logo: repair.shopLogo, phone: repair.shopPhone, address: repair.shopAddress, subtitle: repair.tagline }, receipt ? t.receiptTitle : t.voucherTitle)}
+    ${receipt ? `<div style="margin:6px auto 4px;width:fit-content;border:2px solid #000;border-radius:4px;padding:3px 10px;text-align:center"><div style="font-size:17px;font-weight:700">${escapeHtml(t.collected)}</div>${collectedSub ? `<div style="font-size:10px;font-weight:700">${escapeHtml(collectedSub)}</div>` : ""}</div>` : ""}
+    <div class="voucher-no"><span>${escapeHtml(t.voucherNo)}</span><b>${escapeHtml(repair.jobNo)}</b></div>
+    <div class="meta" style="margin-top:2px"><div><span>${escapeHtml(t.receivedDate)}</span><b>${escapeHtml(when(repair.at))}</b></div>${receipt && repair.deliveredAt ? `<div><span>${escapeHtml(t.deliveredDate)}</span><b>${escapeHtml(when(repair.deliveredAt))}</b></div>` : ""}<div><span>${escapeHtml(t.name)}</span><b>${escapeHtml(repair.customerName || "-")}</b></div>${repair.customerPhone ? `<div><span>${escapeHtml(t.phone)}</span><b>${escapeHtml(repair.customerPhone)}</b></div>` : ""}</div>
+    <table><tbody><tr><th>${escapeHtml(t.device)}</th><td>${escapeHtml(device)}</td></tr>${repair.imei ? `<tr><th>${escapeHtml(t.imei)}</th><td>${escapeHtml(repair.imei)}</td></tr>` : ""}<tr><th>${escapeHtml(t.problem)}</th><td>${escapeHtml(repair.problem || "-")}</td></tr>${repair.accessories ? `<tr><th>${escapeHtml(t.accessories)}</th><td>${escapeHtml(repair.accessories)}</td></tr>` : ""}<tr><th>${escapeHtml(t.status)}</th><td>${escapeHtml(t.statuses[repair.status as RepairStatus] ?? repair.status)}</td></tr></tbody></table>
+    <div class="summary"><div><span>${escapeHtml(repair.finalCost > 0 ? t.charge : t.estimated)}</span><b>${charged > 0 ? `${money(charged)} ${cur}` : escapeHtml(t.toConfirm)}</b></div><div><span>${escapeHtml(repair.finalCost > 0 ? t.paid : t.deposit)}</span><b>${money(repair.paidAmount)} ${cur}</b></div>${charged > 0 ? `<div class="grand"><span>${escapeHtml(t.balance)}</span><b>${money(balance)} ${cur}${settled ? `<span class="paid">${escapeHtml(t.settled)}</span>` : ""}</b></div>` : ""}</div>
     ${qr ? `<img class="qr" src="${qr}" alt="QR"/>${qrCaption ? `<p class="qr-link">${escapeHtml(qrCaption)}</p>` : ""}` : ""}
-    <div class="footer">${receipt ? "ကျေးဇူးတင်ပါသည်" : terms.length > 0 ? `<b>⚠ သတိပြုရန် ⚠</b><ul class="terms">${terms.map((t) => `<li>${nl2br(t)}</li>`).join("")}</ul>` : "Please keep this voucher."}</div>
-    ${receipt ? "" : `<div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}လက်ခံသူ</div><div>ရွေးယူသူ</div></div>`}
+    <div class="footer">${receipt ? escapeHtml(t.thanks) : terms.length > 0 ? `<b>${escapeHtml(t.notice)}</b><ul class="terms">${terms.map((line) => `<li>${nl2br(line)}</li>`).join("")}</ul>` : escapeHtml(t.keep)}</div>
+    ${receipt ? "" : `<div class="sign"><div>${repair.receivedByName ? `<b>${escapeHtml(repair.receivedByName)}</b><br/>` : ""}${escapeHtml(t.receiver)}</div><div>${escapeHtml(t.collector)}</div></div>`}
     ${autoPrint(true)}</body></html>`;
   return printWindow(popup, html, repair.jobNo);
 }

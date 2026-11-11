@@ -21,3 +21,16 @@ export function asCurrency(v: unknown): Currency {
 export function inCurrency(text: string, currency: string): string {
   return currency === "MMK" ? text : text.replace(/\bMMK\b/g, currency);
 }
+
+/** The languages the app is shown in. */
+export type AppLanguage = "mm" | "en" | "th";
+
+export function isAppLanguage(v: unknown): v is AppLanguage {
+  return v === "mm" || v === "en" || v === "th";
+}
+
+/** The language an account starts in, from its main currency: a THB shop is in Thailand and
+ *  reads Thai, a USD shop English, an MMK shop Myanmar. A user may still switch by hand. */
+export function currencyLanguage(currency: string | null | undefined): AppLanguage {
+  return currency === "THB" ? "th" : currency === "USD" ? "en" : "mm";
+}

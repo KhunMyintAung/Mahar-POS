@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { fmtDateTime } from "@/lib/format";
-import { REPAIR_STATUS_MM } from "@/lib/repairStatus";
-import { DEFAULT_REPAIR_VOUCHER } from "@/lib/repairVoucherSettings";
+import type { AppLanguage } from "@/lib/currency";
+import type { RepairStatus } from "@/lib/repairStatus";
+import { voucherText } from "@/lib/repairVoucherText";
 import { usePrintSlip } from "@/lib/usePrintSlip";
 
 /** The slip handed to the customer when a device is taken in, and again whenever asked. */
@@ -27,10 +28,14 @@ export interface RepairVoucherData {
   status: string;
   /** When the phone was handed back. A delivered job prints as the customer's receipt. */
   deliveredAt?: string;
-  /** Whole kyat. */
+  /** Whole units of the shop's main currency. */
   estimatedCost: number;
   finalCost: number;
   paidAmount: number;
+  /** The shop's main currency, printed after each amount. MMK when not given. */
+  currency?: string;
+  /** The language the voucher is written in: the shop's, not the screen's. Myanmar when not given. */
+  language?: AppLanguage;
   /** The staff member who took the device in, printed over the receiver's signature line. */
   receivedByName?: string;
   /** Where the QR on the voucher points: the customer's status page. */
@@ -75,12 +80,14 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
     return () => { live = false; };
   }, [data.trackUrl]);
 
+  const t = voucherText(data.language);
+  const cur = data.currency ?? "MMK";
   const balance = Math.max(0, data.finalCost - data.paidAmount);
   // Once the phone is back with its owner the slip is their receipt: what was done and
   // paid, without the drop-off warnings, the tracking QR or the signature lines.
   const receipt = data.status === "DELIVERED";
-  const terms = receipt ? [] : data.terms ?? DEFAULT_REPAIR_VOUCHER.terms;
-  const qrCaption = data.qrCaption ?? DEFAULT_REPAIR_VOUCHER.qrCaption;
+  const terms = receipt ? [] : data.terms ?? t.terms;
+  const qrCaption = data.qrCaption ?? t.qrCaption;
 
   const row = "flex justify-between gap-2 py-[1px]";
   const label = "text-gray-600";
@@ -88,24 +95,27 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
   // Laid out like the multishop app's repair voucher: name and title up top, the voucher
   // details between dashed rules, the device in a two-column table, and a ruled balance.
   const details: [string, React.ReactNode][] = [
-    ["ဖုန်း", device || "-"],
-    ...(data.imei ? [["IMEI", <span key="imei" className="font-mono">{data.imei}</span>] as [string, React.ReactNode]] : []),
-    ["ပြင်ရန်", data.problem || "-"],
-    ...(data.accessories ? [["ပါလာသည်", data.accessories] as [string, React.ReactNode]] : []),
-    ["အခြေအနေ", <b key="status">{REPAIR_STATUS_MM[data.status] ?? data.status}</b>],
+    [t.device, device || "-"],
+    ...(data.imei ? [[t.imei, <span key="imei" className="font-mono">{data.imei}</span>] as [string, React.ReactNode]] : []),
+    [t.problem, data.problem || "-"],
+    ...(data.accessories ? [[t.accessories, data.accessories] as [string, React.ReactNode]] : []),
+    [t.status, <b key="status">{t.statuses[data.status as RepairStatus] ?? data.status}</b>],
   ];
+  const collectedSub = [t.collectedSub, data.deliveredAt ? fmtDateTime(data.deliveredAt) : ""].filter(Boolean).join(" · ");
 
   return (
       // overflow-wrap:anywhere: a long run with no spaces (an email, an Apple ID) wraps
       // instead of widening the slip past the paper and losing its end.
-      <div className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black [overflow-wrap:anywhere]" style={{ fontFamily: "Arial, 'Pyidaungsu', 'Myanmar Text', sans-serif" }}>
+      // data-no-i18n: the voucher is in the shop's language, so the screen's language pass
+      // (and its MMK-to-currency swap) leaves it alone.
+      <div data-no-i18n className="w-full max-w-[58mm] px-1 text-[10px] leading-snug text-black [overflow-wrap:anywhere]" style={{ fontFamily: "Arial, 'Pyidaungsu', 'Myanmar Text', sans-serif" }}>
         <div className="text-center">
           {data.shopLogo && (
             // eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise
             <img src={data.shopLogo} alt="" className="slip-logo mx-auto mb-1 max-h-[14mm] max-w-[46mm] object-contain" />
           )}
           <div className="text-[14px] font-bold leading-tight">{data.shopName}</div>
-          <div className="mt-0.5">{receipt ? "Repair Receipt · ပြေစာ" : "Repair Voucher"}</div>
+          <div className="mt-0.5">{receipt ? t.receiptTitle : t.voucherTitle}</div>
           {data.tagline && <div className={label}>{data.tagline}</div>}
           {(data.shopPhone || data.shopAddress) && (
             <div className={label}>{[data.shopPhone, data.shopAddress].filter(Boolean).join(" · ")}</div>
@@ -115,17 +125,17 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
         {receipt && (
           // Boxed and big, so anyone reading it sees at once the phone has gone home.
           <div className="mx-auto mt-1.5 w-fit rounded border-2 border-black px-3 py-1 text-center">
-            <div className="text-[15px] font-bold">✔ ဖုန်းရွေးယူပြီး</div>
-            <div className="text-[9px] font-bold uppercase">Collected{data.deliveredAt ? ` · ${fmtDateTime(data.deliveredAt)}` : ""}</div>
+            <div className="text-[15px] font-bold">{t.collected}</div>
+            {collectedSub && <div className="text-[9px] font-bold uppercase">{collectedSub}</div>}
           </div>
         )}
 
         <div className="my-1.5 border-y border-dashed border-gray-500 py-1">
-          <div className={row}><span className={label}>ဘောက်ချာနံပါတ်</span><b className="text-[12px]">{data.jobNo}</b></div>
-          <div className={row}><span className={label}>လက်ခံရက်</span><b>{fmtDateTime(data.at)}</b></div>
-          {receipt && data.deliveredAt && <div className={row}><span className={label}>ပြန်ပေးရက်</span><b>{fmtDateTime(data.deliveredAt)}</b></div>}
-          {data.customerName && <div className={row}><span className={label}>နာမည်</span><b>{data.customerName}</b></div>}
-          {data.customerPhone && <div className={row}><span className={label}>ဖုန်းနံပါတ်</span><b>{data.customerPhone}</b></div>}
+          <div className={row}><span className={label}>{t.voucherNo}</span><b className="text-[12px]">{data.jobNo}</b></div>
+          <div className={row}><span className={label}>{t.receivedDate}</span><b>{fmtDateTime(data.at)}</b></div>
+          {receipt && data.deliveredAt && <div className={row}><span className={label}>{t.deliveredDate}</span><b>{fmtDateTime(data.deliveredAt)}</b></div>}
+          {data.customerName && <div className={row}><span className={label}>{t.name}</span><b>{data.customerName}</b></div>}
+          {data.customerPhone && <div className={row}><span className={label}>{t.phone}</span><b>{data.customerPhone}</b></div>}
         </div>
 
         <table className="w-full table-fixed border-collapse">
@@ -142,32 +152,32 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
         <div className="mt-1.5">
           {data.finalCost > 0 ? (
             <>
-              <div className={row}><span className={label}>ကျသင့်ငွေ</span><b className="tabular-nums">{money(data.finalCost)} MMK</b></div>
-              {data.paidAmount > 0 && <div className={row}><span className={label}>ပေးပြီး</span><b className="tabular-nums">{money(data.paidAmount)} MMK</b></div>}
+              <div className={row}><span className={label}>{t.charge}</span><b className="tabular-nums">{`${money(data.finalCost)} ${cur}`}</b></div>
+              {data.paidAmount > 0 && <div className={row}><span className={label}>{t.paid}</span><b className="tabular-nums">{`${money(data.paidAmount)} ${cur}`}</b></div>}
               {balance > 0 && (
                 <div className={`${row} mt-0.5 border-t-2 border-black pt-1 text-[12px] font-bold`}>
-                  <span>ကျန်ငွေ</span><span className="tabular-nums">{money(balance)} MMK</span>
+                  <span>{t.balance}</span><span className="tabular-nums">{`${money(balance)} ${cur}`}</span>
                 </div>
               )}
               {balance === 0 && (
                 // Printed big and boxed, so whoever hands the phone back sees at a glance
                 // that there is nothing left to take.
                 <div className="mx-auto mt-1.5 w-fit rounded border-2 border-black px-3 py-0.5 text-center text-[14px] font-bold">
-                  ✔ ရှင်းပြီး
+                  {t.settled}
                 </div>
               )}
             </>
           ) : (
             <>
               {data.estimatedCost > 0 ? (
-                <div className={row}><span className={label}>ခန့်မှန်းကျသင့်ငွေ</span><b className="tabular-nums">{money(data.estimatedCost)} MMK</b></div>
+                <div className={row}><span className={label}>{t.estimated}</span><b className="tabular-nums">{`${money(data.estimatedCost)} ${cur}`}</b></div>
               ) : (
-                <div>ကျသင့်ငွေ — စစ်ဆေးပြီးမှ အတည်ပြုပါမည်။</div>
+                <div>{`${t.charge} — ${t.toConfirm}`}</div>
               )}
-              {data.paidAmount > 0 && <div className={row}><span className={label}>စရံငွေ</span><b className="tabular-nums">{money(data.paidAmount)} MMK</b></div>}
+              {data.paidAmount > 0 && <div className={row}><span className={label}>{t.deposit}</span><b className="tabular-nums">{`${money(data.paidAmount)} ${cur}`}</b></div>}
               {data.estimatedCost > 0 && (
                 <div className={`${row} mt-0.5 border-t-2 border-black pt-1 text-[12px] font-bold`}>
-                  <span>ကျန်ငွေ</span><span className="tabular-nums">{money(Math.max(0, data.estimatedCost - data.paidAmount))} MMK</span>
+                  <span>{t.balance}</span><span className="tabular-nums">{`${money(Math.max(0, data.estimatedCost - data.paidAmount))} ${cur}`}</span>
                 </div>
               )}
             </>
@@ -176,14 +186,14 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
 
         {terms.length > 0 && (
           <div className="mt-2 border-t border-dashed border-gray-500 pt-1.5">
-            <div className="text-center font-bold">⚠ သတိပြုရန် ⚠</div>
+            <div className="text-center font-bold">{t.notice}</div>
             <ul className="list-disc pl-3 text-[9px]">
-              {terms.map((t, i) => <li key={i}>{t}</li>)}
+              {terms.map((line, i) => <li key={i}>{line}</li>)}
             </ul>
           </div>
         )}
 
-        {receipt && <div className="mt-2 text-center font-bold">ကျေးဇူးတင်ပါသည်</div>}
+        {receipt && <div className="mt-2 text-center font-bold">{t.thanks}</div>}
 
         {!receipt && qr && data.trackUrl && (
           <div className="mt-2 text-center">
@@ -196,9 +206,9 @@ export function RepairVoucherSlip({ data }: { data: RepairVoucherData }) {
         {!receipt && <div className="mt-6 flex items-end justify-between">
           <div className="text-center">
             {data.receivedByName && <div className="font-bold uppercase">{data.receivedByName}</div>}
-            <div className="border-t border-black px-1">လက်ခံသူ</div>
+            <div className="border-t border-black px-1">{t.receiver}</div>
           </div>
-          <div className="border-t border-black px-1">ရွေးယူသူ</div>
+          <div className="border-t border-black px-1">{t.collector}</div>
         </div>}
       </div>
   );

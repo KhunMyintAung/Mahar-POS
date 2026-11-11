@@ -3,7 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { REPAIR_VOUCHER_SETTING, voucherNumberFormat } from "@/services/repairService";
-import { PREFIX_PATTERN, parseRepairVoucherSettings, shopPrefix } from "@/lib/repairVoucherSettings";
+import { PREFIX_PATTERN, VOUCHER_LANGUAGE_CHOICES, parseRepairVoucherSettings, shopPrefix, voucherLanguage } from "@/lib/repairVoucherSettings";
 
 /** The repair voucher's number format and printed text, plus the number the next job gets. */
 
@@ -11,12 +11,19 @@ async function read(businessId: string) {
   const [row, seq, business] = await Promise.all([
     prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: REPAIR_VOUCHER_SETTING } } }),
     prisma.numberSequence.findUnique({ where: { businessId_key: { businessId, key: "REPAIR" } } }),
-    prisma.business.findUnique({ where: { id: businessId }, select: { name: true } }),
+    prisma.business.findUnique({ where: { id: businessId }, select: { name: true, currency: true } }),
   ]);
   let stored: unknown = {};
   try { stored = row ? JSON.parse(row.value) : {}; } catch { stored = {}; }
+  const settings = parseRepairVoucherSettings(stored, business?.currency);
   // autoPrefix is what an empty prefix stands for, so the settings page can show it.
-  return { ...parseRepairVoucherSettings(stored), nextNumber: seq?.next ?? 1, autoPrefix: shopPrefix(business?.name ?? "") };
+  // printLanguage is the language the voucher comes out in: the one picked, or the main currency's.
+  return {
+    ...settings,
+    printLanguage: voucherLanguage(settings.language, business?.currency),
+    nextNumber: seq?.next ?? 1,
+    autoPrefix: shopPrefix(business?.name ?? ""),
+  };
 }
 
 // Anyone signed in may read it: the cashier printing a voucher needs the text.
@@ -25,6 +32,7 @@ export const GET = withAuth(null, async ({ user }) => json(await read(user.busin
 const schema = z.object({
   prefix: z.string().trim().regex(PREFIX_PATTERN, "Prefix: up to 6 letters or digits"),
   digits: z.number().int().min(1).max(8),
+  language: z.enum(VOUCHER_LANGUAGE_CHOICES as [string, ...string[]]).default("auto"),
   nextNumber: z.number().int().min(1).max(99_999_999).optional(),
   tagline: z.string().trim().max(120),
   terms: z.array(z.string().trim().max(200)).max(12),
@@ -33,7 +41,8 @@ const schema = z.object({
 
 export const PUT = withAuth("settings.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
-  const value = parseRepairVoucherSettings({ ...body, terms: body.terms.filter(Boolean) });
+  const business = await prisma.business.findUnique({ where: { id: user.businessId }, select: { currency: true } });
+  const value = parseRepairVoucherSettings({ ...body, terms: body.terms.filter(Boolean) }, business?.currency);
 
   await prisma.$transaction(async (tx) => {
     const before = await tx.systemSetting.findUnique({

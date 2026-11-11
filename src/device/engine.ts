@@ -113,7 +113,7 @@ async function setup(input: { businessName: string; ownerName: string; businessC
     // Never typed: the owner is signed in by the device itself.
     password: crypto.randomUUID(),
     currency: "MMK",
-    timezone: "Asia/Yangon",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Yangon",
     businessCategory: (input.businessCategory as "MOBILE_SHOP") ?? "ALL_IN_ONE",
   } as Parameters<typeof registerTenant>[0]);
   await setMeta("owner", owner.id);

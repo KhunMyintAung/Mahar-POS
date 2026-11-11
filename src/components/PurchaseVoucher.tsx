@@ -53,6 +53,7 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
               reference: data.reference, notes: data.notes,
               lines: data.lines.map((l) => ({ name: l.item.name, quantity: l.quantity, unitCost: n(l.unitCost), lineTotal: n(l.lineTotal), imeis: l.imeis })),
               shopName: data.business?.name ?? "", shopPhone: data.business?.phone, shopAddress: data.business?.address,
+              currency: cur,
               supplierName: data.supplierName, supplierPhone: data.supplierPhone, walletName: data.walletName, createdByName: data.createdByName,
             }, win);
           }}><Printer size={16} className="mr-1 inline" />Print</Button>

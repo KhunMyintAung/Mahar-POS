@@ -4,11 +4,20 @@
  *  the settings page can share the defaults.
  */
 
+import { currencyLanguage, isAppLanguage, type AppLanguage } from "@/lib/currency";
+import { VOUCHER_TEXT } from "@/lib/repairVoucherText";
+
+/** "auto" follows the shop's main currency (THB Thai, USD English, MMK Myanmar). */
+export type VoucherLanguageChoice = "auto" | AppLanguage;
+export const VOUCHER_LANGUAGE_CHOICES: VoucherLanguageChoice[] = ["auto", "mm", "en", "th"];
+
 export interface RepairVoucherSettings {
   /** Letters in front of the number, e.g. "MS" gives MS0001. Empty takes them from the shop name. */
   prefix: string;
   /** Minimum digits; the number grows past it rather than wrapping (MS999, MS1000). */
   digits: number;
+  /** The language the voucher and the customer's status page are written in. */
+  language: VoucherLanguageChoice;
   /** A line under the shop name, e.g. what the shop does. */
   tagline: string;
   /** The warnings printed on the voucher, one per line. */
@@ -17,27 +26,40 @@ export interface RepairVoucherSettings {
   qrCaption: string;
 }
 
-export const DEFAULT_REPAIR_TERMS = [
-  "အရေးကြီး ဆင်းကဒ်များ မိမိကိုယ်တိုင် သိမ်းဆည်းရန်။",
-  "ဖုန်းအတွင်း အရေးကြီးဖိုင်၊ အဆက်အသွယ်များ မပြင်မီ ကြိုပြောရန်။",
-  "ဖုန်းကာဗာများနှင့် အခြားဆက်စပ်ပစ္စည်းပါလာပါက ပြန်တောင်းယူရန်။",
-  "အထက်ပါအကြောင်းကြောင့် ပျောက်ဆုံးပျက်စီးပါက တာဝန်မယူပါ။",
-  "တစ်လကျော် အပ်နှံပစ္စည်းများ တာဝန်မယူပါ။",
-  "ဖုန်းလာရွေးသူမှာ ကိုယ်တိုင်မဟုတ်ပါက လက်ခံ Voucher ပါမှသာ ဖုန်းထုတ်ပေးပါသည်။",
-];
+/** The warnings a voucher starts with, in a language. */
+export const defaultRepairTerms = (language: AppLanguage) => VOUCHER_TEXT[language].terms;
 
+export const DEFAULT_REPAIR_TERMS = defaultRepairTerms("mm");
+
+/** What a shop that has set nothing prints: the Myanmar voucher of an MMK shop. */
 export const DEFAULT_REPAIR_VOUCHER: RepairVoucherSettings = {
   prefix: "",
   digits: 4,
+  language: "auto",
   tagline: "",
   terms: DEFAULT_REPAIR_TERMS,
-  qrCaption: "QR ဖတ်ပြီး ပြင်ဆင်မှုအခြေအနေ ကြည့်နိုင်ပါသည်",
+  qrCaption: VOUCHER_TEXT.mm.qrCaption,
 };
 
 export const PREFIX_PATTERN = /^[A-Za-z0-9]{0,6}$/;
 
-/** Read a stored value, keeping anything sensible and defaulting the rest. */
-export function parseRepairVoucherSettings(value: unknown): RepairVoucherSettings {
+/** The language a shop's voucher is in: the one it picked, or its main currency's. */
+export function voucherLanguage(choice: VoucherLanguageChoice | undefined, currency: string | null | undefined): AppLanguage {
+  return isAppLanguage(choice) ? choice : currencyLanguage(currency);
+}
+
+const sameLines = (a: string[], b: string[]) => a.length === b.length && a.every((line, i) => line === b[i]);
+const LANGS = Object.keys(VOUCHER_TEXT) as AppLanguage[];
+/** True for the ready-made warnings of any language: text the shop never wrote itself. */
+export const isDefaultTerms = (terms: string[]) => LANGS.some((l) => sameLines(terms, VOUCHER_TEXT[l].terms));
+const isDefaultCaption = (caption: string) => LANGS.some((l) => caption === VOUCHER_TEXT[l].qrCaption);
+
+/** Read a stored value, keeping anything sensible and defaulting the rest.
+ *
+ *  The ready-made warnings and QR caption follow the voucher's language (so they are right
+ *  for a THB or USD shop, and change over when the language does); text the shop wrote
+ *  itself is kept as it is. */
+export function parseRepairVoucherSettings(value: unknown, currency?: string | null): RepairVoucherSettings {
   const v = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const str = (x: unknown, max: number) => (typeof x === "string" ? x.trim().slice(0, max) : undefined);
   const prefix = str(v.prefix, 6);
@@ -45,12 +67,16 @@ export function parseRepairVoucherSettings(value: unknown): RepairVoucherSetting
   const terms = Array.isArray(v.terms)
     ? v.terms.map((t) => str(t, 200)).filter((t): t is string => Boolean(t)).slice(0, 12)
     : undefined;
+  const language: VoucherLanguageChoice = isAppLanguage(v.language) ? v.language : "auto";
+  const text = VOUCHER_TEXT[voucherLanguage(language, currency)];
+  const qrCaption = str(v.qrCaption, 120);
   return {
     prefix: prefix !== undefined && PREFIX_PATTERN.test(prefix) ? prefix.toUpperCase() : DEFAULT_REPAIR_VOUCHER.prefix,
     digits: Number.isInteger(digits) && digits >= 1 && digits <= 8 ? digits : DEFAULT_REPAIR_VOUCHER.digits,
+    language,
     tagline: str(v.tagline, 120) ?? DEFAULT_REPAIR_VOUCHER.tagline,
-    terms: terms ?? DEFAULT_REPAIR_VOUCHER.terms,
-    qrCaption: str(v.qrCaption, 120) ?? DEFAULT_REPAIR_VOUCHER.qrCaption,
+    terms: terms === undefined || isDefaultTerms(terms) ? text.terms : terms,
+    qrCaption: qrCaption === undefined || isDefaultCaption(qrCaption) ? text.qrCaption : qrCaption,
   };
 }
 

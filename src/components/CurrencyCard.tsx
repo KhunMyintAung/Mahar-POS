@@ -56,7 +56,8 @@ export function CurrencyCard({ onSaved }: { onSaved?: () => void }) {
                 !state.canChange && c !== state.currency && "opacity-50",
               )}
             >
-              <div className="text-sm font-semibold">{c}</div>
+              {/* data-no-i18n: a currency's own code, not "the shop's currency" to be swapped in. */}
+              <div data-no-i18n className="text-sm font-semibold">{c}</div>
               <div className="text-xs text-gray-500">{NAMES[c]}</div>
             </button>
           ))}

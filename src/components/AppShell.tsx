@@ -12,12 +12,13 @@ import {
   Wrench, Smartphone, History, PanelLeftClose, PanelLeftOpen, Store, ArrowLeftRight, ChevronDown, ClipboardList, Award,
 } from "lucide-react";
 import { api } from "@/lib/client";
+import { setShopTimeZone } from "@/lib/format";
 import { ToastProvider, cn, useToast } from "./ui";
 import { CLOUD_PRINT_EVENT, setCloudPrintAllowed, type CloudPrintNotice } from "@/lib/cloudPrintSend";
 import { PwaInstall } from "./PwaInstall";
 import { SoundToggle } from "./SoundToggle";
 import { ThemeToggle } from "./ThemeToggle";
-import { LanguageSwitch, useShowCurrency } from "./LanguageProvider";
+import { LanguageSwitch, useAccountLanguage, useShowCurrency } from "./LanguageProvider";
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
@@ -35,7 +36,7 @@ interface Me {
     id: string; name: string; username: string; roleName: string;
     permissions: string[]; allBranches: boolean; branchIds: string[];
   };
-  business: { name: string; phone: string | null; address: string | null; currency: string; logoUrl: string | null } | null;
+  business: { name: string; phone: string | null; address: string | null; currency: string; timezone?: string; logoUrl: string | null } | null;
   branches: { id: string; name: string; code: string }[];
   modules: {
     mode: ModuleMode;
@@ -192,6 +193,7 @@ const FOLDED_SIDEBAR = ["/pos", "/repairs"];
 export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   useShowCurrency(me?.business?.currency ?? "MMK");
+  useAccountLanguage(me?.user.id, me?.business?.currency);
   const [loading, setLoading] = useState(true);
   const [drawer, setDrawer] = useState(false);
   // Sidebar groups opened or closed by hand (by label); otherwise a group is open while
@@ -208,6 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const refreshAuth = useCallback(async () => {
     const next = await api<Me>("/api/v1/auth/me");
+    setShopTimeZone(next.business?.timezone);
     setMe(next);
   }, []);
 
@@ -217,7 +220,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api<Me>("/api/v1/auth/me")
-      .then(setMe)
+      // Before the first screen is drawn, so every time on it is in the shop's own zone.
+      .then((next) => { setShopTimeZone(next.business?.timezone); setMe(next); })
       .catch((error) => {
         if (isDeviceShop()) setDeviceError(error instanceof Error ? error.message : String(error));
         else router.push("/login");

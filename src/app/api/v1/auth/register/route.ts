@@ -1,3 +1,4 @@
+import { isTimeZone } from "@/lib/format";
 import { NextRequest, NextResponse } from "next/server";
 import { CURRENCIES } from "@/lib/currency";
 import { z } from "zod";
@@ -16,7 +17,8 @@ const schema = z.object({
   phone: z.string().trim().max(30).optional(),
   password: z.string().min(8, "Password must be at least 8 characters").max(72),
   currency: z.enum(CURRENCIES).default("MMK"),
-  timezone: z.string().trim().min(1).max(80).default("Asia/Yangon"),
+  // The zone of the device the shop signed up on. One the server does not know is not kept.
+  timezone: z.string().trim().min(1).max(80).default("Asia/Yangon").transform((zone) => (isTimeZone(zone) ? zone : "Asia/Yangon")),
   businessCategory: z.enum(["PERSONAL", "MINI_MART", "MOBILE_SHOP", "ALL_IN_ONE"]).optional(),
   moduleMode: z.enum(["WALLET_ONLY", "MINI_MART_ONLY", "BOTH"]).optional(),
 });

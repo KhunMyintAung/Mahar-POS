@@ -836,6 +836,8 @@ export const TH: Record<string, string> = {
   "Paid into": "จ่ายเข้า",
   "Voucher number format and the text printed on the repair voucher.": "รูปแบบเลขที่ใบรับและข้อความที่พิมพ์บนใบรับซ่อม",
   "Voucher prefix": "คำนำหน้าเลขที่ใบรับ",
+  "Voucher language": "ภาษาของใบรับ",
+  "The voucher and the customer's status page are written in this language, whatever language the app is shown in.": "ใบรับและหน้าสถานะของลูกค้าจะใช้ภาษานี้ ไม่ว่าแอปจะแสดงเป็นภาษาใด",
   "Digits": "จำนวนหลัก",
   "Next number": "เลขถัดไป",
   "Line under shop name": "บรรทัดใต้ชื่อร้าน",

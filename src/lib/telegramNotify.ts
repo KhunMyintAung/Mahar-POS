@@ -3,6 +3,8 @@ import { sendMessage, withBotToken } from "./telegram";
 import { businessCurrency } from "@/services/currencyService";
 import { notifyReportTargets } from "./telegramReports";
 import { REPAIR_STATUS_MM } from "./repairStatus";
+import { currencyLanguage } from "./currency";
+import { inShopUnits, translateNotice } from "./telegramNoticeText";
 
 // Live audit feed over Telegram: after a Sale / 3D / Transfer / Withdraw /
 // Income & Expense / Exchange transaction is committed, push a short summary
@@ -17,7 +19,7 @@ import { REPAIR_STATUS_MM } from "./repairStatus";
 export function notifyAuditFeed(businessId: string, raw: string, excludeChatId?: string, actorUserId?: string): void {
   (async () => {
     // Amounts written without a currency are in the shop's main one, filled in here.
-    const text = inShopCurrency(raw, await businessCurrency(businessId));
+    const text = forShop(raw, await businessCurrency(businessId));
     // The shop's send-only reports bot gets the same feed, in the chats set up for it.
     notifyReportTargets(businessId, text);
     await run(businessId, text, excludeChatId, actorUserId);
@@ -29,6 +31,11 @@ const MAIN_CURRENCY = "{{shop-currency}}";
 
 /** A notice with its amounts in the shop's main currency. */
 export const inShopCurrency = (raw: string, currency: string) => raw.split(MAIN_CURRENCY).join(currency);
+
+/** A notice as the shop reads it: its amounts in the shop's main currency and its labels in
+ *  that currency's language (THB Thai, USD English; an MMK shop's stay in Myanmar). */
+export const forShop = (raw: string, currency: string) =>
+  translateNotice(inShopUnits(inShopCurrency(raw, currency), currency), currencyLanguage(currency));
 
 async function run(businessId: string, text: string, excludeChatId?: string, actorUserId?: string) {
   const users = await prisma.user.findMany({
@@ -160,7 +167,8 @@ export function reversalNotice(opts: { icon: string; label: string; txnNo: strin
   return `${opts.icon} ${opts.label} ပြန်ဖျက်ပြီး — ${opts.txnNo}\nအကြောင်းရင်း: ${opts.reason}\nလုပ်သူ: ${opts.createdByName}`;
 }
 
-// Telegram speaks Myanmar: statuses as printed on the voucher.
+// Written in Myanmar, statuses as printed on the voucher; forShop puts a notice into the
+// shop's language when it is sent.
 const statusLabel = (s: string) => REPAIR_STATUS_MM[s] ?? s;
 
 /** Stock movement reasons (stockReasons.ts, plus the plain in/adjust labels) in Myanmar. */

@@ -76,7 +76,8 @@ export default function RegisterPage() {
           email: form.email,
           phone: form.phone || undefined,
           currency: form.currency,
-          timezone: "Asia/Yangon",
+          // Where the shop is, from this device's clock: a shop in Bangkok keeps Bangkok time.
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Yangon",
           password: form.password,
           businessCategory: form.businessCategory,
         },

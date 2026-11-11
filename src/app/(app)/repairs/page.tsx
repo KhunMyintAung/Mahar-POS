@@ -15,6 +15,7 @@ import { useNewModal } from "@/lib/useNewModal";
 import { RepairVoucher, RepairVoucherSlip, type RepairVoucherData } from "@/components/RepairVoucher";
 import { printRepairVoucher } from "@/lib/slipPrint";
 import type { RepairVoucherSettings } from "@/lib/repairVoucherSettings";
+import { currencyLanguage, type AppLanguage } from "@/lib/currency";
 import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 import { PageHeader } from "@/components/PageHeader";
@@ -230,7 +231,7 @@ export default function RepairsPage() {
   const [voucher, setVoucher] = useState<RepairVoucherData | null>(null);
   // A repair just finished, on a phone, whose customer can be rung to come and collect it.
   const [calling, setCalling] = useState<{ jobNo: string; name: string; phone: string } | null>(null);
-  const [voucherText, setVoucherText] = useState<Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> | null>(null);
+  const [voucherText, setVoucherText] = useState<(Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> & { language: AppLanguage }) | null>(null);
   const { push } = useToast();
   const { hasPerm, defaultBranchId, me } = useAuth();
   // Handing a phone back and marking it paid take money into a wallet; someone who cannot
@@ -268,6 +269,9 @@ export default function RepairsPage() {
       receivedByName: job.receivedByName,
       // Built from wherever the app is being used, so the QR follows the shop's own domain.
       trackUrl: job.trackToken ? `${window.location.origin}/track/${job.trackToken}` : undefined,
+      // In the shop's currency and language, whatever language this screen is in.
+      currency: me?.business?.currency ?? "MMK",
+      language: currencyLanguage(me?.business?.currency),
       ...(voucherText ?? {}),
     });
   }
@@ -283,8 +287,8 @@ export default function RepairsPage() {
   }, []);
 
   useEffect(() => {
-    api<RepairVoucherSettings>("/api/v1/settings/repair-voucher")
-      .then(({ tagline, terms, qrCaption }) => setVoucherText({ tagline, terms, qrCaption }))
+    api<RepairVoucherSettings & { printLanguage: AppLanguage }>("/api/v1/settings/repair-voucher")
+      .then(({ tagline, terms, qrCaption, printLanguage }) => setVoucherText({ tagline, terms, qrCaption, language: printLanguage }))
       .catch(() => {});
   }, []);
 

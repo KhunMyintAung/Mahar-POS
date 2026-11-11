@@ -17,7 +17,7 @@ export interface SavedSale {
   }[];
 }
 
-interface Shop { name?: string; logoUrl?: string | null; phone?: string | null; address?: string | null }
+interface Shop { name?: string; logoUrl?: string | null; phone?: string | null; address?: string | null; currency?: string | null }
 
 /** Amounts come back in minor units; the slip prints whole kyat, as at the till. */
 const major = (minor: string) => Number(minor) / 100;
@@ -33,6 +33,7 @@ export function receiptForSale(s: SavedSale, shop?: Shop | null): ReceiptData {
     shopLogo: shop?.logoUrl ?? undefined,
     shopPhone: shop?.phone ?? undefined,
     shopAddress: shop?.address ?? undefined,
+    currency: shop?.currency ?? undefined,
     customerName: s.customerName,
     cashierName: s.cashierName,
     lines: s.lines.map((l) => ({

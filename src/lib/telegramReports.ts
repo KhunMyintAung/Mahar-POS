@@ -1,3 +1,5 @@
+import { currencyLanguage } from "./currency";
+import { translateNotice } from "./telegramNoticeText";
 import { prisma } from "./prisma";
 import { sendMessageWith } from "./telegram";
 import { dateRangeUtc, todayBusinessDate } from "./dates";
@@ -152,7 +154,8 @@ export async function buildDailyReport(businessId: string, date: string): Promis
   ];
   if (summary.credit.outstanding > 0n) lines.push("", `🧾 ဖောက်သည် အကြွေး: ${money(summary.credit.outstanding)} ${day.currency}`);
   if (summary.payable.outstanding > 0n) lines.push(`🏷️ ပေးသွင်းသူ ပေးရန်: ${money(summary.payable.outstanding)} ${day.currency}`);
-  return lines.join("\n");
+  // Written in Myanmar; a THB or USD shop reads it in its own language.
+  return translateNotice(lines.join("\n"), currencyLanguage(day.currency));
 }
 
 /** The shop's clock: today's business date and the time now as "HH:MM". */

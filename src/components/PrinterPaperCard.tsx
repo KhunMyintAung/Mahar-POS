@@ -68,6 +68,7 @@ export function PrinterPaperCard() {
             txnNo: "TEST-0001", at: new Date().toISOString(),
             shopName: me?.business?.name ?? "Mahar Mini POS", shopLogo: me?.business?.logoUrl ?? undefined,
             shopPhone: me?.business?.phone ?? undefined, shopAddress: me?.business?.address ?? undefined,
+            currency: me?.business?.currency,
             cashierName: me?.user.name, customerName: undefined,
             lines: [{ name: `Test print · ${width}mm paper`, quantity: 1, unitPrice: 10000 }, { name: "Sample item with a longer name", quantity: 2, unitPrice: 2500 }],
             subtotal: 15000, discount: 0, total: 15000, paid: 15000, change: 0, credit: 0,
