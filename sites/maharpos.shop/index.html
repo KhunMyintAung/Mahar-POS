@@ -61,7 +61,7 @@ html[lang=my] h1,html[lang=my] h2,html[lang=my] h3{line-height:1.6}
 /* header */
 .top{position:sticky;top:0;z-index:20;background:rgba(11,61,46,.97);color:#fff}
 .top .wrap{display:flex;align-items:center;gap:10px;min-height:58px}
-.brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:18px;margin-right:auto;white-space:nowrap}
+.brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:800;font-size:18px;margin-right:auto;white-space:nowrap;flex-shrink:0}
 .brand:hover{text-decoration:none}
 .brand img{width:34px;height:34px;border-radius:8px;background:#fff;padding:2px}
 .brand b{color:var(--orange)}
@@ -73,7 +73,8 @@ html[lang=my] h1,html[lang=my] h2,html[lang=my] h3{line-height:1.6}
 .lang button[aria-pressed=true]{background:#fff;color:var(--deep)}
 .top .login{display:none;color:#fff;font-weight:700;font-size:14px}
 .top .btn{min-height:36px;padding:4px 14px;font-size:14px}
-@media (max-width:420px){.top .cta-top{display:none}}
+@media (max-width:559px){.top .cta-top{display:none}}
+@media (max-width:340px){.lang button{padding:0 6px}.brand{font-size:16px;gap:6px}.brand img{width:30px;height:30px}}
 @media (min-width:900px){.nav{display:flex}.top .login{display:inline}}
 
 /* hero */

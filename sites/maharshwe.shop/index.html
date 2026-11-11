@@ -133,7 +133,7 @@ h2{font-size:clamp(22px,5vw,32px);font-weight:800;margin:6px 0 8px}
 .dl b{display:block;font-size:15px;line-height:1.4}
 .dl span{display:block;font-size:13px;color:var(--mute);line-height:1.4}
 .plans{margin-top:14px}
-.plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+.plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 4px;text-align:center;min-width:0}
 .plan.best{border:2px solid var(--green)}
 .plan b{display:block;font-size:15px}
 .plan .p{font-size:22px;font-weight:800;color:var(--deep);line-height:1.4}
@@ -283,7 +283,7 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
           <a class="dl" href="/download/maharshwe-vpn-1.0.23-low-armv7.apk"><i>2</i><div><b>Download 2 · 21.0 MB</b><span data-t="d1b">ဖုန်းအဟောင်း အတွက်</span></div></a>
           <a class="dl" href="/download/maharshwe-vpn-1.0.23-high-universal.apk"><i>3</i><div><b>Download 3 · 49.4 MB</b><span data-t="d1c">ဖုန်းအားလုံးနှင့် ရ</span></div></a>
         </div>
-        <div class="grid plans" style="grid-template-columns:repeat(3,1fr);gap:8px">
+        <div class="grid plans" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
           <div class="plan"><b data-t="pl1">အစမ်း</b><div class="p">0</div><span data-t="pl1d">၂ ရက်</span></div>
           <div class="plan best"><b data-t="pl2">၁ လ</b><div class="p">3,000</div><span data-t="mmk">ကျပ်</span></div>
           <div class="plan"><b data-t="pl3">၂ လ</b><div class="p">5,000</div><span data-t="mmk">ကျပ်</span></div>
