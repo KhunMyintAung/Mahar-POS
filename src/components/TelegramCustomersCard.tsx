@@ -38,6 +38,9 @@ export function TelegramCustomersCard() {
   return (
     <Card className="space-y-3">
       <CardTitle icon={Users} title="Customers on the bot" />
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+        Customers write to My bot above: anyone other than you who messages it is answered as a customer. No new bot or token is needed.
+      </p>
       <ul className="list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-300">
         <li>Repair status: the customer types the voucher number and the last 4 digits of the phone on it, and is told when the repair is ready.</li>
         <li>Spare part prices: items in the Spare Parts category, with the selling price and whether one is in stock. Never the cost or how many are left.</li>

@@ -67,14 +67,17 @@ export default function TelegramPage() {
     <div className="mx-auto max-w-2xl space-y-3">
       <PageHeader title={<>Telegram</>} />
 
-      {hasPerm("settings.manage") && <TelegramReportsCard />}
-      {hasPerm("settings.manage") && <TelegramCustomersCard />}
+      {/* Two kinds of bot on one page: say up front which one a shop needs. */}
+      <Card className="space-y-1 text-sm text-gray-600 dark:text-gray-300">
+        <p>Most shops need one bot only: My bot. Customers can use the same bot, so no other token is needed for them.</p>
+        {hasPerm("settings.manage") && <p>The Reports bot further down is optional. It only sends reports to a group or channel.</p>}
+      </Card>
 
       <h2 className="pt-2 font-semibold">My bot (records from chat)</h2>
 
       <Card className="space-y-3">
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Each person uses their <b>own</b> Telegram bot to record Income, Expense, Transfer, Withdraw, Top-up and credit entries from a chat quick-start menu — no need to open the app.
+          Each person uses their own Telegram bot to record Income, Expense, Transfer, Withdraw, Top-up and credit entries from a chat menu, without opening the app.
         </p>
         <ol className="list-decimal space-y-1 pl-5 text-xs text-gray-500">
           <li>Open Telegram and message <b>@BotFather</b></li>
@@ -116,6 +119,11 @@ export default function TelegramPage() {
           </div>
         )}
       </Card>
+
+      {/* Customers write to this same bot, so their settings sit right under it. */}
+      {hasPerm("settings.manage") && <TelegramCustomersCard />}
+
+      {hasPerm("settings.manage") && <div className="pt-4"><TelegramReportsCard /></div>}
     </div>
   );
 }

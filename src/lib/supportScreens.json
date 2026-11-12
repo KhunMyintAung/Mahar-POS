@@ -1975,6 +1975,7 @@
     "ချိတ်နေသည်… (Connecting…)",
     "စမ်းပို့မည် (Send test)",
     "စမ်းသပ်စာ ပို့ပြီးပါပြီ (Test message sent)",
+    "ဆိုင်အများစုအတွက် Bot တစ်ခုပဲ လိုပါတယ် - ကိုယ်ပိုင် Bot။ ဖောက်သည်တွေလည်း အဲဒီ Bot တစ်ခုတည်းကိုပဲ သုံးလို့ Token အသစ် ထပ်လုပ်စရာ မလိုပါ။ (Most shops need one bot only: My bot. Customers can use the same bot, so no other token is needed for them.)",
     "ဈေးနှုန်းအောက်က မှတ်ချက် (Note under the prices)",
     "တယ်လီဂရမ် (Telegram)",
     "ထည့်မည် (Add)",
@@ -1989,17 +1990,20 @@
     "ပို့မည့်နေရာ (Send to)",
     "ပို့မည် (Send)",
     "ပြင်ဆင်မှု အခြေအနေ: ဖောက်သည်က Voucher နံပါတ် နဲ့ Voucher ပေါ်က ဖုန်းနံပါတ် နောက်ဆုံး ၄ လုံး ရိုက်ပြီး စစ်နိုင်ပါတယ်။ ပြင်ပြီးရင် အသိပေးပါတယ်။ (Repair status: the customer types the voucher number and the last 4 digits of the phone on it, and is told when the repair is ready.)",
+    "ပြီး ပြောတဲ့အတိုင်း လုပ်ပါ (and follow the prompts)",
     "ဖယ်ရှားမည် (Remove)",
+    "ဖောက်သည်တွေက အပေါ်က ကိုယ်ပိုင် Bot ကိုပဲ စာပို့ကြပါတယ်။ သင်မဟုတ်တဲ့ ဘယ်သူ စာပို့ပို့ ဖောက်သည်အဖြစ် ပြန်ဖြေပါတယ်။ Bot နဲ့ Token အသစ် မလိုပါ။ (Customers write to My bot above: anyone other than you who messages it is answered as a customer. No new bot or token is needed.)",
     "ဖွင့် (On)",
     "မှာယူခြင်း: Online Shop မှာ ပြထားတဲ့ ပစ္စည်းများ။ (Orders: items shown in the Online Shop.)",
     "မှာရမည်: ရမည့်အချိန် (ရက်) (To order: ready in (days))",
-    "လူတစ်ဦးချင်းစီသည် မိမိ၏ (Each person uses their)",
+    "ဝန်ထမ်းတစ်ယောက်ချင်းစီက ကိုယ်ပိုင် Telegram Bot နဲ့ ဝင်ငွေ၊ ထွက်ငွေ၊ ငွေလွှဲ၊ ငွေထုတ်၊ ဖုန်းဖြည့်နဲ့ အကြွေး စာရင်းတွေကို App မဖွင့်ဘဲ Chat ကနေ သွင်းနိုင်ပါတယ်။ (Each person uses their own Telegram bot to record Income, Expense, Transfer, Withdraw, Top-up and credit entries from a chat menu, without opening the app.)",
     "သင့် bot ကို Telegram မှာ ဖွင့်ပြီး ပို့ပါ (Open your bot in Telegram and send)",
     "သိမ်းနေသည်… (Saving…)",
     "သိမ်းပြီးပါပြီ (Saved)",
     "သိမ်းမည် (Save)",
     "အစီရင်ခံစာ Bot (အသိပေးချက်သာ) (Reports bot (notifications only))",
-    "အမည် (Name)"
+    "အမည် (Name)",
+    "အောက်က အစီရင်ခံစာ Bot က မထည့်လည်း ရပါတယ်။ Group (သို့) Channel ထဲကို Report ပို့ပေးရုံပါ။ (The Reports bot further down is optional. It only sends reports to a group or channel.)"
    ]
   },
   {
