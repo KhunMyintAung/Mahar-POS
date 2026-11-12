@@ -428,6 +428,9 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
   function detect() {
     var q = new URLSearchParams(location.search).get("lang");
     if (ok(q)) return q;
+    // Search engines and link previews keep the page as written (Myanmar); each language
+    // has its own ?lang= address for them.
+    if (/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|viber|preview|lighthouse/i.test(navigator.userAgent)) return "my";
     try { var s = localStorage.getItem("ms-lang"); if (ok(s)) return s; } catch (e) {}
     var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
     for (var i = 0; i < langs.length; i++) {

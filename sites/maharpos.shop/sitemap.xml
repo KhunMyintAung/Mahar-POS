@@ -32,38 +32,797 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/"/>
     <changefreq>weekly</changefreq><priority>0.9</priority>
   </url>
-  <url><loc>https://maharpos.shop/manual</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://maharpos.shop/manual/what-is-mahar-pos</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/register-google-login</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/app-basics</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/business-profile-setup</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/printer-setup</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/dashboard-overview</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/sale-pos-checkout</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/offline-sync-modes</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/device-only-shop</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/sales-history-void-reprint</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/repair-service-flow</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/repair-pos-handback</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/repair-parts-orders</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/repair-technicians</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/bill-eload-flow</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/money-service-transfer</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/products-stock-setup</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/imei-tracking</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/stock-adjust-movements</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/purchasing-flow</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/trade-in-phones</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/customer-credit-debt</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/customers-contacts</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/other-income-expense</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/daily-close-report</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/google-sheet-sync</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/telegram-reports</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/staff-permission</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/audit-logs</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/online-shop</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/settings-menu-account</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://maharpos.shop/manual/repair-track-customer</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url>
+    <loc>https://maharpos.shop/manual</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual"/>
+    <changefreq>weekly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual"/>
+    <changefreq>weekly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual"/>
+    <changefreq>weekly</changefreq><priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/what-is-mahar-pos</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/what-is-mahar-pos</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/what-is-mahar-pos</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/what-is-mahar-pos"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/what-is-mahar-pos"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/register-google-login</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/register-google-login"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/register-google-login</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/register-google-login"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/register-google-login</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/register-google-login"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/register-google-login"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/app-basics</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/app-basics"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/app-basics</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/app-basics"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/app-basics</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/app-basics"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/app-basics"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/business-profile-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/business-profile-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/business-profile-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/business-profile-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/business-profile-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/printer-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/printer-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/printer-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/printer-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/printer-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/printer-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/printer-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/dashboard-overview</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/dashboard-overview</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/dashboard-overview</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/dashboard-overview"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/dashboard-overview"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/sale-pos-checkout</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/sale-pos-checkout</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/sale-pos-checkout</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sale-pos-checkout"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sale-pos-checkout"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/offline-sync-modes</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/offline-sync-modes</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/offline-sync-modes</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/offline-sync-modes"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/offline-sync-modes"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/device-only-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/device-only-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/device-only-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/device-only-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/device-only-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/device-only-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/device-only-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/sales-history-void-reprint</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/sales-history-void-reprint</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/sales-history-void-reprint</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/sales-history-void-reprint"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/sales-history-void-reprint"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/repair-service-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/repair-service-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/repair-service-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-service-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-service-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/repair-pos-handback</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/repair-pos-handback</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/repair-pos-handback</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-pos-handback"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-pos-handback"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/repair-parts-orders</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/repair-parts-orders</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/repair-parts-orders</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-parts-orders"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-parts-orders"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/repair-technicians</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-technicians"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/repair-technicians</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-technicians"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/repair-technicians</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-technicians"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-technicians"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/bill-eload-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/bill-eload-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/bill-eload-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/bill-eload-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/bill-eload-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/money-service-transfer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/money-service-transfer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/money-service-transfer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/money-service-transfer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/money-service-transfer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/products-stock-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/products-stock-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/products-stock-setup</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/products-stock-setup"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/products-stock-setup"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/imei-tracking</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/imei-tracking"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/imei-tracking</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/imei-tracking"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/imei-tracking</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/imei-tracking"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/imei-tracking"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/stock-adjust-movements</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/stock-adjust-movements</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/stock-adjust-movements</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/stock-adjust-movements"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/stock-adjust-movements"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/purchasing-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/purchasing-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/purchasing-flow</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/purchasing-flow"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/purchasing-flow"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/trade-in-phones</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/trade-in-phones</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/trade-in-phones</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/trade-in-phones"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/trade-in-phones"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/customer-credit-debt</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/customer-credit-debt</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/customer-credit-debt</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customer-credit-debt"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customer-credit-debt"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/customers-contacts</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customers-contacts"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/customers-contacts</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customers-contacts"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/customers-contacts</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/customers-contacts"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/customers-contacts"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/other-income-expense</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/other-income-expense"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/other-income-expense</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/other-income-expense"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/other-income-expense</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/other-income-expense"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/other-income-expense"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/daily-close-report</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/daily-close-report"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/daily-close-report</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/daily-close-report"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/daily-close-report</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/daily-close-report"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/daily-close-report"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/google-sheet-sync</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/google-sheet-sync</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/google-sheet-sync</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/google-sheet-sync"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/google-sheet-sync"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/telegram-reports</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/telegram-reports"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/telegram-reports</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/telegram-reports"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/telegram-reports</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/telegram-reports"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/telegram-reports"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/staff-permission</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/staff-permission"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/staff-permission</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/staff-permission"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/staff-permission</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/staff-permission"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/staff-permission"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/audit-logs</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/audit-logs"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/audit-logs</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/audit-logs"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/audit-logs</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/audit-logs"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/audit-logs"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/online-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/online-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/online-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/online-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/online-shop</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/online-shop"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/online-shop"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/settings-menu-account</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/settings-menu-account</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/settings-menu-account</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/settings-menu-account"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/settings-menu-account"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/repair-track-customer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/en/repair-track-customer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://maharpos.shop/manual/th/repair-track-customer</loc>
+    <xhtml:link rel="alternate" hreflang="my" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://maharpos.shop/manual/en/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="th" href="https://maharpos.shop/manual/th/repair-track-customer"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://maharpos.shop/manual/repair-track-customer"/>
+    <changefreq>monthly</changefreq><priority>0.6</priority>
+  </url>
   <url><loc>https://maharpos.shop/privacy/</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>
 </urlset>

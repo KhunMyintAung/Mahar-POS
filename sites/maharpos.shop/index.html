@@ -583,6 +583,9 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
   function detect() {
     var q = new URLSearchParams(location.search).get("lang");
     if (ok(q)) return q;
+    // Search engines and link previews keep the page as written (Myanmar); each language
+    // has its own ?lang= address for them.
+    if (/bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|viber|preview|lighthouse/i.test(navigator.userAgent)) return "my";
     try { var s = localStorage.getItem("mp-lang"); if (ok(s)) return s; } catch (e) {}
     var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
     for (var i = 0; i < langs.length; i++) {
@@ -612,6 +615,8 @@ footer nav{display:flex;flex-wrap:wrap;gap:6px 18px}
     if (canon) canon.setAttribute("href", "https://maharpos.shop/" + (new URLSearchParams(location.search).get("lang") === l ? "?lang=" + l : ""));
     nodes.forEach(function (n) { var v = T[l][n.dataset.t]; if (v != null) n.innerHTML = v; });
     document.querySelectorAll("[data-ph]").forEach(function (n) { n.placeholder = T[l][n.dataset.ph]; });
+    // The user guide has its own address in each language.
+    document.querySelectorAll('a[href^="/manual"]').forEach(function (a) { a.setAttribute("href", l === "my" ? "/manual" : "/manual/" + l); });
     document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.lang === l)); });
     document.querySelectorAll("img[data-shot]").forEach(function (im) {
       var src = "img/" + SHOTS[l][im.dataset.shot] + ".webp";
