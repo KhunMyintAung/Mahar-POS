@@ -582,7 +582,7 @@ async function askVpnPayment(chatId: string, ctx: Ctx, state: State, itemId: str
   ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
 }
 
-async function takeVpnSlip(chatId: string, ctx: Ctx, state: State, message: TgMessage) {
+async function takeVpnSlip(chatId: string, ctx: Ctx, state: State, message: TgMessage, ownerUserId: string) {
   const plan = ctx.vpn.find((p) => p.id === state.vp?.itemId);
   const fileId = message.photo?.[message.photo.length - 1]?.file_id ?? message.document?.file_id;
   if (!plan) { state.step = "browse"; return listVpn(chatId, ctx, state); }
@@ -596,9 +596,9 @@ async function takeVpnSlip(chatId: string, ctx: Ctx, state: State, message: TgMe
   }
   const renewId = state.vp?.renewId;
   const order = await placeVpnOrder(ctx.business.id, plan, {
-    customerName: message.from?.first_name ?? "Telegram", username: message.from?.username, renewId,
+    ownerUserId, chatId, customerName: message.from?.first_name ?? "Telegram", username: message.from?.username, renewId,
   });
-  const decide = keyboard([[btn("✅ ငွေရပြီ · Key ပို့မည်", `vp:ok:${order.id}:${chatId}`), btn("❌ ငွေမရ", `vp:no:${order.id}:${chatId}`)]]);
+  const decide = keyboard([[btn("✅ ငွေရပြီ · Key ပို့မည်", `vp:ok:${order.id}`), btn("❌ ငွေမရ", `vp:no:${order.id}`)]]);
   const caption = [
     `🔐 VPN ${renewId ? "သက်တမ်းတိုး" : "ဝယ်ရန်"} ${order.orderNo}`,
     planLine(plan, ctx.business.currency),
@@ -945,7 +945,7 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
     state.humanUntil = undefined;
     await home(chatId, ctx, state);
   } else if (state.step === "tu_pay" && message) await takeSlip(chatId, ctx, state, message);
-  else if (state.step === "vp_pay" && message) await takeVpnSlip(chatId, ctx, state, message);
+  else if (state.step === "vp_pay" && message) await takeVpnSlip(chatId, ctx, state, message, ownerUserId);
   else if (!text) { state.step = "browse"; await home(chatId, ctx, state); }
   else if (state.step === "rv") await takeVoucher(chatId, state, text);
   else if (state.step === "rp") await checkRepair(chatId, ctx, state, ownerUserId, text);

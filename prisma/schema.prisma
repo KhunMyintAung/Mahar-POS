@@ -188,7 +188,7 @@ model RepairWatch {
 model VpnKey {
   id             String    @id @default(uuid())
   businessId     String
-  /// The Online Shop order it was bought with; one key per order.
+  /// The VpnOrder it was bought with; one key per order.
   orderId        String    @unique
   /// The staff member whose bot sold it; their bot sends the reminders.
   ownerUserId    String
@@ -207,6 +207,48 @@ model VpnKey {
 
   @@index([businessId, chatId])
   @@index([expiresAt])
+}
+
+/// A VPN plan the shop sells on its bot. Kept apart from the shop's items: VPN is not a POS sale.
+model VpnPlan {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  days       Int
+  /// Per 30 days, as Outline counts it; null for no limit.
+  limitBytes BigInt?
+  price      BigInt
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
+/// A VPN purchase on the bot, paid first: NEW until staff check the money, then PAID or CANCELLED.
+/// Its own record, not an Online Shop order or a POS sale; the plan is copied in as it was sold.
+model VpnOrder {
+  id           String    @id @default(uuid())
+  businessId   String
+  orderNo      String
+  ownerUserId  String
+  chatId       String
+  customerName String
+  username     String?
+  planId       String
+  planName     String
+  days         Int
+  limitBytes   BigInt?
+  price        BigInt
+  status       String    @default("NEW")
+  /// The key this order extends, for a renewal.
+  renewKeyId   String?
+  keySent      Boolean   @default(false)
+  decidedById  String?
+  decidedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([businessId, orderNo])
+  @@index([businessId, createdAt])
 }
 
 /**

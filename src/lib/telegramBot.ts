@@ -31,7 +31,7 @@ import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
 import { handleCustomerUpdate, handleTopupDecision } from "./telegramShop";
 import { notifyRepairWatchers } from "./repairWatch";
-import { handleVpnDecision } from "./vpnShop";
+import { handleVpnAdmin, handleVpnDecision, vpnAddPlanText, vpnAskPlan, vpnEnabled } from "./vpnShop";
 import { businessCurrency } from "@/services/currencyService";
 
 // ---------------------------------------------------------------------------
@@ -151,7 +151,9 @@ function mainMenu(user: AuthUser, features: FeatureVisibility) {
   if (features.repair && can(user, "repair.view")) row5.push(btn("📊 ကျွန်ုပ်၏ ပြင်ဆင်မှုများ", "menu:myrepairs"));
   // Everyone can ask; what the answer may draw on is held to their own permissions.
   const row6 = [btn("🤖 AI ကို မေးရန်", "menu:ai")];
-  const rows = [row1, row2, row2b, row3, row4, row5, row6].filter((r) => r.length > 0);
+  // VPN keys, only on the one shop that sells them, kept apart from the POS (vpnShop.ts).
+  const row7 = vpnEnabled(user.businessId) && can(user, "settings.manage") ? [btn("🔐 VPN", "vpa:home")] : [];
+  const rows = [row1, row2, row2b, row3, row4, row5, row6, row7].filter((r) => r.length > 0);
   return keyboard(rows);
 }
 
@@ -1230,6 +1232,11 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string, 
   if (step === "saving") return sendMessage(chatId, "⏳ ခုနက စာရင်းကို သိမ်းနေဆဲပါ၊ ခဏစောင့်ပါ…");
   try {
     if (flow === "rp" && step === "voucher") return await rpFind(chatId, user, trimmed);
+    if (flow === "vpn" && step === "plan") {
+      if (!can(user, "settings.manage")) return await clearSession(ownerUserId, chatId);
+      if (await vpnAddPlanText(chatId, user, trimmed)) await clearSession(ownerUserId, chatId);
+      return;
+    }
     if (flow === "bl") {
       if (step === "face") return blStepFaceText(chatId, user, session.data, trimmed);
       if (step === "cash") return blStepCashText(chatId, user, session.data, trimmed);
@@ -1300,6 +1307,15 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
   if (data.startsWith("tu:")) return handleTopupDecision(chatId, user, data);
   // A VPN key paid for on the bot: money in makes the key and sends it.
   if (data.startsWith("vp:")) return handleVpnDecision(chatId, user, data);
+  if (data.startsWith("vpa:")) {
+    if (!can(user, "settings.manage")) return sendMessage(chatId, "ဒါကို လုပ်ခွင့် မရှိပါ။");
+    if (data === "vpa:add" && vpnEnabled(user.businessId)) {
+      await setSession(ownerUserId, chatId, "vpn.plan", {});
+      return vpnAskPlan(chatId);
+    }
+    await clearSession(ownerUserId, chatId);
+    return handleVpnAdmin(chatId, user, data);
+  }
 
   if (data.startsWith("menu:")) {
     const key = data.slice(5);
