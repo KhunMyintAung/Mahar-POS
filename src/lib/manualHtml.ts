@@ -10,6 +10,8 @@ import { CATEGORY_LABEL, MANUAL_LANGS, localGuide, localManual, manualPath, type
 
 const SITE = "https://maharpos.shop";
 const APP = "https://app.maharpos.shop";
+// The logo is asked for from the page's own host (the app's content policy allows no other):
+// public/mahar-icon-192.png here, and a copy in the landing site's root for maharpos.shop/manual.
 const HELP = "https://t.me/+2gc9ml7iMgk1ZThl";
 const MM_DIGITS = "၀၁၂၃၄၅၆၇၈၉";
 
@@ -181,12 +183,12 @@ ${alternates}
 <meta property="og:url" content="${canonical}"><meta property="og:locale" content="${t.ogLocale}">
 <meta property="og:image" content="${APP}/mahar-icon-512.png"><meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#0b3d2e">
-<link rel="icon" type="image/png" href="${APP}/mahar-icon-192.png">
+<link rel="icon" type="image/png" href="/mahar-icon-192.png">
 <script type="application/ld+json">${JSON.stringify(opts.schema).replace(/</g, "\\u003c")}</script>
 <style>${STYLE}</style>
 </head>
 <body>
-<header class="bar"><div><a class="brand" href="${SITE}/"><img src="${APP}/mahar-icon-192.png" alt="" width="32" height="32"><span>Mahar <b>POS</b></span></a><a class="all" href="${manualPath(opts.lang)}">${esc(t.allGuides)}</a><nav class="lang" aria-label="Language">${switcher}</nav></div></header>
+<header class="bar"><div><a class="brand" href="${SITE}/"><img src="/mahar-icon-192.png" alt="" width="32" height="32"><span>Mahar <b>POS</b></span></a><a class="all" href="${manualPath(opts.lang)}">${esc(t.allGuides)}</a><nav class="lang" aria-label="Language">${switcher}</nav></div></header>
 <main class="wrap">
 ${opts.body}
 <div class="cta"><a class="btn btn-gold" href="${APP}/register">${esc(t.startFree)}</a><a class="btn btn-ghost" href="${APP}">${esc(t.openApp)}</a>${opts.slug ? `<a class="btn btn-ghost" href="${manualPath(opts.lang)}">${esc(t.otherGuides)}</a>` : ""}<a class="btn btn-ghost" href="${HELP}" rel="noopener">${esc(t.help)}</a></div>
