@@ -1,5 +1,6 @@
 import { runDueDailyReports } from "./telegramReports";
 import { runDueGsheetBackups } from "./gsheetBackup";
+import { runDueVpnChecks } from "./vpnShop";
 
 const TICK_MS = 60_000;
 const KEY = Symbol.for("mahar.reportScheduler");
@@ -18,6 +19,7 @@ export function startReportScheduler() {
     try {
       await runDueDailyReports();
       await runDueGsheetBackups();
+      await runDueVpnChecks();
     } catch (e) {
       console.error("[report scheduler]", e);
     } finally {

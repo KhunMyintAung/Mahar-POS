@@ -15,6 +15,7 @@ import { findRepairJobWhere } from "./repairLookup";
 import { trackToken } from "./repairTrack";
 import { asciiDigits, findParts, hasSpareParts, partQuery, partQuoteText, phoneEndsWith, repairCardText } from "./customerBot";
 import { watchRepair } from "./repairWatch";
+import { loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, type VpnPlan } from "./vpnShop";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
@@ -37,11 +38,13 @@ type Item = Shop["items"][number];
 interface State {
   /** What the next typed message is: the customer's name, phone or address, a search, a
    *  repair voucher number ("rv") and its phone digits ("rp"), or a part question ("part"). */
-  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part" | "tu_id" | "tu_pay" | "bk_phone";
+  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part" | "tu_id" | "tu_pay" | "bk_phone" | "vp_pay";
   /** The voucher number typed, kept until the phone digits come. */
   rv?: string;
   /** A game top-up under way: the package, then the game ID it goes to. */
   tu?: { itemId: string; gameId?: string };
+  /** A VPN plan being bought, and the key it renews if it is a renewal. */
+  vp?: { itemId?: string; renewId?: string };
   /** A repair visit being booked, until the customer confirms it. */
   bk?: { device: string; problem: string; when?: string };
   /** The last few lines with the AI, so a follow-up question makes sense. */
@@ -84,6 +87,8 @@ interface Ctx {
   ownerChatId: string | null;
   /** Game top-up packages among the items shown online. */
   topups: Item[];
+  /** VPN plans, only on the one shop that sells VPN keys (vpnShop.ts). */
+  vpn: VpnPlan[];
 }
 
 /** A game top-up package: an online item whose category or name says so. Such an item is not
@@ -106,9 +111,10 @@ async function loadCtx(ownerUserId: string): Promise<Ctx | null> {
   const shop = listed && shopSlug && listed.items.length > 0 ? { ...listed, slug: shopSlug } : null;
   const repairOn = access.features.repair;
   const partsOn = repairOn && (await hasSpareParts(business.id));
-  if (!shop && !repairOn) return null;
+  const vpn = await loadVpnPlans(business.id);
+  if (!shop && !repairOn && vpn.length === 0) return null;
   const topups = shop ? shop.items.filter(isTopup) : [];
-  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId, topups };
+  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId, topups, vpn };
 }
 
 const price = (shop: Shop, minor: bigint) => fmtMoneyPlain(minor, shop.business.currency);
@@ -136,6 +142,7 @@ function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
   if (ctx.repairOn) rows.push([btn("🔧 ဖုန်းပြင်ပြီးပြီလား စစ်ရန်", "s:rv")]);
   if (ctx.partsOn) rows.push([btn("📱 ဖုန်းမှန် / Parts ဈေးမေးရန်", "s:part")]);
   if (ctx.topups.length > 0) rows.push([btn("💎 Game ဖြည့်ရန် (ML / PUBG)", "s:tus")]);
+  if (ctx.vpn.length > 0) rows.push([btn("🔐 VPN ဝယ်ရန်", "s:vps"), btn("🔑 ကျွန်ုပ်၏ VPN", "s:vpk")]);
   if (ctx.shop) {
     rows.push([btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")]);
     rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")]);
@@ -155,6 +162,7 @@ async function home(chatId: string, ctx: Ctx, state: State) {
     ...(ctx.repairOn ? ["🔧 ပြင်ထားတဲ့ ဖုန်း ပြီးမပြီး ဒီမှာ စစ်လို့ ရပါတယ်။"] : []),
     ...(ctx.partsOn ? ["📱 ဖုန်းမှန်၊ Battery စတဲ့ ပစ္စည်းဈေး မေးလို့ ရပါတယ်။"] : []),
     ...(ctx.topups.length > 0 ? ["💎 ML Diamond၊ PUBG UC ဖြည့်လို့ ရပါတယ်။"] : []),
+    ...(ctx.vpn.length > 0 ? ["🔐 VPN Key ဝယ်လို့ ရပါတယ်။ ငွေလွှဲ Screenshot ပို့ပြီး ဆိုင်က စစ်တာနဲ့ Key ရပါမယ်။"] : []),
     ...(ctx.cfg.aiCustomers ? ["💬 မေးချင်တာကို စာရိုက်ပြီး မေးလို့ ရပါတယ်။"] : []),
     ...(ctx.shop ? [
       "🛍 ပစ္စည်းများကို ကြည့်ပြီး ဒီမှာပဲ မှာယူနိုင်ပါတယ်။",
@@ -545,6 +553,68 @@ async function takeSlip(chatId: string, ctx: Ctx, state: State, message: TgMessa
   ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
 }
 
+// ---------------------------------------------------------------------------
+// VPN keys, on the one shop that sells them: a plan, payment, a slip; staff tap Paid and the key
+// is made and sent by vpnShop.ts. A renewal is the same with the key it extends.
+// ---------------------------------------------------------------------------
+
+async function listVpn(chatId: string, ctx: Ctx, state: State) {
+  const rows = ctx.vpn.slice(0, 20).map((p) => [btn(planLine(p, ctx.business.currency).slice(0, 60), `s:vp:${p.id}`)]);
+  const head = state.vp?.renewId ? "🔁 သက်တမ်းတိုးမယ့် Plan ကို ရွေးပါ" : "🔐 VPN Plan ကို ရွေးပါ";
+  await sendMessage(chatId, `${head}\n\nOutline VPN · ဖုန်း၊ ကွန်ပျူတာ အကုန်သုံးလို့ ရပါတယ်။`, { replyMarkup: keyboard([...rows, BACK_HOME]) });
+}
+
+async function askVpnPayment(chatId: string, ctx: Ctx, state: State, itemId: string) {
+  const plan = ctx.vpn.find((p) => p.id === itemId);
+  if (!plan) return listVpn(chatId, ctx, state);
+  state.vp = { itemId, renewId: state.vp?.renewId };
+  state.step = "vp_pay";
+  await sendMessage(chatId, [
+    planText(plan, ctx.business.currency),
+    ...(state.vp.renewId ? ["🔁 Key အဟောင်းကို သက်တမ်းတိုးပါမယ်။"] : []),
+    "",
+    `💰 ${fmtMoneyPlain(plan.price, ctx.business.currency)} လွှဲပေးပါ`,
+    "",
+    ctx.cfg.payment || "ဆိုင်ရဲ့ ငွေလွှဲ နံပါတ်ကို ဆိုင်မှာ မေးပါ။",
+    "",
+    "📸 ငွေလွှဲပြီးရင် Screenshot ကို ဒီမှာ ပို့ပေးပါ။ ဆိုင်က ငွေဝင်တာ စစ်ပြီးတာနဲ့ Key ပို့ပေးပါမယ်။",
+  ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
+}
+
+async function takeVpnSlip(chatId: string, ctx: Ctx, state: State, message: TgMessage) {
+  const plan = ctx.vpn.find((p) => p.id === state.vp?.itemId);
+  const fileId = message.photo?.[message.photo.length - 1]?.file_id ?? message.document?.file_id;
+  if (!plan) { state.step = "browse"; return listVpn(chatId, ctx, state); }
+  if (!fileId) {
+    await sendMessage(chatId, "📸 ငွေလွှဲ Screenshot ကို ပုံအနေနဲ့ ပို့ပေးပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  if (!ctx.ownerChatId || !allowOrder(`vp:${ctx.business.id}:${chatId}`, 5, 60 * 60_000)) {
+    await sendMessage(chatId, "⏳ ခဏနေမှ ပြန်ကြိုးစားပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  const renewId = state.vp?.renewId;
+  const order = await placeVpnOrder(ctx.business.id, plan, {
+    customerName: message.from?.first_name ?? "Telegram", username: message.from?.username, renewId,
+  });
+  const decide = keyboard([[btn("✅ ငွေရပြီ · Key ပို့မည်", `vp:ok:${order.id}:${chatId}`), btn("❌ ငွေမရ", `vp:no:${order.id}:${chatId}`)]]);
+  const caption = [
+    `🔐 VPN ${renewId ? "သက်တမ်းတိုး" : "ဝယ်ရန်"} ${order.orderNo}`,
+    planLine(plan, ctx.business.currency),
+    `👤 ${who(message.from)}`,
+    "",
+    "ငွေဝင်မဝင် ကိုယ့် KBZPay / Wave မှာ စစ်ပြီးမှ နှိပ်ပါ။ နှိပ်တာနဲ့ Key ကို Customer ဆီ ချက်ချင်း ပို့ပါမယ်။",
+  ].join("\n");
+  if (message.photo) await sendPhoto(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
+  else await sendDocument(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
+  state.vp = undefined;
+  state.step = "browse";
+  await sendMessage(chatId, [
+    `📨 ${order.orderNo} ပို့ပြီးပါပြီ။`,
+    "ဆိုင်က ငွေဝင်တာ စစ်ပြီးတာနဲ့ VPN Key ကို ဒီမှာ ပို့ပေးပါမယ်။",
+  ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
+}
+
 /** A staff member's answer to a top-up, from their own chat: the money came (or did not), then
  *  the top-up is done. The order stays open for POS, where it is rung up into the wallet the
  *  money went to; this only moves it along and tells the customer. */
@@ -765,6 +835,10 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
     else if (action === "tus" && ctx.topups.length > 0) await listTopups(chatId, ctx);
     else if (action === "tu" && arg) await startTopup(chatId, ctx, state, arg);
     else if (action === "tu_pay") await askPayment(chatId, ctx, state);
+    else if (action === "vps" && ctx.vpn.length > 0) { state.vp = undefined; await listVpn(chatId, ctx, state); }
+    else if (action === "vpr" && ctx.vpn.length > 0 && arg) { state.vp = { renewId: arg }; await listVpn(chatId, ctx, state); }
+    else if (action === "vp" && arg) await askVpnPayment(chatId, ctx, state, arg);
+    else if (action === "vpk" && ctx.vpn.length > 0) await showMyVpn(chatId, ctx.business.id, BACK_HOME);
     else if (action === "bkq" && ctx.repairOn && state.bk) await showBooking(chatId, state);
     else if (action === "bk_ok" && state.bk) {
       if (state.phone) await sendBooking(chatId, ctx, state, cq.from);
@@ -829,6 +903,7 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
     state.humanUntil = undefined;
     await home(chatId, ctx, state);
   } else if (state.step === "tu_pay" && message) await takeSlip(chatId, ctx, state, message);
+  else if (state.step === "vp_pay" && message) await takeVpnSlip(chatId, ctx, state, message);
   else if (!text) { state.step = "browse"; await home(chatId, ctx, state); }
   else if (state.step === "rv") await takeVoucher(chatId, state, text);
   else if (state.step === "rp") await checkRepair(chatId, ctx, state, ownerUserId, text);

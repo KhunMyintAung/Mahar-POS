@@ -182,6 +182,34 @@ model RepairWatch {
 }
 
 /**
+ * A VPN access key sold on the shop's Telegram bot (one shop only, set on the server). The key
+ * itself lives on the Outline server; this is who bought it, until when, and its order.
+ */
+model VpnKey {
+  id             String    @id @default(uuid())
+  businessId     String
+  /// The Online Shop order it was bought with; one key per order.
+  orderId        String    @unique
+  /// The staff member whose bot sold it; their bot sends the reminders.
+  ownerUserId    String
+  chatId         String
+  outlineKeyId   String
+  planName       String
+  /// Per 30 days, as Outline counts it; null for no limit.
+  dataLimitBytes BigInt?
+  expiresAt      DateTime
+  remindedAt     DateTime?
+  /// Set when it ran out: the key is held at no data, then removed a week later.
+  disabledAt     DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([businessId, chatId])
+  @@index([expiresAt])
+}
+
+/**
  * A device left in for repair.
  * The shop's promise to a customer: what was handed over, what is wrong with it, what it
  * will cost and when it will be ready. Money only moves when the phone goes back out, so

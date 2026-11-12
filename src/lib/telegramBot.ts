@@ -31,6 +31,7 @@ import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
 import { handleCustomerUpdate, handleTopupDecision } from "./telegramShop";
 import { notifyRepairWatchers } from "./repairWatch";
+import { handleVpnDecision } from "./vpnShop";
 import { businessCurrency } from "@/services/currencyService";
 
 // ---------------------------------------------------------------------------
@@ -1297,6 +1298,8 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
 
   // A customer's game top-up, sent here with their payment slip: money in, money not in, done.
   if (data.startsWith("tu:")) return handleTopupDecision(chatId, user, data);
+  // A VPN key paid for on the bot: money in makes the key and sends it.
+  if (data.startsWith("vp:")) return handleVpnDecision(chatId, user, data);
 
   if (data.startsWith("menu:")) {
     const key = data.slice(5);
