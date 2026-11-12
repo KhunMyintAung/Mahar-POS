@@ -307,6 +307,14 @@ describe("AI answers on the shop's Telegram bot", () => {
     expect(last().buttons[0]).toContain("iPhone 13");
   });
 
+  it("answers a part question typed straight in, without the AI", async () => {
+    await say("Iphone 11 မှန်ရှိလား");
+    expect(mocks.sent.map((m) => m.text).join(" ")).toContain("iPhone 11 LCD");
+    mocks.sent = [];
+    await say("charger");
+    expect(last().buttons.join(" ")).toContain("Type-C Charger");
+  });
+
   it("logs each exchange to the reports bot: what was typed or tapped and what the bot said", async () => {
     mocks.logs = [];
     await say("/start");

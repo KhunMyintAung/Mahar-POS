@@ -270,6 +270,11 @@ async function askPart(chatId: string, state: State) {
   });
 }
 
+const isPartQuestion = (text: string) => {
+  const q = partQuery(text.slice(0, 60));
+  return q.model.length > 0 && q.part.length > 0;
+};
+
 async function quoteParts(chatId: string, ctx: Ctx, state: State, text: string, from?: { first_name: string; username?: string }) {
   const q = text.slice(0, 60);
   const again: InlineButton[][] = [[btn("🔍 နောက်တစ်ခု မေးမည်", "s:part")], BACK_HOME];
@@ -959,6 +964,8 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
   // A person at the shop has the conversation: pass it on, and keep the AI out of it.
   else if (state.step === "browse" && (state.humanUntil ?? 0) > Date.now()) await forwardToStaff(chatId, ctx, text, from);
   else if (state.step === "browse" && (await aiAnswer(chatId, ctx, state, ownerUserId, text, from))) { /* answered */ }
+  // Without the AI, a typed "iPhone 11 မှန်ရှိလား" is still a part question: a phone and a part.
+  else if (state.step === "browse" && ctx.partsOn && isPartQuestion(text)) await quoteParts(chatId, ctx, state, text, from);
   else if (!shop) await home(chatId, ctx, state);
   else if (state.step === "name") {
     state.name = text.slice(0, 80);
