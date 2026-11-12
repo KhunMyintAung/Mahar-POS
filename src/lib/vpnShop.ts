@@ -3,7 +3,7 @@ import { nextNumber } from "./sequence";
 import { audit } from "./audit";
 import { fmtMoneyPlain } from "./format";
 import { dateRangeUtc, todayBusinessDate } from "./dates";
-import { btn, keyboard, linkBtn, sendMessage, sendMessageWith, type InlineButton } from "./telegram";
+import { btn, keyboard, linkBtn, sendMessage, sendMessageWith, sendPhotoFile, type InlineButton } from "./telegram";
 import { createOutlineKey, deleteOutlineKey, outlineAccessUrls, outlineConfigured, outlineUsage, removeOutlineLimit, setOutlineLimit, OutlineError } from "./outline";
 
 // ---------------------------------------------------------------------------
@@ -136,19 +136,59 @@ async function deliver(order: Order) {
     throw e;
   }
   await prisma.vpnOrder.update({ where: { id: order.id }, data: { keySent: true } });
-  await sendMessage(chatId, [
-    `🔐 VPN Key ရပါပြီ (${order.orderNo})`,
-    `⏳ ${dayText(expiresAt)} အထိ`,
-    `📦 ${gbText(order.limitBytes)}`,
-    "",
-    "ချိတ်နည်း:",
-    "1. Outline app ကို ထည့်ပါ (Android / iPhone / Windows)",
-    "2. အောက်က Key ကို ကူးပြီး Outline ထဲ ထည့်ပါ",
-    "3. Connect နှိပ်ပါ",
-  ].join("\n"), { replyMarkup: keyboard([[linkBtn("📲 Outline app ရယူရန်", OUTLINE_APPS)]]) });
-  // On its own, so it is one long press to copy.
-  await sendMessage(chatId, key.accessUrl);
+  await sendMessage(chatId, [`🔐 VPN Key ရပါပြီ (${order.orderNo})`, `⏳ ${dayText(expiresAt)} အထိ`, `📦 ${gbText(order.limitBytes)}`].join("\n"));
+  await sendKey(chatId, key.accessUrl);
+  await sendMessage(chatId, VPN_HOW_TO, { replyMarkup: keyboard(appRows()) });
   return "created" as const;
+}
+
+// ---------------------------------------------------------------------------
+// The key itself and how to use it. An Outline key is a Shadowsocks (ss://) link, so it works
+// in Outline, Hiddify and V2Box alike, and in the shop's own app when VPN_APP_URL names it.
+// ---------------------------------------------------------------------------
+
+export const VPN_APPS: { name: string; android: string; ios: string; other?: string }[] = [
+  { name: "Outline", android: "https://play.google.com/store/apps/details?id=org.outline.android.client", ios: "https://apps.apple.com/app/id1356177741", other: OUTLINE_APPS },
+  { name: "Hiddify", android: "https://play.google.com/store/apps/details?id=app.hiddify.com", ios: "https://apps.apple.com/app/id6596777532", other: "https://hiddify.com" },
+  { name: "V2Box", android: "https://play.google.com/store/apps/details?id=dev.hexasoftware.v2box", ios: "https://apps.apple.com/app/id6446814690" },
+];
+
+const shopApp = () => process.env.VPN_APP_URL?.trim() || "";
+
+/** One row per app: Android and iPhone; the shop's own app first when there is one. */
+export function appRows(): InlineButton[][] {
+  const rows: InlineButton[][] = [];
+  if (shopApp()) rows.push([linkBtn("⭐ Mahar VPN app", shopApp())]);
+  for (const a of VPN_APPS) rows.push([linkBtn(`🤖 ${a.name} (Android)`, a.android), linkBtn(`🍎 ${a.name} (iPhone)`, a.ios)]);
+  rows.push([linkBtn("💻 Windows / Mac (Outline)", OUTLINE_APPS)]);
+  return rows;
+}
+
+export const VPN_HOW_TO = [
+  "📖 သုံးနည်း",
+  "",
+  "ဒီ Key ကို အောက်က App တစ်ခုခုမှာ သုံးလို့ ရပါတယ်:",
+  `• ${[...(shopApp() ? ["Mahar VPN"] : []), "Outline", "Hiddify", "V2Box"].join(" / ")}`,
+  "",
+  "1. App ကို ထည့်ပါ (အောက်က ခလုတ်)",
+  "2. Key ကို ကူးပါ (Key စာကို ဖိထားပြီး Copy)",
+  "3. App ထဲမှာ:",
+  "   • Outline: + (Add server) နှိပ်ပြီး Key ထည့်",
+  "   • Hiddify: + နှိပ် → Add from clipboard",
+  "   • V2Box: Configs → + → Import v2ray uri from clipboard",
+  "   (သို့) QR ပုံကို App ထဲက QR Scan နဲ့ ဖတ်ပါ",
+  "4. Connect နှိပ်ပါ ✅",
+  "",
+  "မရရင် 🔑 ကျွန်ုပ်၏ VPN မှာ Key ပြန်ယူပြီး ထပ်စမ်းပါ (သို့) ဆိုင်ကို မေးပါ။",
+].join("\n");
+
+/** The key as a QR code to scan and as text to copy, each its own message. */
+export async function sendKey(chatId: string, accessUrl: string) {
+  const QR = (await import("qrcode")).default;
+  const png = await QR.toBuffer(accessUrl, { type: "png", width: 512, margin: 2, errorCorrectionLevel: "M" });
+  await sendPhotoFile(chatId, png, { caption: "📷 App ထဲက QR Scan နဲ့ ဖတ်ပါ" });
+  // On its own, so it is one long press to copy.
+  await sendMessage(chatId, accessUrl);
 }
 
 type Staff = { id: string; businessId: string; permissions: string[] };
@@ -308,9 +348,9 @@ export async function showMyVpn(chatId: string, businessId: string, back: Inline
       `📦 ${gbText(k.dataLimitBytes)}${used != null ? ` · သုံးပြီး ${(used / 1e9).toFixed(1)} GB` : ""}`,
     ].join("\n"), { replyMarkup: keyboard([[btn("🔁 သက်တမ်းတိုးမည်", `s:vpr:${k.id}`)]]) });
     const url = urls.get(k.outlineKeyId);
-    if (url && !k.disabledAt) await sendMessage(chatId, url);
+    if (url && !k.disabledAt) await sendKey(chatId, url);
   }
-  await sendMessage(chatId, "ပင်မ Menu", { replyMarkup: keyboard([back]) });
+  await sendMessage(chatId, VPN_HOW_TO, { replyMarkup: keyboard([...appRows(), back]) });
 }
 
 let lastCheck = 0;

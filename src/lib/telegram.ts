@@ -139,6 +139,31 @@ export async function sendPhoto(
   });
 }
 
+/** An image made here (a QR code), uploaded with the message rather than sent by file_id. */
+export async function sendPhotoFile(
+  chatId: string,
+  png: Buffer,
+  opts?: { caption?: string; replyMarkup?: { inline_keyboard: InlineButton[][] } }
+) {
+  keep(chatId, `📷 ${opts?.caption ?? ""}`.trim());
+  try {
+    const form = new FormData();
+    form.set("chat_id", chatId);
+    form.set("photo", new Blob([new Uint8Array(png)], { type: "image/png" }), "qr.png");
+    if (opts?.caption) form.set("caption", opts.caption);
+    if (opts?.replyMarkup) form.set("reply_markup", JSON.stringify(opts.replyMarkup));
+    const res = await fetch(`https://api.telegram.org/bot${activeToken()}/sendPhoto`, {
+      method: "POST", body: form, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.description ?? "sendPhoto failed");
+    return data.result;
+  } catch (e) {
+    console.error("[telegram] sendPhoto (upload) failed:", e instanceof Error ? e.message : e);
+    return undefined;
+  }
+}
+
 export async function sendDocument(
   chatId: string,
   fileId: string,

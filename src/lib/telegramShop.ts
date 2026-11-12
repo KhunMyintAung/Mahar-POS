@@ -3,7 +3,7 @@ import { answerCallbackQuery, btn, keyboard, linkBtn, sendChatAction, sendDocume
 import { notifyReportTargets } from "./telegramReports";
 import { loadAiKey } from "./aiKey";
 import { askAgent, AiError, type ChatTurn } from "./aiAgent";
-import { CUSTOMER_TOOLS, customerPrompt } from "./customerAgent";
+import { CUSTOMER_TOOLS, VPN_TOOLS, customerPrompt } from "./customerAgent";
 import { todayBusinessDate } from "./dates";
 import { audit } from "./audit";
 import { REPAIR_STATUS_MM } from "./repairStatus";
@@ -16,7 +16,7 @@ import { findRepairJobWhere } from "./repairLookup";
 import { trackToken } from "./repairTrack";
 import { asciiDigits, findParts, hasSpareParts, partQuery, partQuoteText, phoneEndsWith, repairCardText } from "./customerBot";
 import { watchRepair } from "./repairWatch";
-import { loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, type VpnPlan } from "./vpnShop";
+import { appRows, loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, VPN_APPS, VPN_HOW_TO, type VpnPlan } from "./vpnShop";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
@@ -586,7 +586,7 @@ async function takeSlip(chatId: string, ctx: Ctx, state: State, message: TgMessa
 async function listVpn(chatId: string, ctx: Ctx, state: State) {
   const rows = ctx.vpn.slice(0, 20).map((p) => [btn(planLine(p, ctx.business.currency).slice(0, 60), `s:vp:${p.id}`)]);
   const head = state.vp?.renewId ? "🔁 သက်တမ်းတိုးမယ့် Plan ကို ရွေးပါ" : "🔐 VPN Plan ကို ရွေးပါ";
-  await sendMessage(chatId, `${head}\n\nOutline VPN · ဖုန်း၊ ကွန်ပျူတာ အကုန်သုံးလို့ ရပါတယ်။`, { replyMarkup: keyboard([...rows, BACK_HOME]) });
+  await sendMessage(chatId, `${head}\n\nOutline / Hiddify / V2Box · ဖုန်း၊ ကွန်ပျူတာ အကုန်သုံးလို့ ရပါတယ်။`, { replyMarkup: keyboard([...rows, [btn("📖 သုံးနည်း", "s:vph")], BACK_HOME]) });
 }
 
 async function askVpnPayment(chatId: string, ctx: Ctx, state: State, itemId: string) {
@@ -745,7 +745,7 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
 
   const shop = ctx.shop;
   const money = (minor: bigint) => fmtMoneyPlain(minor, ctx.business.currency);
-  const then = { cart: false, topup: "", booking: false };
+  const then = { cart: false, topup: "", booking: false, vpn: "" };
   const run = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     const s = (k: string) => String(args[k] ?? "").slice(0, 120);
     if (name === "search_products") {
@@ -805,6 +805,20 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
       then.booking = true;
       return { ok: true, shown_to_customer: "the booking with a button to confirm" };
     }
+    if (name === "vpn_info" && ctx.vpn.length > 0) {
+      return {
+        plans: ctx.vpn.map((p) => ({ plan_id: p.id, name: p.name, days: p.days, data: p.limitBytes == null ? "unlimited" : `${Number(p.limitBytes) / 1e9} GB per 30 days`, price: money(p.price) })),
+        apps: [...(process.env.VPN_APP_URL ? [{ name: "Mahar VPN", link: process.env.VPN_APP_URL }] : []), ...VPN_APPS.map((a) => ({ name: a.name, android: a.android, iphone: a.ios }))],
+        how_to: VPN_HOW_TO,
+        paying: "Pay first and send the slip on the bot; the key and its QR code come when the shop has checked the payment.",
+      };
+    }
+    if (name === "start_vpn" && ctx.vpn.length > 0) {
+      const plan = ctx.vpn.find((p) => p.id === s("plan_id"));
+      if (!plan) return { error: "No such plan; use vpn_info first." };
+      then.vpn = plan.id;
+      return { ok: true, next: "The bot now shows the plan and how to pay." };
+    }
     if (name === "call_staff") {
       state.humanUntil = Date.now() + HUMAN_FOR;
       if (ctx.ownerChatId) {
@@ -819,7 +833,7 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
   const turns: ChatTurn[] = [...(state.chat ?? []), { role: "user", content: text.slice(0, 500) }];
   let reply: string;
   try {
-    reply = await askAgent(key, customerPrompt(ctx.business.name, ctx.business.currency, todayBusinessDate()), turns, { tools: CUSTOMER_TOOLS, run }, 1500);
+    reply = await askAgent(key, customerPrompt(ctx.business.name, ctx.business.currency, todayBusinessDate(), ctx.vpn.length > 0), turns, { tools: ctx.vpn.length > 0 ? [...CUSTOMER_TOOLS, ...VPN_TOOLS] : CUSTOMER_TOOLS, run }, 1500);
   } catch (e) {
     console.error("[telegram shop ai]", e instanceof AiError ? `${e.kind} ${e.message}` : e);
     // A key that stopped working is the shop's to fix; say so once a day, not to the customer.
@@ -830,10 +844,11 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
   }
   state.chat = [...turns, { role: "assistant" as const, content: reply.slice(0, 500) }].slice(-8);
   // What comes next brings its own buttons; otherwise the way home.
-  await sendMessage(chatId, reply, then.cart || then.booking || then.topup ? undefined : { replyMarkup: keyboard([BACK_HOME]) });
+  await sendMessage(chatId, reply, then.cart || then.booking || then.topup || then.vpn ? undefined : { replyMarkup: keyboard([BACK_HOME]) });
   if (then.cart && shop) await showCart(chatId, shop, state);
   if (then.booking) await showBooking(chatId, state);
   if (then.topup) await startTopup(chatId, ctx, state, then.topup);
+  if (then.vpn) { state.vp = undefined; await askVpnPayment(chatId, ctx, state, then.vpn); }
   return true;
 }
 
@@ -903,6 +918,7 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
     else if (action === "vps" && ctx.vpn.length > 0) { state.vp = undefined; await listVpn(chatId, ctx, state); }
     else if (action === "vpr" && ctx.vpn.length > 0 && arg) { state.vp = { renewId: arg }; await listVpn(chatId, ctx, state); }
     else if (action === "vp" && arg) await askVpnPayment(chatId, ctx, state, arg);
+    else if (action === "vph" && ctx.vpn.length > 0) await sendMessage(chatId, VPN_HOW_TO, { replyMarkup: keyboard([...appRows(), BACK_HOME]) });
     else if (action === "vpk" && ctx.vpn.length > 0) await showMyVpn(chatId, ctx.business.id, BACK_HOME);
     else if (action === "bkq" && ctx.repairOn && state.bk) await showBooking(chatId, state);
     else if (action === "bk_ok" && state.bk) {

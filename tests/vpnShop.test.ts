@@ -54,6 +54,7 @@ vi.mock("@/lib/telegram", async (orig) => ({
     m.sent.push({ chat, text, data: (opts?.replyMarkup?.inline_keyboard ?? []).flat().map((b) => b.callback_data ?? "") });
   },
   sendMessageWith: async (_t: string, chat: string, text: string) => { m.sent.push({ chat, text, data: [] }); },
+  sendPhotoFile: async (chat: string, png: Buffer) => { m.sent.push({ chat, text: png.subarray(1, 4).toString() === "PNG" ? "[QR png]" : "[bad]", data: [] }); },
 }));
 
 import { handleVpnDecision, parsePlan, parsePlanLine, runDueVpnChecks, vpnAddPlanText, vpnEnabled } from "@/lib/vpnShop";
@@ -114,6 +115,9 @@ describe("VPN keys on the shop's bot", () => {
     expect(m.keys).toHaveLength(1);
     expect(m.keys[0].expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * DAY);
     expect(toCustomer()).toContain("ss://key42");
+    expect(toCustomer()).toContain("[QR png]");
+    expect(toCustomer()).toContain("Hiddify");
+    expect(toCustomer()).toContain("V2Box");
     expect(toStaff()).not.toContain("POS");
     m.sent = [];
     await handleVpnDecision("999", staff, "vp:retry:o1");
