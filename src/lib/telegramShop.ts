@@ -145,7 +145,7 @@ function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
   if (ctx.topups.length > 0) rows.push([btn("💎 Game ဖြည့်ရန် (ML / PUBG)", "s:tus")]);
   if (ctx.vpn.length > 0) rows.push([btn("🔐 VPN ဝယ်ရန်", "s:vps"), btn("🔑 ကျွန်ုပ်၏ VPN", "s:vpk")]);
   if (ctx.shop) {
-    rows.push([btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")]);
+    rows.push([btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats")]);
     rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")]);
     rows.push([linkBtn("🌐 Online Shop ဖွင့်ရန်", `${appUrl()}/shop/${ctx.shop.slug}`)]);
   }
@@ -372,7 +372,7 @@ async function showCart(chatId: string, shop: Shop, state: State) {
   const lines = cartLines(shop, state);
   if (lines.length === 0) {
     await sendMessage(chatId, "🛒 ခြင်းတောင်းထဲမှာ ဘာမှ မရှိသေးပါ။", {
-      replyMarkup: keyboard([[btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")], BACK_HOME]),
+      replyMarkup: keyboard([[btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats")], BACK_HOME]),
     });
     return;
   }
@@ -917,7 +917,7 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
     else if (action === "cats") {
       const cats = categories(shop);
       await sendMessage(chatId, "🛍 ပစ္စည်းအမျိုးအစား ရွေးပါ", {
-        replyMarkup: keyboard([...cats.map((c, i) => [btn(c.slice(0, 60), `s:cat:${i}:0`)]), [btn("📋 အားလုံး", "s:all:0"), btn("🏠 ပင်မ", "s:home")]]),
+        replyMarkup: keyboard([...cats.map((c, i) => [btn(c.slice(0, 60), `s:cat:${i}:0`)]), [btn("🏠 ပင်မ", "s:home")]]),
       });
     } else if (action === "cat") {
       const name = categories(shop)[Number(arg)];
