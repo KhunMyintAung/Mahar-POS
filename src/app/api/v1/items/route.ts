@@ -10,7 +10,7 @@ import { isPhoneCategory } from "@/lib/itemCategoryPresets";
 import { loadModuleAccess } from "@/lib/moduleAccess";
 import { isPhoneShop } from "@/lib/modules";
 import { EXPIRY_FORMAT_ERROR, EXPIRY_PATTERN, expiryDate } from "@/lib/expiry";
-import { searchWords } from "@/lib/searchWords";
+import { searchWords, wordForms } from "@/lib/searchWords";
 
 export const GET = withAuth("item.view", async ({ req, user }) => {
   const sp = req.nextUrl.searchParams;
@@ -21,12 +21,13 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
     // Word by word, in any order: "realme c15" finds "Oppo A15/A16k/Realme C12/C15/C11".
     ...(sp.get("q")?.trim()
       ? {
+          // "note9" also as "note 9": a model number typed without its space still finds the item.
           AND: searchWords(sp.get("q")!).map((w) => ({
-            OR: [
-              { name: { contains: w, mode: "insensitive" as const } },
-              { sku: { contains: w, mode: "insensitive" as const } },
-              { barcode: { contains: w, mode: "insensitive" as const } },
-            ],
+            OR: wordForms(w).flatMap((f) => [
+              { name: { contains: f, mode: "insensitive" as const } },
+              { sku: { contains: f, mode: "insensitive" as const } },
+              { barcode: { contains: f, mode: "insensitive" as const } },
+            ]),
           })),
         }
       : {}),
