@@ -14,7 +14,7 @@ export interface OrderInput {
 }
 
 export type OrderResult =
-  | { ok: true; orderNo: string; createdAt: Date; total: bigint; lines: { itemId: string; name: string; quantity: number; unitPrice: bigint }[] }
+  | { ok: true; orderId: string; orderNo: string; createdAt: Date; total: bigint; lines: { itemId: string; name: string; quantity: number; unitPrice: bigint }[] }
   | { ok: false; status: number; error: string };
 
 /** Saves a customer's order from the Online Shop and tells the shop on Telegram. Prices and
@@ -41,9 +41,9 @@ export async function placeOnlineOrder(shop: PublicShop, input: OrderInput): Pro
         address: input.address || null, note: input.note || null, total,
         lines: { create: lines },
       },
-      select: { orderNo: true, createdAt: true },
+      select: { id: true, orderNo: true, createdAt: true },
     });
   });
   notifyAuditFeed(shop.business.id, onlineOrderNotice({ ...input, orderNo: order.orderNo, lines, total }));
-  return { ok: true, orderNo: order.orderNo, createdAt: order.createdAt, total, lines };
+  return { ok: true, orderId: order.id, orderNo: order.orderNo, createdAt: order.createdAt, total, lines };
 }

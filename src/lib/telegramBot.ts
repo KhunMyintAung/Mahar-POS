@@ -29,7 +29,7 @@ import { questionsNoticeGiven, recordAiQuestion } from "./aiQuestions";
 import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
-import { handleCustomerUpdate } from "./telegramShop";
+import { handleCustomerUpdate, handleTopupDecision } from "./telegramShop";
 import { notifyRepairWatchers } from "./repairWatch";
 import { businessCurrency } from "@/services/currencyService";
 
@@ -1294,6 +1294,9 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     await clearSession(ownerUserId, chatId);
     return showMenu(chatId, user, "မလုပ်တော့ပါ။");
   }
+
+  // A customer's game top-up, sent here with their payment slip: money in, money not in, done.
+  if (data.startsWith("tu:")) return handleTopupDecision(chatId, user, data);
 
   if (data.startsWith("menu:")) {
     const key = data.slice(5);

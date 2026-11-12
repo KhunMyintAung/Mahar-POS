@@ -1,5 +1,12 @@
 import { prisma } from "./prisma";
-import { answerCallbackQuery, btn, keyboard, linkBtn, sendMessage, sendPhoto, type InlineButton, type TgUpdate } from "./telegram";
+import { answerCallbackQuery, btn, keyboard, linkBtn, sendChatAction, sendDocument, sendMessage, sendPhoto, type InlineButton, type TgMessage, type TgUpdate, type TgUser } from "./telegram";
+import { loadAiKey } from "./aiKey";
+import { askAgent, AiError, type ChatTurn } from "./aiAgent";
+import { CUSTOMER_TOOLS, customerPrompt } from "./customerAgent";
+import { todayBusinessDate } from "./dates";
+import { audit } from "./audit";
+import { REPAIR_STATUS_MM } from "./repairStatus";
+import { mmNumber } from "./customerBot";
 import { allowOrder, loadOnlineShop, publicShop, shopMapHref, type OnlineShopSettings } from "./onlineShop";
 import { placeOnlineOrder, type PublicShop } from "./onlineOrder";
 import { fmtMoneyPlain } from "./format";
@@ -30,9 +37,17 @@ type Item = Shop["items"][number];
 interface State {
   /** What the next typed message is: the customer's name, phone or address, a search, a
    *  repair voucher number ("rv") and its phone digits ("rp"), or a part question ("part"). */
-  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part";
+  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part" | "tu_id" | "tu_pay" | "bk_phone";
   /** The voucher number typed, kept until the phone digits come. */
   rv?: string;
+  /** A game top-up under way: the package, then the game ID it goes to. */
+  tu?: { itemId: string; gameId?: string };
+  /** A repair visit being booked, until the customer confirms it. */
+  bk?: { device: string; problem: string; when?: string };
+  /** The last few lines with the AI, so a follow-up question makes sense. */
+  chat?: ChatTurn[];
+  /** Until when a person at the shop has the conversation and the AI keeps out (ms). */
+  humanUntil?: number;
   cart: Record<string, number>;
   name?: string;
   phone?: string;
@@ -67,7 +82,14 @@ interface Ctx {
   partsOn: boolean;
   /** The staff member's own chat, told about questions the bot could not answer. */
   ownerChatId: string | null;
+  /** Game top-up packages among the items shown online. */
+  topups: Item[];
 }
+
+/** A game top-up package: an online item whose category or name says so. Such an item is not
+ *  put in the cart; it goes to a game ID and is paid for first. */
+const TOPUP = /game|top.?up|diamond|\buc\b|pubg|mobile legends|free ?fire/i;
+export const isTopup = (i: { name: string; category: string }) => TOPUP.test(`${i.category} ${i.name}`);
 
 async function loadCtx(ownerUserId: string): Promise<Ctx | null> {
   const owner = await prisma.user.findUnique({
@@ -85,7 +107,8 @@ async function loadCtx(ownerUserId: string): Promise<Ctx | null> {
   const repairOn = access.features.repair;
   const partsOn = repairOn && (await hasSpareParts(business.id));
   if (!shop && !repairOn) return null;
-  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId };
+  const topups = shop ? shop.items.filter(isTopup) : [];
+  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId, topups };
 }
 
 const price = (shop: Shop, minor: bigint) => fmtMoneyPlain(minor, shop.business.currency);
@@ -112,6 +135,7 @@ function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
   const rows: InlineButton[][] = [];
   if (ctx.repairOn) rows.push([btn("🔧 ဖုန်းပြင်ပြီးပြီလား စစ်ရန်", "s:rv")]);
   if (ctx.partsOn) rows.push([btn("📱 ဖုန်းမှန် / Parts ဈေးမေးရန်", "s:part")]);
+  if (ctx.topups.length > 0) rows.push([btn("💎 Game ဖြည့်ရန် (ML / PUBG)", "s:tus")]);
   if (ctx.shop) {
     rows.push([btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")]);
     rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")]);
@@ -130,6 +154,8 @@ async function home(chatId: string, ctx: Ctx, state: State) {
     "",
     ...(ctx.repairOn ? ["🔧 ပြင်ထားတဲ့ ဖုန်း ပြီးမပြီး ဒီမှာ စစ်လို့ ရပါတယ်။"] : []),
     ...(ctx.partsOn ? ["📱 ဖုန်းမှန်၊ Battery စတဲ့ ပစ္စည်းဈေး မေးလို့ ရပါတယ်။"] : []),
+    ...(ctx.topups.length > 0 ? ["💎 ML Diamond၊ PUBG UC ဖြည့်လို့ ရပါတယ်။"] : []),
+    ...(ctx.cfg.aiCustomers ? ["💬 မေးချင်တာကို စာရိုက်ပြီး မေးလို့ ရပါတယ်။"] : []),
     ...(ctx.shop ? [
       "🛍 ပစ္စည်းများကို ကြည့်ပြီး ဒီမှာပဲ မှာယူနိုင်ပါတယ်။",
       "🔍 ရှာချင်တာကို စာရိုက်ပို့လိုက်ပါ (ဥပမာ - iPhone, charger)။",
@@ -178,8 +204,23 @@ async function takeVoucher(chatId: string, state: State, text: string) {
   });
 }
 
-/** The voucher and the last four digits of the phone written on it. Both have to match, so a
- *  voucher number alone (they run in order) does not show anybody else's repair. */
+/** The repair a voucher and the last four digits of the phone written on it point to. Both have
+ *  to match, so a voucher number alone (they run in order) shows nobody else's repair; and a
+ *  chat gets six tries an hour, whether by buttons or through the AI. */
+async function lookupRepair(ctx: Ctx, chatId: string, voucher: string, digitsTyped: string) {
+  const digits = asciiDigits(digitsTyped).replace(/\D/g, "");
+  const typed = asciiDigits(voucher).trim();
+  if (digits.length < 4 || !CUSTOMER_VOUCHER.test(typed)) return null;
+  if (!allowOrder(`rv:${ctx.business.id}:${chatId}`, 6, 60 * 60_000)) return "limited" as const;
+  const last4 = digits.slice(-4);
+  const job = await findRepairJobWhere({ businessId: ctx.business.id, deletedAt: null }, typed);
+  if (!job) return null;
+  const contact = job.customerId
+    ? await prisma.contact.findFirst({ where: { id: job.customerId, businessId: ctx.business.id }, select: { phone: true } })
+    : null;
+  return phoneEndsWith(job.customerPhone, last4) || phoneEndsWith(contact?.phone, last4) ? job : null;
+}
+
 async function checkRepair(chatId: string, ctx: Ctx, state: State, ownerUserId: string, digitsTyped: string) {
   const digits = asciiDigits(digitsTyped).replace(/\D/g, "");
   if (digits.length < 4) {
@@ -187,16 +228,12 @@ async function checkRepair(chatId: string, ctx: Ctx, state: State, ownerUserId: 
     return;
   }
   state.step = "browse";
-  if (!allowOrder(`rv:${ctx.business.id}:${chatId}`, 6, 60 * 60_000)) {
+  const job = await lookupRepair(ctx, chatId, state.rv ?? "", digits);
+  if (job === "limited") {
     await sendMessage(chatId, "⏳ စစ်တာ များနေပါတယ်။ တစ်နာရီလောက် နေမှ ပြန်စစ်ပါ။", { replyMarkup: keyboard([BACK_HOME]) });
     return;
   }
-  const last4 = digits.slice(-4);
-  const job = state.rv ? await findRepairJobWhere({ businessId: ctx.business.id, deletedAt: null }, state.rv) : null;
-  const contact = job?.customerId
-    ? await prisma.contact.findFirst({ where: { id: job.customerId, businessId: ctx.business.id }, select: { phone: true } })
-    : null;
-  if (!job || !(phoneEndsWith(job.customerPhone, last4) || phoneEndsWith(contact?.phone, last4))) {
+  if (!job) {
     await sendMessage(chatId, [
       "❌ Voucher နံပါတ် နဲ့ ဖုန်းနံပါတ် မကိုက်ပါ။",
       "Voucher ပေါ်က နံပါတ်နဲ့ ဆိုင်ကို ပေးထားတဲ့ ဖုန်းနံပါတ်ကို ပြန်စစ်ပေးပါ။",
@@ -224,9 +261,12 @@ async function askPart(chatId: string, state: State) {
   });
 }
 
-async function quoteParts(chatId: string, ctx: Ctx, text: string, from?: { first_name: string; username?: string }) {
+async function quoteParts(chatId: string, ctx: Ctx, state: State, text: string, from?: { first_name: string; username?: string }) {
   const q = text.slice(0, 60);
   const again: InlineButton[][] = [[btn("🔍 နောက်တစ်ခု မေးမည်", "s:part")], BACK_HOME];
+  // Asked a price, so the next thing may be bringing the phone in for it.
+  state.bk = { device: q, problem: q };
+  if (ctx.repairOn) again.unshift([btn("📅 ပြင်ဖို့ ချိန်းမည်", "s:bkq")]);
   if (partQuery(q).model.length === 0) {
     await sendMessage(chatId, "ဖုန်း Model ကို ထည့်ရိုက်ပေးပါ (ဥပမာ - iPhone 11 မှန်)။", { replyMarkup: keyboard([BACK_HOME]) });
     return;
@@ -286,7 +326,9 @@ async function showItem(chatId: string, shop: Shop, state: State, item: Item) {
   ].join("\n");
   const inCart = state.cart[item.id] ?? 0;
   const rows: InlineButton[][] = [];
-  if (item.stock > 0) rows.push([btn(inCart ? `➕ ထပ်ထည့် (ခြင်းထဲ ${inCart})` : "➕ ခြင်းတောင်းထဲ ထည့်မည်", `s:add:${item.id}`)]);
+  // A game top-up goes to a game ID and is paid first, never through the cart.
+  if (isTopup(item)) rows.push([btn("💎 ဖြည့်မည်", `s:tu:${item.id}`)]);
+  else if (item.stock > 0) rows.push([btn(inCart ? `➕ ထပ်ထည့် (ခြင်းထဲ ${inCart})` : "➕ ခြင်းတောင်းထဲ ထည့်မည်", `s:add:${item.id}`)]);
   rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart"), btn("🏠 ပင်မ", "s:home")]);
   if (item.images[0]) {
     await sendPhoto(chatId, `${appUrl()}/api/public/item-image/${item.images[0]}`, { caption, replyMarkup: keyboard(rows) });
@@ -397,6 +439,310 @@ async function placeOrder(chatId: string, shop: Shop, state: State, username?: s
   ].join("\n"), { replyMarkup: keyboard([[btn("🛍 ဆက်ဝယ်မည်", "s:cats"), btn("🏠 ပင်မ", "s:home")]]) });
 }
 
+// ---------------------------------------------------------------------------
+// Game top-up: a package, the game ID, payment, a slip. The order is an ordinary Online Shop
+// order; staff check the money arrived and top up from their own chat, and ring it up in POS
+// into the wallet the money went to, like any online order.
+// ---------------------------------------------------------------------------
+
+const who = (from?: { first_name?: string; username?: string }) =>
+  [from?.first_name, from?.username ? `@${from.username}` : ""].filter(Boolean).join(" ") || "Telegram";
+
+async function listTopups(chatId: string, ctx: Ctx) {
+  const rows = ctx.topups.slice(0, 40).map((i) => [btn(`${itemName(i)} · ${fmtMoneyPlain(i.price, ctx.business.currency)}`.slice(0, 60), `s:tu:${i.id}`)]);
+  await sendMessage(chatId, "💎 ဖြည့်မယ့် Package ကို ရွေးပါ", { replyMarkup: keyboard([...rows, BACK_HOME]) });
+}
+
+async function startTopup(chatId: string, ctx: Ctx, state: State, itemId: string) {
+  const item = ctx.topups.find((i) => i.id === itemId);
+  if (!item) return listTopups(chatId, ctx);
+  state.tu = { itemId };
+  state.step = "tu_id";
+  await sendMessage(chatId, [
+    `💎 ${itemName(item)} · ${fmtMoneyPlain(item.price, ctx.business.currency)}`,
+    "",
+    "Game ID ရိုက်ပို့ပေးပါ။",
+    "ML ဆိုရင် User ID နဲ့ Zone ID (ဥပမာ 12345678 (2001))",
+  ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
+}
+
+async function takeGameId(chatId: string, ctx: Ctx, state: State, text: string) {
+  const item = ctx.topups.find((i) => i.id === state.tu?.itemId);
+  if (!item || !state.tu) return listTopups(chatId, ctx);
+  const id = asciiDigits(text).trim().slice(0, 60);
+  if (id.replace(/\D/g, "").length < 5) {
+    await sendMessage(chatId, "Game ID ကို ဂဏန်းတွေနဲ့ မှန်အောင် ရိုက်ပေးပါ (ဥပမာ 12345678 (2001))။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  state.tu.gameId = id;
+  state.step = "browse";
+  // A top-up sent to a wrong ID cannot be taken back, so the ID is read back before paying.
+  await sendMessage(chatId, [
+    "📝 စစ်ပေးပါ",
+    "",
+    `💎 ${itemName(item)}`,
+    `🆔 ${id}`,
+    `💰 ${fmtMoneyPlain(item.price, ctx.business.currency)}`,
+    "",
+    "⚠️ ID မှားရင် ပြန်ယူလို့ မရပါ။",
+  ].join("\n"), {
+    replyMarkup: keyboard([[btn("✅ မှန်တယ် · ငွေလွှဲမယ်", "s:tu_pay")], [btn("✏️ ID ပြင်မယ်", `s:tu:${item.id}`)], BACK_HOME]),
+  });
+}
+
+async function askPayment(chatId: string, ctx: Ctx, state: State) {
+  const item = ctx.topups.find((i) => i.id === state.tu?.itemId);
+  if (!item || !state.tu?.gameId) return listTopups(chatId, ctx);
+  state.step = "tu_pay";
+  await sendMessage(chatId, [
+    `💰 ${fmtMoneyPlain(item.price, ctx.business.currency)} လွှဲပေးပါ`,
+    "",
+    ctx.cfg.payment || "ဆိုင်ရဲ့ ငွေလွှဲ နံပါတ်ကို ဆိုင်မှာ မေးပါ။",
+    "",
+    "📸 ငွေလွှဲပြီးရင် Screenshot ကို ဒီမှာ ပို့ပေးပါ။",
+  ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
+}
+
+async function takeSlip(chatId: string, ctx: Ctx, state: State, message: TgMessage) {
+  const item = ctx.topups.find((i) => i.id === state.tu?.itemId);
+  const fileId = message.photo?.[message.photo.length - 1]?.file_id ?? message.document?.file_id;
+  if (!item || !state.tu?.gameId || !ctx.shop) return listTopups(chatId, ctx);
+  if (!fileId) {
+    await sendMessage(chatId, "📸 ငွေလွှဲ Screenshot ကို ပုံအနေနဲ့ ပို့ပေးပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  if (!ctx.ownerChatId || !allowOrder(`tu:${ctx.business.id}:${chatId}`, 5, 60 * 60_000)) {
+    await sendMessage(chatId, "⏳ ခဏနေမှ ပြန်ကြိုးစားပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  const result = await placeOnlineOrder(ctx.shop, {
+    customerName: (message.from?.first_name ?? "Telegram").slice(0, 80),
+    customerPhone: state.phone ?? "",
+    note: `Game top-up · ID ${state.tu.gameId} · Telegram${message.from?.username ? ` @${message.from.username}` : ""} · slip on Telegram`,
+    lines: [{ itemId: item.id, quantity: 1 }],
+  });
+  if (!result.ok) {
+    await sendMessage(chatId, "⚠️ ဒီ Package ကို အခု မရနိုင်ပါ။ ဆိုင်ကို ဆက်သွယ်ပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  // The decision buttons carry the customer's chat, so the answer reaches them.
+  const decide = keyboard([[btn("✅ ငွေရပြီ", `tu:ok:${result.orderId}:${chatId}`), btn("❌ ငွေမရ", `tu:no:${result.orderId}:${chatId}`)]]);
+  const caption = [
+    `💎 Game ဖြည့်ရန် ${result.orderNo}`,
+    `${itemName(item)} · ${fmtMoneyPlain(item.price, ctx.business.currency)}`,
+    `🆔 ${state.tu.gameId}`,
+    `👤 ${who(message.from)}`,
+    "",
+    "ငွေဝင်မဝင် ကိုယ့် KBZPay / Wave မှာ စစ်ပြီးမှ နှိပ်ပါ။ Screenshot တစ်ခုတည်းကို မယုံပါနဲ့။",
+  ].join("\n");
+  if (message.photo) await sendPhoto(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
+  else await sendDocument(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
+  state.tu = undefined;
+  state.step = "browse";
+  await sendMessage(chatId, [
+    `📨 ${result.orderNo} ပို့ပြီးပါပြီ။`,
+    "ဆိုင်က ငွေဝင်တာ စစ်ပြီး ဖြည့်ပေးပါမယ်။ ပြီးရင် ဒီမှာ အသိပေးပါမယ်။",
+  ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
+}
+
+/** A staff member's answer to a top-up, from their own chat: the money came (or did not), then
+ *  the top-up is done. The order stays open for POS, where it is rung up into the wallet the
+ *  money went to; this only moves it along and tells the customer. */
+export async function handleTopupDecision(
+  staffChatId: string, user: { id: string; businessId: string; permissions: string[] }, data: string,
+) {
+  const [, action, orderId, customerChat] = data.split(":");
+  if (!user.permissions.includes("sale.create")) return sendMessage(staffChatId, "ဒါကို လုပ်ခွင့် မရှိပါ။");
+  const order = await prisma.onlineOrder.findFirst({ where: { id: orderId, businessId: user.businessId }, include: { lines: true } });
+  if (!order) return sendMessage(staffChatId, "ဒီ အော်ဒါ မရှိတော့ပါ။");
+  const title = `${order.orderNo} · ${order.lines.map((l) => l.name).join(", ")}`;
+  const move = async (status: "CONFIRMED" | "CANCELLED", note?: string) => {
+    await prisma.onlineOrder.update({ where: { id: order.id }, data: { status, ...(note ? { note } : {}) } });
+    await audit(prisma, {
+      businessId: user.businessId, userId: user.id, action: `online_order.${status.toLowerCase()}`, module: "sales",
+      resourceType: "OnlineOrder", resourceId: order.id, before: { status: order.status }, after: { status, via: "telegram" },
+    });
+  };
+
+  if (action === "ok") {
+    if (order.status !== "NEW") return sendMessage(staffChatId, `${order.orderNo} ကို ဆုံးဖြတ်ပြီးသားပါ။`);
+    await move("CONFIRMED");
+    await sendMessage(customerChat, `✅ ${order.orderNo} ငွေရပါပြီ။ ဖြည့်ပေးနေပါပြီ၊ ခဏစောင့်ပေးပါ။`);
+    return sendMessage(staffChatId, `✅ ${title}\nငွေရပြီ။ ဖြည့်ပြီးရင် အောက်က ခလုတ် နှိပ်ပါ။`, {
+      replyMarkup: keyboard([[btn("💎 ဖြည့်ပြီး", `tu:done:${order.id}:${customerChat}`)]]),
+    });
+  }
+  if (action === "no") {
+    if (order.status !== "NEW") return sendMessage(staffChatId, `${order.orderNo} ကို ဆုံးဖြတ်ပြီးသားပါ။`);
+    await move("CANCELLED");
+    await sendMessage(customerChat, `❌ ${order.orderNo} ငွေလွှဲတာ မတွေ့ပါ။ မှန်ရင် ဆိုင်ကို ဆက်သွယ်ပေးပါ။`);
+    return sendMessage(staffChatId, `❌ ${title}\nပယ်ပြီးပါပြီ။ Customer ကို အသိပေးပြီးပါပြီ။`);
+  }
+  if (action === "done") {
+    const DONE = " · ဖြည့်ပြီး";
+    if (order.status !== "CONFIRMED" || order.note?.endsWith(DONE)) return sendMessage(staffChatId, `${order.orderNo} ကို အသိပေးပြီးသားပါ။`);
+    await prisma.onlineOrder.update({ where: { id: order.id }, data: { note: `${order.note ?? ""}${DONE}` } });
+    await sendMessage(customerChat, `💎 ${order.orderNo} ဖြည့်ပြီးပါပြီ။ Game ထဲမှာ စစ်ကြည့်ပါ။ ကျေးဇူးတင်ပါတယ် 🙏`);
+    return sendMessage(staffChatId, `💎 ${title}\nCustomer ကို အသိပေးပြီးပါပြီ။\n\nOnline Shop ထဲက ${order.orderNo} ကို POS မှာ ငွေဝင်တဲ့ Wallet နဲ့ ငွေရှင်းပါ။`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Repair booking: when the customer will bring the phone in. The shop is told; the repair
+// voucher is made when the phone arrives.
+// ---------------------------------------------------------------------------
+
+async function showBooking(chatId: string, state: State) {
+  if (!state.bk) return;
+  await sendMessage(chatId, [
+    "📅 ပြင်ဖို့ ချိန်းဆိုမှု",
+    "",
+    `📱 ${state.bk.device}`,
+    `🛠 ${state.bk.problem}`,
+    ...(state.bk.when ? [`🕒 ${state.bk.when}`] : []),
+  ].join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု ချိန်းမည်", "s:bk_ok")], BACK_HOME]) });
+}
+
+async function sendBooking(chatId: string, ctx: Ctx, state: State, from?: { first_name?: string; username?: string }) {
+  if (!state.bk) return;
+  state.step = "browse";
+  if (ctx.ownerChatId && allowOrder(`bk:${ctx.business.id}:${chatId}`, 3, 60 * 60_000)) {
+    await sendMessage(ctx.ownerChatId, [
+      "📅 ပြင်ဖို့ ချိန်းထားပါတယ် (Telegram)",
+      `👤 ${who(from)}`,
+      `📞 ${state.phone ?? "-"}`,
+      `📱 ${state.bk.device}`,
+      `🛠 ${state.bk.problem}`,
+      ...(state.bk.when ? [`🕒 ${state.bk.when}`] : []),
+    ].join("\n"), from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+  }
+  state.bk = undefined;
+  await sendMessage(chatId, "✅ ချိန်းဆိုမှု ပို့ပြီးပါပြီ။ ဆိုင်က ဖုန်းဆက် အတည်ပြုပေးပါမယ်။ ဖုန်းယူလာရင် Voucher ထုတ်ပေးပါမယ်။", {
+    replyMarkup: keyboard([BACK_HOME]),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The customer's own words, answered by AI with the bot owner's key (customerAgent.ts), and
+// handed to a person at the shop when the AI asks for one.
+// ---------------------------------------------------------------------------
+
+const DAY = 24 * 60 * 60_000;
+const HUMAN_FOR = 30 * 60_000;
+
+async function forwardToStaff(chatId: string, ctx: Ctx, text: string, from?: TgUser) {
+  if (ctx.ownerChatId && allowOrder(`fw:${ctx.business.id}:${chatId}`, 15, HUMAN_FOR)) {
+    await sendMessage(ctx.ownerChatId, `💬 ${who(from)}\n${text.slice(0, 1000)}`,
+      from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+  }
+  await sendMessage(chatId, "📨 ဆိုင်ကို ပို့ထားပါတယ်။ ဝန်ထမ်းက ပြန်ဖြေပေးပါမယ်။", { replyMarkup: keyboard([BACK_HOME]) });
+}
+
+/** Answers with AI when the shop turned it on and the bot's owner has a key. False when it did
+ *  not answer (off, no key, over the day's limit, the provider failed), so the caller falls
+ *  back to the buttons' answer. */
+async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: string, text: string, from?: TgUser): Promise<boolean> {
+  if (!ctx.cfg.aiCustomers) return false;
+  const key = await loadAiKey(ownerUserId);
+  if (!key) return false;
+  // Each message is paid for on the shop's own key: a day's limit per customer and per shop.
+  if (!allowOrder(`ai:${ctx.business.id}:${chatId}`, 40, DAY) || !allowOrder(`ai:${ctx.business.id}`, 500, DAY)) return false;
+  void sendChatAction(chatId);
+
+  const shop = ctx.shop;
+  const money = (minor: bigint) => fmtMoneyPlain(minor, ctx.business.currency);
+  const then = { cart: false, topup: "", booking: false };
+  const run = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+    const s = (k: string) => String(args[k] ?? "").slice(0, 120);
+    if (name === "search_products") {
+      if (!shop) return { error: "This shop has no online list." };
+      return search(shop, s("query")).slice(0, 10).map((i) => ({
+        item_id: i.id, name: itemName(i), price: money(i.price), in_stock: i.stock > 0, game_topup: isTopup(i),
+      }));
+    }
+    if (name === "part_price") {
+      if (!ctx.partsOn) return { error: "This shop does not list spare parts." };
+      const found = await findParts(ctx.business.id, s("question"));
+      return {
+        parts: found.parts.map((p) => ({
+          name: p.name, price: money(p.price),
+          ready: p.inStock ? `${mmNumber(ctx.cfg.partsHours)} နာရီအတွင်း` : `${mmNumber(ctx.cfg.partsDays)} ရက်ခန့် (မှာယူရမည်)`,
+        })),
+        note: ctx.cfg.partsNote || undefined,
+      };
+    }
+    if (name === "repair_status") {
+      if (!ctx.repairOn) return { error: "This shop does not take repairs here." };
+      const job = await lookupRepair(ctx, chatId, s("voucher"), s("phone_last4"));
+      if (job === "limited") return { error: "Too many tries; ask the customer to try again in an hour." };
+      if (!job) return { error: "The voucher number and phone digits do not match a repair." };
+      if (job.status !== "DELIVERED" && job.status !== "CANCELLED") await watchRepair(job.id, ownerUserId, chatId);
+      return { status: REPAIR_STATUS_MM[job.status] ?? job.status, details: repairCardText(job, ctx.business.currency), will_notify: true };
+    }
+    if (name === "shop_info") {
+      const b = ctx.business;
+      return {
+        name: b.name, phone: shopPhone(ctx) || undefined, address: b.address || undefined,
+        map: shopMapHref(ctx.cfg.mapUrl, b.latitude, b.longitude, b.address) || undefined,
+        collecting: ctx.cfg.pickupOnly ? "Orders are collected at the shop." : ctx.cfg.delivery,
+        payment: ctx.cfg.payment,
+      };
+    }
+    if (name === "add_to_cart") {
+      const item = shop?.items.find((i) => i.id === s("item_id"));
+      if (!item) return { error: "No such item; use search_products first." };
+      if (isTopup(item)) return { error: "This is a game top-up; use start_topup." };
+      const want = Math.max(1, Math.min(20, Math.floor(Number(args.quantity) || 1)));
+      const have = state.cart[item.id] ?? 0;
+      if (item.stock <= have) return { error: `Out of stock (${item.stock} left).` };
+      state.cart[item.id] = Math.min(item.stock, have + want);
+      then.cart = true;
+      return { ok: true, in_cart: state.cart[item.id], shown_to_customer: "the cart with a button to order" };
+    }
+    if (name === "start_topup") {
+      const item = ctx.topups.find((i) => i.id === s("item_id"));
+      if (!item) return { error: "No such top-up package; use search_products first." };
+      then.topup = item.id;
+      return { ok: true, next: "The bot now asks the customer for the game ID." };
+    }
+    if (name === "book_repair") {
+      if (!ctx.repairOn) return { error: "This shop does not take repairs here." };
+      state.bk = { device: s("device"), problem: s("problem"), when: s("when") || undefined };
+      then.booking = true;
+      return { ok: true, shown_to_customer: "the booking with a button to confirm" };
+    }
+    if (name === "call_staff") {
+      state.humanUntil = Date.now() + HUMAN_FOR;
+      if (ctx.ownerChatId) {
+        await sendMessage(ctx.ownerChatId, [`🙋 Customer က ဝန်ထမ်းနဲ့ ပြောချင်ပါတယ်`, `👤 ${who(from)}`, `📝 ${s("reason")}`, `💬 "${text.slice(0, 300)}"`].join("\n"),
+          from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+      }
+      return { ok: true, next: "A staff member will answer soon. Tell the customer so." };
+    }
+    return { error: "Unknown tool" };
+  };
+
+  const turns: ChatTurn[] = [...(state.chat ?? []), { role: "user", content: text.slice(0, 500) }];
+  let reply: string;
+  try {
+    reply = await askAgent(key, customerPrompt(ctx.business.name, ctx.business.currency, todayBusinessDate()), turns, { tools: CUSTOMER_TOOLS, run }, 1500);
+  } catch (e) {
+    console.error("[telegram shop ai]", e instanceof AiError ? `${e.kind} ${e.message}` : e);
+    // A key that stopped working is the shop's to fix; say so once a day, not to the customer.
+    if (e instanceof AiError && e.kind !== "failed" && ctx.ownerChatId && allowOrder(`aikey:${ctx.business.id}`, 1, DAY)) {
+      await sendMessage(ctx.ownerChatId, "⚠️ Customer Bot ရဲ့ AI Key အလုပ်မလုပ်ပါ (ငွေကုန် / Key မှား)။ Bot က ခလုတ်တွေနဲ့ပဲ ဆက်ဖြေနေပါတယ်။ 🤖 AI menu မှာ Key ပြန်ထည့်ပါ။");
+    }
+    return false;
+  }
+  state.chat = [...turns, { role: "assistant" as const, content: reply.slice(0, 500) }].slice(-8);
+  // What comes next brings its own buttons; otherwise the way home.
+  await sendMessage(chatId, reply, then.cart || then.booking || then.topup ? undefined : { replyMarkup: keyboard([BACK_HOME]) });
+  if (then.cart && shop) await showCart(chatId, shop, state);
+  if (then.booking) await showBooking(chatId, state);
+  if (then.topup) await startTopup(chatId, ctx, state, then.topup);
+  return true;
+}
+
 /** A customer's message or button press on the shop's bot. Returns after answering. */
 export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string, chatId: string) {
   const ctx = await loadCtx(ownerUserId);
@@ -412,10 +758,21 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
   if (cq) {
     const [, action = "", arg = "", page = "0"] = (cq.data ?? "").split(":");
     let toast: string | undefined;
-    if (action === "home") { state.step = "browse"; await home(chatId, ctx, state); }
+    if (action === "home") { state.step = "browse"; state.humanUntil = undefined; await home(chatId, ctx, state); }
     else if (action === "rv" && ctx.repairOn) await askVoucher(chatId, state);
     else if (action === "part" && ctx.partsOn) await askPart(chatId, state);
     else if (action === "info") await showInfo(chatId, ctx);
+    else if (action === "tus" && ctx.topups.length > 0) await listTopups(chatId, ctx);
+    else if (action === "tu" && arg) await startTopup(chatId, ctx, state, arg);
+    else if (action === "tu_pay") await askPayment(chatId, ctx, state);
+    else if (action === "bkq" && ctx.repairOn && state.bk) await showBooking(chatId, state);
+    else if (action === "bk_ok" && state.bk) {
+      if (state.phone) await sendBooking(chatId, ctx, state, cq.from);
+      else {
+        state.step = "bk_phone";
+        await sendMessage(chatId, "📞 ဆိုင်က ဖုန်းဆက် အတည်ပြုဖို့ ဖုန်းနံပါတ် ရိုက်ပို့ပေးပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+      }
+    }
     // The rest is the online list, which this shop may not have (or no longer has).
     else if (!shop) { state.step = "browse"; await home(chatId, ctx, state); }
     else if (action === "cats") {
@@ -436,7 +793,8 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
     } else if (action === "add" || action === "inc") {
       const item = byId(arg);
       const have = state.cart[arg] ?? 0;
-      if (!item || item.stock <= have) toast = item ? `${item.stock} ခုပဲ ကျန်ပါတယ်` : "ဒီပစ္စည်း မရှိတော့ပါ";
+      if (item && isTopup(item)) await startTopup(chatId, ctx, state, item.id);
+      else if (!item || item.stock <= have) toast = item ? `${item.stock} ခုပဲ ကျန်ပါတယ်` : "ဒီပစ္စည်း မရှိတော့ပါ";
       else {
         state.cart[arg] = have + 1;
         toast = `🛒 ထည့်ပြီး (${have + 1})`;
@@ -463,13 +821,27 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
     return;
   }
 
-  const text = (update.message?.text ?? "").trim();
-  if (!text || text === "/start" || text === "/menu" || text === "/help") {
+  const message = update.message;
+  const from = message?.from;
+  const text = (message?.text ?? "").trim();
+  if (text === "/start" || text === "/menu" || text === "/help") {
     state.step = "browse";
+    state.humanUntil = undefined;
     await home(chatId, ctx, state);
-  } else if (state.step === "rv") await takeVoucher(chatId, state, text);
+  } else if (state.step === "tu_pay" && message) await takeSlip(chatId, ctx, state, message);
+  else if (!text) { state.step = "browse"; await home(chatId, ctx, state); }
+  else if (state.step === "rv") await takeVoucher(chatId, state, text);
   else if (state.step === "rp") await checkRepair(chatId, ctx, state, ownerUserId, text);
-  else if (state.step === "part") await quoteParts(chatId, ctx, text, update.message?.from);
+  else if (state.step === "part") await quoteParts(chatId, ctx, state, text, from);
+  else if (state.step === "tu_id") await takeGameId(chatId, ctx, state, text);
+  else if (state.step === "bk_phone") {
+    const phone = asciiDigits(text).replace(/[\s-]/g, "");
+    if (!/^\+?\d{6,15}$/.test(phone)) await sendMessage(chatId, "ဖုန်းနံပါတ် မှန်အောင် ရိုက်ပေးပါ (ဥပမာ 09xxxxxxxxx)။");
+    else { state.phone = phone; await sendBooking(chatId, ctx, state, from); }
+  }
+  // A person at the shop has the conversation: pass it on, and keep the AI out of it.
+  else if (state.step === "browse" && (state.humanUntil ?? 0) > Date.now()) await forwardToStaff(chatId, ctx, text, from);
+  else if (state.step === "browse" && (await aiAnswer(chatId, ctx, state, ownerUserId, text, from))) { /* answered */ }
   else if (!shop) await home(chatId, ctx, state);
   else if (state.step === "name") {
     state.name = text.slice(0, 80);
@@ -481,10 +853,16 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
       await sendMessage(chatId, "ဖုန်းနံပါတ် မှန်အောင် ရိုက်ပေးပါ (ဥပမာ 09xxxxxxxxx)။");
     } else {
       state.phone = phone;
-      state.step = "address";
-      await sendMessage(chatId, "📍 ပို့ရမယ့် လိပ်စာ ရိုက်ပို့ပေးပါ။ ဆိုင်မှာ လာယူမယ်ဆိုရင် ကျော်ပါ။", {
-        replyMarkup: keyboard([[btn("🏪 ဆိုင်မှာ လာယူမည် (ကျော်)", "s:skipaddr")]]),
-      });
+      // A shop that only hands orders over at the counter has no address to ask for.
+      if (ctx.cfg.pickupOnly) {
+        state.address = undefined;
+        await confirm(chatId, shop, state);
+      } else {
+        state.step = "address";
+        await sendMessage(chatId, "📍 ပို့ရမယ့် လိပ်စာ ရိုက်ပို့ပေးပါ။ ဆိုင်မှာ လာယူမယ်ဆိုရင် ကျော်ပါ။", {
+          replyMarkup: keyboard([[btn("🏪 ဆိုင်မှာ လာယူမည် (ကျော်)", "s:skipaddr")]]),
+        });
+      }
     }
   } else if (state.step === "address") {
     state.address = text.slice(0, 300);

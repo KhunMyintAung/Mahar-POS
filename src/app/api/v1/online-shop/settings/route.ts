@@ -53,6 +53,8 @@ export const PUT = withAuth("item.manage", async ({ req, user }) => {
     partsHours: before.partsHours,
     partsDays: before.partsDays,
     partsNote: before.partsNote,
+    aiCustomers: before.aiCustomers,
+    pickupOnly: before.pickupOnly,
   });
   await prisma.business.update({ where: { id: user.businessId }, data: { shopSlug: body.slug } });
   await saveOnlineShop(user.businessId, cfg);

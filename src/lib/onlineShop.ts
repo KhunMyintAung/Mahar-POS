@@ -51,6 +51,10 @@ export interface OnlineShopSettings {
   partsDays: number;
   /** A line under the prices ("Fitting included", "3 months warranty"). */
   partsNote: string;
+  /** Telegram bot: customers' own words are answered by AI, with the bot owner's AI key. */
+  aiCustomers: boolean;
+  /** Telegram bot: orders are collected at the shop, so no delivery address is asked for. */
+  pickupOnly: boolean;
 }
 
 export const SHOP_LINK_KINDS = ["facebook", "messenger", "telegram", "viber", "tiktok"] as const;
@@ -114,6 +118,8 @@ const DEFAULTS: OnlineShopSettings = {
   partsHours: 3,
   partsDays: 2,
   partsNote: "",
+  aiCustomers: false,
+  pickupOnly: false,
 };
 
 /** A whole number within limits; anything else gives the fallback. */
@@ -136,6 +142,8 @@ export function parseOnlineShop(raw: unknown): OnlineShopSettings {
     partsHours: whole(v.partsHours, DEFAULTS.partsHours, 1, 72),
     partsDays: whole(v.partsDays, DEFAULTS.partsDays, 1, 60),
     partsNote: text(v.partsNote, DEFAULTS.partsNote, 200).trim(),
+    aiCustomers: v.aiCustomers === true,
+    pickupOnly: v.pickupOnly === true,
   };
 }
 
