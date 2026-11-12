@@ -299,7 +299,7 @@ async function quoteParts(chatId: string, ctx: Ctx, state: State, text: string, 
       "❓ Customer က ပစ္စည်းဈေး မေးထားပါတယ် (စာရင်းထဲ မရှိ)",
       `"${q}"`,
       ...(who ? [`👤 ${who}`] : []),
-    ].join("\n"), from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+    ].join("\n"), { replyMarkup: replyButtons(chatId, from) });
   }
   await sendMessage(chatId, [
     `🔍 "${q}"`,
@@ -458,6 +458,25 @@ async function placeOrder(chatId: string, shop: Shop, state: State, username?: s
 // order; staff check the money arrived and top up from their own chat, and ring it up in POS
 // into the wallet the money went to, like any online order.
 // ---------------------------------------------------------------------------
+
+/** How staff answer a customer they were told about: through the bot, which works for every
+ *  customer, and straight in Telegram when the customer has a username to open. */
+function replyButtons(chatId: string, from?: { username?: string }) {
+  const row: InlineButton[] = [btn("💬 Bot ကနေ ပြန်ဖြေရန်", `rep:${chatId}`)];
+  if (from?.username) row.push(linkBtn("👤 Telegram မှာ ဖွင့်ရန်", `https://t.me/${from.username}`));
+  return keyboard([row]);
+}
+
+/** A staff member's answer, typed in their own chat, sent to the customer through the bot.
+ *  For the next half hour the customer's replies go to the staff member, not the AI. */
+export async function staffReply(ownerUserId: string, businessId: string, staffName: string, customerChat: string, text: string) {
+  await sendMessage(customerChat, `💬 ဆိုင်မှ: ${text}`, { replyMarkup: keyboard([BACK_HOME]) });
+  const state = await load(ownerUserId, customerChat);
+  state.step = "browse";
+  state.humanUntil = Date.now() + HUMAN_FOR;
+  await save(ownerUserId, customerChat, state);
+  notifyReportTargets(businessId, `💬 Customer Bot · ဝန်ထမ်း ${staffName} ပြန်ဖြေ\n🧑‍💼 ${text.slice(0, LOG_LINE)}`);
+}
 
 const who = (from?: { first_name?: string; username?: string }) =>
   [from?.first_name, from?.username ? `@${from.username}` : ""].filter(Boolean).join(" ") || "Telegram";
@@ -690,7 +709,7 @@ async function sendBooking(chatId: string, ctx: Ctx, state: State, from?: { firs
       `📱 ${state.bk.device}`,
       `🛠 ${state.bk.problem}`,
       ...(state.bk.when ? [`🕒 ${state.bk.when}`] : []),
-    ].join("\n"), from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+    ].join("\n"), { replyMarkup: replyButtons(chatId, from) });
   }
   state.bk = undefined;
   await sendMessage(chatId, "✅ ချိန်းဆိုမှု ပို့ပြီးပါပြီ။ ဆိုင်က ဖုန်းဆက် အတည်ပြုပေးပါမယ်။ ဖုန်းယူလာရင် Voucher ထုတ်ပေးပါမယ်။", {
@@ -708,8 +727,7 @@ const HUMAN_FOR = 30 * 60_000;
 
 async function forwardToStaff(chatId: string, ctx: Ctx, text: string, from?: TgUser) {
   if (ctx.ownerChatId && allowOrder(`fw:${ctx.business.id}:${chatId}`, 15, HUMAN_FOR)) {
-    await sendMessage(ctx.ownerChatId, `💬 ${who(from)}\n${text.slice(0, 1000)}`,
-      from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+    await sendMessage(ctx.ownerChatId, `💬 ${who(from)}\n${text.slice(0, 1000)}`, { replyMarkup: replyButtons(chatId, from) });
   }
   await sendMessage(chatId, "📨 ဆိုင်ကို ပို့ထားပါတယ်။ ဝန်ထမ်းက ပြန်ဖြေပေးပါမယ်။", { replyMarkup: keyboard([BACK_HOME]) });
 }
@@ -791,7 +809,7 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
       state.humanUntil = Date.now() + HUMAN_FOR;
       if (ctx.ownerChatId) {
         await sendMessage(ctx.ownerChatId, [`🙋 Customer က ဝန်ထမ်းနဲ့ ပြောချင်ပါတယ်`, `👤 ${who(from)}`, `📝 ${s("reason")}`, `💬 "${text.slice(0, 300)}"`].join("\n"),
-          from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+          { replyMarkup: replyButtons(chatId, from) });
       }
       return { ok: true, next: "A staff member will answer soon. Tell the customer so." };
     }

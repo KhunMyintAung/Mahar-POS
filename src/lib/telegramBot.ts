@@ -29,7 +29,7 @@ import { questionsNoticeGiven, recordAiQuestion } from "./aiQuestions";
 import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
-import { handleCustomerUpdate, handleTopupDecision } from "./telegramShop";
+import { handleCustomerUpdate, handleTopupDecision, staffReply } from "./telegramShop";
 import { notifyRepairWatchers } from "./repairWatch";
 import { handleVpnAdmin, handleVpnDecision, vpnAddPlanText, vpnAskPlan, vpnEnabled } from "./vpnShop";
 import { businessCurrency } from "@/services/currencyService";
@@ -1232,6 +1232,15 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string, 
   if (step === "saving") return sendMessage(chatId, "⏳ ခုနက စာရင်းကို သိမ်းနေဆဲပါ၊ ခဏစောင့်ပါ…");
   try {
     if (flow === "rp" && step === "voucher") return await rpFind(chatId, user, trimmed);
+    if (flow === "rep" && step === "text") {
+      const to = String(session.data.chat ?? "");
+      await clearSession(ownerUserId, chatId);
+      if (!/^\d{1,20}$/.test(to)) return showMenu(chatId, user);
+      await staffReply(ownerUserId, user.businessId, user.name, to, trimmed.slice(0, 3000));
+      return sendMessage(chatId, "✅ Customer ဆီ ပို့ပြီးပါပြီ။ သူပြန်ရေးရင် ဒီမှာ ရောက်လာပါမယ်။", {
+        replyMarkup: keyboard([[btn("💬 ထပ်ပို့ရန်", `rep:${to}`)], [btn("🏠 Menu", "cancel")]]),
+      });
+    }
     if (flow === "vpn" && step === "plan") {
       if (!can(user, "settings.manage")) return await clearSession(ownerUserId, chatId);
       if (await vpnAddPlanText(chatId, user, trimmed)) await clearSession(ownerUserId, chatId);
@@ -1307,6 +1316,11 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
   if (data.startsWith("tu:")) return handleTopupDecision(chatId, user, data);
   // A VPN key paid for on the bot: money in makes the key and sends it.
   if (data.startsWith("vp:")) return handleVpnDecision(chatId, user, data);
+  // Answering a customer through the bot: the next message typed here goes to them.
+  if (data.startsWith("rep:") && /^\d{1,20}$/.test(data.slice(4))) {
+    await setSession(ownerUserId, chatId, "rep.text", { chat: data.slice(4) });
+    return sendMessage(chatId, "✏️ Customer ကို ပို့မယ့် စာကို ရိုက်ပါ။", { replyMarkup: keyboard([CANCEL_ROW]) });
+  }
   if (data.startsWith("vpa:")) {
     if (!can(user, "settings.manage")) return sendMessage(chatId, "ဒါကို လုပ်ခွင့် မရှိပါ။");
     if (data === "vpa:add" && vpnEnabled(user.businessId)) {

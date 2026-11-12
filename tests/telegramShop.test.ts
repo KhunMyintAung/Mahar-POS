@@ -105,7 +105,7 @@ vi.mock("@/lib/repairTrack", () => ({ trackToken: () => "tok" }));
 vi.mock("@/lib/telegramReports", () => ({ notifyReportTargets: (_b: string, text: string) => { mocks.logs.push(text); } }));
 vi.mock("@/lib/repairWatch", () => ({ watchRepair: async (id: string) => { mocks.watched.push(id); } }));
 
-import { conversationLog, handleCustomerUpdate, handleTopupDecision } from "@/lib/telegramShop";
+import { conversationLog, handleCustomerUpdate, handleTopupDecision, staffReply } from "@/lib/telegramShop";
 
 const chat = { id: 555, type: "private" };
 const from = { id: 555, first_name: "Ko", username: "koaung" };
@@ -295,10 +295,23 @@ describe("AI answers on the shop's Telegram bot", () => {
     };
     await say("လူနဲ့ ပြောချင်တယ်");
     expect(mocks.owner.at(-1)!.text).toContain("wants a person");
+    // Staff can answer through the bot whether or not the customer has a username.
+    expect(mocks.owner.at(-1)!.data).toContain("rep:555");
+    expect(mocks.owner.at(-1)!.buttons.join(" ")).toContain("Telegram မှာ ဖွင့်ရန်");
     mocks.ai = async () => { throw new Error("the AI must keep out while staff have the chat"); };
     await say("ဟယ်လို");
     expect(mocks.owner.at(-1)!.text).toContain("ဟယ်လို");
     expect(last().text).toContain("ဆိုင်ကို ပို့ထားပါတယ်");
+  });
+
+  it("sends a staff member's typed answer to the customer, and hands their reply back to staff", async () => {
+    await staffReply("owner", "b1", "Aung", "555", "ရှိပါတယ်ခင်ဗျ");
+    expect(last().text).toBe("💬 ဆိုင်မှ: ရှိပါတယ်ခင်ဗျ");
+    expect(JSON.parse(mocks.session!.data).humanUntil).toBeGreaterThan(Date.now());
+    mocks.ai = async () => { throw new Error("the AI must keep out while staff have the chat"); };
+    await say("ဘယ်လောက်လဲ");
+    expect(mocks.owner.at(-1)!.text).toContain("ဘယ်လောက်လဲ");
+    expect(mocks.owner.at(-1)!.data).toContain("rep:555");
   });
 
   it("falls back to the buttons' answer with no AI key", async () => {
