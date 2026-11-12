@@ -127,7 +127,10 @@ describe("customer ordering on the shop's Telegram bot", () => {
     expect(last().text).toContain("Mahar Shwe");
     const buttons = last().buttons.join(" ");
     expect(buttons).toContain("ခြင်းတောင်း (0)");
-    expect(buttons).toContain("ဖုန်းပြင်ပြီးပြီလား");
+    // Repairs and the address are answered when asked, not offered as buttons.
+    expect(buttons).not.toContain("ဖုန်းပြင်ပြီးပြီလား");
+    expect(buttons).not.toContain("ဆက်သွယ်ရန်");
+    expect(last().text).toContain("Voucher နံပါတ်");
     expect(buttons).toContain("Parts ဈေးမေးရန်");
     expect(buttons).toContain("Game ဖြည့်ရန်");
   });
@@ -318,6 +321,15 @@ describe("AI answers on the shop's Telegram bot", () => {
     mocks.aiKey = null;
     await say("iphone");
     expect(last().buttons[0]).toContain("iPhone 13");
+  });
+
+  it("checks a voucher typed straight in, and says where the shop is when asked", async () => {
+    await say("MS0012");
+    expect(last().text).toContain("၄ လုံး");
+    await say("3456");
+    expect(last().text).toContain("MS0012");
+    await say("ဆိုင်လိပ်စာ ဘယ်မှာလဲ");
+    expect(last().text).toContain("09123");
   });
 
   it("answers a part question typed straight in, without the AI", async () => {

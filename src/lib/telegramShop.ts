@@ -16,7 +16,7 @@ import { findRepairJobWhere } from "./repairLookup";
 import { trackToken } from "./repairTrack";
 import { asciiDigits, findParts, hasSpareParts, partQuery, partQuoteText, phoneEndsWith, repairCardText } from "./customerBot";
 import { watchRepair } from "./repairWatch";
-import { appRows, loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, VPN_APPS, VPN_HOW_TO, type VpnPlan } from "./vpnShop";
+import { appRows, loadVpnPayment, loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, VPN_APPS, VPN_HOW_TO, type VpnPlan } from "./vpnShop";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
@@ -90,6 +90,8 @@ interface Ctx {
   topups: Item[];
   /** VPN plans, only on the one shop that sells VPN keys (vpnShop.ts). */
   vpn: VpnPlan[];
+  /** How to pay for VPN, set in the staff VPN menu. */
+  vpnPay: string;
 }
 
 /** A game top-up package: an online item whose category or name says so. Such an item is not
@@ -113,9 +115,10 @@ async function loadCtx(ownerUserId: string): Promise<Ctx | null> {
   const repairOn = access.features.repair;
   const partsOn = repairOn && (await hasSpareParts(business.id));
   const vpn = await loadVpnPlans(business.id);
+  const vpnPay = vpn.length > 0 ? await loadVpnPayment(business.id) : "";
   if (!shop && !repairOn && vpn.length === 0) return null;
   const topups = shop ? shop.items.filter(isTopup) : [];
-  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId, topups, vpn };
+  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId, topups, vpn, vpnPay };
 }
 
 const price = (shop: Shop, minor: bigint) => fmtMoneyPlain(minor, shop.business.currency);
@@ -140,7 +143,7 @@ function cartCount(state: State) {
 
 function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
   const rows: InlineButton[][] = [];
-  if (ctx.repairOn) rows.push([btn("🔧 ဖုန်းပြင်ပြီးပြီလား စစ်ရန်", "s:rv")]);
+  // Repairs and the shop's address are answered when asked (typed), not offered as buttons.
   if (ctx.partsOn) rows.push([btn("📱 ဖုန်းမှန် / Parts ဈေးမေးရန်", "s:part")]);
   if (ctx.topups.length > 0) rows.push([btn("💎 Game ဖြည့်ရန် (ML / PUBG)", "s:tus")]);
   if (ctx.vpn.length > 0) rows.push([btn("🔐 VPN ဝယ်ရန်", "s:vps"), btn("🔑 ကျွန်ုပ်၏ VPN", "s:vpk")]);
@@ -149,7 +152,6 @@ function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
     rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")]);
     rows.push([linkBtn("🌐 Online Shop ဖွင့်ရန်", `${appUrl()}/shop/${ctx.shop.slug}`)]);
   }
-  rows.push([btn("📍 ဆိုင်လိပ်စာ / ဆက်သွယ်ရန်", "s:info")]);
   return rows;
 }
 
@@ -160,7 +162,7 @@ async function home(chatId: string, ctx: Ctx, state: State) {
   await sendMessage(chatId, [
     `🙏 ${b.name} မှ ကြိုဆိုပါတယ်`,
     "",
-    ...(ctx.repairOn ? ["🔧 ပြင်ထားတဲ့ ဖုန်း ပြီးမပြီး ဒီမှာ စစ်လို့ ရပါတယ်။"] : []),
+    ...(ctx.repairOn ? ["🔧 ပြင်ထားတဲ့ ဖုန်း ပြီးမပြီး Voucher နံပါတ် (ဥပမာ MS0012) ရိုက်ပို့ပြီး စစ်လို့ ရပါတယ်။"] : []),
     ...(ctx.partsOn ? ["📱 ဖုန်းမှန်၊ Battery စတဲ့ ပစ္စည်းဈေး မေးလို့ ရပါတယ်။"] : []),
     ...(ctx.topups.length > 0 ? ["💎 ML Diamond၊ PUBG UC ဖြည့်လို့ ရပါတယ်။"] : []),
     ...(ctx.vpn.length > 0 ? ["🔐 VPN Key ဝယ်လို့ ရပါတယ်။ ငွေလွှဲ Screenshot ပို့ပြီး ဆိုင်က စစ်တာနဲ့ Key ရပါမယ်။"] : []),
@@ -169,8 +171,6 @@ async function home(chatId: string, ctx: Ctx, state: State) {
       "🛍 ပစ္စည်းများကို ကြည့်ပြီး ဒီမှာပဲ မှာယူနိုင်ပါတယ်။",
       "🔍 ရှာချင်တာကို စာရိုက်ပို့လိုက်ပါ (ဥပမာ - iPhone, charger)။",
     ] : []),
-    ...(shopPhone(ctx) ? ["", `📞 ${shopPhone(ctx)}`] : []),
-    ...(b.address ? [`📍 ${b.address}`] : []),
   ].join("\n"), { replyMarkup: keyboard(homeButtons(ctx, state)) });
 }
 
@@ -192,6 +192,9 @@ async function showInfo(chatId: string, ctx: Ctx) {
 /** A voucher number as a customer types it. Unlike the till's, the letters may be missing:
  *  a shop whose name gives no initials numbers its vouchers with digits only. */
 const CUSTOMER_VOUCHER = /^[A-Za-z]{0,8}[\s-]?\d{1,8}$/;
+/** A voucher number typed with nothing asked: a short prefix and at least three digits
+ *  (MS0012), so "iphone 13" or "A54" stays a search. */
+const TYPED_VOUCHER = /^[A-Za-z]{2,4}[\s-]?\d{3,8}$/;
 
 async function askVoucher(chatId: string, state: State) {
   state.step = "rv";
@@ -269,6 +272,9 @@ async function askPart(chatId: string, state: State) {
     replyMarkup: keyboard([BACK_HOME]),
   });
 }
+
+const REPAIR_ASK = /ပြင်ပြီး|ပြီးပြီလား|ရပြီလား|voucher|ဘောက်ချာ|repair status/i;
+const INFO_ASK = /လိပ်စာ|ဘယ်မှာ|ဆိုင်ဘယ်|ဖုန်းနံပါတ်|ဆက်သွယ်|address|location|contact|map|မြေပုံ/i;
 
 const isPartQuestion = (text: string) => {
   const q = partQuery(text.slice(0, 60));
@@ -600,7 +606,7 @@ async function askVpnPayment(chatId: string, ctx: Ctx, state: State, itemId: str
     "",
     `💰 ${fmtMoneyPlain(plan.price, ctx.business.currency)} လွှဲပေးပါ`,
     "",
-    ctx.cfg.payment || "ဆိုင်ရဲ့ ငွေလွှဲ နံပါတ်ကို ဆိုင်မှာ မေးပါ။",
+    ctx.vpnPay || ctx.cfg.payment || "ဆိုင်ရဲ့ ငွေလွှဲ နံပါတ်ကို ဆိုင်မှာ မေးပါ။",
     "",
     "📸 ငွေလွှဲပြီးရင် Screenshot ကို ဒီမှာ ပို့ပေးပါ။ ဆိုင်က ငွေဝင်တာ စစ်ပြီးတာနဲ့ Key ပို့ပေးပါမယ်။",
   ].join("\n"), { replyMarkup: keyboard([BACK_HOME]) });
@@ -810,6 +816,7 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
         plans: ctx.vpn.map((p) => ({ plan_id: p.id, name: p.name, days: p.days, data: p.limitBytes == null ? "unlimited" : `${Number(p.limitBytes) / 1e9} GB per 30 days`, price: money(p.price) })),
         apps: [...(process.env.VPN_APP_URL ? [{ name: "Mahar VPN", link: process.env.VPN_APP_URL }] : []), ...VPN_APPS.map((a) => ({ name: a.name, android: a.android, iphone: a.ios }))],
         how_to: VPN_HOW_TO,
+        payment: ctx.vpnPay || ctx.cfg.payment || undefined,
         paying: "Pay first and send the slip on the bot; the key and its QR code come when the shop has checked the payment.",
       };
     }
@@ -1000,6 +1007,10 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
   else if (state.step === "browse" && (await aiAnswer(chatId, ctx, state, ownerUserId, text, from))) { /* answered */ }
   // Without the AI, a typed "iPhone 11 မှန်ရှိလား" is still a part question: a phone and a part.
   else if (state.step === "browse" && ctx.partsOn && isPartQuestion(text)) await quoteParts(chatId, ctx, state, text, from);
+  // Asked, not offered: a voucher number or a repair question, and where the shop is.
+  else if (state.step === "browse" && ctx.repairOn && TYPED_VOUCHER.test(asciiDigits(text).trim())) await takeVoucher(chatId, state, text);
+  else if (state.step === "browse" && ctx.repairOn && REPAIR_ASK.test(text)) await askVoucher(chatId, state);
+  else if (state.step === "browse" && INFO_ASK.test(text)) await showInfo(chatId, ctx);
   else if (!shop) await home(chatId, ctx, state);
   else if (state.step === "name") {
     state.name = text.slice(0, 80);

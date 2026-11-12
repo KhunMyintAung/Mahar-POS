@@ -245,6 +245,41 @@ async function currencyOf(businessId: string) {
   return (await prisma.business.findUnique({ where: { id: businessId }, select: { currency: true } }))?.currency ?? "MMK";
 }
 
+const PAY_KEY = "vpn_payment";
+
+/** How customers pay for VPN (KBZPay / Wave numbers and names), set in the VPN menu. */
+export async function loadVpnPayment(businessId: string): Promise<string> {
+  const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: PAY_KEY } } });
+  return row?.value ?? "";
+}
+
+export async function vpnAskPayment(chatId: string, businessId: string) {
+  const now = await loadVpnPayment(businessId);
+  await sendMessage(chatId, [
+    "💳 VPN ဝယ်သူ ငွေလွှဲရမယ့် နည်းကို ရိုက်ပါ:",
+    "",
+    "ဥပမာ:",
+    "KBZPay 09xxxxxxxxx (Mahar Shwe)",
+    "Wave 09xxxxxxxxx (Mahar Shwe)",
+    ...(now ? ["", "အခု:", now] : []),
+  ].join("\n"), { replyMarkup: keyboard([[btn("✕ မလုပ်တော့ပါ", "vpa:home")]]) });
+}
+
+export async function vpnSetPaymentText(chatId: string, user: Staff, text: string) {
+  const value = text.trim().slice(0, 500);
+  const before = await loadVpnPayment(user.businessId);
+  await prisma.systemSetting.upsert({
+    where: { businessId_key: { businessId: user.businessId, key: PAY_KEY } },
+    create: { businessId: user.businessId, key: PAY_KEY, value },
+    update: { value },
+  });
+  await audit(prisma, {
+    businessId: user.businessId, userId: user.id, action: "vpn_payment.update", module: "vpn",
+    resourceType: "SystemSetting", resourceId: PAY_KEY, before: { value: before }, after: { value },
+  });
+  await vpnAdminHome(chatId, user, "✅ ငွေလွှဲ နည်း သိမ်းပြီးပါပြီ။");
+}
+
 async function takings(businessId: string, since: Date) {
   const r = await prisma.vpnOrder.aggregate({
     where: { businessId, status: "PAID", decidedAt: { gte: since } }, _sum: { price: true }, _count: true,
@@ -256,7 +291,8 @@ async function takings(businessId: string, since: Date) {
 export async function vpnAdminHome(chatId: string, user: Staff, note?: string) {
   const businessId = user.businessId;
   const today = todayBusinessDate();
-  const [currency, plans, day, month, active, waiting] = await Promise.all([
+  const [pay, currency, plans, day, month, active, waiting] = await Promise.all([
+    loadVpnPayment(businessId),
     currencyOf(businessId),
     prisma.vpnPlan.findMany({ where: { businessId, active: true }, orderBy: [{ price: "asc" }, { createdAt: "asc" }] }),
     takings(businessId, dateRangeUtc(today).gte),
@@ -277,7 +313,12 @@ export async function vpnAdminHome(chatId: string, user: Staff, note?: string) {
     plans.length ? "Plan များ:" : "Plan မရှိသေးပါ။ ➕ နှိပ်ပြီး ထည့်ပါ။",
     ...plans.map((p) => `• ${p.name} · ${p.days} ရက် · ${gbText(p.limitBytes)} · ${money(p.price)}`),
     ...(plans.length ? ["", "Plan ဖြုတ်ချင်ရင် 🗑 ကို နှိပ်ပါ။"] : []),
-  ].join("\n"), { replyMarkup: keyboard([[btn("➕ Plan အသစ်", "vpa:add")], ...rows, [btn("🏠 Menu", "cancel")]]) });
+    "",
+    "💳 ငွေလွှဲ နည်း:",
+    pay || "⚠️ မထည့်ရသေးပါ။ မထည့်ရင် Customer က ဘယ်ကို လွှဲရမလဲ မသိပါ။",
+  ].join("\n"), {
+    replyMarkup: keyboard([[btn("➕ Plan အသစ်", "vpa:add"), btn("💳 ငွေလွှဲ နည်း", "vpa:pay")], ...rows, [btn("🏠 Menu", "cancel")]]),
+  });
 }
 
 export async function vpnAskPlan(chatId: string) {

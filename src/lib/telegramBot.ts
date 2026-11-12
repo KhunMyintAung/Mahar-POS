@@ -31,7 +31,7 @@ import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
 import { handleCustomerUpdate, handleTopupDecision, staffReply } from "./telegramShop";
 import { notifyRepairWatchers } from "./repairWatch";
-import { handleVpnAdmin, handleVpnDecision, vpnAddPlanText, vpnAskPlan, vpnEnabled } from "./vpnShop";
+import { handleVpnAdmin, handleVpnDecision, vpnAddPlanText, vpnAskPayment, vpnAskPlan, vpnEnabled, vpnSetPaymentText } from "./vpnShop";
 import { businessCurrency } from "@/services/currencyService";
 
 // ---------------------------------------------------------------------------
@@ -1246,6 +1246,11 @@ async function handleMessage(ownerUserId: string, chatId: string, text: string, 
       if (await vpnAddPlanText(chatId, user, trimmed)) await clearSession(ownerUserId, chatId);
       return;
     }
+    if (flow === "vpn" && step === "pay") {
+      await clearSession(ownerUserId, chatId);
+      if (!can(user, "settings.manage")) return;
+      return await vpnSetPaymentText(chatId, user, trimmed);
+    }
     if (flow === "bl") {
       if (step === "face") return blStepFaceText(chatId, user, session.data, trimmed);
       if (step === "cash") return blStepCashText(chatId, user, session.data, trimmed);
@@ -1326,6 +1331,10 @@ async function handleCallback(ownerUserId: string, cq: { id: string; message?: {
     if (data === "vpa:add" && vpnEnabled(user.businessId)) {
       await setSession(ownerUserId, chatId, "vpn.plan", {});
       return vpnAskPlan(chatId);
+    }
+    if (data === "vpa:pay" && vpnEnabled(user.businessId)) {
+      await setSession(ownerUserId, chatId, "vpn.pay", {});
+      return vpnAskPayment(chatId, user.businessId);
     }
     await clearSession(ownerUserId, chatId);
     return handleVpnAdmin(chatId, user, data);

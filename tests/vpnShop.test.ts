@@ -34,6 +34,7 @@ vi.mock("@/lib/prisma", () => ({
       update: async ({ where, data }: { where: { id: string }; data: Partial<Key> }) => Object.assign(m.keys.find((k) => k.id === where.id)!, data),
     },
     business: { findUnique: async () => ({ currency: "MMK" }) },
+    systemSetting: { findUnique: async () => null },
     user: { findUnique: async () => ({ telegramBotToken: "tok" }) },
   },
 }));
