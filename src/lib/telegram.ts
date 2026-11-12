@@ -13,6 +13,19 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 const tokenContext = new AsyncLocalStorage<string>();
 
+/** What the bot says to one chat while `fn` runs, in order — for the conversation log the
+ *  shop's reports bot gets. Sends to other chats are not kept. */
+const transcriptContext = new AsyncLocalStorage<{ chatId: string; lines: string[] }>();
+export async function withTranscript<T>(chatId: string, fn: () => Promise<T>): Promise<{ result: T; lines: string[] }> {
+  const store = { chatId, lines: [] as string[] };
+  const result = await transcriptContext.run(store, fn);
+  return { result, lines: store.lines };
+}
+function keep(chatId: string, text: string) {
+  const store = transcriptContext.getStore();
+  if (store && store.chatId === chatId && text) store.lines.push(text);
+}
+
 /** Run `fn` with `token` as the active bot for any sendMessage/etc. calls inside it. */
 export function withBotToken<T>(token: string, fn: () => Promise<T>): Promise<T> {
   return tokenContext.run(token, fn);
@@ -102,6 +115,7 @@ export async function sendMessage(
   text: string,
   opts?: { replyMarkup?: ReplyMarkup; parseMode?: "Markdown" | "HTML" }
 ) {
+  keep(chatId, text);
   return callBestEffort("sendMessage", {
     chat_id: chatId,
     text,
@@ -206,6 +220,8 @@ export interface TgMessage {
   photo?: TgPhotoSize[];
   /** A slip sent as a file rather than a photo. */
   document?: { file_id: string; mime_type?: string; file_name?: string };
+  /** The buttons under a message the bot sent, as they come back with a button press. */
+  reply_markup?: { inline_keyboard?: { text: string; callback_data?: string }[][] };
 }
 export interface TgCallbackQuery {
   id: string;

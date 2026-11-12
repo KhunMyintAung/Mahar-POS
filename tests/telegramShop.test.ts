@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   session: null as null | { step: string; data: string },
   orders: [] as unknown[],
   watched: [] as string[],
+  logs: [] as string[],
+  capture: null as null | { chat: string; lines: string[] },
   cfg: { aiCustomers: false, pickupOnly: false },
   aiKey: null as null | { provider: string; key: string },
   /** What the stand-in AI does with the tools before it replies. */
@@ -42,6 +44,7 @@ vi.mock("@/lib/telegram", async (orig) => {
   type Opts = { replyMarkup?: { inline_keyboard: { text: string; callback_data?: string }[][] }; caption?: string };
   const record = (chatId: string, text: string, opts?: Opts) => {
     const flat = (opts?.replyMarkup?.inline_keyboard ?? []).flat();
+    if (mocks.capture?.chat === chatId) mocks.capture.lines.push(text);
     (chatId === "999" ? mocks.owner : mocks.sent).push({ text, buttons: flat.map((b) => b.text), data: flat.map((b) => b.callback_data ?? "") });
   };
   return {
@@ -50,6 +53,13 @@ vi.mock("@/lib/telegram", async (orig) => {
     sendPhoto: async (chatId: string, _photo: string, opts?: Opts) => record(chatId, opts?.caption ?? "", opts),
     sendDocument: async (chatId: string, _doc: string, opts?: Opts) => record(chatId, opts?.caption ?? "", opts),
     sendChatAction: async () => {},
+    withTranscript: async (chat: string, fn: () => Promise<unknown>) => {
+      mocks.capture = { chat, lines: [] };
+      const result = await fn();
+      const lines = mocks.capture.lines;
+      mocks.capture = null;
+      return { result, lines };
+    },
     answerCallbackQuery: async () => {},
   };
 });
@@ -92,9 +102,10 @@ const job = {
 };
 vi.mock("@/lib/repairLookup", () => ({ findRepairJobWhere: async (_w: unknown, typed: string) => (typed.toUpperCase().endsWith("12") ? job : null) }));
 vi.mock("@/lib/repairTrack", () => ({ trackToken: () => "tok" }));
+vi.mock("@/lib/telegramReports", () => ({ notifyReportTargets: (_b: string, text: string) => { mocks.logs.push(text); } }));
 vi.mock("@/lib/repairWatch", () => ({ watchRepair: async (id: string) => { mocks.watched.push(id); } }));
 
-import { handleCustomerUpdate, handleTopupDecision } from "@/lib/telegramShop";
+import { conversationLog, handleCustomerUpdate, handleTopupDecision } from "@/lib/telegramShop";
 
 const chat = { id: 555, type: "private" };
 const from = { id: 555, first_name: "Ko", username: "koaung" };
@@ -106,7 +117,7 @@ const cart = () => JSON.parse(mocks.session!.data).cart;
 
 describe("customer ordering on the shop's Telegram bot", () => {
   beforeEach(() => {
-    mocks.sent = []; mocks.owner = []; mocks.session = null; mocks.orders = []; mocks.watched = [];
+    mocks.sent = []; mocks.owner = []; mocks.session = null; mocks.orders = []; mocks.watched = []; mocks.logs = [];
     mocks.cfg = { aiCustomers: false, pickupOnly: false }; mocks.aiKey = null; mocks.ai = null;
     mocks.order = { id: "o1", orderNo: "ORD-00008", status: "NEW", note: "Game top-up", lines: [{ name: "ML 86 Diamonds" }] };
   });
@@ -294,5 +305,18 @@ describe("AI answers on the shop's Telegram bot", () => {
     mocks.aiKey = null;
     await say("iphone");
     expect(last().buttons[0]).toContain("iPhone 13");
+  });
+
+  it("logs each exchange to the reports bot: what was typed or tapped and what the bot said", async () => {
+    mocks.logs = [];
+    await say("/start");
+    expect(mocks.logs).toHaveLength(1);
+    expect(mocks.logs[0]).toContain("Customer Bot · Ko @koaung");
+    expect(mocks.logs[0]).toContain("👤 /start");
+    expect(mocks.logs[0]).toContain("🤖 🙏 Mahar Shwe");
+    const tapped = conversationLog({ update_id: 1, callback_query: { id: "q", from, data: "s:rv", message: { message_id: 1, chat, reply_markup: { inline_keyboard: [[{ text: "🔧 စစ်ရန်", callback_data: "s:rv" }]] } } } }, ["a key ss://abc@1.2.3.4:5/?x"]);
+    expect(tapped).toContain("👆 🔧 စစ်ရန်");
+    expect(tapped).not.toContain("abc@");
+    expect(tapped).toContain("VPN Key");
   });
 });

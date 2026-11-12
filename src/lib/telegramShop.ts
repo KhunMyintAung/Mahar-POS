@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
-import { answerCallbackQuery, btn, keyboard, linkBtn, sendChatAction, sendDocument, sendMessage, sendPhoto, type InlineButton, type TgMessage, type TgUpdate, type TgUser } from "./telegram";
+import { answerCallbackQuery, btn, keyboard, linkBtn, sendChatAction, sendDocument, sendMessage, sendPhoto, withTranscript, type InlineButton, type TgMessage, type TgUpdate, type TgUser } from "./telegram";
+import { notifyReportTargets } from "./telegramReports";
 import { loadAiKey } from "./aiKey";
 import { askAgent, AiError, type ChatTurn } from "./aiAgent";
 import { CUSTOMER_TOOLS, customerPrompt } from "./customerAgent";
@@ -813,8 +814,49 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
   return true;
 }
 
-/** A customer's message or button press on the shop's bot. Returns after answering. */
+/** A customer's message or button press on the shop's bot. Returns after answering; then the
+ *  exchange goes to the shop's send-only reports bot as a log, in the chats that get the live
+ *  feed, so the shop sees what customers ask and what the bot told them. */
 export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string, chatId: string) {
+  const { lines } = await withTranscript(chatId, () => answerCustomer(update, ownerUserId, chatId));
+  try {
+    const owner = await prisma.user.findUnique({ where: { id: ownerUserId }, select: { businessId: true } });
+    const text = conversationLog(update, lines);
+    if (owner && text) notifyReportTargets(owner.businessId, text);
+  } catch (e) {
+    console.error("[telegram shop log]", e instanceof Error ? e.message : e);
+  }
+}
+
+const LOG_LINE = 400;
+const LOG_MAX = 3500;
+
+/** One exchange as the shop reads it: who, what they typed or tapped, what the bot answered.
+ *  A VPN key is a secret of the customer's, so only that one went is said, not the key. */
+export function conversationLog(update: TgUpdate, replies: string[]): string | null {
+  const cq = update.callback_query;
+  const message = update.message;
+  const from = cq?.from ?? message?.from;
+  let said: string;
+  if (cq) {
+    const label = (cq.message?.reply_markup?.inline_keyboard ?? []).flat().find((b) => b.callback_data === cq.data)?.text;
+    said = `👆 ${label ?? cq.data ?? ""}`;
+  } else if (message?.photo || message?.document) said = `📸 ပုံ / Screenshot${message.caption ? ` · ${message.caption}` : ""}`;
+  else if (message?.text) said = `👤 ${message.text}`;
+  else return null;
+  const clip = (s: string) => {
+    const t = s.replace(/ss:\/\/\S+/g, "ss://… (VPN Key)").trim();
+    return t.length > LOG_LINE ? `${t.slice(0, LOG_LINE)}…` : t;
+  };
+  const text = [
+    `💬 Customer Bot · ${who(from)}`,
+    clip(said),
+    ...replies.map((r) => `🤖 ${clip(r)}`),
+  ].join("\n");
+  return text.length > LOG_MAX ? `${text.slice(0, LOG_MAX)}…` : text;
+}
+
+async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: string) {
   const ctx = await loadCtx(ownerUserId);
   const cq = update.callback_query;
   if (!ctx) {
