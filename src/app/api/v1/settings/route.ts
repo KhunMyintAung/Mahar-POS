@@ -6,10 +6,12 @@ import { moduleSettingFromFeatures, parseModuleAccess } from "@/lib/modules";
 import { TELEGRAM_REPORTS_KEY } from "@/lib/telegramReports";
 import { GSHEET_KEY } from "@/lib/gsheetBackup";
 import { ONLINE_SHOP_COVER_KEY } from "@/lib/onlineShop";
+import { VPN_PAYMENT_KEY } from "@/lib/vpnShop";
 
 // Keys with secrets in them, read and written only by their own owner-only routes; and the
 // shop cover photo, too big to send with every settings read, which has its own route.
-const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY, ONLINE_SHOP_COVER_KEY];
+// VPN's payment details belong to the bot's VPN menu (vpnShop.ts), not the Settings page.
+const PRIVATE_KEYS = [TELEGRAM_REPORTS_KEY, GSHEET_KEY, ONLINE_SHOP_COVER_KEY, VPN_PAYMENT_KEY];
 
 // Settings are namespaced JSON documents per business: about, business_profile, modules…
 
@@ -25,8 +27,14 @@ export const GET = withAuth(null, async ({ req, user }) => {
   ]);
   return json({
     ...(business ? { business } : {}),
+    // One unreadable row is left out rather than taking the whole Settings page down with it.
     settings: Object.fromEntries(
-      settings.map((setting) => [setting.key, JSON.parse(setting.value)])
+      settings.flatMap((setting) => {
+        try { return [[setting.key, JSON.parse(setting.value)]]; } catch {
+          console.error(`[settings] ${setting.key} is not JSON; left out`);
+          return [];
+        }
+      })
     ),
   });
 });

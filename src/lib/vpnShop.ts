@@ -245,12 +245,20 @@ async function currencyOf(businessId: string) {
   return (await prisma.business.findUnique({ where: { id: businessId }, select: { currency: true } }))?.currency ?? "MMK";
 }
 
-const PAY_KEY = "vpn_payment";
+export const VPN_PAYMENT_KEY = "vpn_payment";
+const PAY_KEY = VPN_PAYMENT_KEY;
 
-/** How customers pay for VPN (KBZPay / Wave numbers and names), set in the VPN menu. */
+/** How customers pay for VPN (KBZPay / Wave numbers and names), set in the VPN menu. Stored as
+ *  JSON like every setting; a row saved as plain text by the first version still reads. */
 export async function loadVpnPayment(businessId: string): Promise<string> {
   const row = await prisma.systemSetting.findUnique({ where: { businessId_key: { businessId, key: PAY_KEY } } });
-  return row?.value ?? "";
+  if (!row) return "";
+  try {
+    const v: unknown = JSON.parse(row.value);
+    return typeof v === "string" ? v : "";
+  } catch {
+    return row.value;
+  }
 }
 
 export async function vpnAskPayment(chatId: string, businessId: string) {
@@ -270,8 +278,8 @@ export async function vpnSetPaymentText(chatId: string, user: Staff, text: strin
   const before = await loadVpnPayment(user.businessId);
   await prisma.systemSetting.upsert({
     where: { businessId_key: { businessId: user.businessId, key: PAY_KEY } },
-    create: { businessId: user.businessId, key: PAY_KEY, value },
-    update: { value },
+    create: { businessId: user.businessId, key: PAY_KEY, value: JSON.stringify(value) },
+    update: { value: JSON.stringify(value) },
   });
   await audit(prisma, {
     businessId: user.businessId, userId: user.id, action: "vpn_payment.update", module: "vpn",
