@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { branchScope, type AuthUser } from "./auth";
 import { verifyTrackToken } from "./repairTrack";
@@ -8,10 +9,14 @@ export const VOUCHER_LIKE = /^[A-Za-z]{1,8}[\s-]?\d{1,8}$/;
 /** The repair a typed voucher number means, in the branches this user works in. "MS12" finds
  *  MS0012: the same letters and number, without the leading zeros. */
 export async function findRepairJob(user: AuthUser, typed: string) {
+  return findRepairJobWhere({ businessId: user.businessId, deletedAt: null, ...branchScope(user) }, typed);
+}
+
+/** The same within any scope: the whole shop, for a customer asking after their own voucher. */
+export async function findRepairJobWhere(where: Prisma.RepairJobWhereInput, typed: string) {
   const raw = typed.replace(/[\s-]/g, "").toUpperCase();
   const letters = raw.match(/^[A-Z]*/)![0];
   const number = raw.slice(letters.length).replace(/^0+/, "") || "0";
-  const where = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
   const exact = await prisma.repairJob.findFirst({ where: { ...where, jobNo: { equals: raw, mode: "insensitive" } } });
   if (exact) return exact;
   const candidates = await prisma.repairJob.findMany({

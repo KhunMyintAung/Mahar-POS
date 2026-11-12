@@ -6,6 +6,7 @@ import { api } from "@/lib/client";
 import { Button, Card, Input, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { TelegramReportsCard } from "@/components/TelegramReportsCard";
+import { TelegramCustomersCard } from "@/components/TelegramCustomersCard";
 import { PageHeader } from "@/components/PageHeader";
 
 interface TelegramStatus {
@@ -67,6 +68,7 @@ export default function TelegramPage() {
       <PageHeader title={<>Telegram</>} />
 
       {hasPerm("settings.manage") && <TelegramReportsCard />}
+      {hasPerm("settings.manage") && <TelegramCustomersCard />}
 
       <h2 className="pt-2 font-semibold">My bot (records from chat)</h2>
 

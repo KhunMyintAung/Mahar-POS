@@ -6,11 +6,19 @@ const mocks = vi.hoisted(() => ({
   sent: [] as { text: string; buttons: string[] }[],
   session: null as null | { step: string; data: string },
   orders: [] as unknown[],
+  watched: [] as string[],
+  toOwner: [] as string[],
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    user: { findUnique: async () => ({ business: { shopSlug: "mahar" } }) },
+    user: {
+      findUnique: async () => ({
+        telegramChatId: "999",
+        business: { id: "b1", name: "Mahar Shwe", phone: "09123", address: "", currency: "MMK", latitude: null, longitude: null, shopSlug: "mahar" },
+      }),
+    },
+    contact: { findFirst: async () => null },
     telegramSession: {
       findUnique: async () => mocks.session,
       upsert: async ({ create }: { create: { step: string; data: string } }) => { mocks.session = { step: create.step, data: create.data }; },
@@ -24,7 +32,7 @@ vi.mock("@/lib/telegram", async (orig) => {
   };
   return {
     ...(await orig<typeof import("@/lib/telegram")>()),
-    sendMessage: async (_chat: string, text: string, opts?: Parameters<typeof record>[1]) => record(text, opts),
+    sendMessage: async (chatId: string, text: string, opts?: Parameters<typeof record>[1]) => (chatId === "999" ? void mocks.toOwner.push(text) : record(text, opts)),
     sendPhoto: async (_chat: string, _photo: string, opts?: { caption?: string } & Parameters<typeof record>[1]) => record(opts?.caption ?? "", opts),
     answerCallbackQuery: async () => {},
   };
@@ -35,6 +43,8 @@ const items = [
   { id: "i2", name: "iPhone 13", description: "", category: "Phone New", model: "iPhone 13", variant: "128GB", price: 150_000_000n, stock: 0, images: [] },
 ];
 vi.mock("@/lib/onlineShop", () => ({
+  loadOnlineShop: async () => ({ phone: "", mapUrl: "", partsHours: 3, partsDays: 2, partsNote: "" }),
+  shopMapHref: () => "",
   publicShop: async () => ({ business: { id: "b1", name: "Mahar Shwe", phone: "09123", address: "", currency: "MMK" }, cfg: {}, items }),
   allowOrder: () => true,
 }));
@@ -45,6 +55,23 @@ vi.mock("@/lib/onlineOrder", () => ({
   },
 }));
 
+vi.mock("@/lib/moduleAccess", () => ({ loadModuleAccess: async () => ({ features: { repair: true } }) }));
+vi.mock("@/lib/customerBot", async (orig) => ({
+  ...(await orig<typeof import("@/lib/customerBot")>()),
+  hasSpareParts: async () => true,
+  findParts: async (_b: string, q: string) => ({
+    parts: q.toLowerCase().includes("iphone 11") ? [{ id: "p1", name: "iPhone 11 LCD", price: 8_500_000n, inStock: true }] : [],
+    more: false,
+  }),
+}));
+const job = {
+  id: "j1", jobNo: "MS0012", customerId: null, customerPhone: "09 777 123 456", deviceBrand: "Samsung", deviceModel: "A54",
+  problem: "Screen", status: "IN_PROGRESS", estimatedCost: 0n, finalCost: 0n, paidAmount: 0n,
+};
+vi.mock("@/lib/repairLookup", () => ({ findRepairJobWhere: async (_w: unknown, typed: string) => (typed.toUpperCase().endsWith("12") ? job : null) }));
+vi.mock("@/lib/repairTrack", () => ({ trackToken: () => "tok" }));
+vi.mock("@/lib/repairWatch", () => ({ watchRepair: async (id: string) => { mocks.watched.push(id); } }));
+
 import { handleCustomerUpdate } from "@/lib/telegramShop";
 
 const chat = { id: 555, type: "private" };
@@ -53,12 +80,40 @@ const tap = (data: string) => handleCustomerUpdate({ update_id: 1, callback_quer
 const last = () => mocks.sent[mocks.sent.length - 1];
 
 describe("customer ordering on the shop's Telegram bot", () => {
-  beforeEach(() => { mocks.sent = []; mocks.session = null; mocks.orders = []; });
+  beforeEach(() => { mocks.sent = []; mocks.session = null; mocks.orders = []; mocks.watched = []; mocks.toOwner = []; });
 
   it("greets with the shop and its menu", async () => {
     await say("/start");
     expect(last().text).toContain("Mahar Shwe");
     expect(last().buttons.join(" ")).toContain("ခြင်းတောင်း (0)");
+    expect(last().buttons.join(" ")).toContain("ဖုန်းပြင်ပြီးပြီလား");
+    expect(last().buttons.join(" ")).toContain("Parts ဈေးမေးရန်");
+  });
+
+  it("shows a repair only when the voucher and the phone digits both match, then watches it", async () => {
+    await tap("s:rv");
+    await say("ms 12");
+    expect(last().text).toContain("၄ လုံး");
+    await say("9999");
+    expect(last().text).toContain("မကိုက်ပါ");
+    expect(mocks.watched).toEqual([]);
+    await tap("s:rv");
+    await say("MS12");
+    await say("၃၄၅၆");
+    expect(last().text).toContain("MS0012");
+    expect(last().text).toContain("ပြင်ဆင်နေဆဲ");
+    expect(last().text).not.toContain("777");
+    expect(mocks.watched).toEqual(["j1"]);
+  });
+
+  it("quotes a part with how soon, and passes an unknown one to the shop", async () => {
+    await tap("s:part");
+    await say("iPhone 11 မှန်");
+    expect(last().text).toContain("iPhone 11 LCD");
+    expect(last().text).toContain("နာရီအတွင်း");
+    await say("Vivo Y99 မှန်");
+    expect(last().text).toContain("မတွေ့ပါ");
+    expect(mocks.toOwner[0]).toContain("Vivo Y99");
   });
 
   it("finds items by the words typed and marks what is sold out", async () => {

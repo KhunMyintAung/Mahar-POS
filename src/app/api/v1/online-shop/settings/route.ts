@@ -49,6 +49,10 @@ export const PUT = withAuth("item.manage", async ({ req, user }) => {
     mapUrl: body.mapUrl ?? before.mapUrl,
     links: body.links ?? before.links,
     gameTopupUrl: body.gameTopupUrl ?? before.gameTopupUrl,
+    // Set from Telegram, not here.
+    partsHours: before.partsHours,
+    partsDays: before.partsDays,
+    partsNote: before.partsNote,
   });
   await prisma.business.update({ where: { id: user.businessId }, data: { shopSlug: body.slug } });
   await saveOnlineShop(user.businessId, cfg);

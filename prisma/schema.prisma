@@ -167,6 +167,21 @@ model TelegramSession {
 }
 
 /**
+ * A customer who checked a repair on the shop's Telegram bot, to be told when it is ready.
+ * Removed once the device goes back or the job is cancelled.
+ */
+model RepairWatch {
+  id          String   @id @default(uuid())
+  repairJobId String
+  /// The staff member whose bot the customer wrote to; their bot sends the notice.
+  ownerUserId String
+  chatId      String
+  createdAt   DateTime @default(now())
+
+  @@unique([repairJobId, chatId])
+}
+
+/**
  * A device left in for repair.
  * The shop's promise to a customer: what was handed over, what is wrong with it, what it
  * will cost and when it will be ready. Money only moves when the phone goes back out, so

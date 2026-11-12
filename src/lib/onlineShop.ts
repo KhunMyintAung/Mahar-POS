@@ -45,6 +45,12 @@ export interface OnlineShopSettings {
   links: ShopLinks;
   /** Where the shop page's Game Top-up button goes (the game top-up page for this shop). */
   gameTopupUrl: string;
+  /** Telegram bot, spare part prices: hours a fitting takes when the part is in stock. */
+  partsHours: number;
+  /** …and days when the part has to be ordered first. */
+  partsDays: number;
+  /** A line under the prices ("Fitting included", "3 months warranty"). */
+  partsNote: string;
 }
 
 export const SHOP_LINK_KINDS = ["facebook", "messenger", "telegram", "viber", "tiktok"] as const;
@@ -105,7 +111,15 @@ const DEFAULTS: OnlineShopSettings = {
   mapUrl: "",
   links: NO_LINKS,
   gameTopupUrl: "",
+  partsHours: 3,
+  partsDays: 2,
+  partsNote: "",
 };
+
+/** A whole number within limits; anything else gives the fallback. */
+function whole(x: unknown, fallback: number, min: number, max: number): number {
+  return typeof x === "number" && Number.isInteger(x) && x >= min && x <= max ? x : fallback;
+}
 
 export function parseOnlineShop(raw: unknown): OnlineShopSettings {
   const v = (raw && typeof raw === "object" ? raw : {}) as Partial<OnlineShopSettings>;
@@ -119,6 +133,9 @@ export function parseOnlineShop(raw: unknown): OnlineShopSettings {
     mapUrl: webUrl(text(v.mapUrl, "", 500)),
     links: Object.fromEntries(SHOP_LINK_KINDS.map((k) => [k, text((v.links as Partial<ShopLinks> | undefined)?.[k], "", 200).trim()])) as ShopLinks,
     gameTopupUrl: webUrl(text(v.gameTopupUrl, "", 500)),
+    partsHours: whole(v.partsHours, DEFAULTS.partsHours, 1, 72),
+    partsDays: whole(v.partsDays, DEFAULTS.partsDays, 1, 60),
+    partsNote: text(v.partsNote, DEFAULTS.partsNote, 200).trim(),
   };
 }
 

@@ -30,6 +30,7 @@ import type { FeatureKey, FeatureVisibility } from "./modules";
 import { loadModuleAccess } from "./moduleAccess";
 import { hiddenStandardKeys } from "./incomeCategories";
 import { handleCustomerUpdate } from "./telegramShop";
+import { notifyRepairWatchers } from "./repairWatch";
 import { businessCurrency } from "@/services/currencyService";
 
 // ---------------------------------------------------------------------------
@@ -958,6 +959,7 @@ async function rpMove(chatId: string, user: AuthUser, jobId: string, to: string)
   notifyAuditFeed(user.businessId, repairStatusNotice({
     ...job, from: before.status, to: job.status, paidNow: 0n, createdByName: user.name,
   }), chatId);
+  if (before.status !== job.status) await notifyRepairWatchers(job.id).catch((e) => console.error("[repair watch]", e));
   return showRepairJob(chatId, user, job, `✅ ${job.jobNo} ကို ${statusText(job.status)} ပြောင်းပြီးပါပြီ။\n`);
 }
 

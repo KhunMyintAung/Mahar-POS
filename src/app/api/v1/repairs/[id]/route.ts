@@ -5,6 +5,8 @@ import { toMinor } from "@/lib/money";
 import { REPAIR_STATUSES, deleteRepairJob, updateRepairStatus } from "@/services/repairService";
 import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 import { loadRepairFlow } from "@/services/repairProfitService";
+import { after } from "next/server";
+import { notifyRepairWatchers } from "@/lib/repairWatch";
 
 export const GET = withAuth("repair.view", async ({ user, params }) => {
   const job = await prisma.repairJob.findFirst({
@@ -48,6 +50,10 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
     notifyAuditFeed(user.businessId, repairStatusNotice({
       ...job, from: before.status, to: job.status, paidNow: job.paidAmount - before.paidAmount, createdByName: user.name, notes: body.notes,
     }), undefined, user.id);
+  }
+  // Customers who asked after it on the shop's bot hear about it once the answer has gone.
+  if (before && before.status !== job.status) {
+    after(() => notifyRepairWatchers(job.id).catch((e) => console.error("[repair watch]", e)));
   }
   return json(job);
 });

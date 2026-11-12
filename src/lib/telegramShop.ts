@@ -1,14 +1,21 @@
 import { prisma } from "./prisma";
 import { answerCallbackQuery, btn, keyboard, linkBtn, sendMessage, sendPhoto, type InlineButton, type TgUpdate } from "./telegram";
-import { allowOrder, publicShop } from "./onlineShop";
+import { allowOrder, loadOnlineShop, publicShop, shopMapHref, type OnlineShopSettings } from "./onlineShop";
 import { placeOnlineOrder, type PublicShop } from "./onlineOrder";
 import { fmtMoneyPlain } from "./format";
+import { loadModuleAccess } from "./moduleAccess";
+import { findRepairJobWhere } from "./repairLookup";
+import { trackToken } from "./repairTrack";
+import { asciiDigits, findParts, hasSpareParts, partQuery, partQuoteText, phoneEndsWith, repairCardText } from "./customerBot";
+import { watchRepair } from "./repairWatch";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
 // through what the shop sells online, fill a cart and send an order. The order is an
 // ordinary Online Shop order (same prices, same stock check, same Telegram notice to the
 // shop), so the shop answers it from Online Shop like one from the web page.
+// A shop that repairs phones also answers "is my phone ready?" (the voucher number and the
+// last four digits of the phone on it) and "how much is this part?" (customerBot.ts).
 // Everything here is in Myanmar: a customer never picked a language.
 // ---------------------------------------------------------------------------
 
@@ -21,8 +28,11 @@ const CLOSED = `မင်္ဂလာပါ 🙏
 type Shop = PublicShop & { slug: string };
 type Item = Shop["items"][number];
 interface State {
-  /** What the next typed message is: the customer's name, phone or address, or a search. */
-  step: "browse" | "name" | "phone" | "address";
+  /** What the next typed message is: the customer's name, phone or address, a search, a
+   *  repair voucher number ("rv") and its phone digits ("rp"), or a part question ("part"). */
+  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part";
+  /** The voucher number typed, kept until the phone digits come. */
+  rv?: string;
   cart: Record<string, number>;
   name?: string;
   phone?: string;
@@ -47,12 +57,35 @@ async function save(ownerUserId: string, chatId: string, state: State) {
   });
 }
 
-async function loadShop(ownerUserId: string): Promise<Shop | null> {
-  const owner = await prisma.user.findUnique({ where: { id: ownerUserId }, select: { business: { select: { shopSlug: true } } } });
-  const slug = owner?.business.shopSlug;
-  if (!slug) return null;
-  const shop = await publicShop(slug);
-  return shop && shop.items.length > 0 ? { ...shop, slug } : null;
+/** What this shop's bot can do for a customer: its online list when the shop has one open,
+ *  repairs and part prices when it repairs phones. Null when it does none of these. */
+interface Ctx {
+  business: { id: string; name: string; phone: string | null; address: string | null; currency: string; latitude: number | null; longitude: number | null };
+  cfg: OnlineShopSettings;
+  shop: Shop | null;
+  repairOn: boolean;
+  partsOn: boolean;
+  /** The staff member's own chat, told about questions the bot could not answer. */
+  ownerChatId: string | null;
+}
+
+async function loadCtx(ownerUserId: string): Promise<Ctx | null> {
+  const owner = await prisma.user.findUnique({
+    where: { id: ownerUserId },
+    select: { telegramChatId: true, business: { select: { id: true, name: true, phone: true, address: true, currency: true, latitude: true, longitude: true, shopSlug: true } } },
+  });
+  if (!owner) return null;
+  const { shopSlug, ...business } = owner.business;
+  const [cfg, access, listed] = await Promise.all([
+    loadOnlineShop(business.id),
+    loadModuleAccess(business.id),
+    shopSlug ? publicShop(shopSlug) : null,
+  ]);
+  const shop = listed && shopSlug && listed.items.length > 0 ? { ...listed, slug: shopSlug } : null;
+  const repairOn = access.features.repair;
+  const partsOn = repairOn && (await hasSpareParts(business.id));
+  if (!shop && !repairOn) return null;
+  return { business, cfg, shop, repairOn, partsOn, ownerChatId: owner.telegramChatId };
 }
 
 const price = (shop: Shop, minor: bigint) => fmtMoneyPlain(minor, shop.business.currency);
@@ -75,24 +108,151 @@ function cartCount(state: State) {
   return Object.values(state.cart).reduce((t, n) => t + n, 0);
 }
 
-function homeButtons(shop: Shop, state: State): InlineButton[][] {
-  return [
-    [btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")],
-    [btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")],
-    [linkBtn("🌐 Online Shop ဖွင့်ရန်", `${appUrl()}/shop/${shop.slug}`)],
-  ];
+function homeButtons(ctx: Ctx, state: State): InlineButton[][] {
+  const rows: InlineButton[][] = [];
+  if (ctx.repairOn) rows.push([btn("🔧 ဖုန်းပြင်ပြီးပြီလား စစ်ရန်", "s:rv")]);
+  if (ctx.partsOn) rows.push([btn("📱 ဖုန်းမှန် / Parts ဈေးမေးရန်", "s:part")]);
+  if (ctx.shop) {
+    rows.push([btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")]);
+    rows.push([btn(`🛒 ခြင်းတောင်း (${cartCount(state)})`, "s:cart")]);
+    rows.push([linkBtn("🌐 Online Shop ဖွင့်ရန်", `${appUrl()}/shop/${ctx.shop.slug}`)]);
+  }
+  rows.push([btn("📍 ဆိုင်လိပ်စာ / ဆက်သွယ်ရန်", "s:info")]);
+  return rows;
 }
 
-async function home(chatId: string, shop: Shop, state: State) {
-  const b = shop.business;
+const shopPhone = (ctx: Ctx) => ctx.cfg.phone.trim() || ctx.business.phone || "";
+
+async function home(chatId: string, ctx: Ctx, state: State) {
+  const b = ctx.business;
   await sendMessage(chatId, [
     `🙏 ${b.name} မှ ကြိုဆိုပါတယ်`,
     "",
-    "ပစ္စည်းများကို ကြည့်ပြီး ခြင်းတောင်းထဲ ထည့်ကာ ဒီမှာပဲ မှာယူနိုင်ပါတယ်။",
-    "🔍 ရှာချင်တာကို စာရိုက်ပို့လိုက်ပါ (ဥပမာ - iPhone, charger)။",
-    ...(b.phone ? ["", `📞 ${b.phone}`] : []),
+    ...(ctx.repairOn ? ["🔧 ပြင်ထားတဲ့ ဖုန်း ပြီးမပြီး ဒီမှာ စစ်လို့ ရပါတယ်။"] : []),
+    ...(ctx.partsOn ? ["📱 ဖုန်းမှန်၊ Battery စတဲ့ ပစ္စည်းဈေး မေးလို့ ရပါတယ်။"] : []),
+    ...(ctx.shop ? [
+      "🛍 ပစ္စည်းများကို ကြည့်ပြီး ဒီမှာပဲ မှာယူနိုင်ပါတယ်။",
+      "🔍 ရှာချင်တာကို စာရိုက်ပို့လိုက်ပါ (ဥပမာ - iPhone, charger)။",
+    ] : []),
+    ...(shopPhone(ctx) ? ["", `📞 ${shopPhone(ctx)}`] : []),
     ...(b.address ? [`📍 ${b.address}`] : []),
-  ].join("\n"), { replyMarkup: keyboard(homeButtons(shop, state)) });
+  ].join("\n"), { replyMarkup: keyboard(homeButtons(ctx, state)) });
+}
+
+const BACK_HOME: InlineButton[] = [btn("🏠 ပင်မ", "s:home")];
+
+async function showInfo(chatId: string, ctx: Ctx) {
+  const b = ctx.business;
+  const map = shopMapHref(ctx.cfg.mapUrl, b.latitude, b.longitude, b.address);
+  const rows: InlineButton[][] = [];
+  if (map) rows.push([linkBtn("🗺 မြေပုံ ဖွင့်ရန်", map)]);
+  rows.push(BACK_HOME);
+  await sendMessage(chatId, [
+    `🏪 ${b.name}`,
+    ...(shopPhone(ctx) ? [`📞 ${shopPhone(ctx)}`] : []),
+    ...(b.address ? [`📍 ${b.address}`] : []),
+  ].join("\n"), { replyMarkup: keyboard(rows) });
+}
+
+/** A voucher number as a customer types it. Unlike the till's, the letters may be missing:
+ *  a shop whose name gives no initials numbers its vouchers with digits only. */
+const CUSTOMER_VOUCHER = /^[A-Za-z]{0,8}[\s-]?\d{1,8}$/;
+
+async function askVoucher(chatId: string, state: State) {
+  state.step = "rv";
+  await sendMessage(chatId, "🔧 Voucher နံပါတ် ရိုက်ပို့ပေးပါ (ဥပမာ MS0012)။\nဆိုင်က ပေးထားတဲ့ Voucher ပေါ်မှာ ပါပါတယ်။", {
+    replyMarkup: keyboard([BACK_HOME]),
+  });
+}
+
+async function takeVoucher(chatId: string, state: State, text: string) {
+  const typed = asciiDigits(text).trim();
+  if (!CUSTOMER_VOUCHER.test(typed)) {
+    await sendMessage(chatId, "Voucher နံပါတ်ကို ပုံစံအတိုင်း ရိုက်ပေးပါ (ဥပမာ MS0012)။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  state.rv = typed;
+  state.step = "rp";
+  await sendMessage(chatId, "📞 Voucher ဖွင့်တုန်းက ပေးထားတဲ့ ဖုန်းနံပါတ်ရဲ့ နောက်ဆုံး ဂဏန်း ၄ လုံး ရိုက်ပေးပါ။", {
+    replyMarkup: keyboard([BACK_HOME]),
+  });
+}
+
+/** The voucher and the last four digits of the phone written on it. Both have to match, so a
+ *  voucher number alone (they run in order) does not show anybody else's repair. */
+async function checkRepair(chatId: string, ctx: Ctx, state: State, ownerUserId: string, digitsTyped: string) {
+  const digits = asciiDigits(digitsTyped).replace(/\D/g, "");
+  if (digits.length < 4) {
+    await sendMessage(chatId, "ဖုန်းနံပါတ်ရဲ့ နောက်ဆုံး ဂဏန်း ၄ လုံး ရိုက်ပေးပါ (ဥပမာ 4567)။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  state.step = "browse";
+  if (!allowOrder(`rv:${ctx.business.id}:${chatId}`, 6, 60 * 60_000)) {
+    await sendMessage(chatId, "⏳ စစ်တာ များနေပါတယ်။ တစ်နာရီလောက် နေမှ ပြန်စစ်ပါ။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  const last4 = digits.slice(-4);
+  const job = state.rv ? await findRepairJobWhere({ businessId: ctx.business.id, deletedAt: null }, state.rv) : null;
+  const contact = job?.customerId
+    ? await prisma.contact.findFirst({ where: { id: job.customerId, businessId: ctx.business.id }, select: { phone: true } })
+    : null;
+  if (!job || !(phoneEndsWith(job.customerPhone, last4) || phoneEndsWith(contact?.phone, last4))) {
+    await sendMessage(chatId, [
+      "❌ Voucher နံပါတ် နဲ့ ဖုန်းနံပါတ် မကိုက်ပါ။",
+      "Voucher ပေါ်က နံပါတ်နဲ့ ဆိုင်ကို ပေးထားတဲ့ ဖုန်းနံပါတ်ကို ပြန်စစ်ပေးပါ။",
+      ...(shopPhone(ctx) ? ["", `မရရင် ဆိုင်ကို ဖုန်းဆက်ပါ 📞 ${shopPhone(ctx)}`] : []),
+    ].join("\n"), { replyMarkup: keyboard([[btn("🔁 ပြန်စစ်မည်", "s:rv")], BACK_HOME]) });
+    return;
+  }
+  state.rv = undefined;
+  const waiting = job.status !== "DELIVERED" && job.status !== "CANCELLED";
+  if (waiting) await watchRepair(job.id, ownerUserId, chatId);
+  const token = trackToken(job.id);
+  const rows: InlineButton[][] = [];
+  if (token) rows.push([linkBtn("📄 အသေးစိတ် ကြည့်ရန်", `${appUrl()}/track/${token}`)]);
+  rows.push([btn("🔧 နောက်တစ်ခု စစ်မည်", "s:rv")], BACK_HOME);
+  await sendMessage(chatId, [
+    repairCardText(job, ctx.business.currency),
+    ...(waiting ? ["", "🔔 အခြေအနေ ပြောင်းတာနဲ့ ဒီ Bot ကနေ အသိပေးပါမယ်။"] : []),
+  ].join("\n"), { replyMarkup: keyboard(rows) });
+}
+
+async function askPart(chatId: string, state: State) {
+  state.step = "part";
+  await sendMessage(chatId, "📱 ဖုန်း Model နဲ့ လိုတဲ့ ပစ္စည်းကို ရိုက်ပို့ပေးပါ။\nဥပမာ - iPhone 11 မှန်၊ A54 battery၊ Redmi Note 9 အားသွင်းပေါက်", {
+    replyMarkup: keyboard([BACK_HOME]),
+  });
+}
+
+async function quoteParts(chatId: string, ctx: Ctx, text: string, from?: { first_name: string; username?: string }) {
+  const q = text.slice(0, 60);
+  const again: InlineButton[][] = [[btn("🔍 နောက်တစ်ခု မေးမည်", "s:part")], BACK_HOME];
+  if (partQuery(q).model.length === 0) {
+    await sendMessage(chatId, "ဖုန်း Model ကို ထည့်ရိုက်ပေးပါ (ဥပမာ - iPhone 11 မှန်)။", { replyMarkup: keyboard([BACK_HOME]) });
+    return;
+  }
+  const found = await findParts(ctx.business.id, q);
+  if (found.parts.length > 0) {
+    await sendMessage(chatId, partQuoteText(q, found, {
+      currency: ctx.business.currency, hours: ctx.cfg.partsHours, days: ctx.cfg.partsDays, note: ctx.cfg.partsNote,
+    }), { replyMarkup: keyboard(again) });
+    return;
+  }
+  // Not on the list: the shop may still have it, so the question goes on to the shop.
+  if (ctx.ownerChatId && allowOrder(`ask:${ctx.business.id}:${chatId}`, 3, 30 * 60_000)) {
+    const who = [from?.first_name, from?.username ? `@${from.username}` : ""].filter(Boolean).join(" ");
+    await sendMessage(ctx.ownerChatId, [
+      "❓ Customer က ပစ္စည်းဈေး မေးထားပါတယ် (စာရင်းထဲ မရှိ)",
+      `"${q}"`,
+      ...(who ? [`👤 ${who}`] : []),
+    ].join("\n"), from?.username ? { replyMarkup: keyboard([[linkBtn("💬 ပြန်ဖြေရန်", `https://t.me/${from.username}`)]]) } : undefined);
+  }
+  await sendMessage(chatId, [
+    `🔍 "${q}"`,
+    "",
+    "စာရင်းထဲမှာ မတွေ့ပါ။ ဆိုင်ကို အသိပေးထားပါတယ်။",
+    ...(shopPhone(ctx) ? [`အမြန်သိချင်ရင် ဖုန်းဆက်ပါ 📞 ${shopPhone(ctx)}`] : []),
+  ].join("\n"), { replyMarkup: keyboard(again) });
 }
 
 /** A page of items as buttons, with arrows when there are more. `base` is the callback
@@ -155,7 +315,9 @@ async function showCart(chatId: string, shop: Shop, state: State) {
   tidyCart(shop, state);
   const lines = cartLines(shop, state);
   if (lines.length === 0) {
-    await sendMessage(chatId, "🛒 ခြင်းတောင်းထဲမှာ ဘာမှ မရှိသေးပါ။", { replyMarkup: keyboard(homeButtons(shop, state)) });
+    await sendMessage(chatId, "🛒 ခြင်းတောင်းထဲမှာ ဘာမှ မရှိသေးပါ။", {
+      replyMarkup: keyboard([[btn("🛍 ပစ္စည်းအမျိုးအစားများ", "s:cats"), btn("📋 အားလုံး", "s:all:0")], BACK_HOME]),
+    });
     return;
   }
   const total = lines.reduce((t, l) => t + l.item.price * BigInt(l.quantity), 0n);
@@ -237,19 +399,25 @@ async function placeOrder(chatId: string, shop: Shop, state: State, username?: s
 
 /** A customer's message or button press on the shop's bot. Returns after answering. */
 export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string, chatId: string) {
-  const shop = await loadShop(ownerUserId);
+  const ctx = await loadCtx(ownerUserId);
   const cq = update.callback_query;
-  if (!shop) {
+  if (!ctx) {
     if (cq) await answerCallbackQuery(cq.id);
     return sendMessage(chatId, CLOSED);
   }
   const state = await load(ownerUserId, chatId);
-  const byId = (id: string) => shop.items.find((i) => i.id === id);
+  const shop = ctx.shop;
+  const byId = (id: string) => shop?.items.find((i) => i.id === id);
 
   if (cq) {
     const [, action = "", arg = "", page = "0"] = (cq.data ?? "").split(":");
     let toast: string | undefined;
-    if (action === "home") await home(chatId, shop, state);
+    if (action === "home") { state.step = "browse"; await home(chatId, ctx, state); }
+    else if (action === "rv" && ctx.repairOn) await askVoucher(chatId, state);
+    else if (action === "part" && ctx.partsOn) await askPart(chatId, state);
+    else if (action === "info") await showInfo(chatId, ctx);
+    // The rest is the online list, which this shop may not have (or no longer has).
+    else if (!shop) { state.step = "browse"; await home(chatId, ctx, state); }
     else if (action === "cats") {
       const cats = categories(shop);
       await sendMessage(chatId, "🛍 ပစ္စည်းအမျိုးအစား ရွေးပါ", {
@@ -289,7 +457,7 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
     } else if (action === "edit") await askName(chatId, state);
     else if (action === "skipaddr") { state.address = undefined; await confirm(chatId, shop, state); }
     else if (action === "confirm") await placeOrder(chatId, shop, state, cq.from.username);
-    else await home(chatId, shop, state);
+    else await home(chatId, ctx, state);
     await answerCallbackQuery(cq.id, toast);
     await save(ownerUserId, chatId, state);
     return;
@@ -298,8 +466,12 @@ export async function handleCustomerUpdate(update: TgUpdate, ownerUserId: string
   const text = (update.message?.text ?? "").trim();
   if (!text || text === "/start" || text === "/menu" || text === "/help") {
     state.step = "browse";
-    await home(chatId, shop, state);
-  } else if (state.step === "name") {
+    await home(chatId, ctx, state);
+  } else if (state.step === "rv") await takeVoucher(chatId, state, text);
+  else if (state.step === "rp") await checkRepair(chatId, ctx, state, ownerUserId, text);
+  else if (state.step === "part") await quoteParts(chatId, ctx, text, update.message?.from);
+  else if (!shop) await home(chatId, ctx, state);
+  else if (state.step === "name") {
     state.name = text.slice(0, 80);
     state.step = "phone";
     await sendMessage(chatId, "📞 ဖုန်းနံပါတ် ရိုက်ပို့ပေးပါ။");
