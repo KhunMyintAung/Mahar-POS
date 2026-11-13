@@ -67,6 +67,10 @@ export async function createRepairJob(
     technicianName?: string;
     promisedAt?: Date;
     notes?: string;
+    /** A number from the device's reserved block (taken in without the internet). */
+    number?: number;
+    /** When it was really taken in, for a job sent later from a device. */
+    receivedAt?: Date;
   }
 ) {
   if (opts.estimatedCost < 0n || opts.depositAmount < 0n) {
@@ -77,7 +81,8 @@ export async function createRepairJob(
     throw new ApiError(422, "Choose the wallet the deposit went into");
   }
 
-  const jobNo = await nextNumber(tx, opts.businessId, "REPAIR", await voucherNumberFormat(tx, opts.businessId));
+  const format = await voucherNumberFormat(tx, opts.businessId);
+  const jobNo = opts.number != null ? format(opts.number) : await nextNumber(tx, opts.businessId, "REPAIR", format);
   const job = await tx.repairJob.create({
     data: {
       jobNo,
@@ -101,6 +106,7 @@ export async function createRepairJob(
       promisedAt: opts.promisedAt,
       notes: opts.notes,
       createdById: opts.userId,
+      ...(opts.receivedAt ? { receivedAt: opts.receivedAt } : {}),
     },
   });
 
@@ -116,6 +122,7 @@ export async function createRepairJob(
       refId: job.id,
       description: `Repair deposit ${job.jobNo} - ${job.deviceBrand} ${job.deviceModel}`,
       createdById: opts.userId,
+      createdAt: opts.receivedAt,
     });
   }
 
@@ -210,7 +217,7 @@ export async function updateRepairDetails(
  */
 export async function payRepairBalance(
   tx: Tx,
-  opts: { businessId: string; userId: string; jobId: string; finalCost?: bigint; partsCost?: bigint; walletId?: string }
+  opts: { businessId: string; userId: string; jobId: string; finalCost?: bigint; partsCost?: bigint; walletId?: string; at?: Date }
 ) {
   const job = await tx.repairJob.findFirst({
     where: { id: opts.jobId, businessId: opts.businessId, deletedAt: null },
@@ -244,6 +251,7 @@ export async function payRepairBalance(
       refId: job.id,
       description: `Repair ${job.jobNo} - ${job.deviceBrand} ${job.deviceModel}`,
       createdById: opts.userId,
+      createdAt: opts.at,
     });
   }
 
@@ -284,6 +292,8 @@ export async function updateRepairStatus(
     notes?: string;
     /** Where the balance is collected when the phone goes back out. */
     walletId?: string;
+    /** When it really happened, for a change sent later from a device. */
+    at?: Date;
   }
 ) {
   const job = await tx.repairJob.findFirst({
@@ -330,6 +340,7 @@ export async function updateRepairStatus(
         refId: job.id,
         description: `Repair ${job.jobNo} - ${job.deviceBrand} ${job.deviceModel}`,
         createdById: opts.userId,
+        createdAt: opts.at,
       });
       paidAmount = finalCost;
     }
@@ -347,11 +358,11 @@ export async function updateRepairStatus(
       // Reopening a job clears its finish time, so it is stamped afresh when it is really done.
       completedAt:
         opts.status === "DONE" || opts.status === "CANNOT_REPAIR"
-          ? job.completedAt ?? new Date()
+          ? job.completedAt ?? opts.at ?? new Date()
           : BENCH_STATUSES.includes(opts.status)
             ? null
             : job.completedAt,
-      deliveredAt: opts.status === "DELIVERED" ? new Date() : job.deliveredAt,
+      deliveredAt: opts.status === "DELIVERED" ? opts.at ?? new Date() : job.deliveredAt,
       // Kept through hand-back and cancelling; a job worked on again starts clean.
       cannotRepair:
         opts.status === "CANNOT_REPAIR" ? true

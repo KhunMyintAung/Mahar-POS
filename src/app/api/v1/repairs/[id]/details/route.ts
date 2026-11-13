@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { toMinor } from "@/lib/money";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { PRIORITIES, updateRepairDetails } from "@/services/repairService";
+import { isDuplicateOp, offlineOpSchema, priorOp, recordOp } from "@/lib/offlineOp";
 
 /** Correct what was written down at intake: names, phone, device, problem, quote. */
 
@@ -25,12 +26,17 @@ const schema = z.object({
   promisedAt: z.string().trim().optional(),
   notes: optional(500),
   technicianName: optional(80),
+  offline: offlineOpSchema.optional(),
 });
 
 export const PATCH = withAuth("repair.update", async ({ req, user, params }) => {
-  const body = await parseBody(req, schema);
-  const job = await prisma.$transaction((tx) =>
-    updateRepairDetails(tx, {
+  const { offline, ...body } = await parseBody(req, schema);
+  const sameJob = () => prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId } });
+  if (await priorOp(user.businessId, offline)) return json(await sameJob());
+  let job;
+  try {
+    job = await prisma.$transaction(async (tx) => {
+      const changed = await updateRepairDetails(tx, {
       businessId: user.businessId,
       userId: user.id,
       jobId: params.id,
@@ -39,7 +45,13 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
         estimatedCost: body.estimatedCost === undefined ? undefined : toMinor(body.estimatedCost),
         promisedAt: body.promisedAt === undefined ? undefined : body.promisedAt ? new Date(body.promisedAt) : null,
       },
-    })
-  );
+      });
+      await recordOp(tx, user.businessId, "repair.details", offline, changed.id);
+      return changed;
+    });
+  } catch (error) {
+    if (offline && isDuplicateOp(error)) return json(await sameJob());
+    throw error;
+  }
   return json(job);
 });

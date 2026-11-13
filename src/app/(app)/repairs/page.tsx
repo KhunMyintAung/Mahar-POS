@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { autoCorrectDevice } from "@/lib/autoCorrect";
 import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench, Ban } from "lucide-react";
 import { api } from "@/lib/client";
@@ -20,7 +20,13 @@ import { splitBrandModel } from "@/lib/deviceName";
 import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type RepairStatus } from "@/lib/repairStatus";
 import { PageHeader } from "@/components/PageHeader";
 import { RepairTabs } from "@/components/RepairTabs";
+import { RepairSyncBar } from "@/components/NetModeBar";
 import Link from "next/link";
+import { isNetworkError } from "@/lib/netMode";
+import {
+  discardLocalRepair, filterJobs, isLocalJob, keepsRepairs, overlay, repairAction, summarize, monthOf, topUpNumbers, useRepairOps,
+  type RepairOpKind,
+} from "@/lib/offlineRepairs";
 
 /** Who repairs it: picked from the users with the Service Tech role. With none yet, a link to
  *  add one (for whoever can manage users). A name kept from before that is no longer a Service
@@ -73,6 +79,9 @@ interface Job {
   branchId?: string;
   /** A trade-in phone the shop owns: repaired for stock, closed from Purchases → Trade-in. */
   serialId?: string | null;
+  /** Kept on this device without the internet, not on the server yet. */
+  offline?: "pending" | "failed";
+  offlineError?: string;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
 interface Summary { total: number; inWorkflow: number; completed: number; cannotRepair?: number; delivered: number; unpaid?: number; month: string }
@@ -236,6 +245,12 @@ export default function RepairsPage() {
   const [voucherText, setVoucherText] = useState<(Pick<RepairVoucherSettings, "tagline" | "terms" | "qrCaption"> & { language: AppLanguage }) | null>(null);
   const { push } = useToast();
   const { hasPerm, defaultBranchId, me } = useAuth();
+  // Changes kept on this device without the internet (Sync later / Offline), shown on the list.
+  const userId = me?.user.id;
+  const repairOps = useRepairOps(userId);
+  /** Sent at once, or kept on this device when there is no internet (see offlineRepairs.ts). */
+  const send = (kind: RepairOpKind, jobRef: string, body: Record<string, unknown>, current?: Job) =>
+    repairAction<Job>(userId, kind, jobRef, body, { current, by: me?.user.name });
   // Handing a phone back and marking it paid take money into a wallet; someone who cannot
   // see wallets (a technician) is not offered either.
   // Record only (Settings → Repairs): no wallet on a job; the day's money is typed as Daily
@@ -302,13 +317,28 @@ export default function RepairsPage() {
     // A month picked: the list shows that month's devices too. A search looks through every
     // month, so a customer's old job is still found.
     if (month && !q.trim()) params.set("listMonth", "1");
-    api<{ jobs: Job[]; summary: Summary }>(`/api/v1/repairs?${params}`)
+    const all = "/api/v1/repairs?pageSize=1000";
+    const url = `/api/v1/repairs?${params}`;
+    api<{ jobs: Job[]; summary: Summary }>(url)
+      .catch(async (e) => {
+        // No internet: the whole list kept on this device, with the filters worked out here.
+        if (!keepsRepairs() || !isNetworkError(e) || url === all) throw e;
+        const kept = await api<{ jobs: Job[] }>(all);
+        return { jobs: filterJobs(kept.jobs, { q, status, month }), summary: summarize(kept.jobs, month || monthOf(new Date().toISOString())) };
+      })
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
-      .catch((e) => push(e.message, "error"));
+      .catch((e) => push(isNetworkError(e) ? "No internet, and this list was not kept on this device yet." : e.message, "error"));
+    if (userId) topUpNumbers(userId).catch(() => {});
     if (seesWallets) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status, month, seesWallets]);
+  }, [push, q, status, month, seesWallets, userId]);
 
   useEffect(load, [load]);
+  // Kept changes just sent (Sync now, or the internet back): the list is read again from the server.
+  const keptBefore = useRef(repairOps.length);
+  useEffect(() => {
+    if (repairOps.length < keptBefore.current) load();
+    keptBefore.current = repairOps.length;
+  }, [repairOps.length, load]);
 
   useEffect(() => {
     if (!(showNew && hasPerm("repair.create")) && !editing) return;
@@ -326,9 +356,7 @@ export default function RepairsPage() {
   async function create() {
     setBusy(true);
     try {
-      const job = await api<Job>("/api/v1/repairs", {
-        method: "POST",
-        body: {
+      const { job, kept } = await send("create", "new", {
           ...form,
           // Sent explicitly so a multi-branch shop books the job against the branch the
           // person is actually working in.
@@ -344,13 +372,12 @@ export default function RepairsPage() {
           intakeCondition: form.intakeCondition || undefined,
           notes: form.notes || undefined,
           technicianName: form.technicianName || undefined,
-        },
       });
       if (form.technicianName && STARTS_WORK.includes(job.status)) {
-        await api(`/api/v1/repairs/${job.id}`, { method: "PATCH", body: { status: "IN_PROGRESS" } }).catch(() => {});
+        await send("status", job.id, { status: "IN_PROGRESS" }, job).catch(() => {});
         job.status = "IN_PROGRESS";
       }
-      push("Repair job created");
+      push(kept ? "Repair kept on this device; it is sent when the internet is back" : "Repair job created");
       setShowNew(false);
       setShowOptional(false);
       // The customer leaves with a voucher, so it is ready to print the moment the job is saved.
@@ -396,10 +423,10 @@ export default function RepairsPage() {
     if (!paying) return;
     setBusy(true);
     try {
-      const paid = await api<Job>(`/api/v1/repairs/${paying.id}/pay`, {
-        method: "POST",
-        body: { finalCost: pay.finalCost || undefined, partsCost: pay.partsCost || undefined, walletId: pay.walletId || undefined },
-      });
+      const { job: paid, kept } = await send("pay", paying.id, {
+        finalCost: pay.finalCost || undefined, partsCost: pay.partsCost || undefined, walletId: pay.walletId || undefined,
+      }, paying);
+      if (kept) push("Payment kept on this device; it is sent when the internet is back");
       setPaying(null);
       // Straight to the voucher, which now reads ရှင်းပြီး, ready to print.
       openVoucher({ ...paying, finalCost: paid.finalCost, paidAmount: paid.paidAmount });
@@ -436,7 +463,11 @@ export default function RepairsPage() {
     if (!deleting) return;
     setBusy(true);
     try {
-      await api(`/api/v1/repairs/${deleting.id}`, { method: "DELETE", body: { reason: deleteReason.trim() || undefined } });
+      if (isLocalJob(deleting.id)) {
+        if (userId) discardLocalRepair(userId, deleting.id);
+      } else {
+        await api(`/api/v1/repairs/${deleting.id}`, { method: "DELETE", body: { reason: deleteReason.trim() || undefined } });
+      }
       push(`${deleting.jobNo} deleted`);
       setDeleting(null);
       setEditing(null);
@@ -452,9 +483,7 @@ export default function RepairsPage() {
     if (!editing) return;
     setBusy(true);
     try {
-      await api(`/api/v1/repairs/${editing.id}/details`, {
-        method: "PATCH",
-        body: {
+      await send("details", editing.id, {
           customerName: edit.customerName,
           customerPhone: edit.customerPhone,
           deviceBrand: edit.deviceBrand,
@@ -468,8 +497,7 @@ export default function RepairsPage() {
           promisedAt: edit.promisedAt,
           notes: edit.notes,
           technicianName: edit.technicianName,
-        },
-      });
+      }, editing);
       // A status picked here wins; otherwise giving the job to a technician starts the work.
       const to = edit.status !== editing.status ? edit.status
         : edit.technicianName && STARTS_WORK.includes(editing.status) ? "IN_PROGRESS" : "";
@@ -477,7 +505,7 @@ export default function RepairsPage() {
       // Handing the device back takes the balance, so that goes on to the full form.
       if (to === "DELIVERED") startMove(editing, to);
       else if (to) {
-        await api(`/api/v1/repairs/${editing.id}`, { method: "PATCH", body: { status: to } })
+        await send("status", editing.id, { status: to }, editing)
           .then(() => offerCall({ jobNo: editing.jobNo, customerName: edit.customerName, customerPhone: edit.customerPhone }, to))
           .catch((e) => push(e instanceof Error ? e.message : "Failed", "error"));
       }
@@ -519,7 +547,7 @@ export default function RepairsPage() {
     }
     setQuickSaving(job.id);
     try {
-      await api(`/api/v1/repairs/${job.id}`, { method: "PATCH", body: { status: to } });
+      await send("status", job.id, { status: to }, job);
       // No toast: the pill changing colour is confirmation enough.
       offerCall(job, to);
       load();
@@ -534,16 +562,13 @@ export default function RepairsPage() {
     if (!working || !move.status) return;
     setBusy(true);
     try {
-      await api(`/api/v1/repairs/${working.id}`, {
-        method: "PATCH",
-        body: {
-          status: move.status,
-          finalCost: move.finalCost || undefined,
-          partsCost: move.partsCost || undefined,
-          walletId: move.walletId || undefined,
-          notes: move.notes || undefined,
-        },
-      });
+      await send("status", working.id, {
+        status: move.status,
+        finalCost: move.finalCost || undefined,
+        partsCost: move.partsCost || undefined,
+        walletId: move.walletId || undefined,
+        notes: move.notes || undefined,
+      }, working);
       setWorking(null);
       offerCall(working, move.status);
       load();
@@ -555,6 +580,8 @@ export default function RepairsPage() {
   }
 
   if (!jobs) return <Spinner />;
+  // Repairs taken in here and not sent yet are matched to the search and status too.
+  const shown = overlay(jobs, repairOps).filter((j) => !isLocalJob(j.id) || filterJobs([j], { q, status }).length > 0);
 
   const balance = working
     ? (Number(move.finalCost || 0) * 100 - Number(working.paidAmount)) / 100
@@ -562,6 +589,7 @@ export default function RepairsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-3">
+      <RepairSyncBar />
       <PageHeader
         title={<RepairTabs />}
         lead={
@@ -632,10 +660,10 @@ export default function RepairsPage() {
         </div>
       )}
 
-      {jobs.length === 0 ? (
+      {shown.length === 0 ? (
         <Card><Empty message="No repair jobs yet." /></Card>
       ) : (
-        <Paginated rows={jobs} resetKey={[q, status, month]}>{(pageRows) => (
+        <Paginated rows={shown} resetKey={[q, status, month]}>{(pageRows) => (
         <Table
           headers={["Voucher No", "Device", "Customer", "Problem", "Status", "Charge", "Paid", ""]}
           rightAlign={[5, 6]}
@@ -648,6 +676,8 @@ export default function RepairsPage() {
                 <td className="px-2 py-1.5">
                   <div className="font-mono font-medium">{job.jobNo}</div>
                   <div className="whitespace-nowrap text-[11px] text-gray-500">{fmtDateTime(job.receivedAt)}</div>
+                  {job.offline === "pending" && <div className="text-[11px] font-medium text-amber-600">Not sent yet</div>}
+                  {job.offline === "failed" && <div className="text-[11px] font-medium text-red-600" title={job.offlineError}>Not sent: check</div>}
                   {job.priority && job.priority !== "NORMAL" && (
                     <div className={cn("text-xs", PRIORITY_TONE[job.priority] ?? "text-gray-500")}>{job.priority}</div>
                   )}
@@ -814,7 +844,8 @@ export default function RepairsPage() {
                 {/* What the repair cost the shop (parts bought for it…), so the profit is known. */}
                 {!recordOnly && <Input label={partsFlow === "job" ? "Parts bought (cost)" : "Cost (parts)"} value={pay.partsCost} inputMode="decimal" placeholder="0" onChange={(e) => setPay({ ...pay, partsCost: e.target.value })} />}
               </div>
-              {paying.status !== "DELIVERED" && partsFlow === "stock" && (
+              {/* Taking a part from stock needs the internet and a job on the server. */}
+              {paying.status !== "DELIVERED" && partsFlow === "stock" && !isLocalJob(paying.id) && (
                 <RepairPartPicker
                   jobId={paying.id}
                   branchId={paying.branchId}

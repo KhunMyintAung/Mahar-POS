@@ -73,16 +73,26 @@ export function staticAssetsIn(text: string): string[] {
  *  only when needed), and the data the till reads (dataUrls, exactly as the POS asks for
  *  them). The service worker keeps the files and data as they pass. Resolves true when all of
  *  it was kept. */
-export async function prepareOffline(dataUrls: string[]): Promise<boolean> {
+/** The screens kept for use without the internet: the till, repairs and the items list. */
+export const OFFLINE_PAGES = ["/pos", "/repairs", "/items"];
+
+export async function prepareOffline(dataUrls: string[], extraUrls: string[] = []): Promise<boolean> {
   if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller || typeof caches === "undefined") return false;
   try {
-    const page = await fetch("/pos", { credentials: "same-origin" });
-    if (!page.ok || page.redirected) return false;
-    const html = await page.clone().text();
-    await (await caches.open("mahar-pages")).put("/pos", page);
+    const pages = await caches.open("mahar-pages");
+    const html: string[] = [];
+    for (const path of OFFLINE_PAGES) {
+      const page = await fetch(path, { credentials: "same-origin" });
+      if (!page.ok || page.redirected) {
+        if (path === "/pos") return false;
+        continue;
+      }
+      html.push(await page.clone().text());
+      await pages.put(path, page);
+    }
 
     const seen = new Set<string>();
-    let queue = staticAssetsIn(html);
+    let queue = html.flatMap(staticAssetsIn);
     while (queue.length && seen.size < 400) {
       const batch = queue.filter((u) => !seen.has(u)).slice(0, 12);
       if (!batch.length) break;
@@ -97,6 +107,8 @@ export async function prepareOffline(dataUrls: string[]): Promise<boolean> {
 
     const data = await Promise.all(dataUrls.map((u) => fetch(u, { headers: { "x-mahar-offline": "1" } })));
     if (data.some((r) => !r.ok)) return false;
+    // Repairs and the items list: kept when this user may see them; the till works without.
+    await Promise.all(extraUrls.map((u) => fetch(u, { headers: { "x-mahar-offline": "1" } }).catch(() => null)));
     // The worker keeps a response after handing it over; give it a moment to finish.
     await new Promise((r) => setTimeout(r, 500));
     try { localStorage.setItem(READY_KEY, String(Date.now())); } catch {}

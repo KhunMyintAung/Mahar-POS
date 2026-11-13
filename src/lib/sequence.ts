@@ -36,3 +36,16 @@ export async function nextNumber(
   const n = seq.next - 1;
   return format ? format(n) : `${seq.prefix}-${String(n).padStart(6, "0")}`;
 }
+
+/** Set aside `count` numbers at once (a device's block for working without the internet).
+ *  Returns the first; the block is first … first + count - 1. Must run inside a transaction. */
+export async function reserveNumbers(tx: Tx, businessId: string, key: string, count: number): Promise<number> {
+  if (!Number.isInteger(count) || count < 1) throw new Error("count must be a positive whole number");
+  const prefix = DEFAULT_PREFIXES[key] ?? key;
+  const seq = await tx.numberSequence.upsert({
+    where: { businessId_key: { businessId, key } },
+    create: { businessId, key, prefix, next: count + 1 },
+    update: { next: { increment: count } },
+  });
+  return seq.next - count;
+}

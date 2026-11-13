@@ -7,6 +7,7 @@ import { notifyAuditFeed, repairStatusNotice } from "@/lib/telegramNotify";
 import { loadRepairFlow } from "@/services/repairProfitService";
 import { after } from "next/server";
 import { notifyRepairWatchers } from "@/lib/repairWatch";
+import { isDuplicateOp, offlineAt, offlineOpSchema, priorOp, recordOp } from "@/lib/offlineOp";
 
 export const GET = withAuth("repair.view", async ({ user, params }) => {
   const job = await prisma.repairJob.findFirst({
@@ -23,6 +24,7 @@ const patchSchema = z.object({
   technicianId: z.string().optional(),
   notes: z.string().trim().max(500).optional(),
   walletId: z.string().optional(),
+  offline: offlineOpSchema.optional(),
 });
 
 export const PATCH = withAuth("repair.update", async ({ req, user, params }) => {
@@ -32,9 +34,14 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
   if (body.status === "DELIVERED" && !user.permissions.includes("wallet.view") && (await loadRepairFlow(user.businessId)).money !== "record") {
     throw new ApiError(403, "You don't have permission for that.");
   }
+  const sameJob = () => prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId } });
+  if (await priorOp(user.businessId, body.offline)) return json(await sameJob());
+  const at = body.offline ? offlineAt(body.offline) : undefined;
   const before = await prisma.repairJob.findFirst({ where: { id: params.id, businessId: user.businessId }, select: { status: true, paidAmount: true } });
-  const job = await prisma.$transaction((tx) =>
-    updateRepairStatus(tx, {
+  let job;
+  try {
+    job = await prisma.$transaction(async (tx) => {
+      const changed = await updateRepairStatus(tx, {
       businessId: user.businessId,
       userId: user.id,
       jobId: params.id,
@@ -44,8 +51,15 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
       technicianId: body.technicianId,
       notes: body.notes,
       walletId: body.walletId,
-    })
-  );
+      at,
+      });
+      await recordOp(tx, user.businessId, "repair.status", body.offline, changed.id);
+      return changed;
+    });
+  } catch (error) {
+    if (body.offline && isDuplicateOp(error)) return json(await sameJob());
+    throw error;
+  }
   if (before && (before.status !== job.status || job.paidAmount !== before.paidAmount)) {
     notifyAuditFeed(user.businessId, repairStatusNotice({
       ...job, from: before.status, to: job.status, paidNow: job.paidAmount - before.paidAmount, createdByName: user.name, notes: body.notes,

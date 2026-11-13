@@ -4,12 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { branchScope } from "@/lib/auth";
 import { assertBranchAccess } from "@/lib/tenant";
 import { toMinor } from "@/lib/money";
-import { createRepairJob, PRIORITIES, REPAIR_STATUSES } from "@/services/repairService";
+import { createRepairJob, PRIORITIES, REPAIR_STATUSES, voucherNumberFormat } from "@/services/repairService";
 import { BENCH_STATUSES, READY_STATUSES } from "@/lib/repairStatus";
 import { trackToken } from "@/lib/repairTrack";
 import { autoCorrectName } from "@/lib/autoCorrect";
 import { isValidMonth, monthRangeUtc, todayBusinessDate } from "@/lib/dates";
 import { notifyAuditFeed, repairNewNotice } from "@/lib/telegramNotify";
+import { isDuplicateOp, offlineAt, offlineOpSchema, priorOp, recordOp } from "@/lib/offlineOp";
 
 /** What the repair page needs beyond the row: the voucher's QR link and who took it in. */
 async function withVoucherFields<T extends { id: string; createdById: string | null }>(businessId: string, jobs: T[]) {
@@ -116,10 +117,26 @@ const createSchema = z.object({
   technicianName: z.string().trim().max(80).optional(),
   promisedAt: z.string().optional(),
   notes: z.string().trim().max(500).optional(),
+  /** Taken in without the internet and sent now, with a number from the device's block. */
+  offline: offlineOpSchema.extend({
+    number: z.object({ blockId: z.string().min(1).max(64), n: z.number().int().positive() }).optional(),
+  }).optional(),
 });
+
+/** The job an earlier send of the same offline intake made. */
+async function sentBefore(businessId: string, refId: string | null) {
+  const job = refId ? await prisma.repairJob.findFirst({ where: { id: refId, businessId } }) : null;
+  if (!job) throw new ApiError(409, "This repair was already sent");
+  const [withFields] = await withVoucherFields(businessId, [job]);
+  return json(withFields);
+}
 
 export const POST = withAuth("repair.create", async ({ req, user }) => {
   const body = await parseBody(req, createSchema);
+  const offline = body.offline;
+  const prior = await priorOp(user.businessId, offline);
+  if (prior) return sentBefore(user.businessId, prior.refId);
+  const receivedAt = offline ? offlineAt(offline) : undefined;
 
   // An owner has every branch rather than a list of them, so branchIds is empty for the
   // most common account there is — reading the first entry found nothing and refused the
@@ -137,8 +154,23 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
     branchId = branch.id;
   }
 
-  const job = await prisma.$transaction((tx) =>
-    createRepairJob(tx, {
+  // A number from this user's own reserved block keeps the shop's sequence.
+  let number: number | undefined;
+  if (offline?.number) {
+    const { blockId, n } = offline.number;
+    const block = await prisma.repairNumberBlock.findFirst({ where: { id: blockId, businessId: user.businessId, userId: user.id } });
+    if (block && n >= block.first && n <= block.last) number = n;
+  }
+
+  let job;
+  try {
+    job = await prisma.$transaction(async (tx) => {
+      if (number != null) {
+        const jobNo = (await voucherNumberFormat(tx, user.businessId))(number);
+        // Already used (sent from another device by mistake): it takes the next number instead.
+        if (await tx.repairJob.findFirst({ where: { businessId: user.businessId, jobNo }, select: { id: true } })) number = undefined;
+      }
+      const made = await createRepairJob(tx, {
       businessId: user.businessId,
       branchId,
       userId: user.id,
@@ -159,8 +191,19 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
       technicianName: body.technicianName || undefined,
       promisedAt: body.promisedAt ? new Date(body.promisedAt) : undefined,
       notes: body.notes,
-    })
-  );
+      number,
+      receivedAt,
+      });
+      await recordOp(tx, user.businessId, "repair.create", offline, made.id);
+      return made;
+    });
+  } catch (error) {
+    if (offline && isDuplicateOp(error)) {
+      const again = await priorOp(user.businessId, offline);
+      if (again) return sentBefore(user.businessId, again.refId);
+    }
+    throw error;
+  }
 
   notifyAuditFeed(user.businessId, repairNewNotice({ ...job, createdByName: user.name }), undefined, user.id);
 

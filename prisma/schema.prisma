@@ -251,6 +251,32 @@ model VpnOrder {
   @@index([businessId, createdAt])
 }
 
+/// Voucher numbers set aside for one device while it was online, so repairs taken in
+/// without the internet keep the shop's normal sequence. A number not used is a gap.
+model RepairNumberBlock {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String
+  deviceId   String
+  first      Int
+  last       Int
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, deviceId])
+}
+
+/// One change made on a device without the internet and sent later: kept so sending it
+/// twice (a retry after a lost answer) records it once.
+model ClientOp {
+  clientRef  String   @id
+  businessId String
+  kind       String
+  refId      String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+}
+
 /**
  * A device left in for repair.
  * The shop's promise to a customer: what was handed over, what is wrong with it, what it

@@ -1,4 +1,4 @@
-const CACHE = "mahar-pos-v8";
+const CACHE = "mahar-pos-v9";
 // The app's screens and the shop's data, kept so the till opens without the internet. They
 // are emptied on sign-out (see src/lib/netMode.ts).
 const PAGES = "mahar-pages";
@@ -10,8 +10,8 @@ const STATIC = [
   "/mahar-icon-maskable-512.png",
   "/manifest.webmanifest",
 ];
-// The reads the till needs to ring up a sale: who is signed in, items, phones on the shelf,
-// wallets, customers and settings.
+// The reads the till needs to ring up a sale (who is signed in, items, phones on the shelf,
+// wallets, customers and settings), and those of the Repairs and Items screens.
 const DATA_PATHS = [
   "/api/v1/auth/me",
   "/api/v1/items",
@@ -22,7 +22,11 @@ const DATA_PATHS = [
   "/api/v1/branches",
   "/api/v1/categories",
   "/api/v1/item-meta",
+  "/api/v1/repairs",
+  "/api/v1/stock",
 ];
+// The screens kept for use without the internet (src/lib/netMode.ts OFFLINE_PAGES).
+const KEPT_PAGES = ["/pos", "/repairs", "/items"];
 // Screens that never go to the till offline: signing in and out, and the admin's.
 const NO_PAGE = ["/login", "/register", "/logout", "/admin", "/auth", "/forgot-password", "/reset-password"];
 
@@ -196,20 +200,20 @@ function accountResponse(request, url) {
   if (request.mode === "navigate") {
     const keepPage = !NO_PAGE.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
     return (async () => {
-      // Only the till (/pos) is kept: the other screens need the internet for their data.
+      // Only the till, Repairs and Items are kept: the other screens need the internet.
       // Online only: the screen comes from the network, and without it the offline notice.
       // Sync later: the network, or the kept till when it fails or is too slow.
       // Offline: the kept till at once.
       const mode = keepPage ? await tillMode() : "online";
       const network = fetch(request).then((response) => {
-        if (response.ok && url.pathname === "/pos" && response.type === "basic" && !response.redirected) {
+        if (response.ok && KEPT_PAGES.includes(url.pathname) && response.type === "basic" && !response.redirected) {
           const clone = response.clone();
           caches.open(PAGES).then((cache) => cache.put(url.pathname, clone)).catch(() => {});
         }
         return response;
       });
       network.catch(() => {});
-      const kept = () => (mode === "online" || url.pathname !== "/pos" ? Promise.resolve(undefined) : caches.match("/pos", { cacheName: PAGES }));
+      const kept = () => (mode === "online" || !KEPT_PAGES.includes(url.pathname) ? Promise.resolve(undefined) : caches.match(url.pathname, { cacheName: PAGES }));
       // Without the internet, a screen never kept (the app opens at /full-app or /play-app,
       // then the dashboard) goes to the kept till, the one screen that works offline.
       const notice = async () => {

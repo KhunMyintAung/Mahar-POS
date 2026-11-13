@@ -23,7 +23,8 @@ import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode }
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
 import { clearOfflineCaches, getNetMode, offlineReadyAt, prepareOffline, tellServiceWorker } from "@/lib/netMode";
-import { posDataUrls } from "@/lib/posData";
+import { OFFLINE_EXTRA_URLS, posDataUrls } from "@/lib/posData";
+import { listRepairOps, syncRepairs, topUpNumbers } from "@/lib/offlineRepairs";
 import { isDeviceShop, refreshDeviceApp } from "@/lib/device";
 import { DeviceBackupReminder } from "./DeviceBackupReminder";
 
@@ -253,8 +254,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     tellServiceWorker();
     const run = () => {
       if (getNetMode() !== "sync" || !navigator.onLine) return;
-      if (!listQueued(userId).some((s) => s.status === "pending")) return;
-      syncQueued(userId).catch(() => {});
+      // Sales first, then repairs: each queue keeps its own order.
+      const sales: Promise<unknown> = listQueued(userId).some((s) => s.status === "pending") ? syncQueued(userId).catch(() => {}) : Promise.resolve();
+      sales.then(async () => { if (listRepairOps(userId).some((o) => o.status === "pending")) await syncRepairs(userId); else await topUpNumbers(userId); }).catch(() => {});
     };
     run();
     // Not online only: keep the till's offline copy current by itself (a new version of the
@@ -263,7 +265,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     const refresh = window.setTimeout(() => {
       const readyAt = offlineReadyAt();
       if (getNetMode() === "online" || !navigator.onLine || (readyAt && Date.now() - readyAt < 10 * 60_000)) return;
-      prepareOffline(Object.values(posDataUrls(branchId))).catch(() => {});
+      prepareOffline(Object.values(posDataUrls(branchId)), OFFLINE_EXTRA_URLS).catch(() => {});
     }, 5000);
     window.addEventListener("online", run);
     const timer = window.setInterval(run, 60_000);

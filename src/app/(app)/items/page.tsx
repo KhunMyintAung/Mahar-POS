@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { correctProductName } from "@/lib/autoCorrect";
 import { Download, Plus } from "lucide-react";
 import { api } from "@/lib/client";
+import { getNetMode, isNetworkError } from "@/lib/netMode";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
 import { PHONE_CONDITIONS, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
@@ -165,7 +166,16 @@ export default function ItemsPage() {
   const load = useCallback(() => {
     const params = new URLSearchParams({ pageSize: "1000" });
     if (q) params.set("q", q);
-    api<{ items: Item[] }>(`/api/v1/items?${params}`)
+    const all = "/api/v1/items?pageSize=1000";
+    const url = `/api/v1/items?${params}`;
+    api<{ items: Item[] }>(url)
+      .catch(async (e) => {
+        // No internet: the whole kept list, searched on this device.
+        if (getNetMode() === "online" || !isNetworkError(e) || url === all) throw e;
+        const words = q.trim().toLowerCase();
+        const kept = await api<{ items: Item[] }>(all);
+        return { items: kept.items.filter((it) => [it.name, it.sku, it.barcode, it.model].some((v) => v?.toLowerCase().includes(words))) };
+      })
       .then((d) => {
         setItems(d.items);
         // A bulk action only ever touches what is on screen.

@@ -7,7 +7,8 @@ import { useAuth } from "./AppShell";
 import { fmtMoney } from "@/lib/format";
 import { prepareOffline, setNetMode, useNetMode, useOfflineReadyAt, useOnline, type NetMode } from "@/lib/netMode";
 import { removeQueued, syncQueued, useQueuedSales, type QueuedSale } from "@/lib/offlineSales";
-import { posDataUrls } from "@/lib/posData";
+import { OFFLINE_EXTRA_URLS, posDataUrls } from "@/lib/posData";
+import { dropRepairOp, syncRepairs, topUpNumbers, useRepairOps } from "@/lib/offlineRepairs";
 import { useInstalledApp } from "@/lib/installedApp";
 
 const MODES: { value: NetMode; label: string; hint: string }[] = [
@@ -25,6 +26,7 @@ export function NetModeCard() {
   const readyAt = useOfflineReadyAt();
   const { me, defaultBranchId } = useAuth();
   const queued = useQueuedSales(me?.user.id);
+  const repairOps = useRepairOps(me?.user.id);
   const { push } = useToast();
   const [preparing, setPreparing] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -32,8 +34,10 @@ export function NetModeCard() {
   async function prepare() {
     setPreparing(true);
     try {
-      const ok = await prepareOffline(Object.values(posDataUrls(defaultBranchId)));
-      push(ok ? "This device is ready to sell offline" : "Could not get ready. Open the app once with the internet, then try again.", ok ? "success" : "error");
+      const ok = await prepareOffline(Object.values(posDataUrls(defaultBranchId)), OFFLINE_EXTRA_URLS);
+      // Voucher numbers for repairs taken in without the internet.
+      if (me) await topUpNumbers(me.user.id);
+      push(ok ? "This device is ready to work offline" : "Could not get ready. Open the app once with the internet, then try again.", ok ? "success" : "error");
     } finally {
       setPreparing(false);
     }
@@ -43,11 +47,14 @@ export function NetModeCard() {
     if (!me) return;
     setSyncing(true);
     try {
-      const r = await syncQueued(me.user.id, { retryFailed: true });
-      if (r.stopped === "offline") push("No internet. The sales stay on this device.", "error");
-      else if (r.stopped) push("The server could not take them now. Try again shortly.", "error");
-      else if (r.failed > 0) push(`${r.sent} sent, ${r.failed} need checking`, "error");
-      else push(`${r.sent} sales sent`, "success");
+      const s = await syncQueued(me.user.id, { retryFailed: true });
+      // Repairs go after the sales, unless the sales already found no way through.
+      const r = s.stopped ? { sent: 0, failed: 0, stopped: s.stopped } : await syncRepairs(me.user.id, { retryFailed: true });
+      const sent = s.sent + r.sent, failed = s.failed + r.failed, stopped = s.stopped ?? r.stopped;
+      if (stopped === "offline") push("No internet. Everything stays on this device.", "error");
+      else if (stopped) push("The server could not take them now. Try again shortly.", "error");
+      else if (failed > 0) push(`${sent} sent, ${failed} need checking`, "error");
+      else push(`${s.sent} sales and ${r.sent} repair changes sent`, "success");
     } finally {
       setSyncing(false);
     }
@@ -96,8 +103,9 @@ export function NetModeCard() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-gray-600 dark:text-gray-300">
             {queued.length === 0 ? "Every sale has been sent." : <>{queued.length} {"sales on this device not sent yet"}</>}
+            {repairOps.length > 0 && <>{" · "}{repairOps.length} {"repair changes not sent yet"}</>}
           </span>
-          {queued.length > 0 && (
+          {queued.length + repairOps.length > 0 && (
             <Button size="sm" className="ml-auto" onClick={syncNow} disabled={syncing || !online}>
               <RefreshCw size={14} className={cn("mr-1 inline", syncing && "animate-spin")} />{"Sync now"}
             </Button>
@@ -105,7 +113,7 @@ export function NetModeCard() {
         </div>
       </div>
       {mode !== "online" && (
-        <p className="text-xs text-gray-500">{"Offline works for selling at the POS. Repairs, purchases, reports and settings need the internet."}</p>
+        <p className="text-xs text-gray-500">{"Offline works for selling at the POS, taking in and updating repairs, and looking up items and stock. Purchases, reports and settings need the internet."}</p>
       )}
     </Card>
   );
@@ -201,6 +209,88 @@ export function NetModeBar() {
         confirmLabel="Remove"
         danger
       />
+    </div>
+  );
+}
+
+/** On the Repairs screen: repair changes kept on this device, with Sync now and the ones the
+ *  server refused (shown with its reason, to check and remove). */
+export function RepairSyncBar() {
+  const { me } = useAuth();
+  const userId = me?.user.id;
+  const online = useOnline();
+  const mode = useNetMode();
+  const ops = useRepairOps(userId);
+  const { push } = useToast();
+  const [syncing, setSyncing] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+  const pending = ops.filter((o) => o.status === "pending").length;
+  const failed = ops.filter((o) => o.status === "failed");
+
+  async function syncNow() {
+    if (!userId) return;
+    setSyncing(true);
+    try {
+      const r = await syncRepairs(userId, { retryFailed: true });
+      if (r.stopped === "offline") push("No internet. The repairs stay on this device.", "error");
+      else if (r.stopped === "signed-out") push("Sign in again to send the repairs.", "error");
+      else if (r.stopped === "server") push("The server could not take them now. Try again shortly.", "error");
+      else if (r.failed > 0) { push(`${r.sent} sent, ${r.failed} need checking`, "error"); setListOpen(true); }
+      else push(`${r.sent} repair changes sent`, "success");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  if (online && ops.length === 0 && mode !== "offline") return null;
+  const KIND: Record<string, string> = { create: "Taken in", status: "Status", pay: "Paid", details: "Corrected" };
+  return (
+    <div className="no-print flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900 dark:bg-amber-950/30">
+      <span className={cn("inline-flex items-center gap-1 font-medium", online ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400")}>
+        {online ? <Wifi size={16} /> : <CloudOff size={16} />}
+        {online ? "Connected" : "No internet"}
+      </span>
+      <span className="text-xs text-gray-600 dark:text-gray-300">{MODES.find((m) => m.value === mode)?.label}</span>
+      {ops.length > 0 && (
+        <span className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={() => setListOpen(true)} className="text-xs font-medium text-amber-700 underline dark:text-amber-400">
+            {pending > 0 && <>{pending} {"waiting to send"}</>}
+            {pending > 0 && failed.length > 0 && " · "}
+            {failed.length > 0 && <span className="text-red-600">{failed.length} {"need checking"}</span>}
+          </button>
+          <Button size="sm" variant="secondary" onClick={syncNow} disabled={syncing}>
+            <RefreshCw size={14} className={cn("mr-1 inline", syncing && "animate-spin")} />{"Sync now"}
+          </Button>
+        </span>
+      )}
+      <Modal open={listOpen} onClose={() => setListOpen(false)} title="Repair changes on this device" wide>
+        <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+          {"Made without the internet. They are not in the shop's books or wallets until they are sent; each is dated when it was made."}
+        </p>
+        <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+          {ops.map((o) => (
+            <li key={o.clientRef} className="flex flex-wrap items-center gap-2 p-2 text-sm">
+              <span className="font-medium">{KIND[o.kind]}</span>
+              {o.job && <span className="font-mono">{o.job.jobNo}</span>}
+              {o.kind === "status" && <span>{String(o.body.status)}</span>}
+              <span className="text-gray-500">{new Date(o.at).toLocaleString()}</span>
+              <span className={cn("rounded px-1.5 text-xs", o.status === "failed" ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300" : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200")}>
+                {o.status === "failed" ? "Not accepted" : "Waiting"}
+              </span>
+              {o.error && <span className="w-full text-xs text-red-600">{o.error}</span>}
+              {o.status === "failed" && userId && (
+                <Button size="sm" variant="ghost" className="ml-auto text-red-600" onClick={() => dropRepairOp(userId, o.clientRef)}>{"Remove"}</Button>
+              )}
+            </li>
+          ))}
+          {ops.length === 0 && <li className="p-3 text-sm text-gray-500">{"Nothing waiting. Every repair change has been sent."}</li>}
+        </ul>
+        <div className="mt-3 flex justify-end">
+          <Button onClick={syncNow} disabled={syncing || ops.length === 0}>
+            <RefreshCw size={14} className={cn("mr-1 inline", syncing && "animate-spin")} />{"Sync now"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }
