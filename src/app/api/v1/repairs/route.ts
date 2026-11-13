@@ -35,19 +35,21 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const imei = sp.get("imei")?.trim();
 
   const scope = { businessId: user.businessId, deletedAt: null, ...branchScope(user) };
+  // Money owed on a job: its price is more than what was taken on it.
+  const OWES = { status: { in: ["DONE", "DELIVERED"] }, finalCost: { gt: prisma.repairJob.fields.paidAmount } };
   // The summary cards count one month of intake, this month unless another is asked for.
   const monthParam = sp.get("month");
   const month = monthParam && isValidMonth(monthParam) ? monthParam : todayBusinessDate().slice(0, 7);
   const where = {
     ...scope,
     // "WORKING" is every status still on the bench, the Working count on the page.
-    // "UNPAID": repaired, but no money taken on the job yet (its payment typed elsewhere, or
-    // still to collect), so the shop can close each one with its real amount.
+    // "UNPAID": priced and not fully paid, in the shop or already handed back: money owed.
+    // A job with no price yet is not counted; it is only waiting for its price.
     // "READY": work is over and the device is waiting to be collected, repaired or not (the
     // Done count). "RETURNED_UNFIXED": could not be repaired and already handed back.
     ...(status === "WORKING" ? { status: { in: BENCH_STATUSES } }
       : status === "READY" ? { status: { in: READY_STATUSES } }
-      : status === "UNPAID" ? { status: "DONE", paidAmount: 0n }
+      : status === "UNPAID" ? OWES
       : status === "RETURNED_UNFIXED" ? { status: "DELIVERED", cannotRepair: true }
       : status ? { status } : {}),
     ...(imei ? { imei: { equals: imei, mode: "insensitive" as const } } : {}),
@@ -75,7 +77,7 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
       where: { ...scope, receivedAt: monthRangeUtc(month) },
       _count: { _all: true },
     }),
-    prisma.repairJob.count({ where: { ...scope, receivedAt: monthRangeUtc(month), status: "DONE", paidAmount: 0n } }),
+    prisma.repairJob.count({ where: { ...scope, receivedAt: monthRangeUtc(month), ...OWES } }),
   ]);
 
   const count = (statuses: string[]) =>
@@ -83,10 +85,11 @@ export const GET = withAuth("repair.view", async ({ req, user }) => {
   const summary = {
     total: byStatus.reduce((n, s) => n + s._count._all, 0),
     inWorkflow: count(BENCH_STATUSES),
-    completed: count(READY_STATUSES),
-    // Of those, the ones that could not be repaired and are still in the shop.
+    // Each job in one count only, so the counts add up to the total.
+    completed: count(["DONE"]),
     cannotRepair: count(["CANNOT_REPAIR"]),
     delivered: count(["DELIVERED"]),
+    cancelled: count(["CANCELLED"]),
     unpaid,
   };
 

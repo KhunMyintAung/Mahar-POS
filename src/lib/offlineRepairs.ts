@@ -230,7 +230,7 @@ export function filterJobs<J extends LocalJob>(jobs: J[], f: { q?: string; statu
       case undefined: case "": return true;
       case "WORKING": return BENCH_STATUSES.includes(j.status as never);
       case "READY": return READY_STATUSES.includes(j.status as never);
-      case "UNPAID": return j.status === "DONE" && Number(j.paidAmount) === 0;
+      case "UNPAID": return owes(j);
       case "RETURNED_UNFIXED": return j.status === "DELIVERED" && Boolean(j.cannotRepair);
       default: return j.status === f.status;
     }
@@ -242,6 +242,11 @@ export function monthOf(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Money owed on a job: priced, and more than what was taken on it (as the server counts it). */
+function owes(j: LocalJob): boolean {
+  return (j.status === "DONE" || j.status === "DELIVERED") && Number(j.finalCost ?? 0) > Number(j.paidAmount ?? 0);
+}
+
 /** The counts above the list, for a month, from a kept list. */
 export function summarize(jobs: LocalJob[], month: string) {
   const inMonth = jobs.filter((j) => monthOf(j.receivedAt) === month);
@@ -249,10 +254,11 @@ export function summarize(jobs: LocalJob[], month: string) {
   return {
     total: inMonth.length,
     inWorkflow: count(BENCH_STATUSES),
-    completed: count(READY_STATUSES),
+    completed: count(["DONE"]),
     cannotRepair: count(["CANNOT_REPAIR"]),
     delivered: count(["DELIVERED"]),
-    unpaid: inMonth.filter((j) => j.status === "DONE" && Number(j.paidAmount) === 0).length,
+    cancelled: count(["CANCELLED"]),
+    unpaid: inMonth.filter(owes).length,
     month,
   };
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { autoCorrectDevice } from "@/lib/autoCorrect";
-import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench, Ban } from "lucide-react";
+import { Banknote, CheckCircle2, ChevronDown, Clock3, PackageCheck, Phone, Plus, Printer, Search, Wrench, Ban, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney, fmtDateTime } from "@/lib/format";
 import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast } from "@/components/ui";
@@ -84,7 +84,7 @@ interface Job {
   offlineError?: string;
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-interface Summary { total: number; inWorkflow: number; completed: number; cannotRepair?: number; delivered: number; unpaid?: number; month: string }
+interface Summary { total: number; inWorkflow: number; completed: number; cannotRepair?: number; delivered: number; cancelled?: number; unpaid?: number; month: string }
 interface Suggestions { brands: string[]; pairs: { brand: string; model: string }[] }
 
 const STATUS_TONE: Record<string, string> = {
@@ -212,6 +212,8 @@ export default function RepairsPage() {
   const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
   // Empty means "this month", which the server works out in the shop's own timezone.
   const [month, setMonth] = useState("");
+  // The list is the month's devices, like the counts above it, unless every month is asked for.
+  const [allMonths, setAllMonths] = useState(false);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -314,9 +316,10 @@ export default function RepairsPage() {
     if (q.trim()) params.set("q", q.trim());
     if (status) params.set("status", status);
     if (month) params.set("month", month);
-    // A month picked: the list shows that month's devices too. A search looks through every
-    // month, so a customer's old job is still found.
-    if (month && !q.trim()) params.set("listMonth", "1");
+    // The list is the same month as the counts. A search looks through every month, so a
+    // customer's old job is still found.
+    const oneMonth = !allMonths && !q.trim();
+    if (oneMonth) params.set("listMonth", "1");
     const all = "/api/v1/repairs?pageSize=1000";
     const url = `/api/v1/repairs?${params}`;
     api<{ jobs: Job[]; summary: Summary }>(url)
@@ -324,13 +327,14 @@ export default function RepairsPage() {
         // No internet: the whole list kept on this device, with the filters worked out here.
         if (!keepsRepairs() || !isNetworkError(e) || url === all) throw e;
         const kept = await api<{ jobs: Job[] }>(all);
-        return { jobs: filterJobs(kept.jobs, { q, status, month }), summary: summarize(kept.jobs, month || monthOf(new Date().toISOString())) };
+        const shownMonth = month || monthOf(new Date().toISOString());
+        return { jobs: filterJobs(kept.jobs, { q, status, month: oneMonth ? shownMonth : "" }), summary: summarize(kept.jobs, shownMonth) };
       })
       .then((d) => { setJobs(d.jobs); setSummary(d.summary); })
       .catch((e) => push(isNetworkError(e) ? "No internet, and this list was not kept on this device yet." : e.message, "error"));
     if (userId) topUpNumbers(userId).catch(() => {});
     if (seesWallets) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status, month, seesWallets, userId]);
+  }, [push, q, status, month, allMonths, seesWallets, userId]);
 
   useEffect(load, [load]);
   // Kept changes just sent (Sync now, or the internet back): the list is read again from the server.
@@ -602,7 +606,7 @@ export default function RepairsPage() {
               <option value="">All statuses</option>
               <option value="WORKING">Working (all in work)</option>
               <option value="READY">Waiting to be collected</option>
-              <option value="UNPAID">Done, not paid</option>
+              <option value="UNPAID">Not paid</option>
               <option value="RETURNED_UNFIXED">Cannot repair, handed back</option>
               {REPAIR_STATUSES.map((s) => <option key={s} value={s}>{REPAIR_STATUS_LABELS[s]}</option>)}
             </select>
@@ -623,12 +627,12 @@ export default function RepairsPage() {
         {[
           { label: "Total", value: summary.total, icon: Wrench, tone: "text-blue-600", status: "" },
           { label: "Working", value: summary.inWorkflow, icon: Clock3, tone: "text-amber-500", status: "WORKING" },
-          { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "READY" },
+          { label: "Done", value: summary.completed, icon: CheckCircle2, tone: "text-green-600", status: "DONE" },
           // Could not be repaired and still in the shop: shown once there is one, so it is not forgotten.
           ...(summary.cannotRepair ? [{ label: "Cannot Repair", value: summary.cannotRepair, icon: Ban, tone: "text-red-600", status: "CANNOT_REPAIR" }] : []),
           { label: "Delivered", value: summary.delivered, icon: PackageCheck, tone: "text-purple-600", status: "DELIVERED" },
-          // Repaired with nothing taken on the job: shown once there is one, to close each.
-          ...(summary.unpaid ? [{ label: "Not paid", value: summary.unpaid, icon: Banknote, tone: "text-red-600", status: "UNPAID" }] : []),
+          // Shown once there is one, so the tiles add up to the total.
+          ...(summary.cancelled ? [{ label: "Cancelled", value: summary.cancelled, icon: X, tone: "text-gray-500", status: "CANCELLED" }] : []),
         ].map(({ label, value, icon: Icon, tone, status: to }) => (
           <button
             key={label}
@@ -651,12 +655,24 @@ export default function RepairsPage() {
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
       </div>
-      {month && !q.trim() && (
-        <div className="flex items-center gap-2 text-sm">
+      {!q.trim() && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="rounded-full bg-navy-800 px-3 py-1 text-xs font-semibold text-white dark:bg-gold-400 dark:text-navy-950">
-            {`Showing ${new Date(`${month}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
+            {allMonths ? "Showing all months" : `Showing ${new Date(`${month || summary.month || monthOf(new Date().toISOString())}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
           </span>
-          <button type="button" onClick={() => setMonth("")} className="text-xs text-blue-600 hover:underline">All months</button>
+          <button type="button" onClick={() => setAllMonths((a) => !a)} className="text-xs text-blue-600 hover:underline">
+            {allMonths ? "This month only" : "All months"}
+          </button>
+          {/* Money owed is apart from the counts: a job owing money is also Done or Delivered. */}
+          {!!summary.unpaid && (
+            <button
+              type="button"
+              onClick={() => setStatus(status === "UNPAID" ? "" : "UNPAID")}
+              className={cn("ml-auto inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 dark:border-red-900", status === "UNPAID" && "bg-red-50 dark:bg-red-950")}
+            >
+              <Banknote size={13} />{summary.unpaid} Not paid
+            </button>
+          )}
         </div>
       )}
 

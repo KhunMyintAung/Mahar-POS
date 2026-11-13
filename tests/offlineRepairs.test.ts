@@ -177,8 +177,11 @@ describe("the list with kept changes", () => {
   it("filters and counts a kept list the way the server does", () => {
     const jobs = [
       job({ id: "1", status: "IN_PROGRESS", customerName: "Ko Aung" }),
-      job({ id: "2", status: "DONE", paidAmount: "0" }),
+      job({ id: "2", status: "DONE", finalCost: "50000", paidAmount: "0" }),
       job({ id: "3", status: "DELIVERED", cannotRepair: true, receivedAt: "2026-10-03T04:00:00.000Z" }),
+      // Done with no price yet: waiting for its price, not money owed.
+      job({ id: "4", status: "DONE", finalCost: "0", paidAmount: "0" }),
+      job({ id: "5", status: "CANCELLED" }),
     ];
     expect(filterJobs(jobs, { status: "WORKING" }).map((j) => j.id)).toEqual(["1"]);
     expect(filterJobs(jobs, { status: "UNPAID" }).map((j) => j.id)).toEqual(["2"]);
@@ -186,7 +189,9 @@ describe("the list with kept changes", () => {
     expect(filterJobs(jobs, { q: "aung" }).map((j) => j.id)).toEqual(["1"]);
     expect(filterJobs(jobs, { month: "2026-10" }).map((j) => j.id)).toEqual(["3"]);
     const s = summarize(jobs, "2026-11");
-    expect([s.total, s.inWorkflow, s.completed, s.unpaid]).toEqual([2, 1, 1, 1]);
+    expect([s.total, s.inWorkflow, s.completed, s.cancelled, s.unpaid]).toEqual([4, 1, 2, 1, 1]);
+    // Each job in one count only: the counts add up to the total.
+    expect(s.inWorkflow + s.completed + s.cannotRepair + s.delivered + s.cancelled).toBe(s.total);
   });
 });
 
