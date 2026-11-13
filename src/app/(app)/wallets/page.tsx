@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, ArrowLeftRight, SlidersHorizontal, Scale, Pencil, Trash2, MoreHorizontal } from "lucide-react";
 import { api } from "@/lib/client";
@@ -27,19 +27,51 @@ const TYPE_LABELS: Record<string, string> = {
   CASH: "Cash", BANK: "Bank", MOBILE: "Mobile money", AGENT: "Agent", CUSTOMER: "Customer", EXPENSE: "Expense", CLEARING: "Clearing", CUSTOM: "Other",
 };
 
-/** A wallet's less used actions behind one button, so each row stays quiet. */
+/** A wallet's less used actions behind one button, so each row stays quiet.
+ *
+ *  The list is fixed to the screen, not placed inside the row: inside the table's sideways
+ *  scroll box it made the table grow a scroll bar and jump, and was cut off at the bottom.
+ *  Near the bottom of the screen it opens upwards. */
+const MENU_WIDTH = 176;
 function RowMenu({ items }: { items: { label: string; icon: ReactNode; danger?: boolean; onClick: () => void }[] }) {
-  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const anchor = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!at) return;
+    const close = () => setAt(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [at]);
+
   if (items.length === 0) return null;
+  function toggle() {
+    if (at || !anchor.current) { setAt(null); return; }
+    const r = anchor.current.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
+    const height = items.length * 40 + 8;
+    setAt(r.bottom + 4 + height > window.innerHeight - 8 ? { left, bottom: window.innerHeight - r.top + 4 } : { left, top: r.bottom + 4 });
+  }
   return (
-    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
-      <Button size="sm" variant="ghost" aria-label="More" title="More" onClick={() => setOpen((o) => !o)}><MoreHorizontal size={16} /></Button>
-      {open && (
+    <div ref={anchor} className="inline-block" onClick={(e) => e.stopPropagation()}>
+      <Button size="sm" variant="ghost" aria-label="More" title="More" aria-expanded={Boolean(at)} onClick={toggle}><MoreHorizontal size={16} /></Button>
+      {at && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-left shadow-lg dark:border-gray-700 dark:bg-gray-900">
+          <div className="fixed inset-0 z-40" onClick={() => setAt(null)} />
+          <div
+            role="menu"
+            style={{ left: at.left, top: at.top, bottom: at.bottom, width: MENU_WIDTH }}
+            className={`fixed z-50 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-left shadow-lg animate-menu-in dark:border-gray-700 dark:bg-gray-900 ${at.bottom !== undefined ? "origin-bottom-right" : "origin-top-right"}`}
+          >
             {items.map((it) => (
-              <button key={it.label} type="button" onClick={() => { setOpen(false); it.onClick(); }}
+              <button key={it.label} type="button" role="menuitem" onClick={() => { setAt(null); it.onClick(); }}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 ${it.danger ? "text-red-600" : ""}`}>
                 {it.icon}{it.label}
               </button>

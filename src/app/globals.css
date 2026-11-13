@@ -83,12 +83,18 @@ html[lang="my"] {
   25% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(1); }
 }
+/* A small menu (a row's More list) settles in rather than appearing at once. */
+@keyframes menu-in {
+  0% { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .animate-tile-pop, .animate-cart-bump, .animate-fade-check { animation: none !important; }
+  .animate-tile-pop, .animate-cart-bump, .animate-fade-check, .animate-menu-in { animation: none !important; }
 }
 .animate-tile-pop { animation: tile-pop 0.35s ease-out; }
 .animate-cart-bump { animation: cart-bump 0.45s ease-out; }
 .animate-fade-check { animation: fade-check 0.7s ease-out forwards; }
+.animate-menu-in { animation: menu-in 0.12s ease-out; }
 
 @media print {
   .no-print { display: none !important; }
