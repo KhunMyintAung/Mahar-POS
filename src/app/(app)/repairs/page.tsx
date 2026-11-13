@@ -212,8 +212,6 @@ export default function RepairsPage() {
   const [summary, setSummary] = useState<Summary>({ total: 0, inWorkflow: 0, completed: 0, delivered: 0, month: "" });
   // Empty means "this month", which the server works out in the shop's own timezone.
   const [month, setMonth] = useState("");
-  // The list is the month's devices, like the counts above it, unless every month is asked for.
-  const [allMonths, setAllMonths] = useState(false);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -318,7 +316,7 @@ export default function RepairsPage() {
     if (month) params.set("month", month);
     // The list is the same month as the counts. A search looks through every month, so a
     // customer's old job is still found.
-    const oneMonth = !allMonths && !q.trim();
+    const oneMonth = !q.trim();
     if (oneMonth) params.set("listMonth", "1");
     const all = "/api/v1/repairs?pageSize=1000";
     const url = `/api/v1/repairs?${params}`;
@@ -334,7 +332,7 @@ export default function RepairsPage() {
       .catch((e) => push(isNetworkError(e) ? "No internet, and this list was not kept on this device yet." : e.message, "error"));
     if (userId) topUpNumbers(userId).catch(() => {});
     if (seesWallets) api<Wallet[]>("/api/v1/wallets").then(setWallets).catch(() => {});
-  }, [push, q, status, month, allMonths, seesWallets, userId]);
+  }, [push, q, status, month, seesWallets, userId]);
 
   useEffect(load, [load]);
   // Kept changes just sent (Sync now, or the internet back): the list is read again from the server.
@@ -655,24 +653,16 @@ export default function RepairsPage() {
           className="w-[7.5rem] shrink-0 bg-transparent px-2 text-xs sm:w-40 sm:text-sm"
         />
       </div>
-      {!q.trim() && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full bg-navy-800 px-3 py-1 text-xs font-semibold text-white dark:bg-gold-400 dark:text-navy-950">
-            {allMonths ? "Showing all months" : `Showing ${new Date(`${month || summary.month || monthOf(new Date().toISOString())}-01T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
-          </span>
-          <button type="button" onClick={() => setAllMonths((a) => !a)} className="text-xs text-blue-600 hover:underline">
-            {allMonths ? "This month only" : "All months"}
+      {/* Money owed is apart from the counts: a job owing money is also Done or Delivered. */}
+      {!!summary.unpaid && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setStatus(status === "UNPAID" ? "" : "UNPAID")}
+            className={cn("inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 dark:border-red-900", status === "UNPAID" && "bg-red-50 dark:bg-red-950")}
+          >
+            <Banknote size={13} />{summary.unpaid} Not paid
           </button>
-          {/* Money owed is apart from the counts: a job owing money is also Done or Delivered. */}
-          {!!summary.unpaid && (
-            <button
-              type="button"
-              onClick={() => setStatus(status === "UNPAID" ? "" : "UNPAID")}
-              className={cn("ml-auto inline-flex items-center gap-1 rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 dark:border-red-900", status === "UNPAID" && "bg-red-50 dark:bg-red-950")}
-            >
-              <Banknote size={13} />{summary.unpaid} Not paid
-            </button>
-          )}
         </div>
       )}
 

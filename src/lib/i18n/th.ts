@@ -2,8 +2,6 @@
  *  LanguageProvider. A label missing here shows in English. Add new labels here and in MM. */
 export const TH: Record<string, string> = {
   "All months": "ทุกเดือน",
-  "This month only": "เฉพาะเดือนนี้",
-  "Showing all months": "แสดงทุกเดือน",
   "Dashboard": "แดชบอร์ด",
   "Sales & POS": "การขายและ POS",
   "Sale History": "ประวัติการขาย",

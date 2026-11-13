@@ -24,8 +24,6 @@ const accountKey = (userId: string) => `wn-language:${userId}`;
 
 const MM: Record<string, string> = {
   "All months": "လအားလုံး",
-  "This month only": "ဒီလ သာ",
-  "Showing all months": "လအားလုံး ပြနေသည်",
   "Dashboard": "ပင်မစာမျက်နှာ",
   "Sales & POS": "အရောင်းနှင့် POS",
   "Sale History": "အရောင်းမှတ်တမ်း",
