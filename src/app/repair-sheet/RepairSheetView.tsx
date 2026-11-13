@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import type { RepairSheet, RepairSheetRow } from "@/lib/repair-sheet";
 import PosAd from "./PosAd";
@@ -25,9 +25,30 @@ function matches(row: RepairSheetRow, filter: Filter) {
 
 /** Laid out like the sheet itself: one line per phone, in the sheet's order, with date and
  *  name only where the sheet has them. */
-export default function RepairSheetView({ shopName, sheet }: { shopName: string; sheet: RepairSheet | null }) {
+export default function RepairSheetView({ shopName, slug, sheet: firstSheet }: { shopName: string; slug: string; sheet: RepairSheet | null }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [sheet, setSheet] = useState(firstSheet);
+
+  // Read the tab again every second while the page is on screen; a failed read keeps what is shown.
+  useEffect(() => {
+    let busy = false;
+    let stopped = false;
+    const refresh = async () => {
+      if (busy || document.hidden) return;
+      busy = true;
+      try {
+        const response = await fetch(`/api/public/repair-sheet/${encodeURIComponent(slug)}`, { cache: "no-store" });
+        if (response.ok && !stopped) setSheet(await response.json());
+      } catch {
+        // offline for a moment: try again next second
+      } finally {
+        busy = false;
+      }
+    };
+    const timer = setInterval(refresh, 1000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [slug]);
 
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
   const stats = useMemo(() => {
@@ -46,7 +67,7 @@ export default function RepairSheetView({ shopName, sheet }: { shopName: string;
     <main className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-4 sm:py-5">
       <header className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
         <h1 className="text-base font-bold">{shopName} <span className="text-xs font-normal text-gray-500">· ဖုန်းပြင်ဆင်မှု စာရင်း</span></h1>
-        <p className="text-[11px] text-gray-500">Mahar Shwe Mobile · ၁ မိနစ်တိုင်း update</p>
+        <p className="text-[11px] text-gray-500">Mahar Shwe Mobile · စက္ကန့်တိုင်း update</p>
       </header>
 
       {!sheet ? (

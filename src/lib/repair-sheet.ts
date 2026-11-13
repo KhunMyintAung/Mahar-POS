@@ -2,7 +2,7 @@
  *  in. /repair-sheet/<shop> shows a tab on maharpos.shop instead of Google's bare table.
  *
  *  The tab list is read from the workbook each time, so a shop added as a new tab gets its
- *  page without a deploy, and every page refetches within a minute of the sheet changing. */
+ *  page without a deploy, and an open page reads its tab again every second. */
 
 const SHEET_BASE =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSSUU9FmNjc0BBT7xznOdFM7855qtbgDbMJMZjADhhQVIPg5OgkE5LROllfMb_KzP5YH7CTXQ81s1cP";
@@ -113,12 +113,33 @@ export async function fetchRepairTabs(): Promise<RepairShop[]> {
   return tabs;
 }
 
-export async function fetchRepairSheet(gid: string): Promise<RepairSheet | null> {
-  const response = await fetch(`${SHEET_BASE}/pub?gid=${gid}&single=true&output=csv`, {
-    next: { revalidate: REVALIDATE_SECONDS },
-  });
+async function readRepairSheet(gid: string, init: RequestInit): Promise<RepairSheet | null> {
+  const response = await fetch(`${SHEET_BASE}/pub?gid=${gid}&single=true&output=csv`, init);
   if (!response.ok) throw new Error(`Google Sheet returned ${response.status}`);
   return toRepairSheet(parseCsv(await response.text()));
+}
+
+export function fetchRepairSheet(gid: string): Promise<RepairSheet | null> {
+  return readRepairSheet(gid, { next: { revalidate: REVALIDATE_SECONDS } });
+}
+
+const LIVE_SECONDS = 1;
+const live = new Map<string, { at: number; sheet: Promise<RepairSheet | null> }>();
+
+/** For an open page that refreshes every second: Google is asked at most once a second
+ *  per tab, however many people have the page open. */
+export function fetchRepairSheetLive(gid: string): Promise<RepairSheet | null> {
+  const hit = live.get(gid);
+  if (hit && Date.now() - hit.at < LIVE_SECONDS * 1000) return hit.sheet;
+  const sheet = readRepairSheet(gid, { cache: "no-store" });
+  live.set(gid, { at: Date.now(), sheet });
+  sheet.catch(() => live.delete(gid));
+  return sheet;
+}
+
+export async function findRepairShop(slug: string): Promise<RepairShop | null> {
+  const tabs = await fetchRepairTabs().catch(() => []);
+  return tabs.find((tab) => tab.slug === decodeURIComponent(slug).toLowerCase()) ?? null;
 }
 
 /** The shops: tabs that read as a repair log. */

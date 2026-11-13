@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { fetchRepairSheet, fetchRepairTabs } from "@/lib/repair-sheet";
+import { fetchRepairSheet, findRepairShop as findShop } from "@/lib/repair-sheet";
 import RepairSheetView from "../RepairSheetView";
 
 export const revalidate = 60;
 
 type Props = { params: Promise<{ shop: string }> };
-
-async function findShop(slug: string) {
-  const tabs = await fetchRepairTabs().catch(() => []);
-  return tabs.find((tab) => tab.slug === decodeURIComponent(slug).toLowerCase()) ?? null;
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const shop = await findShop((await params).shop);
@@ -34,5 +29,5 @@ export default async function RepairShopSheetPage({ params }: Props) {
   }
   if (!failed && !sheet) notFound();
 
-  return <RepairSheetView shopName={shop.name} sheet={sheet} />;
+  return <RepairSheetView shopName={shop.name} slug={shop.slug} sheet={sheet} />;
 }
