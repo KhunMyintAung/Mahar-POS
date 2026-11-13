@@ -39,15 +39,13 @@ type Item = Shop["items"][number];
 interface State {
   /** What the next typed message is: the customer's name, phone or address, a search, a
    *  repair voucher number ("rv") and its phone digits ("rp"), or a part question ("part"). */
-  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part" | "tu_id" | "tu_pay" | "bk_phone" | "vp_pay";
+  step: "browse" | "name" | "phone" | "address" | "rv" | "rp" | "part" | "tu_id" | "tu_pay" | "vp_pay";
   /** The voucher number typed, kept until the phone digits come. */
   rv?: string;
   /** A game top-up under way: the package, then the game ID it goes to. */
   tu?: { itemId: string; gameId?: string };
   /** A VPN plan being bought, and the key it renews if it is a renewal. */
   vp?: { itemId?: string; renewId?: string };
-  /** A repair visit being booked, until the customer confirms it. */
-  bk?: { device: string; problem: string; when?: string };
   /** The last few lines with the AI, so a follow-up question makes sense. */
   chat?: ChatTurn[];
   /** Until when a person at the shop has the conversation and the AI keeps out (ms). */
@@ -284,9 +282,6 @@ const isPartQuestion = (text: string) => {
 async function quoteParts(chatId: string, ctx: Ctx, state: State, text: string, from?: { first_name: string; username?: string }) {
   const q = text.slice(0, 60);
   const again: InlineButton[][] = [[btn("🔍 နောက်တစ်ခု မေးမည်", "s:part")], BACK_HOME];
-  // Asked a price, so the next thing may be bringing the phone in for it.
-  state.bk = { device: q, problem: q };
-  if (ctx.repairOn) again.unshift([btn("📅 ပြင်ဖို့ ချိန်းမည်", "s:bkq")]);
   if (partQuery(q).model.length === 0) {
     await sendMessage(chatId, "ဖုန်း Model ကို ထည့်ရိုက်ပေးပါ (ဥပမာ - iPhone 11 မှန်)။", { replyMarkup: keyboard([BACK_HOME]) });
     return;
@@ -689,41 +684,6 @@ export async function handleTopupDecision(
 }
 
 // ---------------------------------------------------------------------------
-// Repair booking: when the customer will bring the phone in. The shop is told; the repair
-// voucher is made when the phone arrives.
-// ---------------------------------------------------------------------------
-
-async function showBooking(chatId: string, state: State) {
-  if (!state.bk) return;
-  await sendMessage(chatId, [
-    "📅 ပြင်ဖို့ ချိန်းဆိုမှု",
-    "",
-    `📱 ${state.bk.device}`,
-    `🛠 ${state.bk.problem}`,
-    ...(state.bk.when ? [`🕒 ${state.bk.when}`] : []),
-  ].join("\n"), { replyMarkup: keyboard([[btn("✅ အတည်ပြု ချိန်းမည်", "s:bk_ok")], BACK_HOME]) });
-}
-
-async function sendBooking(chatId: string, ctx: Ctx, state: State, from?: { first_name?: string; username?: string }) {
-  if (!state.bk) return;
-  state.step = "browse";
-  if (ctx.ownerChatId && allowOrder(`bk:${ctx.business.id}:${chatId}`, 3, 60 * 60_000)) {
-    await sendMessage(ctx.ownerChatId, [
-      "📅 ပြင်ဖို့ ချိန်းထားပါတယ် (Telegram)",
-      `👤 ${who(from)}`,
-      `📞 ${state.phone ?? "-"}`,
-      `📱 ${state.bk.device}`,
-      `🛠 ${state.bk.problem}`,
-      ...(state.bk.when ? [`🕒 ${state.bk.when}`] : []),
-    ].join("\n"), { replyMarkup: replyButtons(chatId, from) });
-  }
-  state.bk = undefined;
-  await sendMessage(chatId, "✅ ချိန်းဆိုမှု ပို့ပြီးပါပြီ။ ဆိုင်က ဖုန်းဆက် အတည်ပြုပေးပါမယ်။ ဖုန်းယူလာရင် Voucher ထုတ်ပေးပါမယ်။", {
-    replyMarkup: keyboard([BACK_HOME]),
-  });
-}
-
-// ---------------------------------------------------------------------------
 // The customer's own words, answered by AI with the bot owner's key (customerAgent.ts), and
 // handed to a person at the shop when the AI asks for one.
 // ---------------------------------------------------------------------------
@@ -751,7 +711,7 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
 
   const shop = ctx.shop;
   const money = (minor: bigint) => fmtMoneyPlain(minor, ctx.business.currency);
-  const then = { cart: false, topup: "", booking: false, vpn: "" };
+  const then = { cart: false, topup: "", vpn: "" };
   const run = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     const s = (k: string) => String(args[k] ?? "").slice(0, 120);
     if (name === "search_products") {
@@ -805,12 +765,6 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
       then.topup = item.id;
       return { ok: true, next: "The bot now asks the customer for the game ID." };
     }
-    if (name === "book_repair") {
-      if (!ctx.repairOn) return { error: "This shop does not take repairs here." };
-      state.bk = { device: s("device"), problem: s("problem"), when: s("when") || undefined };
-      then.booking = true;
-      return { ok: true, shown_to_customer: "the booking with a button to confirm" };
-    }
     if (name === "vpn_info" && ctx.vpn.length > 0) {
       return {
         plans: ctx.vpn.map((p) => ({ plan_id: p.id, name: p.name, days: p.days, data: p.limitBytes == null ? "unlimited" : `${Number(p.limitBytes) / 1e9} GB per 30 days`, price: money(p.price) })),
@@ -851,9 +805,8 @@ async function aiAnswer(chatId: string, ctx: Ctx, state: State, ownerUserId: str
   }
   state.chat = [...turns, { role: "assistant" as const, content: reply.slice(0, 500) }].slice(-8);
   // What comes next brings its own buttons; otherwise the way home.
-  await sendMessage(chatId, reply, then.cart || then.booking || then.topup || then.vpn ? undefined : { replyMarkup: keyboard([BACK_HOME]) });
+  await sendMessage(chatId, reply, then.cart || then.topup || then.vpn ? undefined : { replyMarkup: keyboard([BACK_HOME]) });
   if (then.cart && shop) await showCart(chatId, shop, state);
-  if (then.booking) await showBooking(chatId, state);
   if (then.topup) await startTopup(chatId, ctx, state, then.topup);
   if (then.vpn) { state.vp = undefined; await askVpnPayment(chatId, ctx, state, then.vpn); }
   return true;
@@ -927,14 +880,6 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
     else if (action === "vp" && arg) await askVpnPayment(chatId, ctx, state, arg);
     else if (action === "vph" && ctx.vpn.length > 0) await sendMessage(chatId, VPN_HOW_TO, { replyMarkup: keyboard([...appRows(), BACK_HOME]) });
     else if (action === "vpk" && ctx.vpn.length > 0) await showMyVpn(chatId, ctx.business.id, BACK_HOME);
-    else if (action === "bkq" && ctx.repairOn && state.bk) await showBooking(chatId, state);
-    else if (action === "bk_ok" && state.bk) {
-      if (state.phone) await sendBooking(chatId, ctx, state, cq.from);
-      else {
-        state.step = "bk_phone";
-        await sendMessage(chatId, "📞 ဆိုင်က ဖုန်းဆက် အတည်ပြုဖို့ ဖုန်းနံပါတ် ရိုက်ပို့ပေးပါ။", { replyMarkup: keyboard([BACK_HOME]) });
-      }
-    }
     // The rest is the online list, which this shop may not have (or no longer has).
     else if (!shop) { state.step = "browse"; await home(chatId, ctx, state); }
     else if (action === "cats") {
@@ -997,11 +942,6 @@ async function answerCustomer(update: TgUpdate, ownerUserId: string, chatId: str
   else if (state.step === "rp") await checkRepair(chatId, ctx, state, ownerUserId, text);
   else if (state.step === "part") await quoteParts(chatId, ctx, state, text, from);
   else if (state.step === "tu_id") await takeGameId(chatId, ctx, state, text);
-  else if (state.step === "bk_phone") {
-    const phone = asciiDigits(text).replace(/[\s-]/g, "");
-    if (!/^\+?\d{6,15}$/.test(phone)) await sendMessage(chatId, "ဖုန်းနံပါတ် မှန်အောင် ရိုက်ပေးပါ (ဥပမာ 09xxxxxxxxx)။");
-    else { state.phone = phone; await sendBooking(chatId, ctx, state, from); }
-  }
   // A person at the shop has the conversation: pass it on, and keep the AI out of it.
   else if (state.step === "browse" && (state.humanUntil ?? 0) > Date.now()) await forwardToStaff(chatId, ctx, text, from);
   else if (state.step === "browse" && (await aiAnswer(chatId, ctx, state, ownerUserId, text, from))) { /* answered */ }

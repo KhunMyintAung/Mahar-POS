@@ -161,19 +161,6 @@ describe("customer ordering on the shop's Telegram bot", () => {
     expect(mocks.owner[0].text).toContain("Vivo Y99");
   });
 
-  it("books a repair visit from a part price, asking the phone number first", async () => {
-    await tap("s:part");
-    await say("iPhone 11 မှန်");
-    expect(last().buttons.join(" ")).toContain("ချိန်း");
-    await tap("s:bkq");
-    await tap("s:bk_ok");
-    expect(last().text).toContain("ဖုန်းနံပါတ်");
-    await say("09 777 888 999");
-    expect(last().text).toContain("ပို့ပြီးပါပြီ");
-    expect(mocks.owner.at(-1)!.text).toContain("iPhone 11 မှန်");
-    expect(mocks.owner.at(-1)!.text).toContain("09777888999");
-  });
-
   it("finds items by the words typed and marks what is sold out", async () => {
     await say("iphone");
     expect(last().buttons[0]).toContain("iPhone 13 · 128GB");
