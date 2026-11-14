@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CloudOff, Download, RefreshCw, Wifi } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, CloudOff, Download, RefreshCw, Wifi } from "lucide-react";
 import { Button, Card, CardTitle, ConfirmDialog, Modal, cn, useToast } from "./ui";
 import { useAuth } from "./AppShell";
 import { fmtMoney } from "@/lib/format";
@@ -10,6 +10,8 @@ import { removeQueued, syncQueued, useQueuedSales, type QueuedSale } from "@/lib
 import { OFFLINE_EXTRA_URLS, posDataUrls } from "@/lib/posData";
 import { dropRepairOp, syncRepairs, topUpNumbers, useRepairOps } from "@/lib/offlineRepairs";
 import { useInstalledApp } from "@/lib/installedApp";
+import { api } from "@/lib/client";
+import { PushError, pushState, turnPushOff, turnPushOn, type PushState } from "@/lib/pushClient";
 
 const MODES: { value: NetMode; label: string; hint: string }[] = [
   { value: "online", label: "Online only", hint: "Every sale is sent at once. Without the internet a sale cannot be made." },
@@ -114,6 +116,91 @@ export function NetModeCard() {
       </div>
       {mode !== "online" && (
         <p className="text-xs text-gray-500">{"Offline works for selling at the POS, taking in and updating repairs, and looking up items and stock. Purchases, reports and settings need the internet."}</p>
+      )}
+    </Card>
+  );
+}
+
+/** Settings → Account: the shop's notices as system pop-ups on this device (Web Push), like
+ *  any site's. The browser asks for permission only when On is pressed. */
+export function PushNotifyCard() {
+  const { push } = useToast();
+  const [state, setState] = useState<PushState | null>(null);
+  const [serverReady, setServerReady] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    pushState().then(setState).catch(() => setState("unsupported"));
+    api<{ publicKey: string | null }>("/api/v1/push/subscribe").then((r) => setServerReady(Boolean(r.publicKey))).catch(() => setServerReady(null));
+  }, []);
+
+  async function on() {
+    setBusy(true);
+    try {
+      await turnPushOn();
+      setState("on");
+      push("Notifications are on for this device", "success");
+    } catch (e) {
+      const reason = e instanceof PushError ? e.reason : "failed";
+      if (reason === "denied") setState("denied");
+      push(reason === "denied" ? "Notifications are blocked for this site" : reason === "not-set-up" ? "Notifications are not set up on this server yet" : "Could not turn notifications on. Try again.", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function off() {
+    setBusy(true);
+    try {
+      await turnPushOff();
+      setState("off");
+      push("Notifications are off for this device");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function test() {
+    setBusy(true);
+    try {
+      const r = await api<{ sent: number }>("/api/v1/push/test", { method: "POST" });
+      push(r.sent > 0 ? "Test notification sent" : "No notification was sent. Turn it off and on again.", r.sent > 0 ? "success" : "error");
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Failed", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="space-y-3">
+      <CardTitle icon={Bell} title="Notifications (this device)" hint="A pop-up on this device for new repairs, repair changes, sales and Online Shop orders, even when the app is closed, while the browser or the installed app is running." />
+      {state === null ? null : state === "ios-install" ? (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          {"On iPhone and iPad, notifications work only in the app added to the Home Screen (iOS 16.4 or later). In Safari press Share, then Add to Home Screen, open Mahar POS from the Home Screen and turn notifications on here."}
+        </p>
+      ) : state === "unsupported" ? (
+        <p className="text-sm text-gray-600 dark:text-gray-300">{"This browser cannot show notifications. Use Chrome, Edge, Safari or Firefox, or the installed app."}</p>
+      ) : serverReady === false ? (
+        <p className="text-sm text-gray-600 dark:text-gray-300">{"Notifications are not set up on this server yet"}</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("text-sm font-medium", state === "on" ? "text-green-700 dark:text-green-400" : "text-gray-600 dark:text-gray-300")}>
+              {state === "on" ? "On for this device" : "Off for this device"}
+            </span>
+            <span className="ml-auto flex gap-2">
+              {state === "on" && <Button size="sm" variant="secondary" onClick={test} disabled={busy}>{"Send a test"}</Button>}
+              {state === "on"
+                ? <Button size="sm" variant="secondary" onClick={off} disabled={busy}>{"Turn off"}</Button>
+                : <Button size="sm" onClick={on} disabled={busy}>{"Turn on notifications"}</Button>}
+            </span>
+          </div>
+          {state === "denied" && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">{"Notifications are blocked for this site. Allow them in the browser's site settings (the icon beside the address), then press Turn on notifications."}</p>
+          )}
+          <p className="text-xs text-gray-500">{"Each person turns it on on their own devices. Signing out turns it off on this device."}</p>
+        </div>
       )}
     </Card>
   );

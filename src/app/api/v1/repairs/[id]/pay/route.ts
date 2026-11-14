@@ -47,7 +47,7 @@ export const POST = withAuth("repair.update", async ({ req, user, params }) => {
   if (before && job.paidAmount !== before.paidAmount) {
     notifyAuditFeed(user.businessId, repairStatusNotice({
       ...job, from: before.status, to: job.status, paidNow: job.paidAmount - before.paidAmount, createdByName: user.name,
-    }), undefined, user.id);
+    }), undefined, user.id, { perm: "repair.view", url: "/repairs" });
   }
   return json(job);
 });

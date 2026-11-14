@@ -44,6 +44,6 @@ export async function placeOnlineOrder(shop: PublicShop, input: OrderInput): Pro
       select: { id: true, orderNo: true, createdAt: true },
     });
   });
-  notifyAuditFeed(shop.business.id, onlineOrderNotice({ ...input, orderNo: order.orderNo, lines, total }));
+  notifyAuditFeed(shop.business.id, onlineOrderNotice({ ...input, orderNo: order.orderNo, lines, total }), undefined, undefined, { perm: "sale.create", url: "/online-shop" });
   return { ok: true, orderId: order.id, orderNo: order.orderNo, createdAt: order.createdAt, total, lines };
 }

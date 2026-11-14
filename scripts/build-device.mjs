@@ -14,7 +14,7 @@ const migrationsDir = join(root, "prisma/migrations");
 
 // Routes that only make sense with a server (sign-in, Google, Telegram, cloud print, the
 // online shop, e-mail) are left out: the device answers them "not available".
-const SKIP = [/^auth\/(?!me$)/, /^device-move/, /^telegram/, /^print-jobs/, /^online-shop/, /^community/, /^account-deletion/, /^reports\/gsheet/];
+const SKIP = [/^auth\/(?!me$)/, /^device-move/, /^telegram/, /^print-jobs/, /^online-shop/, /^community/, /^account-deletion/, /^reports\/gsheet/, /^push/];
 
 function routeFilesNamed(dir, fileName) {
   const found = [];
@@ -72,11 +72,15 @@ const virtual = {
       "node:crypto": "src/device/shims/crypto.ts",
       // Prisma's WebAssembly build (no file system), its query compiler fetched beside engine.js.
       "@prisma/client": "src/generated/device-prisma/wasm.js",
+      // Web Push is sent from the server only.
+      "@/lib/pushSend": "src/device/shims/push.ts",
     };
-    b.onResolve({ filter: /^(@\/lib\/prisma|next\/headers|crypto|node:crypto|@prisma\/client)$/ }, (args) => ({ path: join(root, swap[args.path]) }));
+    b.onResolve({ filter: /^(@\/lib\/prisma|@\/lib\/pushSend|next\/headers|crypto|node:crypto|@prisma\/client)$/ }, (args) => ({ path: join(root, swap[args.path]) }));
     // src/lib files import the server's client as "./prisma".
     b.onResolve({ filter: /^\.\/prisma$/ }, (args) =>
       resolve(args.resolveDir) === join(root, "src/lib") ? { path: join(root, swap["@/lib/prisma"]) } : undefined);
+    b.onResolve({ filter: /^\.\/pushSend$/ }, (args) =>
+      resolve(args.resolveDir) === join(root, "src/lib") ? { path: join(root, swap["@/lib/pushSend"]) } : undefined);
     b.onResolve({ filter: /^#wasm-compiler-loader$/ }, () => ({ path: "compiler", namespace: "device" }));
     b.onLoad({ filter: /^compiler$/, namespace: "device" }, () => ({
       contents: `export default (async () => {

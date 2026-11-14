@@ -4,6 +4,7 @@ import { audit } from "./audit";
 import { fmtMoneyPlain } from "./format";
 import { dateRangeUtc, todayBusinessDate } from "./dates";
 import { btn, keyboard, linkBtn, sendMessage, sendMessageWith, sendPhotoFile, type InlineButton } from "./telegram";
+import { sendPush } from "./pushSend";
 import { createOutlineKey, deleteOutlineKey, outlineAccessUrls, outlineConfigured, outlineUsage, removeOutlineLimit, setOutlineLimit, OutlineError } from "./outline";
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,16 @@ export async function placeVpnOrder(
       select: { id: true, orderNo: true },
     });
   });
+}
+
+/** An order whose slip came, waiting for staff to check the money: a pop-up on the owners'
+ *  devices too, as the Paid button is on the bot (VPN has no screen in the app). */
+export function notifyVpnWaiting(businessId: string, order: { orderNo: string; renewal: boolean; planLine: string; customer: string }) {
+  void sendPush(businessId, {
+    title: `🔐 VPN ${order.renewal ? "သက်တမ်းတိုး" : "ဝယ်ရန်"} ${order.orderNo}`,
+    body: [order.planLine, `👤 ${order.customer}`, "ငွေဝင်မဝင် စစ်ရန် စောင့်နေ · Telegram Bot မှာ ဆုံးဖြတ်ပါ"].join("\n"),
+    url: "/",
+  }, { ownersOnly: true });
 }
 
 const OUTLINE_APPS = "https://getoutline.org/get-started/#step-3";

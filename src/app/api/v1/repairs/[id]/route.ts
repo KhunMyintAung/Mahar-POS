@@ -63,7 +63,7 @@ export const PATCH = withAuth("repair.update", async ({ req, user, params }) => 
   if (before && (before.status !== job.status || job.paidAmount !== before.paidAmount)) {
     notifyAuditFeed(user.businessId, repairStatusNotice({
       ...job, from: before.status, to: job.status, paidNow: job.paidAmount - before.paidAmount, createdByName: user.name, notes: body.notes,
-    }), undefined, user.id);
+    }), undefined, user.id, { perm: "repair.view", url: "/repairs" });
   }
   // Customers who asked after it on the shop's bot hear about it once the answer has gone.
   if (before && before.status !== job.status) {

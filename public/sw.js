@@ -1,4 +1,4 @@
-const CACHE = "mahar-pos-v9";
+const CACHE = "mahar-pos-v10";
 // The app's screens and the shop's data, kept so the till opens without the internet. They
 // are emptied on sign-out (see src/lib/netMode.ts).
 const PAGES = "mahar-pages";
@@ -283,5 +283,41 @@ self.addEventListener("fetch", (event) => {
     if (deviceMode === undefined) deviceMode = await isDevice();
     if (deviceMode) return deviceFetch(event, request, url);
     return (await accountResponse(request, url)) || fetch(request);
+  })());
+});
+
+// ---- System pop-ups (Web Push) -----------------------------------------------------------
+// The shop's notices, sent by the server (src/lib/pushSend.ts) to the devices that turned
+// them on in Settings → Account. Shown even with the app's tab closed.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const url = typeof data.url === "string" && data.url.startsWith("/") && !data.url.startsWith("//") ? data.url : "/";
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Mahar POS", {
+      body: data.body || "",
+      icon: "/mahar-icon-192.png",
+      data: { url },
+    })
+  );
+});
+
+// A pop-up pressed: the app's window when one is open (moved to that screen), else a new one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const win = wins.find((w) => new URL(w.url).origin === self.location.origin);
+    if (win) {
+      await win.focus();
+      if ("navigate" in win && win.url !== url) await win.navigate(url).catch(() => {});
+      return;
+    }
+    await self.clients.openWindow(url);
   })());
 });

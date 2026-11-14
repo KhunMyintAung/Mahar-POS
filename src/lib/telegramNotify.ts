@@ -5,6 +5,7 @@ import { notifyReportTargets } from "./telegramReports";
 import { REPAIR_STATUS_MM } from "./repairStatus";
 import { currencyLanguage } from "./currency";
 import { inShopUnits, translateNotice } from "./telegramNoticeText";
+import { noticeToPush, sendPush } from "./pushSend";
 
 // Live audit feed over Telegram: after a Sale / 3D / Transfer / Withdraw /
 // Income & Expense / Exchange transaction is committed, push a short summary
@@ -16,14 +17,36 @@ import { inShopUnits, translateNotice } from "./telegramNoticeText";
 // delivery. Recipients are messaged in parallel, and every failure is caught
 // internally so a bad send can never surface as an unhandled rejection or
 // affect the transaction that already committed.
-export function notifyAuditFeed(businessId: string, raw: string, excludeChatId?: string, actorUserId?: string): void {
+//
+// The same notice goes out as a system pop-up (Web Push, pushSend.ts) to the devices that turned
+// it on, for the people whose role has `push.perm` (the audit log unless a caller says
+// otherwise), never to the person who did it.
+export interface FeedPush {
+  /** Who may get the pop-up; audit.view when not given. */
+  perm?: string;
+  /** The screen the pop-up opens. */
+  url?: string;
+}
+
+export function notifyAuditFeed(businessId: string, raw: string, excludeChatId?: string, actorUserId?: string, push: FeedPush = {}): void {
   (async () => {
     // Amounts written without a currency are in the shop's main one, filled in here.
     const text = forShop(raw, await businessCurrency(businessId));
     // The shop's send-only reports bot gets the same feed, in the chats set up for it.
     notifyReportTargets(businessId, text);
+    pushFeed(businessId, text, push, excludeChatId, actorUserId);
     await run(businessId, text, excludeChatId, actorUserId);
   })().catch((e) => console.error("[telegram notify] failed:", e));
+}
+
+function pushFeed(businessId: string, text: string, push: FeedPush, excludeChatId?: string, actorUserId?: string) {
+  (async () => {
+    // Done from the bot, the person is known by their chat.
+    const actor = actorUserId ?? (excludeChatId
+      ? (await prisma.user.findFirst({ where: { businessId, telegramChatId: excludeChatId }, select: { id: true } }))?.id
+      : undefined);
+    await sendPush(businessId, noticeToPush(text, push.url ?? "/audit"), { perm: push.perm ?? "audit.view", exceptUserId: actor });
+  })().catch((e) => console.error("[push notify] failed:", e));
 }
 
 /** Stands for the shop's main currency in a notice until notifyAuditFeed sends it. */

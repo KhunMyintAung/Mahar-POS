@@ -251,6 +251,25 @@ model VpnOrder {
   @@index([businessId, createdAt])
 }
 
+/// One browser or installed app that asked for the shop's notices as system pop-ups (Web Push).
+/// The endpoint is the browser's push service address for this device; p256dh and auth are
+/// the keys its messages are encrypted with. Removed when the push service says it is gone.
+model PushSubscription {
+  id         String    @id @default(uuid())
+  businessId String
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  /// When a notice last reached the push service for it.
+  lastOkAt   DateTime?
+
+  @@index([businessId])
+  @@index([userId])
+}
+
 /// Voucher numbers set aside for one device while it was online, so repairs taken in
 /// without the internet keep the shop's normal sequence. A number not used is a gap.
 model RepairNumberBlock {

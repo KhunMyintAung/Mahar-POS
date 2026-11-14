@@ -208,7 +208,7 @@ export const POST = withAuth("repair.create", async ({ req, user }) => {
     throw error;
   }
 
-  notifyAuditFeed(user.businessId, repairNewNotice({ ...job, createdByName: user.name }), undefined, user.id);
+  notifyAuditFeed(user.businessId, repairNewNotice({ ...job, createdByName: user.name }), undefined, user.id, { perm: "repair.view", url: "/repairs" });
 
   const [withFields] = await withVoucherFields(user.businessId, [job]);
   return json(withFields, { status: 201 });

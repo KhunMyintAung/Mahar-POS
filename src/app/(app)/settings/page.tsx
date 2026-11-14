@@ -14,7 +14,7 @@ import { WarrantySettingsCard } from "@/components/WarrantySettingsCard";
 import { BranchesCard } from "@/components/BranchesCard";
 import { PrinterPaperCard } from "@/components/PrinterPaperCard";
 import { GsheetSyncCard } from "@/components/GsheetSyncCard";
-import { NetModeCard } from "@/components/NetModeBar";
+import { NetModeCard, PushNotifyCard } from "@/components/NetModeBar";
 import { DeviceShopCard } from "@/components/DeviceShopCard";
 import { DeviceShopAllowCard } from "@/components/DeviceShopAllowCard";
 import { isDeviceShop } from "@/lib/device";
@@ -295,6 +295,8 @@ export default function SettingsPage() {
       {/* Online only / Sync later / Offline for this device's till; a shop kept on this device
           only has no server to reach. */}
       {deviceShop ? <DeviceShopCard /> : featureEnabled("pos") && <NetModeCard />}
+      {/* System pop-ups come from the server: not for a shop kept on this device only. */}
+      {!deviceShop && <PushNotifyCard />}
       {!deviceShop && me?.user.roleName === "Owner" && <DeviceShopAllowCard />}
 
       {!deviceShop && <Card>

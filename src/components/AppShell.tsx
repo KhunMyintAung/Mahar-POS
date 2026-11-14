@@ -27,6 +27,7 @@ import { OFFLINE_EXTRA_URLS, posDataUrls } from "@/lib/posData";
 import { listRepairOps, syncRepairs, topUpNumbers } from "@/lib/offlineRepairs";
 import { isDeviceShop, refreshDeviceApp } from "@/lib/device";
 import { DeviceBackupReminder } from "./DeviceBackupReminder";
+import { turnPushOff } from "@/lib/pushClient";
 
 /** Parts that need a server, hidden in a shop kept on this device only. */
 const DEVICE_OFF: FeatureKey[] = ["onlineShop", "telegram", "users"];
@@ -238,6 +239,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [deviceShop]);
 
   async function logout() {
+    // This device's pop-ups were the person's: they stop with signing out.
+    await turnPushOff().catch(() => {});
     await api("/api/v1/auth/logout", { method: "POST" });
     // The kept screens and data are this shop's; the next person to sign in starts clean.
     // Sales kept on the device stay, under this user, until they sign in again.

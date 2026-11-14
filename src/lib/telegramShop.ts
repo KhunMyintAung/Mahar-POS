@@ -16,7 +16,7 @@ import { findRepairJobWhere } from "./repairLookup";
 import { trackToken } from "./repairTrack";
 import { asciiDigits, findParts, hasSpareParts, partQuery, partQuoteText, phoneEndsWith, repairCardText } from "./customerBot";
 import { watchRepair } from "./repairWatch";
-import { appRows, loadVpnPayment, loadVpnPlans, placeVpnOrder, planLine, planText, showMyVpn, VPN_APPS, VPN_HOW_TO, type VpnPlan } from "./vpnShop";
+import { appRows, loadVpnPayment, loadVpnPlans, notifyVpnWaiting, placeVpnOrder, planLine, planText, showMyVpn, VPN_APPS, VPN_HOW_TO, type VpnPlan } from "./vpnShop";
 
 // ---------------------------------------------------------------------------
 // The shop's bot for customers: anyone who is not the linked staff member can look
@@ -631,6 +631,7 @@ async function takeVpnSlip(chatId: string, ctx: Ctx, state: State, message: TgMe
     "",
     "ငွေဝင်မဝင် ကိုယ့် KBZPay / Wave မှာ စစ်ပြီးမှ နှိပ်ပါ။ နှိပ်တာနဲ့ Key ကို Customer ဆီ ချက်ချင်း ပို့ပါမယ်။",
   ].join("\n");
+  notifyVpnWaiting(ctx.business.id, { orderNo: order.orderNo, renewal: Boolean(renewId), planLine: planLine(plan, ctx.business.currency), customer: who(message.from) });
   if (message.photo) await sendPhoto(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
   else await sendDocument(ctx.ownerChatId, fileId, { caption, replyMarkup: decide });
   state.vp = undefined;
