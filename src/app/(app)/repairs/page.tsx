@@ -123,11 +123,14 @@ const settled = (job: Pick<Job, "finalCost" | "paidAmount">) =>
 function StatusMenu({ status, options, disabled, onPick }: {
   status: string; options: RepairStatus[]; disabled?: boolean; onPick: (s: RepairStatus) => void;
 }) {
-  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+  const [at, setAt] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!at) return;
-    const close = () => setAt(null);
+    // The table or page scrolling detaches the fixed menu from its pill, so close it then;
+    // scrolling inside the menu itself (a long list) must not.
+    const close = (e?: Event) => { if (e && menuRef.current?.contains(e.target as Node)) return; setAt(null); };
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     return () => {
@@ -144,7 +147,13 @@ function StatusMenu({ status, options, disabled, onPick }: {
         disabled={disabled}
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
-          setAt({ top: r.bottom + 4, left: Math.min(r.left, window.innerWidth - 176) });
+          const left = Math.max(8, Math.min(r.left, window.innerWidth - 176 - 8));
+          // Near the bottom of the screen the list opens upward, so its lower items stay on
+          // screen instead of running off below, where a scroll would only close it.
+          const height = options.length * 34 + 8;
+          setAt(r.bottom + 4 + height > window.innerHeight - 8
+            ? { left, bottom: window.innerHeight - r.top + 4 }
+            : { left, top: r.bottom + 4 });
         }}
         className={cn(
           "inline-flex items-center gap-0.5 whitespace-nowrap rounded-full py-0.5 pl-2 pr-1.5 text-xs font-medium disabled:opacity-60",
@@ -158,9 +167,10 @@ function StatusMenu({ status, options, disabled, onPick }: {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAt(null)} />
           <div
+            ref={menuRef}
             role="menu"
-            className="fixed z-50 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
-            style={{ top: at.top, left: at.left }}
+            className="fixed z-50 w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-900"
+            style={{ top: at.top, bottom: at.bottom, left: at.left, maxHeight: "calc(100dvh - 16px)" }}
           >
             {options.map((s) => (
               <button
