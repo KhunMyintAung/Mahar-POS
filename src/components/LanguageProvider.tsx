@@ -1231,6 +1231,8 @@ const MM: Record<string, string> = {
   "Leaving date": "အလုပ်ထွက်သည့်နေ့",
   "Has left": "အလုပ်ထွက်ပြီး",
   "Supplier voucher no (optional)": "Supplier ဘောင်ချာ နံပါတ် (မထည့်လည်းရ)",
+  "Supplier voucher no": "Supplier ဘောင်ချာ နံပါတ်",
+  "Supplier voucher no saved": "Supplier ဘောင်ချာ နံပါတ် သိမ်းပြီး",
   "Purchases paid this day:": "ဒီနေ့ ငွေချေပြီး ဝယ်ယူမှုများ:",
   "Add to expense": "Expense ထဲ ထည့်ရန်",
   "Done, not paid": "ပြင်ပြီး၊ ငွေမရသေး",

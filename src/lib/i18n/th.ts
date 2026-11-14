@@ -1203,6 +1203,8 @@ export const TH: Record<string, string> = {
   "Leaving date": "วันที่ออก",
   "Has left": "ออกแล้ว",
   "Supplier voucher no (optional)": "เลขใบส่งของผู้จำหน่าย (ไม่บังคับ)",
+  "Supplier voucher no": "เลขใบส่งของผู้จำหน่าย",
+  "Supplier voucher no saved": "บันทึกเลขใบส่งของแล้ว",
   "Purchases paid this day:": "การซื้อที่จ่ายในวันนี้:",
   "Add to expense": "เพิ่มเข้ารายจ่าย",
   "Done, not paid": "เสร็จ ยังไม่จ่าย",

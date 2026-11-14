@@ -897,7 +897,18 @@ export default function RepairsPage() {
         })()}
       </Modal>
 
-      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={editing ? `${editing.jobNo}` : ""} wide>
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={editing ? `${editing.jobNo}` : ""} wide
+        footer={editing && (
+          <>
+            {me?.user.roleName === "Owner" && !editing.serialId && (
+              <Button variant="danger" className="mr-auto" onClick={() => { setDeleteReason(""); setDeleting(editing); }}>Delete</Button>
+            )}
+            <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={saveEdit} disabled={busy || !edit.deviceBrand.trim() || !edit.deviceModel.trim() || !edit.problem.trim()}>
+              {busy ? "Saving…" : "Save"}
+            </Button>
+          </>
+        )}>
         {editing && (
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -927,15 +938,6 @@ export default function RepairsPage() {
               <Input label="Promised date" type="date" value={edit.promisedAt} onChange={(e) => setEdit({ ...edit, promisedAt: e.target.value })} />
             </div>
             <Input label="Notes" value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
-            <div className="flex justify-end gap-2 pt-1">
-              {me?.user.roleName === "Owner" && !editing.serialId && (
-                <Button variant="danger" className="mr-auto" onClick={() => { setDeleteReason(""); setDeleting(editing); }}>Delete</Button>
-              )}
-              <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-              <Button onClick={saveEdit} disabled={busy || !edit.deviceBrand.trim() || !edit.deviceModel.trim() || !edit.problem.trim()}>
-                {busy ? "Saving…" : "Save"}
-              </Button>
-            </div>
           </div>
         )}
       </Modal>
@@ -962,7 +964,13 @@ export default function RepairsPage() {
         )}
       </Modal>
 
-      <Modal open={Boolean(working)} onClose={() => setWorking(null)} title={working ? `${working.jobNo} — ${working.deviceBrand} ${working.deviceModel}` : ""}>
+      <Modal open={Boolean(working)} onClose={() => setWorking(null)} title={working ? `${working.jobNo} — ${working.deviceBrand} ${working.deviceModel}` : ""}
+        footer={working && (
+          <>
+            <Button variant="secondary" onClick={() => setWorking(null)}>Cancel</Button>
+            <Button onClick={applyMove} disabled={busy || !move.status}>{busy ? "Saving…" : "Save"}</Button>
+          </>
+        )}>
         {working && (
           <div className="space-y-3">
             <Select label="Move to" value={move.status} onChange={(e) => setMove({ ...move, status: e.target.value })}>
@@ -996,10 +1004,6 @@ export default function RepairsPage() {
             )}
 
             <Input label="Notes" value={move.notes} onChange={(e) => setMove({ ...move, notes: e.target.value })} />
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="secondary" onClick={() => setWorking(null)}>Cancel</Button>
-              <Button onClick={applyMove} disabled={busy || !move.status}>{busy ? "Saving…" : "Save"}</Button>
-            </div>
           </div>
         )}
       </Modal>

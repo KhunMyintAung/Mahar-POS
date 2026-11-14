@@ -1,4 +1,5 @@
-import { withAuth, json, ApiError } from "@/lib/api";
+import { z } from "zod";
+import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { canAccessBranch } from "@/lib/auth";
 import { withPaymentsSince } from "@/lib/purchasePaid";
@@ -28,4 +29,19 @@ export const GET = withAuth("purchase.view", async ({ user, params }) => {
     walletName: wallet?.name ?? null,
     createdByName: createdBy?.name ?? null,
   });
+});
+
+// The supplier's own voucher number is set here, from the purchase voucher, rather than
+// crowding the new-purchase form. An empty value clears it.
+const patchSchema = z.object({ reference: z.string().trim().max(60) });
+
+export const PATCH = withAuth("purchase.create", async ({ req, user, params }) => {
+  const { reference } = await parseBody(req, patchSchema);
+  const purchase = await prisma.purchase.findFirst({
+    where: { id: params.id, businessId: user.businessId, deletedAt: null },
+    select: { id: true, branchId: true },
+  });
+  if (!purchase || !canAccessBranch(user, purchase.branchId)) throw new ApiError(404, "Purchase not found");
+  await prisma.purchase.update({ where: { id: purchase.id }, data: { reference: reference || null } });
+  return json({ ok: true, reference: reference || null });
 });

@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Printer } from "lucide-react";
-import { Badge, Button, Modal, Spinner } from "@/components/ui";
+import { Badge, Button, Input, Modal, Spinner, useToast } from "@/components/ui";
 import { api } from "@/lib/client";
 import { fmtDateTime, fmtMoney } from "@/lib/format";
 import { openPrintWindow, printPurchaseVoucher } from "@/lib/slipPrint";
-import { useCurrency } from "@/components/AppShell";
+import { useAuth, useCurrency } from "@/components/AppShell";
 
 interface PurchaseVoucherData {
   id: string; txnNo: string; date: string; createdAt: string; status: string; paymentStatus: string;
@@ -24,17 +24,37 @@ interface PurchaseVoucherData {
  *  it was paid, with a Print button. */
 export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: string | null; onClose: () => void }) {
   const cur = useCurrency();
+  const { hasPerm } = useAuth();
+  const { push } = useToast();
   const [data, setData] = useState<PurchaseVoucherData | null>(null);
   const [error, setError] = useState("");
+  // The supplier's own voucher no is typed here on the voucher, not on the busy new-purchase form.
+  const [ref, setRef] = useState("");
+  const [savingRef, setSavingRef] = useState(false);
+  const canEdit = hasPerm("purchase.create");
 
   useEffect(() => {
     if (!purchaseId) return;
     let live = true;
     api<PurchaseVoucherData>(`/api/v1/purchases/${purchaseId}`)
-      .then((d) => { if (live) { setData(d); setError(""); } })
+      .then((d) => { if (live) { setData(d); setRef(d.reference ?? ""); setError(""); } })
       .catch((e) => { if (live) setError(e instanceof Error ? e.message : "Failed"); });
-    return () => { live = false; setData(null); };
+    return () => { live = false; setData(null); setRef(""); };
   }, [purchaseId]);
+
+  async function saveRef() {
+    if (!data) return;
+    setSavingRef(true);
+    try {
+      await api(`/api/v1/purchases/${data.id}`, { method: "PATCH", body: { reference: ref.trim() } });
+      setData({ ...data, reference: ref.trim() || null });
+      push("Supplier voucher no saved");
+    } catch (e) {
+      push(e instanceof Error ? e.message : "Could not save", "error");
+    } finally {
+      setSavingRef(false);
+    }
+  }
 
   // A cancelled purchase owes nothing, whatever was left unpaid on it.
   const unpaid = data && data.status !== "CANCELLED" ? BigInt(data.total) - BigInt(data.paidAmount) : 0n;
@@ -60,7 +80,14 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
         </>
       )}>
       {error ? <p className="text-sm text-red-600">{error}</p> : !data ? <Spinner /> : (
-        <div className="space-y-3 rounded-lg bg-white p-3 text-sm text-gray-900">
+        <>
+          {canEdit && data.status !== "CANCELLED" && (
+            <div className="mb-3 flex items-end gap-2">
+              <div className="flex-1"><Input label="Supplier voucher no" value={ref} placeholder="SO/11/26/170879" onChange={(e) => setRef(e.target.value)} /></div>
+              <Button variant="secondary" onClick={saveRef} disabled={savingRef || ref.trim() === (data.reference ?? "")}>{savingRef ? "Saving…" : "Save"}</Button>
+            </div>
+          )}
+          <div className="space-y-3 rounded-lg bg-white p-3 text-sm text-gray-900">
           <div className="text-center">
             <div className="text-base font-bold">{data.business?.name}</div>
             {data.business?.phone && <div className="text-xs">{data.business.phone}</div>}
@@ -112,6 +139,7 @@ export function PurchaseVoucherDialog({ purchaseId, onClose }: { purchaseId: str
             {data.notes && <span className="text-xs text-gray-600">{data.notes}</span>}
           </div>
         </div>
+        </>
       )}
     </Modal>
   );
