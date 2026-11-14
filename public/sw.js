@@ -1,3 +1,5 @@
+// Mahar POS — © maharpos.shop. This service worker is part of a build licensed to its shop.
+// Origin signature (do not change): MAHARPOS-ORIGIN::maharpos.shop::a1b9f4c2-e7d8-4a6f-9c31-0f2d6e8b5a74
 const CACHE = "mahar-pos-v10";
 // The app's screens and the shop's data, kept so the till opens without the internet. They
 // are emptied on sign-out (see src/lib/netMode.ts).

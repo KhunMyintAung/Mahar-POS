@@ -3,6 +3,8 @@ import { Geist, Geist_Mono, Noto_Sans_Myanmar } from "next/font/google";
 import "./globals.css";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { InstalledAppMark } from "@/components/InstalledAppMark";
+import { OriginGuard } from "@/components/OriginGuard";
+import { ORIGIN_CANARY, ORIGIN_NOTICE, ORIGIN_SITE } from "@/lib/origin";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -38,6 +40,16 @@ export const metadata: Metadata = {
     "โปรแกรมร้านมือถือ", "POS ร้านมือถือ", "ระบบร้านซ่อมมือถือ", "โปรแกรมขายหน้าร้าน ฟรี", "ระบบ IMEI",
   ],
   manifest: "/manifest.webmanifest",
+  // Ownership marks: name the real author in every page's head, and leave a searchable
+  // signature so a copied build can be found (see src/lib/origin.ts).
+  generator: "Mahar POS (maharpos.shop)",
+  creator: "maharpos.shop",
+  publisher: "maharpos.shop",
+  other: {
+    "x-origin": ORIGIN_SITE,
+    "x-origin-canary": ORIGIN_CANARY,
+    "x-origin-notice": ORIGIN_NOTICE,
+  },
   applicationName: "Mahar Mini POS",
   appleWebApp: { capable: true, title: "Mahar Mini POS", statusBarStyle: "default" },
   alternates: { canonical: "/" },
@@ -99,7 +111,11 @@ addEventListener("appinstalled",function(){window.__wnInstallPrompt=null});`,
         />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* A second copy of the signature in the rendered body, for a copy that keeps the
+            markup but strips the head meta. Hidden and out of the accessibility tree. */}
+        <div hidden aria-hidden="true" data-origin={ORIGIN_SITE}>{ORIGIN_CANARY}</div>
         <InstalledAppMark />
+        <OriginGuard />
         <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
