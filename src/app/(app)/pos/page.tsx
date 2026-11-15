@@ -18,6 +18,7 @@ import {
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 import { printSaleReceipt } from "@/lib/slipPrint";
 import { PageHeader } from "@/components/PageHeader";
+import { BrandChip } from "@/components/BrandChip";
 import { RepairHandBack, type HandBackJob } from "@/components/RepairHandBack";
 import { groupByModel, variantLabel, type ModelGroup } from "@/lib/variants";
 import { isNetworkError, useNetMode } from "@/lib/netMode";
@@ -1019,11 +1020,17 @@ export default function PosPage() {
               </>
             )}
             {paidAmount > 0 && (
-              <Select label={split ? "First wallet" : "Receive into wallet"} value={walletId} onChange={(event) => setWalletId(event.target.value)}>
-                {wallets.filter((wallet) => wallet.currency === cur).map((wallet) => (
-                  <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
-                ))}
-              </Select>
+              <div>
+                <Select label={split ? "First wallet" : "Receive into wallet"} value={walletId} onChange={(event) => setWalletId(event.target.value)}>
+                  {wallets.filter((wallet) => wallet.currency === cur).map((wallet) => (
+                    <option key={wallet.id} value={wallet.id}>{wallet.name} ({fmtMoney(wallet.currentBalance)})</option>
+                  ))}
+                </Select>
+                {/* The chosen wallet, coloured, so the wrong account is spotted before saving. */}
+                {(() => { const w = wallets.find((x) => x.id === walletId); return w ? (
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                ) : null; })()}
+              </div>
             )}
             {paidAmount > 0 && !splitOn && (
               <button type="button" className="text-xs font-medium text-blue-600 hover:underline" onClick={() => {

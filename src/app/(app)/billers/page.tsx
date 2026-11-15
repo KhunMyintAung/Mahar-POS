@@ -13,6 +13,7 @@ import { Button, Card, Empty, Input, Modal, Select, Spinner, Table, cn, useToast
 import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
+import { BrandChip, BillerKindTag } from "@/components/BrandChip";
 import type { CardReportRow, CardTally } from "@/lib/billerCards";
 import { printElement } from "@/lib/printReceipt";
 
@@ -34,11 +35,6 @@ interface Txn {
   biller: { name: string; type: string; deletedAt?: string | null };
 }
 interface Wallet { id: string; name: string; currency: string; currentBalance: string }
-
-const TYPE_LABEL: Record<string, string> = {
-  TOPUP_CARD: "Top-up card",
-  ELOAD: "E-load",
-};
 
 const num = (v: string) => Number(v.replace(/,/g, "")) || 0;
 
@@ -515,8 +511,8 @@ export default function BillersPage() {
         <Table headers={["Biller", "Type", "Deal", "Balance", "Cards left", ""]} rightAlign={[3]} csv="billers" grid>
           {billers.map((b) => (
             <tr key={b.id} className={cn(!b.active && "opacity-60")}>
-              <td className="px-3 py-2 font-medium">{b.name}{!b.active && <span className="ml-1 text-xs text-gray-500">off</span>}</td>
-              <td className="px-3 py-2 text-sm">{TYPE_LABEL[b.type] ?? b.type}</td>
+              <td className="px-3 py-2 font-medium"><span className="flex items-center gap-2"><BrandChip name={b.name} size="sm" />{b.name}{!b.active && <span className="ml-1 text-xs text-gray-500">off</span>}</span></td>
+              <td className="px-3 py-2 text-sm"><BillerKindTag type={b.type} /></td>
               <td className="px-3 py-2 text-xs text-gray-500">{dealLabel(b).join(" · ") || "—"}</td>
               <td className={cn("px-3 py-2 text-right font-semibold tabular-nums", Number(b.currentBalance) < 0 && "text-red-600")}>{fmtMoney(b.currentBalance)}</td>
               <td className="px-3 py-2 text-xs tabular-nums">{b.type === "TOPUP_CARD" && onHand[b.id] && Object.keys(onHand[b.id]).length > 0 ? cardsLabel(onHand[b.id]) : "—"}</td>
@@ -535,10 +531,14 @@ export default function BillersPage() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {billers.map((b) => (
             <Card key={b.id} className={cn("space-y-1.5 !p-2.5", soldFrom.has(b.id) && "!border-emerald-200/80 !bg-emerald-50/50 dark:!border-emerald-900/50 dark:!bg-emerald-950/20")}>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
+                <BrandChip name={b.name} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
-                  <div className="truncate text-[11px] text-gray-500">{[TYPE_LABEL[b.type] ?? b.type, ...dealLabel(b)].join(" · ")}{!b.active && " · off"}</div>
+                  <div className="flex items-center gap-1">
+                    <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
+                    <BillerKindTag type={b.type} className="shrink-0" />
+                  </div>
+                  <div className="truncate text-[11px] text-gray-500">{dealLabel(b).join(" · ") || "—"}{!b.active && " · off"}</div>
                 </div>
                 {editMode && hasPerm("biller.manage") && (
                   <button

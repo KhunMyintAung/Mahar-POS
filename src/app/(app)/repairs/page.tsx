@@ -21,6 +21,7 @@ import { PRIORITIES, REPAIR_STATUSES, REPAIR_STATUS_LABELS, nextStatuses, type R
 import { PageHeader } from "@/components/PageHeader";
 import { RepairTabs } from "@/components/RepairTabs";
 import { RepairSyncBar } from "@/components/NetModeBar";
+import { BrandChip } from "@/components/BrandChip";
 import Link from "next/link";
 import { isNetworkError } from "@/lib/netMode";
 import {
@@ -889,12 +890,17 @@ export default function RepairsPage() {
               </Card>
               {recordOnly && <RecordOnlyNote />}
               {toCollect > 0 && !recordOnly && (
-                <Select label="Paid into" value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {wallets.filter((w) => w.currency === cur).map((w) => (
-                    <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
-                  ))}
-                </Select>
+                <div>
+                  <Select label="Paid into" value={pay.walletId} onChange={(e) => setPay({ ...pay, walletId: e.target.value })}>
+                    <option value="">Choose…</option>
+                    {wallets.filter((w) => w.currency === cur).map((w) => (
+                      <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
+                    ))}
+                  </Select>
+                  {(() => { const w = wallets.find((x) => x.id === pay.walletId); return w ? (
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                  ) : null; })()}
+                </div>
               )}
               <div className="flex justify-end gap-2 pt-1">
                 <Button variant="secondary" onClick={() => setPaying(null)}>Cancel</Button>
@@ -1003,12 +1009,17 @@ export default function RepairsPage() {
                 </Card>
                 {recordOnly && <RecordOnlyNote />}
                 {balance > 0 && !recordOnly && (
-                  <Select label="Balance paid into" value={move.walletId} onChange={(e) => setMove({ ...move, walletId: e.target.value })}>
-                    <option value="">Choose…</option>
-                    {wallets.filter((w) => w.currency === cur).map((w) => (
-                      <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
-                    ))}
-                  </Select>
+                  <div>
+                    <Select label="Balance paid into" value={move.walletId} onChange={(e) => setMove({ ...move, walletId: e.target.value })}>
+                      <option value="">Choose…</option>
+                      {wallets.filter((w) => w.currency === cur).map((w) => (
+                        <option key={w.id} value={w.id}>{w.name} ({fmtMoney(w.currentBalance)})</option>
+                      ))}
+                    </Select>
+                    {(() => { const w = wallets.find((x) => x.id === move.walletId); return w ? (
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                    ) : null; })()}
+                  </div>
                 )}
               </>
             )}
