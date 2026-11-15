@@ -1,5 +1,6 @@
 import { Banknote } from "lucide-react";
 import { brandFor } from "@/lib/providerBrand";
+import { providerLogoFor } from "@/lib/providerLogos";
 import { cn } from "@/components/ui";
 
 /** True when dark text reads better on this hex background. */
@@ -19,11 +20,14 @@ export function darkTextOn(hex: string): boolean {
  *  Decorative, so it is hidden from screen readers. */
 export function BrandChip({ name, logo, color, size = "md", className }: { name: string; logo?: string | null; color?: string | null; size?: "sm" | "md"; className?: string }) {
   const box = size === "sm" ? "h-5 w-5" : "h-7 w-7";
-  if (logo) {
+  // The shop's own logo wins; then a chosen colour (a deliberate choice) over the provider
+  // default logo; then that default; then the name-matched chip.
+  const img = logo || (!color ? providerLogoFor(name) : null);
+  if (img) {
     return (
       <span aria-hidden="true" className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white", box, className)}>
         {/* eslint-disable-next-line @next/next/no-img-element -- a data URL; there is nothing to optimise */}
-        <img src={logo} alt="" className="h-full w-full object-contain" />
+        <img src={img} alt="" className="h-full w-full object-contain" />
       </span>
     );
   }
