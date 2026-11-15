@@ -12,11 +12,12 @@ import { useNewModal } from "@/lib/useNewModal";
 import { WalletDay } from "@/components/WalletDay";
 import { PageHeader } from "@/components/PageHeader";
 import { BrandChip } from "@/components/BrandChip";
+import { LogoPicker, ColorPicker } from "@/components/LogoPicker";
 
 interface Wallet {
   id: string; name: string; code: string; type: string; currency: string;
   currentBalance: string; minBalance: string; active: boolean; branchId?: string;
-  description?: string | null;
+  description?: string | null; logoUrl?: string | null; color?: string | null;
 }
 
 /** Minor units back into something editable in a text field. */
@@ -86,7 +87,7 @@ function RowMenu({ items }: { items: { label: string; icon: ReactNode; danger?: 
 
 const emptyWalletForm = (branchId: string, currency = "MMK") => ({
   name: "", code: "", type: "CASH", currency,
-  branchId, openingBalance: "0", minBalance: "0",
+  branchId, openingBalance: "0", minBalance: "0", logoUrl: null as string | null, color: null as string | null,
 });
 
 function walletCode(name: string) {
@@ -116,7 +117,7 @@ export default function WalletsPage() {
   const [transfer, setTransfer] = useState({ sourceWalletId: "", destWalletId: "", amount: "", rate: "", fee: "0", notes: "" });
   const [adjust, setAdjust] = useState({ direction: "DEBIT", amount: "", reason: "" });
   const [reconcile, setReconcile] = useState({ countedBalance: "", notes: "" });
-  const [edit, setEdit] = useState({ name: "", code: "", type: "CASH", minBalance: "0", description: "", active: true });
+  const [edit, setEdit] = useState({ name: "", code: "", type: "CASH", minBalance: "0", description: "", active: true, logoUrl: null as string | null, color: null as string | null });
 
   const load = useCallback(() => {
     api<Wallet[]>("/api/v1/wallets").then(setWallets).catch((e) => push(e.message, "error"));
@@ -169,7 +170,7 @@ export default function WalletsPage() {
             <tr key={w.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50" onClick={() => router.push(`/wallets/${w.id}`)}>
               <td className="px-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <BrandChip name={w.name} />
+                  <BrandChip name={w.name} logo={w.logoUrl} color={w.color} />
                   <div className="min-w-0">
                     <div className="font-medium text-blue-600">{w.name}</div>
                     <div className="text-xs text-gray-500">{[w.code, TYPE_LABELS[w.type] ?? w.type, w.currency].join(" · ")}</div>
@@ -184,7 +185,7 @@ export default function WalletsPage() {
                   ...(hasPerm("wallet.adjust") ? [{ label: "Adjust", icon: <SlidersHorizontal size={14} />, onClick: () => { setAdjust({ direction: "DEBIT", amount: "", reason: "" }); setShowAdjust(w); } }] : []),
                   ...(hasPerm("wallet.reconcile") ? [{ label: "Reconcile", icon: <Scale size={14} />, onClick: () => { setReconcile({ countedBalance: "", notes: "" }); setShowReconcile(w); } }] : []),
                   ...(hasPerm("wallet.create") ? [
-                    { label: "Edit", icon: <Pencil size={14} />, onClick: () => { setEdit({ name: w.name, code: w.code, type: w.type, minBalance: fmtInput(w.minBalance), description: w.description ?? "", active: w.active }); setShowEdit(w); } },
+                    { label: "Edit", icon: <Pencil size={14} />, onClick: () => { setEdit({ name: w.name, code: w.code, type: w.type, minBalance: fmtInput(w.minBalance), description: w.description ?? "", active: w.active, logoUrl: w.logoUrl ?? null, color: w.color ?? null }); setShowEdit(w); } },
                     { label: "Delete", icon: <Trash2 size={14} />, danger: true, onClick: () => setShowDelete(w) },
                   ] : []),
                 ]} />
@@ -221,6 +222,8 @@ export default function WalletsPage() {
               {["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"].map((t) => <option key={t} value={t}>{TYPE_LABELS[t] ?? t}</option>)}
             </Select>
           </div>
+          <LogoPicker name={form.name} value={form.logoUrl} onChange={(logoUrl) => setForm({ ...form, logoUrl })} />
+          {!form.logoUrl && <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />}
           <div className="grid gap-3 sm:grid-cols-2">
             <Select label="Currency" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
               <option value="MMK">MMK</option><option value="USD">USD</option><option value="THB">THB</option>
@@ -333,6 +336,8 @@ export default function WalletsPage() {
       <Modal open={!!showEdit} onClose={() => setShowEdit(null)} title={`Edit ${showEdit?.name}`}>
         <div className="space-y-3">
           <Input label="Name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
+          <LogoPicker name={edit.name} value={edit.logoUrl} onChange={(logoUrl) => setEdit({ ...edit, logoUrl })} />
+          {!edit.logoUrl && <ColorPicker value={edit.color} onChange={(color) => setEdit({ ...edit, color })} />}
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="Code" value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value.toUpperCase() })} />
             <Select label="Type" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value })}>

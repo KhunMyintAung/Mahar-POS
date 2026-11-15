@@ -14,12 +14,13 @@ import { useAuth, useCurrency } from "@/components/AppShell";
 import { useNewModal } from "@/lib/useNewModal";
 import { PageHeader } from "@/components/PageHeader";
 import { BrandChip, BillerKindTag } from "@/components/BrandChip";
+import { LogoPicker, ColorPicker } from "@/components/LogoPicker";
 import type { CardReportRow, CardTally } from "@/lib/billerCards";
 import { printElement } from "@/lib/printReceipt";
 
 interface Biller {
   id: string; name: string; type: string; currency: string;
-  currentBalance: string; active: boolean; notes?: string;
+  currentBalance: string; active: boolean; notes?: string; logoUrl?: string | null; color?: string | null;
   sellPercent: number; refillPercent: number; refillMode: RefillMode;
 }
 /** On this device, float purchases go into expense without asking. */
@@ -94,7 +95,7 @@ export default function BillersPage() {
   const [voiding, setVoiding] = useState<Txn | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [rating, setRating] = useState<Biller | null>(null);
-  const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
+  const [rates, setRates] = useState({ name: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode, logoUrl: null as string | null, color: null as string | null });
   const [removing, setRemoving] = useState<Biller | null>(null);
   // After "Bought float": ask whether the cash paid goes into expense. "always" skips the question.
   const [floatAsk, setFloatAsk] = useState<{ id: string; txnNo: string; biller: string; cash: string } | null>(null);
@@ -112,7 +113,7 @@ export default function BillersPage() {
   const [trade, setTrade] = useState({ faceAmount: "", leftAmount: "", cashAmount: "", cashTouched: false, walletId: "", customerPhone: "", note: "", date: "", cards: {} as Record<string, number> });
   // A day's trades added up and entered afterwards: the owner or an admin picks the day.
   const [askDate, setAskDate] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode });
+  const [form, setForm] = useState({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" as RefillMode, logoUrl: null as string | null, color: null as string | null });
   const { push } = useToast();
   const { hasPerm, me } = useAuth();
   // Top-up card amounts the shop sells: tapped to make up the sold amount. Editable by
@@ -209,11 +210,13 @@ export default function BillersPage() {
           sellPercent: num(form.sellPercent),
           refillPercent: num(form.refillPercent),
           refillMode: form.refillMode,
+          logoUrl: form.logoUrl ?? undefined,
+          color: form.color ?? undefined,
         },
       });
       push("Biller added");
       setShowNew(false);
-      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT" });
+      setForm({ name: "", type: "TOPUP_CARD", openingBalance: "", notes: "", sellPercent: "", refillPercent: "", refillMode: "DISCOUNT", logoUrl: null, color: null });
       load();
     } catch (e) {
       push(e instanceof Error ? e.message : "Failed", "error");
@@ -408,7 +411,7 @@ export default function BillersPage() {
     try {
       await api(`/api/v1/billers/${rating.id}`, {
         method: "PATCH",
-        body: { name: rates.name.trim(), sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent), refillMode: rates.refillMode },
+        body: { name: rates.name.trim(), sellPercent: num(rates.sellPercent), refillPercent: num(rates.refillPercent), refillMode: rates.refillMode, logoUrl: rates.logoUrl ?? null, color: rates.color ?? null },
       });
       push("Saved");
       setRating(null);
@@ -511,7 +514,7 @@ export default function BillersPage() {
         <Table headers={["Biller", "Type", "Deal", "Balance", "Cards left", ""]} rightAlign={[3]} csv="billers" grid>
           {billers.map((b) => (
             <tr key={b.id} className={cn(!b.active && "opacity-60")}>
-              <td className="px-3 py-2 font-medium"><span className="flex items-center gap-2"><BrandChip name={b.name} size="sm" />{b.name}{!b.active && <span className="ml-1 text-xs text-gray-500">off</span>}</span></td>
+              <td className="px-3 py-2 font-medium"><span className="flex items-center gap-2"><BrandChip name={b.name} logo={b.logoUrl} color={b.color} size="sm" />{b.name}{!b.active && <span className="ml-1 text-xs text-gray-500">off</span>}</span></td>
               <td className="px-3 py-2 text-sm"><BillerKindTag type={b.type} /></td>
               <td className="px-3 py-2 text-xs text-gray-500">{dealLabel(b).join(" · ") || "—"}</td>
               <td className={cn("px-3 py-2 text-right font-semibold tabular-nums", Number(b.currentBalance) < 0 && "text-red-600")}>{fmtMoney(b.currentBalance)}</td>
@@ -532,7 +535,7 @@ export default function BillersPage() {
           {billers.map((b) => (
             <Card key={b.id} className={cn("space-y-1.5 !p-2.5", soldFrom.has(b.id) && "!border-emerald-200/80 !bg-emerald-50/50 dark:!border-emerald-900/50 dark:!bg-emerald-950/20")}>
               <div className="flex items-center gap-1.5">
-                <BrandChip name={b.name} />
+                <BrandChip name={b.name} logo={b.logoUrl} color={b.color} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
                     <div className="truncate text-sm font-medium leading-tight" title={b.name}>{b.name}</div>
@@ -546,7 +549,7 @@ export default function BillersPage() {
                     aria-label={`Edit ${b.name}`}
                     title="Edit"
                     className="shrink-0 rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800"
-                    onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "", refillMode: b.refillMode === "BONUS" ? "BONUS" : "DISCOUNT" }); }}
+                    onClick={() => { setRating(b); setRates({ name: b.name, sellPercent: b.sellPercent ? String(b.sellPercent) : "", refillPercent: b.refillPercent ? String(b.refillPercent) : "", refillMode: b.refillMode === "BONUS" ? "BONUS" : "DISCOUNT", logoUrl: b.logoUrl ?? null, color: b.color ?? null }); }}
                   >
                     <Pencil size={13} />
                   </button>
@@ -758,6 +761,8 @@ export default function BillersPage() {
             <option value="TOPUP_CARD">Top-up card</option>
             <option value="ELOAD">E-load</option>
           </Select>
+          <LogoPicker name={form.name} value={form.logoUrl} onChange={(logoUrl) => setForm({ ...form, logoUrl })} />
+          {!form.logoUrl && <ColorPicker value={form.color} onChange={(color) => setForm({ ...form, color })} />}
           <Input
             label="Float held now"
             value={form.openingBalance}
@@ -977,6 +982,8 @@ export default function BillersPage() {
       <Modal open={Boolean(rating)} onClose={() => setRating(null)} title="Edit biller">
         <div className="space-y-3">
           <Input label="Name" value={rates.name} onChange={(e) => setRates({ ...rates, name: e.target.value })} />
+          <LogoPicker name={rates.name} value={rates.logoUrl} onChange={(logoUrl) => setRates({ ...rates, logoUrl })} />
+          {!rates.logoUrl && <ColorPicker value={rates.color} onChange={(color) => setRates({ ...rates, color })} />}
           <DealFields value={rates} onChange={(v) => setRates({ ...rates, ...v })} />
           <div className="flex items-center justify-end gap-2">
             <button

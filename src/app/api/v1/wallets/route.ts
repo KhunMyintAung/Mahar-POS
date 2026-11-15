@@ -35,6 +35,8 @@ const createSchema = z.object({
   openingBalance: z.string().default("0"),
   minBalance: z.string().default("0"),
   description: z.string().optional(),
+  logoUrl: z.string().max(300000).regex(/^data:image\//).nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 });
 
 export const POST = withAuth("wallet.create", async ({ req, user }) => {
@@ -61,6 +63,8 @@ export const POST = withAuth("wallet.create", async ({ req, user }) => {
         currentBalance: opening,
         minBalance: toMinor(body.minBalance),
         description: body.description,
+        logoUrl: body.logoUrl ?? null,
+        color: body.color ?? null,
       },
     });
     if (opening !== 0n) {

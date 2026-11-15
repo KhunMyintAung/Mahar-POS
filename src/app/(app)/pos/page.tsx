@@ -49,7 +49,7 @@ const conditionText = (it: { condition?: string | null; batteryHealth?: number |
  *  an item under Accessories › Case has "Case" as its category and Accessories as the parent. */
 const isAccessory = (item: Item) => /acc?ess?or/i.test(`${item.category?.parentName ?? ""} ${item.category?.name ?? ""}`);
 
-interface Wallet { id: string; name: string; currency: string; currentBalance: string }
+interface Wallet { id: string; name: string; currency: string; currentBalance: string; logoUrl?: string | null; color?: string | null }
 interface Contact { id: string; name: string; type: string }
 /** warranty is set only for phones marked new or second-hand; null means none was offered. */
 /** imeis: for an IMEI-tracked item, the phones being sold; quantity is their count. */
@@ -1028,7 +1028,7 @@ export default function PosPage() {
                 </Select>
                 {/* The chosen wallet, coloured, so the wrong account is spotted before saving. */}
                 {(() => { const w = wallets.find((x) => x.id === walletId); return w ? (
-                  <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                  <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} logo={w.logoUrl} color={w.color} size="sm" /><span className="font-medium">{w.name}</span></div>
                 ) : null; })()}
               </div>
             )}

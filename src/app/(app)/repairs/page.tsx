@@ -84,7 +84,7 @@ interface Job {
   offline?: "pending" | "failed";
   offlineError?: string;
 }
-interface Wallet { id: string; name: string; currency: string; currentBalance: string }
+interface Wallet { id: string; name: string; currency: string; currentBalance: string; logoUrl?: string | null; color?: string | null }
 interface Summary { total: number; inWorkflow: number; completed: number; cannotRepair?: number; delivered: number; cancelled?: number; unpaid?: number; month: string }
 interface Suggestions { brands: string[]; pairs: { brand: string; model: string }[] }
 
@@ -898,7 +898,7 @@ export default function RepairsPage() {
                     ))}
                   </Select>
                   {(() => { const w = wallets.find((x) => x.id === pay.walletId); return w ? (
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} logo={w.logoUrl} color={w.color} size="sm" /><span className="font-medium">{w.name}</span></div>
                   ) : null; })()}
                 </div>
               )}
@@ -1017,7 +1017,7 @@ export default function RepairsPage() {
                       ))}
                     </Select>
                     {(() => { const w = wallets.find((x) => x.id === move.walletId); return w ? (
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} size="sm" /><span className="font-medium">{w.name}</span></div>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300"><BrandChip name={w.name} logo={w.logoUrl} color={w.color} size="sm" /><span className="font-medium">{w.name}</span></div>
                     ) : null; })()}
                   </div>
                 )}

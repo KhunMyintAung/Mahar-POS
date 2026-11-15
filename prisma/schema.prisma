@@ -395,6 +395,10 @@ model Biller {
    * TOPUP_CARD sells pin-code cards; ELOAD sends credit straight to a number.
    */
   type           String    @default("TOPUP_CARD")
+  /// A logo the shop uploaded, as a data URL; the colour chip shows when empty.
+  logoUrl        String?
+  /// A colour the shop chose for the chip, overriding the name-matched one (hex).
+  color          String?
   currency       String    @default("MMK")
   openingBalance BigInt    @default(0)
   currentBalance BigInt    @default(0)
@@ -519,6 +523,10 @@ model Wallet {
   name           String
   code           String
   type           String    @default("CASH") // CASH BANK MOBILE AGENT CUSTOMER EXPENSE CLEARING CUSTOM
+  /// A logo the shop uploaded, as a data URL; the colour chip shows when empty.
+  logoUrl        String?
+  /// A colour the shop chose for the chip, overriding the name-matched one (hex).
+  color          String?
   currency       String    @default("MMK")
   openingBalance BigInt    @default(0)
   currentBalance BigInt    @default(0)

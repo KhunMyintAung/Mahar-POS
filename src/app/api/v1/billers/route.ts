@@ -31,6 +31,8 @@ const createSchema = z.object({
   sellPercent: z.number().min(-100).max(100).default(0),
   refillPercent: z.number().min(-100).max(100).default(0),
   refillMode: z.enum(REFILL_MODES).default("DISCOUNT"),
+  logoUrl: z.string().max(300000).regex(/^data:image\//).nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
 });
 
 export const POST = withAuth("biller.manage", async ({ req, user }) => {
@@ -63,6 +65,8 @@ export const POST = withAuth("biller.manage", async ({ req, user }) => {
       sellPercent: body.sellPercent,
       refillPercent: body.refillPercent,
       refillMode: body.refillMode,
+      logoUrl: body.logoUrl ?? null,
+      color: body.color ?? null,
     })
   );
 

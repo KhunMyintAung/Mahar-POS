@@ -20,6 +20,8 @@ const updateSchema = z.object({
   type: z.enum(["CASH", "BANK", "MOBILE", "AGENT", "CUSTOMER", "EXPENSE", "CLEARING", "CUSTOM"]).optional(),
   minBalance: z.string().optional(),
   description: z.string().nullable().optional(),
+  logoUrl: z.string().max(300000).regex(/^data:image\//).nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   active: z.boolean().optional(),
 });
 
@@ -52,6 +54,8 @@ export const PATCH = withAuth("wallet.create", async ({ req, user, params }) => 
         ...(body.type !== undefined ? { type: body.type } : {}),
         ...(body.minBalance !== undefined ? { minBalance: toMinor(body.minBalance) } : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
+        ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
+        ...(body.color !== undefined ? { color: body.color } : {}),
         ...(body.active !== undefined ? { active: body.active } : {}),
       },
     });

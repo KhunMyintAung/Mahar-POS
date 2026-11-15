@@ -9,6 +9,8 @@ const patchSchema = z.object({
   type: z.enum(BILLER_TYPES).optional(),
   active: z.boolean().optional(),
   notes: z.string().trim().max(300).optional(),
+  logoUrl: z.string().max(300000).regex(/^data:image\//).nullable().optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   sellPercent: z.number().min(-100).max(100).optional(),
   refillPercent: z.number().min(-100).max(100).optional(),
   refillMode: z.enum(REFILL_MODES).optional(),
@@ -42,6 +44,8 @@ export const PATCH = withAuth("biller.manage", async ({ req, user, params }) => 
         sellPercent: body.sellPercent ?? biller.sellPercent,
         refillPercent: body.refillPercent ?? biller.refillPercent,
         refillMode: body.refillMode ?? biller.refillMode,
+        logoUrl: body.logoUrl !== undefined ? body.logoUrl : biller.logoUrl,
+        color: body.color !== undefined ? body.color : biller.color,
       },
     });
     await audit(tx, {

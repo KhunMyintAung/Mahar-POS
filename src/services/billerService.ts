@@ -64,6 +64,8 @@ export async function createBiller(
     sellPercent?: number;
     refillPercent?: number;
     refillMode?: RefillMode;
+    logoUrl?: string | null;
+    color?: string | null;
   }
 ) {
   const name = opts.name.trim();
@@ -87,6 +89,8 @@ export async function createBiller(
       sellPercent: opts.sellPercent ?? 0,
       refillPercent: opts.refillPercent ?? 0,
       refillMode: opts.refillMode ?? "DISCOUNT",
+      logoUrl: opts.logoUrl ?? null,
+      color: opts.color ?? null,
     },
   });
 
