@@ -726,18 +726,29 @@ export default function ItemsPage() {
                 value={form.batteryHealth} onChange={(e) => setForm({ ...form, batteryHealth: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-3">
-            {/* Type the selling price and the profit %, and the cost fills in; or type the cost
-                and the profit % shows. Profit is a share of the selling price. */}
-            <Input label="Selling price" value={form.sellingPrice} placeholder="0" inputMode="decimal"
-              onChange={(e) => { const sellingPrice = e.target.value; setForm((f) => ({ ...f, sellingPrice, ...(f.profitPct !== "" ? { costPrice: costForMargin(sellingPrice, f.profitPct) } : {}) })); }} />
-            <Input label="Profit %" value={form.profitPct} placeholder="0" inputMode="numeric"
-              onChange={(e) => { const profitPct = e.target.value.replace(/[^\d]/g, "").slice(0, 3); setForm((f) => ({ ...f, profitPct, ...(profitPct !== "" ? { costPrice: costForMargin(f.sellingPrice, profitPct) } : {}) })); }} />
-            <Input label="Cost price" value={form.costPrice} placeholder="0" inputMode="decimal"
-              onChange={(e) => { const costPrice = e.target.value; setForm((f) => ({ ...f, costPrice, profitPct: marginPctOf(costPrice, f.sellingPrice) })); }} />
-          </div>
-          {form.trackStock && (
-            <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+          {form.categoryId && isCoverCategory(catLabel(form.categoryId)) ? (
+            // A cover's cost is often not known: type the selling price and the profit % and
+            // the cost fills in (profit is a share of the selling price). Typing the cost
+            // directly is fine too — then the profit % just shows what it works out to.
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Input label="Selling price" value={form.sellingPrice} placeholder="0" inputMode="decimal"
+                  onChange={(e) => { const sellingPrice = e.target.value; setForm((f) => ({ ...f, sellingPrice, ...(f.profitPct !== "" ? { costPrice: costForMargin(sellingPrice, f.profitPct) } : {}) })); }} />
+                <Input label="Profit %" value={form.profitPct} placeholder="0" inputMode="numeric"
+                  onChange={(e) => { const profitPct = e.target.value.replace(/[^\d]/g, "").slice(0, 3); setForm((f) => ({ ...f, profitPct, ...(profitPct !== "" ? { costPrice: costForMargin(f.sellingPrice, profitPct) } : {}) })); }} />
+                <Input label="Cost price" value={form.costPrice} placeholder="0" inputMode="decimal"
+                  onChange={(e) => { const costPrice = e.target.value; setForm((f) => ({ ...f, costPrice, profitPct: marginPctOf(costPrice, f.sellingPrice) })); }} />
+              </div>
+              {form.trackStock && (
+                <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+              )}
+            </>
+          ) : (
+            <div className={cn("grid gap-3", form.trackStock ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+              <Input label="Cost price" value={form.costPrice} placeholder="0" onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
+              <Input label="Selling price" value={form.sellingPrice} placeholder="0" onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
+              {form.trackStock && <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />}
+            </div>
           )}
           {/* Best before: a mini mart's food, drinks and medicine. */}
           {(!phoneShop || form.expiresAt) && (
