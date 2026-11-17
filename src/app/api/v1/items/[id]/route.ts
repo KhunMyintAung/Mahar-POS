@@ -41,6 +41,7 @@ const schema = z.object({
   expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).nullable().optional(),
   /** A second-hand phone: its condition (empty clears it), and battery health in %. */
   condition: z.string().trim().max(80).transform((v) => (v === "" ? null : v)).nullable().optional(),
+  fitsModel: z.string().trim().max(80).transform((v) => (v === "" ? null : v)).nullable().optional(),
   batteryHealth: z.number().int().min(0).max(100).nullable().optional(),
 });
 

@@ -27,6 +27,7 @@ export const GET = withAuth("item.view", async ({ req, user }) => {
               { name: { contains: f, mode: "insensitive" as const } },
               { sku: { contains: f, mode: "insensitive" as const } },
               { barcode: { contains: f, mode: "insensitive" as const } },
+              { fitsModel: { contains: f, mode: "insensitive" as const } },
             ]),
           })),
         }
@@ -84,6 +85,7 @@ const schema = z.object({
   expiresAt: z.string().regex(EXPIRY_PATTERN, EXPIRY_FORMAT_ERROR).optional(),
   /** A second-hand phone: its condition, and battery health in %. */
   condition: z.string().trim().max(80).optional(),
+  fitsModel: z.string().trim().max(80).optional(),
   batteryHealth: z.number().int().min(0).max(100).nullable().optional(),
 });
 
@@ -154,6 +156,7 @@ export const POST = withAuth("item.manage", async ({ req, user }) => {
         trackStock: body.trackStock,
         expiresAt,
         condition: body.condition || null,
+        fitsModel: body.fitsModel || null,
         batteryHealth: body.batteryHealth ?? null,
       },
     });

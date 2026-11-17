@@ -482,6 +482,7 @@ const MM: Record<string, string> = {
   "Received": "လက်ခံငွေ",
   "Remove": "ဖယ်ရှားမည်",
   "Chip colour": "Chip အရောင်",
+  "Fits phone": "ဘယ်ဖုန်းအတွက်",
   "Logo": "Logo",
   "Choose logo": "Logo ရွေးရန်",
   "Auto": "အော်တို",

@@ -864,6 +864,8 @@ model Item {
   expiresAt    DateTime?     @db.Date
   /// A second-hand phone: how it looks and works ("Like new", "Small scratches"…).
   condition     String?
+  /// For a cover/case accessory: the phone it fits (iPhone 15). Free text.
+  fitsModel     String?
   /// A second-hand phone's battery health, 0–100 (%).
   batteryHealth Int?
   createdAt    DateTime      @default(now())

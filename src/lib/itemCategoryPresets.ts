@@ -90,3 +90,10 @@ export function isPhoneCategory(name: string | null | undefined): boolean {
   if (/(case|cover|glass|charger|cable|part|accessor|battery|earphone|adapter)/.test(n)) return false;
   return /\bphone\b|ဖုန်း/.test(n);
 }
+
+/** A phone cover / case category: these are made for one phone, so the item records which
+ *  phone it fits (iPhone 15). */
+export function isCoverCategory(name: string | null | undefined): boolean {
+  const n = (name ?? "").toLowerCase();
+  return /case|cover|ခွံ|ကာဗာ/.test(n);
+}

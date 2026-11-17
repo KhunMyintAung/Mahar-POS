@@ -460,6 +460,7 @@ export const TH: Record<string, string> = {
   "Received": "รับแล้ว",
   "Remove": "นำออก",
   "Chip colour": "สีชิป",
+  "Fits phone": "สำหรับรุ่น",
   "Logo": "โลโก้",
   "Choose logo": "เลือกโลโก้",
   "Auto": "อัตโนมัติ",

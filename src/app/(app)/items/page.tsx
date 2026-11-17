@@ -8,7 +8,7 @@ import { api } from "@/lib/client";
 import { getNetMode, isNetworkError } from "@/lib/netMode";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
-import { PHONE_CONDITIONS, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
+import { PHONE_CONDITIONS, isCoverCategory, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
 import { CATEGORY_SEP } from "@/lib/productCsv";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
@@ -35,6 +35,8 @@ interface Item {
   stockLevels: { branchId: string; quantity: number }[];
   /** Variants: the model this item belongs to, and what sets it apart. */
   model?: string | null; variant?: string | null;
+  /** A cover/case accessory: the phone it fits. */
+  fitsModel?: string | null;
   /** Best before (a mini mart's food, drinks, medicine), as an ISO date. */
   expiresAt?: string | null;
   /** A second-hand phone: its condition and battery health (%). */
@@ -144,7 +146,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "", sellingPrice: "", minStock: "", trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "", sellingPrice: "", minStock: "", trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "", fitsModel: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -174,7 +176,7 @@ export default function ItemsPage() {
         if (getNetMode() === "online" || !isNetworkError(e) || url === all) throw e;
         const words = q.trim().toLowerCase();
         const kept = await api<{ items: Item[] }>(all);
-        return { items: kept.items.filter((it) => [it.name, it.sku, it.barcode, it.model].some((v) => v?.toLowerCase().includes(words))) };
+        return { items: kept.items.filter((it) => [it.name, it.sku, it.barcode, it.model, it.fitsModel].some((v) => v?.toLowerCase().includes(words))) };
       })
       .then((d) => {
         setItems(d.items);
@@ -208,6 +210,7 @@ export default function ItemsPage() {
             model: form.model, variant: form.model ? form.variant : "",
             expiresAt: form.expiresAt,
             condition: form.condition.trim(),
+            fitsModel: form.fitsModel.trim(),
             batteryHealth: form.batteryHealth === "" ? null : Math.min(100, Math.max(0, parseInt(form.batteryHealth) || 0)),
           },
         });
@@ -226,6 +229,7 @@ export default function ItemsPage() {
             model: form.model || undefined,
             variant: form.model ? form.variant || undefined : undefined,
             condition: form.condition.trim() || undefined,
+            fitsModel: form.fitsModel.trim() || undefined,
             batteryHealth: form.batteryHealth === "" ? undefined : Math.min(100, Math.max(0, parseInt(form.batteryHealth) || 0)),
           },
         });
@@ -483,6 +487,7 @@ export default function ItemsPage() {
                     {it.trackSerial && <span className="shrink-0 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">IMEI</span>}
                   </button>
                   {conditionText(it) && <div className={cn("text-xs font-normal text-gray-500", inGroup && "pl-3")}>{conditionText(it)}</div>}
+                  {it.fitsModel && <div className={cn("text-xs font-normal text-blue-600 dark:text-blue-300", inGroup && "pl-3")}>{`For ${it.fitsModel}`}</div>}
                 </td>
                 {/* Stock sits next to the name: it is what a shop checks first. */}
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
@@ -514,6 +519,7 @@ export default function ItemsPage() {
                         model: it.model ?? "", variant: it.variant ?? "",
                         expiresAt: it.expiresAt?.slice(0, 10) ?? "",
                         condition: it.condition ?? "",
+                        fitsModel: it.fitsModel ?? "",
                         batteryHealth: it.batteryHealth != null ? String(it.batteryHealth) : "",
                       });
                       setEditItem(it);
@@ -689,6 +695,9 @@ export default function ItemsPage() {
               />
             </div>
             </>
+          )}
+          {form.categoryId && isCoverCategory(catLabel(form.categoryId)) && (
+            <Input label="Fits phone" value={form.fitsModel} placeholder="iPhone 15" onChange={(e) => setForm({ ...form, fitsModel: e.target.value })} />
           )}
           <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} onBlur={() => setForm((f) => ({ ...f, name: correctProductName(f.name, phoneShop) }))} />
           {(isSecondHandPhone(catLabel(form.categoryId)) || form.condition || form.batteryHealth) && (
