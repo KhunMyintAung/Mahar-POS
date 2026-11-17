@@ -45,6 +45,18 @@ interface Item {
 /** "Good · Battery 87%" for a second-hand phone; empty when neither is set. */
 const conditionText = (it: { condition?: string | null; batteryHealth?: number | null }) =>
   [it.condition, it.batteryHealth != null ? `Battery ${it.batteryHealth}%` : ""].filter(Boolean).join(" · ");
+
+const money = (v: string | number) => Number(String(v).replace(/,/g, "")) || 0;
+/** Profit as a percent of the selling price (what is left after cost), for the pricing helper. */
+const marginPctOf = (cost: string | number, selling: string | number) => {
+  const s = money(selling), c = money(cost);
+  return s > 0 ? String(Math.round(((s - c) / s) * 100)) : "";
+};
+/** The cost that leaves `pct`% profit on `selling`. */
+const costForMargin = (selling: string | number, pct: string | number) => {
+  const s = money(selling), p = Number(pct) || 0;
+  return s > 0 ? String(Math.round(s * (1 - p / 100))) : "";
+};
 /** A soft tint for a stock count, so empty, running-low and healthy stock read at a glance:
  *  none left is red, at or under the minimum (or 2 when none is set) is amber, a few is
  *  plain, and plenty is green. */
@@ -146,7 +158,7 @@ export default function ItemsPage() {
   };
   const ruleProblem = rule.value.trim() === "" ? "Enter a number" : validRule(parsedRule);
 
-  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "", sellingPrice: "", minStock: "", trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "", fitsModel: "" };
+  const empty = { name: "", sku: "", barcode: "", categoryId: "", unitId: "", costPrice: "", sellingPrice: "", minStock: "", trackSerial: false, trackStock: true, model: "", variant: "", expiresAt: "", condition: "", batteryHealth: "", fitsModel: "", profitPct: "" };
   // The item a new variant is copied from, so it can be put under the same model too.
   const [variantOf, setVariantOf] = useState<Item | null>(null);
   // Models whose variants are shown in the list (closed by default).
@@ -520,6 +532,7 @@ export default function ItemsPage() {
                         expiresAt: it.expiresAt?.slice(0, 10) ?? "",
                         condition: it.condition ?? "",
                         fitsModel: it.fitsModel ?? "",
+                        profitPct: marginPctOf(it.costPrice, it.sellingPrice),
                         batteryHealth: it.batteryHealth != null ? String(it.batteryHealth) : "",
                       });
                       setEditItem(it);
@@ -536,6 +549,7 @@ export default function ItemsPage() {
                         categoryId: it.categoryId ?? "", unitId: it.unitId ?? "",
                         costPrice: moneyBox(it.costPrice),
                         sellingPrice: moneyBox(it.sellingPrice),
+                        profitPct: marginPctOf(it.costPrice, it.sellingPrice),
                         minStock: minStockBox(it.minStock),
                         trackSerial: Boolean(it.trackSerial),
                         trackStock: it.trackStock !== false,
@@ -712,11 +726,19 @@ export default function ItemsPage() {
                 value={form.batteryHealth} onChange={(e) => setForm({ ...form, batteryHealth: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
             </div>
           )}
-          <div className={cn("grid gap-3", form.trackStock ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
-            <Input label="Cost price" value={form.costPrice} placeholder="0" onChange={(e) => setForm({ ...form, costPrice: e.target.value })} inputMode="decimal" />
-            <Input label="Selling price" value={form.sellingPrice} placeholder="0" onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} inputMode="decimal" />
-            {form.trackStock && <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {/* Type the selling price and the profit %, and the cost fills in; or type the cost
+                and the profit % shows. Profit is a share of the selling price. */}
+            <Input label="Selling price" value={form.sellingPrice} placeholder="0" inputMode="decimal"
+              onChange={(e) => { const sellingPrice = e.target.value; setForm((f) => ({ ...f, sellingPrice, ...(f.profitPct !== "" ? { costPrice: costForMargin(sellingPrice, f.profitPct) } : {}) })); }} />
+            <Input label="Profit %" value={form.profitPct} placeholder="0" inputMode="numeric"
+              onChange={(e) => { const profitPct = e.target.value.replace(/[^\d]/g, "").slice(0, 3); setForm((f) => ({ ...f, profitPct, ...(profitPct !== "" ? { costPrice: costForMargin(f.sellingPrice, profitPct) } : {}) })); }} />
+            <Input label="Cost price" value={form.costPrice} placeholder="0" inputMode="decimal"
+              onChange={(e) => { const costPrice = e.target.value; setForm((f) => ({ ...f, costPrice, profitPct: marginPctOf(costPrice, f.sellingPrice) })); }} />
           </div>
+          {form.trackStock && (
+            <Input label="Min stock" type="number" min={0} inputMode="numeric" value={form.minStock} placeholder="0" onChange={(e) => setForm({ ...form, minStock: e.target.value })} />
+          )}
           {/* Best before: a mini mart's food, drinks and medicine. */}
           {(!phoneShop || form.expiresAt) && (
             <Input label="Expiry date (optional)" type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />

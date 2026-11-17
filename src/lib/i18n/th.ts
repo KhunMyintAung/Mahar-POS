@@ -264,6 +264,7 @@ export const TH: Record<string, string> = {
   "New item": "สินค้าใหม่",
   "Categories & Units": "หมวดหมู่และหน่วย",
   "Cost price": "ราคาทุน",
+  "Profit %": "กำไร %",
   "Selling price": "ราคาขาย",
   "Min stock": "จำนวนสต็อกขั้นต่ำ",
   "New purchase": "การซื้อใหม่",

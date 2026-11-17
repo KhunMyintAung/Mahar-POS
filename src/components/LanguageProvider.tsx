@@ -286,6 +286,7 @@ const MM: Record<string, string> = {
   "New item": "ကုန်ပစ္စည်းအသစ်",
   "Categories & Units": "အမျိုးအစားနှင့် ယူနစ်",
   "Cost price": "ဝယ်ဈေး",
+  "Profit %": "အမြတ် %",
   "Selling price": "ရောင်းဈေး",
   "Min stock": "အနည်းဆုံးလက်ကျန်",
   "New purchase": "အဝယ်အသစ်",
