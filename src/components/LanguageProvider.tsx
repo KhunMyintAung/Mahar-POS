@@ -483,6 +483,7 @@ const MM: Record<string, string> = {
   "Remove": "ဖယ်ရှားမည်",
   "Chip colour": "Chip အရောင်",
   "Fits phone": "ဘယ်ဖုန်းအတွက်",
+  "For which phone? (optional) — iPhone 15": "ဘယ်ဖုန်းအတွက်လဲ? (ဖြည့်စရာမလို) — iPhone 15",
   "Logo": "Logo",
   "Choose logo": "Logo ရွေးရန်",
   "Auto": "အော်တို",

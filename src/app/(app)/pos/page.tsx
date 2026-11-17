@@ -27,6 +27,7 @@ import { posDataUrls } from "@/lib/posData";
 import { businessDateOf } from "@/lib/dates";
 import { NetModeBar } from "@/components/NetModeBar";
 import { matchesWords } from "@/lib/searchWords";
+import { isCoverCategory, isPhoneCategory } from "@/lib/itemCategoryPresets";
 
 interface Item {
   id: string; name: string; sku: string; barcode?: string;
@@ -48,6 +49,9 @@ const conditionText = (it: { condition?: string | null; batteryHealth?: number |
 /** FOC is offered only on accessories (Accessories / Accessory, any case), sub-categories too:
  *  an item under Accessories › Case has "Case" as its category and Accessories as the parent. */
 const isAccessory = (item: Item) => /acc?ess?or/i.test(`${item.category?.parentName ?? ""} ${item.category?.name ?? ""}`);
+/** A phone cover / case: sold for a particular phone, so the till asks which (optional, for
+ *  a later "which model sells best" report). Matched by category or the item's own name. */
+const isCover = (item: Item) => isCoverCategory(`${item.category?.parentName ?? ""} ${item.category?.name ?? ""} ${item.name}`);
 
 interface Wallet { id: string; name: string; currency: string; currentBalance: string; logoUrl?: string | null; color?: string | null }
 interface Contact { id: string; name: string; type: string }
@@ -108,6 +112,17 @@ function cashSuggestions(total: number) {
 export default function PosPage() {
   const cur = useCurrency();
   const [items, setItems] = useState<Item[] | null>(null);
+  // Phone models the shop carries, to suggest when a cover is sold "for" a phone.
+  const phoneModels = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items ?? []) {
+      if (isPhoneCategory(`${it.category?.parentName ?? ""} ${it.category?.name ?? ""}`)) {
+        const m = (it.model || it.name).trim();
+        if (m) set.add(m);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [items]);
   // A scanned barcode no item has yet: pick the product it belongs to and it is saved on it.
   const [newBarcode, setNewBarcode] = useState<string | null>(null);
   const [barcodeSearch, setBarcodeSearch] = useState("");
@@ -817,6 +832,8 @@ export default function PosPage() {
             <p className="py-6 text-center text-sm text-gray-400">Tap items to add them</p>
           ) : (
             <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800 lg:max-h-none lg:overflow-visible">
+              {/* Phone-model suggestions for the "which phone" box on a cover line. */}
+              <datalist id="pos-phone-models">{phoneModels.map((m) => <option key={m} value={m} />)}</datalist>
               {cart.map((line) => (
                 <div key={line.item.id} className="space-y-1.5 py-2 text-sm first:pt-0">
                   <div className="flex items-center gap-2">
@@ -909,6 +926,19 @@ export default function PosPage() {
                       </div>
                     );
                   })()}
+                  {/* A cover is for a particular phone; the till asks which (optional), both for
+                      the receipt and a later "which model's covers sell best" report. */}
+                  {isCover(line.item) && (
+                    <input
+                      list="pos-phone-models"
+                      aria-label={`Which phone the ${line.item.name} is for`}
+                      value={line.note ?? ""}
+                      maxLength={200}
+                      placeholder="For which phone? (optional) — iPhone 15"
+                      onChange={(e) => setCart((current) => current.map((entry) => entry.item.id === line.item.id ? { ...entry, note: e.target.value } : entry))}
+                      className="min-h-8 w-full rounded-md border border-blue-200 bg-white px-2 text-xs dark:border-blue-800 dark:bg-gray-800"
+                    />
+                  )}
                   {line.item.trackSerial && (() => {
                     // The phones on the shelf for this model that are not already in the cart.
                     const taken = new Set(cart.flatMap((l) => l.imeis ?? []));

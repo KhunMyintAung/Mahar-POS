@@ -461,6 +461,7 @@ export const TH: Record<string, string> = {
   "Remove": "นำออก",
   "Chip colour": "สีชิป",
   "Fits phone": "สำหรับรุ่น",
+  "For which phone? (optional) — iPhone 15": "สำหรับโทรศัพท์รุ่นไหน? (ไม่บังคับ) — iPhone 15",
   "Logo": "โลโก้",
   "Choose logo": "เลือกโลโก้",
   "Auto": "อัตโนมัติ",
