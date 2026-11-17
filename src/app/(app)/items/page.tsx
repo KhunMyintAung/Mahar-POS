@@ -8,7 +8,7 @@ import { api } from "@/lib/client";
 import { getNetMode, isNetworkError } from "@/lib/netMode";
 import { fmtMoney } from "@/lib/format";
 import { Button, Card, Input, Select, Modal, Spinner, Table, Empty, cn, useToast } from "@/components/ui";
-import { PHONE_CONDITIONS, isCoverCategory, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
+import { PHONE_CONDITIONS, isCoverCategory, isMarginPriced, isPhoneCategory, isSecondHandPhone } from "@/lib/itemCategoryPresets";
 import { CATEGORY_SEP } from "@/lib/productCsv";
 import { Paginated } from "@/components/Pager";
 import { useAuth } from "@/components/AppShell";
@@ -726,8 +726,8 @@ export default function ItemsPage() {
                 value={form.batteryHealth} onChange={(e) => setForm({ ...form, batteryHealth: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
             </div>
           )}
-          {form.categoryId && isCoverCategory(catLabel(form.categoryId)) ? (
-            // A cover's cost is often not known: type the selling price and the profit % and
+          {form.categoryId && isMarginPriced(catLabel(form.categoryId)) ? (
+            // A cover / jelly / glass cost is often not known: type the selling price and the profit % and
             // the cost fills in (profit is a share of the selling price). Typing the cost
             // directly is fine too — then the profit % just shows what it works out to.
             <>

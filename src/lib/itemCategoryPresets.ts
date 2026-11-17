@@ -97,3 +97,11 @@ export function isCoverCategory(name: string | null | undefined): boolean {
   const n = (name ?? "").toLowerCase();
   return /case|cover|ခွံ|ကာဗာ/.test(n);
 }
+
+/** Protective accessories a shop prices by profit rather than a known cost — covers, jelly
+ *  and glass protectors. For these the cost is worked out from the selling price and a
+ *  profit %, so no cost need be typed. */
+export function isMarginPriced(name: string | null | undefined): boolean {
+  const n = (name ?? "").toLowerCase();
+  return /case|cover|jelly|glass|protector|ခွံ|ကာဗာ|မှန်ကပ်|ဂျယ်လီ/.test(n);
+}
