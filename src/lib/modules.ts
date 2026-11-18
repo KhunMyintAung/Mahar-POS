@@ -216,3 +216,18 @@ export function isPhoneShop(access: { category: string; features: FeatureVisibil
   if (access.category === "MOBILE_SHOP" || access.category === "ALL_IN_ONE") return true;
   return access.category === "CUSTOM" && access.features.repair;
 }
+
+/** Features a shop only gets on Pro (freemium). On Free they are hidden; the core — selling,
+ *  stock, purchases, repairs, customers, basic money — stays on. See src/lib/plan.ts. */
+export const PRO_FEATURES: FeatureKey[] = [
+  "reports", "onlineShop", "biller", "staff", "audit", "telegram", "transfers", "withdraw", "credit",
+];
+
+/** Turns the Pro-only features off when the shop is not Pro, leaving its other features as the
+ *  shop set them. */
+export function gateProFeatures(features: FeatureVisibility, pro: boolean): FeatureVisibility {
+  if (pro) return features;
+  const gated = { ...features };
+  for (const key of PRO_FEATURES) gated[key] = false;
+  return gated;
+}

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { withAuth, json, parseBody } from "@/lib/api";
+import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
+import { isPro } from "@/lib/plan";
 
 export const GET = withAuth(null, async ({ user }) => {
   const branches = await prisma.branch.findMany({
@@ -24,6 +25,12 @@ const schema = z.object({
 
 export const POST = withAuth("settings.manage", async ({ req, user }) => {
   const body = await parseBody(req, schema);
+  // Free is one branch; a second needs Pro.
+  const business = await prisma.business.findUnique({ where: { id: user.businessId }, select: { proUntil: true } });
+  if (!isPro(business?.proUntil)) {
+    const branches = await prisma.branch.count({ where: { businessId: user.businessId, active: true } });
+    if (branches >= 1) throw new ApiError(403, "Free has one branch. Upgrade to Pro to add more.");
+  }
   const branch = await prisma.$transaction(async (tx) => {
     const b = await tx.branch.create({
       data: {
