@@ -47,6 +47,9 @@ export default function SettingsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [tab, setTab] = useState("shop");
+  // The Pro upgrade card shows only when the shop arrives from the upgrade link/banner (?upgrade=1),
+  // not on every visit to Settings.
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   // The open tab lives in the URL hash, so a reload or a shared link lands on the same one.
   useEffect(() => {
@@ -91,10 +94,12 @@ export default function SettingsPage() {
   }, [push]);
   useEffect(load, [load]);
 
-  // The upgrade banner links here with ?upgrade=1; bring the Pro card into view.
+  // The upgrade banner links here with ?upgrade=1; show the Pro card and bring it into view.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (new URLSearchParams(window.location.search).get("upgrade") !== "1") return;
+    setShowUpgrade(true);
+    setTab("shop");
     const t = setTimeout(() => document.getElementById("upgrade")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
     return () => clearTimeout(t);
   }, []);
@@ -186,7 +191,7 @@ export default function SettingsPage() {
       </div>
 
       {current === "shop" && <>
-      <ProUpgradeCard />
+      {showUpgrade && <ProUpgradeCard />}
       <Card>
         <CardTitle icon={Store} title="Business profile" className="mb-3" />
         <div className="space-y-3">
