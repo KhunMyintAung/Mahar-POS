@@ -19,6 +19,7 @@ export function AdminShops() {
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [confirm, setConfirm] = useState<Shop | null>(null);
+  const [extendConfirm, setExtendConfirm] = useState<{ shop: Shop; months: number } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,11 +59,22 @@ export function AdminShops() {
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body.error || "Failed");
       setShops(await load());
+      setExtendConfirm(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
       setBusy(false);
     }
+  }
+
+  // The date Pro would run to after adding these months — same rule as the server: build on the
+  // current Pro end when it is still in the future, otherwise from today, so paying early adds on.
+  function resultingProUntil(shop: Shop, months: number): Date {
+    const now = new Date();
+    const base = shop.proUntil && new Date(shop.proUntil) > now ? new Date(shop.proUntil) : now;
+    const d = new Date(base);
+    d.setMonth(d.getMonth() + months);
+    return d;
   }
 
   const needle = q.trim().toLowerCase();
@@ -112,8 +124,8 @@ export function AdminShops() {
                 <td className="px-3 py-2 text-xs">{s.lastLoginAt ? fmtDateTime(s.lastLoginAt) : "—"}</td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-1">
-                  <Button size="sm" variant="secondary" disabled={busy} title="Add 1 month of Pro" onClick={() => extend(s, 1)}>+1 mo</Button>
-                  <Button size="sm" variant="secondary" disabled={busy} title="Add 12 months of Pro" onClick={() => extend(s, 12)}>+1 yr</Button>
+                  <Button size="sm" variant="secondary" disabled={busy} title="Add 1 month of Pro" onClick={() => setExtendConfirm({ shop: s, months: 1 })}>+1 mo</Button>
+                  <Button size="sm" variant="secondary" disabled={busy} title="Add 12 months of Pro" onClick={() => setExtendConfirm({ shop: s, months: 12 })}>+1 yr</Button>
                   <Button size="sm" variant={s.locked ? "secondary" : "danger"} disabled={busy} onClick={() => setConfirm(s)}>
                     {s.locked ? <><LockOpen size={14} className="mr-1 inline" />Unlock</> : <><Lock size={14} className="mr-1 inline" />Lock</>}
                   </Button>
@@ -135,6 +147,18 @@ export function AdminShops() {
           : `Lock "${confirm.name}"? Its ${confirm.users} account(s) are switched off and signed out. No data is deleted.`) : ""}
         confirmLabel={confirm?.locked ? "Unlock" : "Lock"}
         danger={!confirm?.locked}
+      />
+      <ConfirmDialog
+        open={Boolean(extendConfirm)}
+        onClose={() => setExtendConfirm(null)}
+        onConfirm={() => extendConfirm && extend(extendConfirm.shop, extendConfirm.months)}
+        title="Extend Pro"
+        message={extendConfirm
+          ? `Add ${extendConfirm.months === 12 ? "1 year" : `${extendConfirm.months} month`} of Pro to "${extendConfirm.shop.name}"? `
+            + `It is now ${extendConfirm.shop.plan === "PRO" ? `Pro with ${extendConfirm.shop.proDaysLeft} day(s) left` : "Free"}. `
+            + `Pro will run to ${fmtDateTime(resultingProUntil(extendConfirm.shop, extendConfirm.months).toISOString())}. Do this only after the shop has paid.`
+          : ""}
+        confirmLabel={extendConfirm?.months === 12 ? "Add 1 year" : "Add 1 month"}
       />
     </section>
   );
