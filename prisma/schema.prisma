@@ -70,10 +70,14 @@ model ProPayment {
   method      String   @default("KBZPAY")
   /// The payment-slip screenshot, a resized data URL (same as the shop logo).
   slipUrl     String
-  /// PENDING until the operator reviews it, then APPROVED or REJECTED.
+  /// PENDING until the operator reviews it, then APPROVED, REJECTED, or VOIDED (an approval
+  /// undone because it was a mistake).
   status      String   @default("PENDING")
-  /// The operator's note — a reason when rejected.
+  /// The operator's note — a reason when rejected or voided.
   note        String?
+  /// The shop's Pro end date just before this payment was approved. Voiding the approval puts
+  /// it back exactly, so a mistaken approval loses nothing.
+  revertProUntil DateTime?
   /// Who reviewed it (an admin), and when.
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())

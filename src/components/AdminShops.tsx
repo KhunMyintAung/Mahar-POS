@@ -21,6 +21,7 @@ export function AdminShops() {
   const [q, setQ] = useState("");
   const [confirm, setConfirm] = useState<Shop | null>(null);
   const [extendConfirm, setExtendConfirm] = useState<{ shop: Shop; months: number } | null>(null);
+  const [cancelConfirm, setCancelConfirm] = useState<Shop | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -61,6 +62,7 @@ export function AdminShops() {
       if (!res.ok || !body.ok) throw new Error(body.error || "Failed");
       setShops(await load());
       setExtendConfirm(null);
+      setCancelConfirm(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -120,6 +122,7 @@ export function AdminShops() {
                   <div className="flex justify-end gap-1">
                   <Button size="sm" variant="secondary" disabled={busy} title="Add 1 month of Pro" onClick={() => setExtendConfirm({ shop: s, months: 1 })}>+1 mo</Button>
                   <Button size="sm" variant="secondary" disabled={busy} title="Add 12 months of Pro" onClick={() => setExtendConfirm({ shop: s, months: 12 })}>+1 yr</Button>
+                  {s.plan === "PRO" && <Button size="sm" variant="ghost" disabled={busy} title="End this shop's Pro now" onClick={() => setCancelConfirm(s)}>Cancel plan</Button>}
                   <Button size="sm" variant={s.locked ? "secondary" : "danger"} disabled={busy} onClick={() => setConfirm(s)}>
                     {s.locked ? <><LockOpen size={14} className="mr-1 inline" />Unlock</> : <><Lock size={14} className="mr-1 inline" />Lock</>}
                   </Button>
@@ -153,6 +156,17 @@ export function AdminShops() {
             + `Pro will run to ${fmtDateTime(resultingProUntil(extendConfirm.shop, extendConfirm.months).toISOString())}. Do this only after the shop has paid.`
           : ""}
         confirmLabel={extendConfirm?.months === 12 ? "Add 1 year" : "Add 1 month"}
+      />
+      <ConfirmDialog
+        open={Boolean(cancelConfirm)}
+        onClose={() => setCancelConfirm(null)}
+        onConfirm={() => cancelConfirm && extend(cancelConfirm, 0)}
+        title="Cancel Pro plan"
+        message={cancelConfirm
+          ? `End "${cancelConfirm.name}" Pro now? It goes back to Free immediately and the Pro features are hidden. No data is deleted, and you can add Pro again later.`
+          : ""}
+        confirmLabel="Cancel plan"
+        danger
       />
     </section>
   );

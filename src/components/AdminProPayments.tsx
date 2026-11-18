@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Clock } from "lucide-react";
+import { BadgeCheck, Clock, RotateCcw } from "lucide-react";
 import { Button, Modal, Input, cn } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
@@ -24,6 +24,8 @@ export function AdminProPayments() {
   const [slip, setSlip] = useState<string | null>(null);
   const [reject, setReject] = useState<Pending | null>(null);
   const [rejectNote, setRejectNote] = useState("");
+  const [voidTarget, setVoidTarget] = useState<Recent | null>(null);
+  const [voidNote, setVoidNote] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -39,7 +41,7 @@ export function AdminProPayments() {
   }, []);
   useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
 
-  async function review(id: string, action: "approve" | "reject", note?: string) {
+  async function review(id: string, action: "approve" | "reject" | "void", note?: string) {
     setBusy(id);
     try {
       const res = await fetch(`/api/admin/pro-payments/${id}`, {
@@ -48,6 +50,7 @@ export function AdminProPayments() {
       const body = await res.json();
       if (!res.ok || !body.ok) throw new Error(body.error || "Failed");
       setReject(null); setRejectNote("");
+      setVoidTarget(null); setVoidNote("");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
@@ -103,9 +106,18 @@ export function AdminProPayments() {
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
                 <span className="font-medium">{r.business.name}</span>
                 <span className="text-gray-500">{r.months} mo · {kyat(r.amountMinor)} Ks · {r.reviewedAt ? fmtDateTime(r.reviewedAt) : ""}</span>
-                <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold",
-                  r.status === "APPROVED" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300")}>
-                  {r.status === "APPROVED" ? "Approved" : "Rejected"}{r.note ? ` · ${r.note}` : ""}
+                <span className="flex items-center gap-2">
+                  <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold",
+                    r.status === "APPROVED" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                    : r.status === "VOIDED" ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300")}>
+                    {r.status === "APPROVED" ? "Approved" : r.status === "VOIDED" ? "Voided" : "Rejected"}{r.note ? ` · ${r.note}` : ""}
+                  </span>
+                  {r.status === "APPROVED" && (
+                    <Button size="sm" variant="secondary" disabled={busy === r.id} onClick={() => { setVoidTarget(r); setVoidNote(""); }}>
+                      <RotateCcw size={13} className="mr-1 inline" />Void
+                    </Button>
+                  )}
                 </span>
               </div>
             ))}
@@ -128,6 +140,19 @@ export function AdminProPayments() {
         <div className="space-y-3">
           <p className="text-sm text-gray-600 dark:text-gray-300">The shop is told it was not confirmed and can submit again. Give a short reason so they know what to fix.</p>
           <Input label="Reason (optional)" value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="e.g. slip amount does not match" />
+        </div>
+      </Modal>
+
+      <Modal open={Boolean(voidTarget)} onClose={() => setVoidTarget(null)} title={`Void payment · ${voidTarget?.business.name ?? ""}`}
+        footer={<>
+          <Button variant="secondary" onClick={() => setVoidTarget(null)}>Cancel</Button>
+          <Button variant="danger" disabled={busy === voidTarget?.id} onClick={() => voidTarget && review(voidTarget.id, "void", voidNote.trim() || undefined)}>Void payment</Button>
+        </>}>
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Undoes this approval: the shop&apos;s Pro goes back to the date it had before, as if the payment had never been approved. Use this when it was approved by mistake.
+          </p>
+          <Input label="Reason (optional)" value={voidNote} onChange={(e) => setVoidNote(e.target.value)} placeholder="e.g. approved the wrong shop" />
         </div>
       </Modal>
     </section>
