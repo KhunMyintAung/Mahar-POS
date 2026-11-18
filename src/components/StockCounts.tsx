@@ -127,7 +127,7 @@ function NewCountModal({ branches, defaultBranchId, onClose, onCreated }: {
   async function start() {
     setBusy(true);
     try {
-      const r = await api<{ id: string }>("/api/v1/stock-counts", { method: "POST", body: JSON.stringify({ branchId, categoryId: categoryId || null }) });
+      const r = await api<{ id: string }>("/api/v1/stock-counts", { method: "POST", body: { branchId, categoryId: categoryId || null } });
       onCreated(r.id);
     } catch (e) {
       push((e as Error).message, "error");
@@ -194,7 +194,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
     const before = count?.lines.find((l) => l.itemId === itemId);
     setLine(itemId, { countedQty, ...(imeis ? { countedImeis: imeis } : {}) });
     try {
-      await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: JSON.stringify({ entries: [{ itemId, countedQty, imeis }] }) });
+      await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, countedQty, imeis }] } });
     } catch (e) {
       push((e as Error).message, "error");
       if (before) setLine(itemId, { countedQty: before.countedQty, countedImeis: before.countedImeis });
