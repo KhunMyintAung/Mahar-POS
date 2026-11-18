@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { PageToggles } from "@/components/ThemeToggle";
 import { SITE_URL } from "../layout";
+import { PRO_PRICE_MMK, TRIAL_DAYS } from "@/lib/plan";
+
+const PRICE = PRO_PRICE_MMK.toLocaleString("en-US");
 
 /** This is the page search engines actually land on, so it carries the description a
  *  Myanmar shop owner would recognise — the words they would type — rather than the
@@ -37,7 +40,11 @@ const APP_SCHEMA = {
   description:
     "ပိုက်ဆံအိတ်၊ ရောင်းအား၊ ကုန်ပစ္စည်း၊ ဝင်ငွေထွက်ငွေ၊ အကြွေးနှင့် ငွေလဲနှုန်း — " +
     "မြန်မာဆိုင်ငယ်များအတွက် စာရင်းကိုင် app။",
-  offers: { "@type": "Offer", price: "0", priceCurrency: "MMK" },
+  // Free to start, with an optional Pro plan — told to Google as two offers.
+  offers: [
+    { "@type": "Offer", name: "Free", price: "0", priceCurrency: "MMK" },
+    { "@type": "Offer", name: "Pro", price: String(PRO_PRICE_MMK), priceCurrency: "MMK", description: "Pro, per month" },
+  ],
   featureList: [
     "ပိုက်ဆံအိတ်", "ငွေလွှဲ", "အကြွေးစာရင်း", "ဝင်ငွေ ထွက်ငွေ",
     "ရောင်းအား POS", "ကုန်ပစ္စည်းစာရင်း", "ငွေလဲနှုန်း", "ဖုန်းပြင်ဆင်ခ", "ဖုန်းဖြည့်ကဒ်", "Telegram bot",
@@ -93,7 +100,36 @@ const POINTS = [
   { title: "Myanmar, English or Thai", text: "Switch language whenever you like." },
   { title: "Works like an app", text: "Install it on a phone from the browser — no store needed." },
   { title: "Many branches, one picture", text: "Keep branches apart, then see the whole business together." },
-  { title: "Free to start", text: "Create an account and begin. Nothing to pay up front." },
+  { title: "Free to start", text: `Create an account and begin — no card. The core stays free; Pro is ${PRICE} Ks a month after a ${TRIAL_DAYS}-day free trial.` },
+];
+
+/** The two plans, for the pricing section. The Pro list names what Free does not include, so a
+ *  shop can see exactly what the money buys. */
+const PLANS: { name: string; price: string; per: string; blurb: string; points: string[]; featured?: boolean }[] = [
+  {
+    name: "Free",
+    price: "0",
+    per: "Ks",
+    blurb: "The everyday counter, at no cost.",
+    points: ["Sales and POS", "Items and stock", "Purchases and repairs", "One wallet and customers", "One branch", "Unlimited items"],
+  },
+  {
+    name: "Pro",
+    price: PRICE,
+    per: "Ks / month",
+    blurb: `Everything, after a ${TRIAL_DAYS}-day free trial.`,
+    featured: true,
+    points: [
+      "Everything in Free",
+      "Reports — profit and the detailed ones",
+      "More than one branch, with stock transfer",
+      "Online shop and the Telegram customer bot",
+      "Top-up billers",
+      "Full money tools — transfer, cash-out, credit",
+      "Staff and roles, audit log",
+      "Offline mode and pop-up notifications",
+    ],
+  },
 ];
 
 export default function FeaturesPage() {
@@ -154,6 +190,38 @@ export default function FeaturesPage() {
             </div>
           </section>
         ))}
+
+        <section>
+          <h2 className="text-xl font-bold">Pricing</h2>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Start free. Move to Pro when you want the rest — and every shop gets a {TRIAL_DAYS}-day Pro trial to try it.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {PLANS.map((plan) => (
+              <div
+                key={plan.name}
+                className={plan.featured
+                  ? "rounded-xl border-2 border-blue-500 p-4 dark:border-blue-500"
+                  : "rounded-xl border border-gray-200 p-4 dark:border-gray-800"}
+              >
+                <div className="flex items-baseline justify-between gap-2">
+                  <h3 className="text-base font-bold">{plan.name}</h3>
+                  {plan.featured && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">Free trial</span>}
+                </div>
+                <div className="mt-1 text-2xl font-bold">
+                  {plan.price} <span className="text-sm font-medium text-gray-500">{plan.per}</span>
+                </div>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{plan.blurb}</p>
+                <ul className="mt-3 space-y-1.5 text-sm">
+                  {plan.points.map((p) => (
+                    <li key={p} className="flex items-start gap-2 text-gray-600 dark:text-gray-300">
+                      <span className="mt-0.5 shrink-0 text-blue-600">✓</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section>
           <h2 className="text-xl font-bold">Good to know</h2>
