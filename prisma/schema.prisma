@@ -45,6 +45,8 @@ model Business {
   updatedAt DateTime @updatedAt
   /// Paid (Pro) through this date; null or past = Free. A new shop gets a trial.
   proUntil  DateTime?
+  /// The day a Pro-expiry reminder was last sent, so it is not repeated.
+  proRemindedOn DateTime?
 
   branches Branch[]
   users    User[]
