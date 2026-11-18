@@ -27,6 +27,7 @@ import {
   type FeatureVisibility,
 } from "@/lib/modules";
 import { PageHeader } from "@/components/PageHeader";
+import { ProUpgradeCard } from "@/components/ProUpgradeCard";
 interface SettingsData {
   business: { id: string; name: string; logoUrl?: string | null; phone?: string; address?: string; telegram?: string; website?: string; websiteLabel?: string | null; city?: string | null; latitude?: number | null; longitude?: number | null; currency: string; timezone: string };
   settings: Record<string, Record<string, unknown>>;
@@ -89,6 +90,14 @@ export default function SettingsPage() {
     }).catch((e) => push(e.message, "error"));
   }, [push]);
   useEffect(load, [load]);
+
+  // The upgrade banner links here with ?upgrade=1; bring the Pro card into view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("upgrade") !== "1") return;
+    const t = setTimeout(() => document.getElementById("upgrade")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    return () => clearTimeout(t);
+  }, []);
 
   /** Pins the shop where this device is now and fills in the city (and the address, when it
    *  is still empty) from the map. */
@@ -177,6 +186,7 @@ export default function SettingsPage() {
       </div>
 
       {current === "shop" && <>
+      <ProUpgradeCard />
       <Card>
         <CardTitle icon={Store} title="Business profile" className="mb-3" />
         <div className="space-y-3">

@@ -1,7 +1,7 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { gateProFeatures, parseModuleAccess } from "@/lib/modules";
-import { planOf, proDaysLeft } from "@/lib/plan";
+import { planOf, proDaysLeft, PRO_PRICE_MMK } from "@/lib/plan";
 import { appEdition, EDITION_COOKIE } from "@/lib/edition";
 import { cloudPrintEnabled } from "@/lib/cloudPrint";
 
@@ -39,7 +39,14 @@ export const GET = withAuth(null, async ({ req, user }) => {
   // Freemium: Pro while proUntil is in the future (a paid period or the free trial). On Free,
   // the Pro-only features are turned off so the app hides them.
   const planName = planOf(business?.proUntil);
-  const plan = { plan: planName, proUntil: business?.proUntil ?? null, daysLeft: proDaysLeft(business?.proUntil) };
+  const plan = {
+    plan: planName,
+    proUntil: business?.proUntil ?? null,
+    daysLeft: proDaysLeft(business?.proUntil),
+    priceMMK: PRO_PRICE_MMK,
+    // How to pay, set by the operator in the server env; shown on the upgrade screen.
+    paymentText: process.env.PRO_PAYMENT_TEXT?.trim() || "",
+  };
   modules = { ...modules, features: gateProFeatures(modules.features, planName === "PRO") };
 
   // Whether this shop may send phone slips to its counter printer (CLOUD_PRINT_BUSINESS_IDS).

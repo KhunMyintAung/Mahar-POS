@@ -51,7 +51,7 @@ interface Me {
   };
   edition: "FULL" | "PLAY";
   /** Freemium: Pro while proUntil is in the future (a paid period or the free trial). */
-  plan?: { plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number };
+  plan?: { plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number; priceMMK: number; paymentText: string };
   /** This shop's phones send slips to its counter printer (lib/cloudPrint.ts). */
   cloudPrint?: boolean;
 }
