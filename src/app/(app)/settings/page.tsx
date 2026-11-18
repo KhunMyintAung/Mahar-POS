@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/client";
-import { FileSpreadsheet, LayoutList, LocateFixed, MapPin, Printer, ShieldCheck, Store, TriangleAlert, UserCircle } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, LayoutList, LocateFixed, MapPin, Printer, ShieldCheck, Sparkles, Store, TriangleAlert, UserCircle } from "lucide-react";
 import { Button, Card, CardTitle, Input, Spinner, Switch, cn, useToast } from "@/components/ui";
 import { useAuth } from "@/components/AppShell";
 import { RepairVoucherSettingsCard } from "@/components/RepairVoucherSettingsCard";
@@ -191,6 +191,25 @@ export default function SettingsPage() {
       </div>
 
       {current === "shop" && <>
+      {/* A quiet, always-there way in to the Pro screen: the big card stays hidden until this
+          (or the upgrade banner) opens it, but the plan and days left are always visible. */}
+      {!showUpgrade && me?.plan && (
+        <button
+          type="button"
+          onClick={() => { setShowUpgrade(true); setTimeout(() => document.getElementById("upgrade")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3 text-left transition hover:bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 dark:hover:bg-blue-950/50"
+        >
+          <span className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
+            <Sparkles size={16} className="shrink-0" />Mahar POS Pro
+          </span>
+          <span className="flex items-center gap-1 text-sm text-blue-700 dark:text-blue-300">
+            {me.plan.plan === "PRO"
+              ? `Pro · ${me.plan.daysLeft} day${me.plan.daysLeft === 1 ? "" : "s"} left`
+              : "Free — upgrade"}
+            <ChevronRight size={16} />
+          </span>
+        </button>
+      )}
       {showUpgrade && <ProUpgradeCard />}
       <Card>
         <CardTitle icon={Store} title="Business profile" className="mb-3" />
