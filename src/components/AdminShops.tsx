@@ -9,6 +9,7 @@ interface Shop {
   id: string; name: string; phone: string | null; city: string | null; address: string | null; country: string; createdAt: string;
   owner: { name: string; email: string | null; username: string } | null;
   users: number; locked: boolean; lastLoginAt: string | null; sales: number; repairs: number;
+  plan: "FREE" | "PRO"; proUntil: string | null; proDaysLeft: number;
 }
 
 /** Every shop on the service, for the admin: who owns it, how much it is used, and a
@@ -48,6 +49,22 @@ export function AdminShops() {
     }
   }
 
+  async function extend(shop: Shop, proMonths: number) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/shops/${shop.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ proMonths }),
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) throw new Error(body.error || "Failed");
+      setShops(await load());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const needle = q.trim().toLowerCase();
   const shown = (shops ?? []).filter((s) => !needle || [s.name, s.owner?.email, s.owner?.username, s.owner?.name, s.phone, s.city, s.address, s.country].some((v) => v?.toLowerCase().includes(needle)));
 
@@ -67,7 +84,7 @@ export function AdminShops() {
       <div className="max-w-full overflow-x-auto">
         <table className="w-full min-w-max text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900/60">
-            <tr>{["Shop", "City", "Owner", "Users", "Sales", "Repairs", "Registered", "Last login", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h}</th>)}</tr>
+            <tr>{["Shop", "Plan", "City", "Owner", "Users", "Sales", "Repairs", "Registered", "Last login", ""].map((h, i) => <th key={i} className="px-3 py-2 font-medium">{h}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {shown.map((s) => (
@@ -75,6 +92,10 @@ export function AdminShops() {
                 <td className="px-3 py-2">
                   <div className="font-medium">{s.name}</div>
                   <div className="text-xs text-gray-500">{s.phone}</div>
+                </td>
+                <td className="px-3 py-2">
+                  <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs font-semibold", s.plan === "PRO" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>{s.plan}</span>
+                  {s.plan === "PRO" && <div className="text-[11px] text-gray-500">{s.proDaysLeft}d left</div>}
                 </td>
                 <td className="px-3 py-2">
                   <div className={s.city ? "" : "text-gray-400"}>{s.city || "Not given yet"}</div>
@@ -90,13 +111,17 @@ export function AdminShops() {
                 <td className="px-3 py-2 text-xs">{fmtDateTime(s.createdAt)}</td>
                 <td className="px-3 py-2 text-xs">{s.lastLoginAt ? fmtDateTime(s.lastLoginAt) : "—"}</td>
                 <td className="px-3 py-2 text-right">
+                  <div className="flex justify-end gap-1">
+                  <Button size="sm" variant="secondary" disabled={busy} title="Add 1 month of Pro" onClick={() => extend(s, 1)}>+1 mo</Button>
+                  <Button size="sm" variant="secondary" disabled={busy} title="Add 12 months of Pro" onClick={() => extend(s, 12)}>+1 yr</Button>
                   <Button size="sm" variant={s.locked ? "secondary" : "danger"} disabled={busy} onClick={() => setConfirm(s)}>
                     {s.locked ? <><LockOpen size={14} className="mr-1 inline" />Unlock</> : <><Lock size={14} className="mr-1 inline" />Lock</>}
                   </Button>
+                  </div>
                 </td>
               </tr>
             ))}
-            {shops && shown.length === 0 && <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-400">No shops</td></tr>}
+            {shops && shown.length === 0 && <tr><td colSpan={10} className="px-3 py-6 text-center text-gray-400">No shops</td></tr>}
           </tbody>
         </table>
       </div>

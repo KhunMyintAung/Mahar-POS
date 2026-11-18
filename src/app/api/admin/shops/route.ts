@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdminRequest } from "@/lib/adminAccess";
 import { shopCountry } from "@/lib/shopCountry";
+import { planOf, proDaysLeft } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   if (!(await isAdminRequest())) return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
   const [businesses, users, sales, repairs, lastLogins] = await Promise.all([
-    prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, phone: true, city: true, address: true, currency: true, timezone: true, createdAt: true } }),
+    prisma.business.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, phone: true, city: true, address: true, currency: true, timezone: true, createdAt: true, proUntil: true } }),
     prisma.user.findMany({ where: { deletedAt: null }, select: { businessId: true, name: true, email: true, username: true, active: true, role: { select: { name: true } }, createdAt: true } }),
     prisma.sale.groupBy({ by: ["businessId"], where: { deletedAt: null, status: "COMPLETED" }, _count: true }),
     prisma.repairJob.groupBy({ by: ["businessId"], where: { deletedAt: null }, _count: true }),
@@ -31,6 +32,9 @@ export async function GET() {
       lastLoginAt: last.get(b.id) ?? null,
       sales: saleCount.get(b.id) ?? 0,
       repairs: repairCount.get(b.id) ?? 0,
+      plan: planOf(b.proUntil),
+      proUntil: b.proUntil,
+      proDaysLeft: proDaysLeft(b.proUntil),
     };
   });
   return NextResponse.json({ ok: true, data: { shops } });

@@ -22,6 +22,7 @@ import { LanguageSwitch, useAccountLanguage, useShowCurrency } from "./LanguageP
 import { isPhoneShop, type FeatureKey, type FeatureVisibility, type ModuleMode } from "@/lib/modules";
 import { NEW_EVENT } from "@/lib/useNewModal";
 import { TopBarTitle } from "./PageHeader";
+import { PlanBanner } from "./PlanBanner";
 import { clearOfflineCaches, getNetMode, offlineReadyAt, prepareOffline, tellServiceWorker } from "@/lib/netMode";
 import { OFFLINE_EXTRA_URLS, posDataUrls } from "@/lib/posData";
 import { listRepairOps, syncRepairs, topUpNumbers } from "@/lib/offlineRepairs";
@@ -49,6 +50,8 @@ interface Me {
     category: string;
   };
   edition: "FULL" | "PLAY";
+  /** Freemium: Pro while proUntil is in the future (a paid period or the free trial). */
+  plan?: { plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number };
   /** This shop's phones send slips to its counter printer (lib/cloudPrint.ts). */
   cloudPrint?: boolean;
 }
@@ -570,6 +573,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       })}
                     </div>
                   )}
+                  <PlanBanner plan={me?.plan} />
                   <TopBarTitle.Provider value={titleSlot}>{children}</TopBarTitle.Provider>
                 </>
               )}
