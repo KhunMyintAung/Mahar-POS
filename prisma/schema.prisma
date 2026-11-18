@@ -43,6 +43,8 @@ model Business {
   timezone  String   @default("Asia/Yangon")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  /// Paid (Pro) through this date; null or past = Free. A new shop gets a trial.
+  proUntil  DateTime?
 
   branches Branch[]
   users    User[]

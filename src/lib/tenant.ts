@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ApiError } from "@/lib/api";
 import { DEFAULT_ROLES } from "@/lib/permissions";
+import { trialUntil } from "@/lib/plan";
 import { addItemCategoryPresets, itemCategoryPresets } from "@/lib/itemCategoryPresets";
 import type { AuthUser } from "@/lib/auth";
 import type { Currency } from "@/lib/currency";
@@ -73,6 +74,8 @@ export async function registerTenant(input: TenantRegistration) {
           city: input.city || undefined,
           currency: input.currency,
           timezone: input.timezone,
+          // Every new shop starts on a free Pro trial.
+          proUntil: trialUntil(),
         },
       });
       const branch = await tx.branch.create({

@@ -1,6 +1,7 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { parseModuleAccess } from "@/lib/modules";
+import { planOf, proDaysLeft } from "@/lib/plan";
 import { appEdition, EDITION_COOKIE } from "@/lib/edition";
 import { cloudPrintEnabled } from "@/lib/cloudPrint";
 
@@ -10,7 +11,7 @@ export const GET = withAuth(null, async ({ req, user }) => {
   const [business, branches, moduleSetting] = await Promise.all([
     prisma.business.findUnique({
       where: { id: user.businessId },
-      select: { name: true, phone: true, address: true, city: true, currency: true, timezone: true, logoUrl: true },
+      select: { name: true, phone: true, address: true, city: true, currency: true, timezone: true, logoUrl: true, proUntil: true },
     }),
     prisma.branch.findMany({
       where: {
@@ -35,6 +36,9 @@ export const GET = withAuth(null, async ({ req, user }) => {
     }
   }
 
+  // Freemium: Pro while proUntil is in the future (a paid period or the free trial).
+  const plan = { plan: planOf(business?.proUntil), proUntil: business?.proUntil ?? null, daysLeft: proDaysLeft(business?.proUntil) };
+
   // Whether this shop may send phone slips to its counter printer (CLOUD_PRINT_BUSINESS_IDS).
-  return json({ user, business, branches, modules, edition: appEdition(req.cookies.get(EDITION_COOKIE)?.value), cloudPrint: cloudPrintEnabled(user.businessId) });
+  return json({ user, business, branches, modules, plan, edition: appEdition(req.cookies.get(EDITION_COOKIE)?.value), cloudPrint: cloudPrintEnabled(user.businessId) });
 });
