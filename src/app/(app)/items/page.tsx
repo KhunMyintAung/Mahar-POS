@@ -302,10 +302,11 @@ export default function ItemsPage() {
         title={<>Items</>}
         lead={
           <>
+            {/* Two by two on a phone, so every tab is in sight; one row from tablet width. */}
             {canStock && (
-              <div className="flex max-w-full shrink-0 gap-1 overflow-x-auto rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+              <div className="grid w-full grid-cols-2 gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800 sm:flex sm:w-auto sm:shrink-0">
                 {([["items", "Items"], ["movements", "Movements"], ["transfers", "Branch transfer"], ["count", "Stock count"]] as const).map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => setView(k)} className={cn("shrink-0 whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium",view === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
+                  <button key={k} type="button" onClick={() => setView(k)} className={cn("whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium sm:py-1", view === k ? "bg-white shadow dark:bg-gray-700" : "text-gray-500")}>
                     {label}
                   </button>
                 ))}

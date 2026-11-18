@@ -171,7 +171,11 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const canFinish = hasPerm("stock.adjust") && hasPerm("item.manage");
   const seeCost = hasPerm("report.view") || hasPerm("item.manage");
   const [count, setCount] = useState<CountDetail | null>(null);
-  const [filter, setFilter] = useState<Filter>("todo");
+  const [filter, setFilterRaw] = useState<Filter>("todo");
+  // Lines counted while looking at a list stay on it until the list changes, so tapping + a
+  // few times (or fixing a typo) does not make the row jump away after the first tap.
+  const [kept, setKept] = useState<Set<string>>(new Set());
+  const setFilter = (f: Filter) => { setFilterRaw(f); setKept(new Set()); };
   const [q, setQ] = useState("");
   const [scan, setScan] = useState("");
   const [imeiFor, setImeiFor] = useState<Line | null>(null);
@@ -180,7 +184,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const scanRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
-    api<CountDetail>(`/api/v1/stock-counts/${id}`).then((c) => { setCount(c); if (c.status !== "OPEN") setFilter("all"); }).catch((e) => push(e.message, "error"));
+    api<CountDetail>(`/api/v1/stock-counts/${id}`).then((c) => { setCount(c); setKept(new Set()); if (c.status !== "OPEN") setFilterRaw("all"); }).catch((e) => push(e.message, "error"));
   }, [id, push]);
   useEffect(load, [load]);
 
@@ -192,6 +196,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
   async function save(itemId: string, countedQty: number | null, imeis?: string[]) {
     const before = count?.lines.find((l) => l.itemId === itemId);
+    setKept((k) => (k.has(itemId) ? k : new Set(k).add(itemId)));
     setLine(itemId, { countedQty, ...(imeis ? { countedImeis: imeis } : {}) });
     try {
       await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, countedQty, imeis }] } });
@@ -257,6 +262,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
   const shown = lines.filter((l) => {
     const d = diffOf(l);
+    if (kept.has(l.itemId)) return matchesWords(q, l.name, l.sku, l.barcode, l.category);
     if (filter === "todo" && l.countedQty !== null) return false;
     if (filter === "short" && !(d !== null && d < 0)) return false;
     if (filter === "over" && !(d !== null && d > 0)) return false;
@@ -273,7 +279,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20 lg:pb-0">
       <Card className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="ghost" aria-label="Back" onClick={onBack}><ArrowLeft size={16} /></Button>
@@ -314,7 +320,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1">
           {filters.map(([k, label, n]) => (
-            <button key={k} type="button" onClick={() => setFilter(k)} className={cn("whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium", filter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
+            <button key={k} type="button" onClick={() => setFilter(k)} className={cn("whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium", filter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
               <span>{label}</span> <span className="tabular-nums">{n}</span>
             </button>
           ))}
@@ -331,10 +337,10 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
       )}
 
       {editable && (
-        <div className="flex flex-wrap gap-2">
-          {canFinish && <Button disabled={busy || counted.length === 0} onClick={() => setConfirm("finish")}><Check size={16} className="mr-1 inline" />Finish count</Button>}
-          {todo > 0 && <Button variant="secondary" disabled={busy} onClick={() => setConfirm("zero")}>Set not counted to 0</Button>}
-          {canFinish && <Button variant="ghost" className="ml-auto text-red-600" disabled={busy} onClick={() => setConfirm("cancel")}><X size={16} className="mr-1 inline" />Cancel count</Button>}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          {canFinish && <Button className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy || counted.length === 0} onClick={() => setConfirm("finish")}><Check size={18} className="mr-1 inline" />Finish count</Button>}
+          {todo > 0 && <Button variant="secondary" className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy} onClick={() => setConfirm("zero")}>Set not counted to 0</Button>}
+          {canFinish && <Button variant="ghost" className="text-red-600 sm:ml-auto" disabled={busy} onClick={() => setConfirm("cancel")}><X size={16} className="mr-1 inline" />Cancel count</Button>}
         </div>
       )}
 
@@ -406,49 +412,73 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
     if (qty !== line.countedQty) onSave(line.itemId, qty);
   }
 
+  const step = (by: number) => {
+    const next = Math.max(0, (line.countedQty ?? 0) + by);
+    setText(String(next));
+    onSave(line.itemId, next);
+  };
+  const stepBtn = "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-2xl font-bold text-gray-700 active:bg-gray-200 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-200 dark:active:bg-gray-700";
+
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-      <div className="min-w-0 flex-1 basis-48">
-        <div className="truncate font-medium">{line.name}</div>
-        <div className="truncate text-xs text-gray-500">{[line.sku, line.category].filter(Boolean).join(" · ")}</div>
+    <div className={cn("space-y-3 px-4 py-4", d !== null && d < 0 && "bg-red-50/50 dark:bg-red-950/20", d !== null && d > 0 && "bg-green-50/50 dark:bg-green-950/20")}>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-base font-semibold leading-snug">{line.name}</div>
+          <div className="text-sm text-gray-500">{[line.sku, line.category].filter(Boolean).join(" · ")}</div>
+        </div>
+        {d === null ? (
+          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-sm font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Not counted</span>
+        ) : (
+          <div className="shrink-0 text-right">
+            <div className={cn("text-xl font-bold tabular-nums", d < 0 ? "text-red-600" : d > 0 ? "text-green-700 dark:text-green-400" : "text-gray-400")}>
+              {d === 0 ? "✓" : d > 0 ? `+${d}` : d}
+            </div>
+            {seeCost && d !== 0 && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(BigInt(line.unitCost) * BigInt(d), cur)}</div>}
+          </div>
+        )}
       </div>
-      <div className="text-center">
-        <div className="text-[10px] uppercase text-gray-400">Books</div>
-        <div className="tabular-nums">{line.expectedQty}</div>
-      </div>
-      <div className="w-24 text-center">
-        <div className="text-[10px] uppercase text-gray-400">Counted</div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-16 shrink-0 text-center">
+          <div className="text-sm text-gray-500">Books</div>
+          <div className="text-2xl font-semibold tabular-nums">{line.expectedQty}</div>
+        </div>
         {line.trackSerial ? (
-          <Button size="sm" variant="secondary" onClick={onImei}><span className="tabular-nums">{line.countedQty ?? "—"}</span> <span>IMEI</span></Button>
+          <button type="button" onClick={onImei} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-blue-500 text-base font-semibold text-blue-600 dark:text-blue-400">
+            <span className="text-xl tabular-nums">{line.countedQty ?? "—"}</span>
+            <span>Tick IMEIs</span>
+          </button>
         ) : editable ? (
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <button type="button" aria-label="Less" className={stepBtn} disabled={!line.countedQty} onClick={() => step(-1)}>−</button>
             <input
               inputMode="numeric"
+              aria-label="Counted"
               value={text}
               onChange={(e) => setText(e.target.value.replace(/[^\d]/g, ""))}
               onBlur={commit}
+              onFocus={(e) => e.target.select()}
               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-              placeholder="—"
-              className="h-9 w-full rounded-lg border border-gray-300 bg-white px-2 text-center text-base tabular-nums outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 sm:text-sm"
+              placeholder="?"
+              className="h-12 min-w-0 flex-1 rounded-xl border-2 border-gray-300 bg-white text-center text-2xl font-semibold tabular-nums outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800"
             />
+            <button type="button" aria-label="More" className={stepBtn} onClick={() => step(1)}>+</button>
           </div>
         ) : (
-          <div className="tabular-nums">{line.countedQty ?? "—"}</div>
-        )}
-      </div>
-      <div className="w-20 text-right">
-        <div className="text-[10px] uppercase text-gray-400">Difference</div>
-        {d === null ? (
-          <div className="text-xs text-amber-600">Not counted</div>
-        ) : (
-          <div className={cn("font-semibold tabular-nums", d < 0 ? "text-red-600" : d > 0 ? "text-green-700 dark:text-green-400" : "text-gray-400")}>
-            {d > 0 ? `+${d}` : d}
+          <div className="flex-1 text-center">
+            <div className="text-sm text-gray-500">Counted</div>
+            <div className="text-2xl font-semibold tabular-nums">{line.countedQty ?? "—"}</div>
           </div>
         )}
-        {seeCost && d !== null && d !== 0 && <div className="text-[11px] tabular-nums text-gray-500">{fmtMoney(BigInt(line.unitCost) * BigInt(d), cur)}</div>}
       </div>
+
       {editable && !line.trackSerial && line.countedQty === null && (
-        <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => onSave(line.itemId, 0)}>Not found</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={() => onSave(line.itemId, line.expectedQty)}>
+            <Check size={16} className="mr-1 inline" />All there
+          </Button>
+          <Button variant="secondary" className="flex-1 text-red-600" onClick={() => onSave(line.itemId, 0)}>Not found</Button>
+        </div>
       )}
     </div>
   );

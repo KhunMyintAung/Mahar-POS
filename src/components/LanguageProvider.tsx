@@ -2048,6 +2048,8 @@ const MM: Record<string, string> = {
   "The sale's time is still to come; check the device's clock": "အရောင်းအချိန်က အနာဂတ် ဖြစ်နေသည်၊ စက်၏ နာရီကို စစ်ပါ",
   "The sale's date does not match the time it was made": "အရောင်းရက်စွဲနှင့် ရောင်းသည့်အချိန် မကိုက်ညီပါ",
   // Stock count.
+  "Tick IMEIs": "IMEI ခြစ်မည်",
+  "All there": "အကုန်ရှိ",
   "Stock count": "Stock စစ်ခြင်း",
   "New stock count": "Stock အသစ် စစ်မည်",
   "The list comes from the books. Find each item on the shelf and enter how many there are. Items you cannot find stay as not counted, so nothing missing is overlooked.": "စာရင်းထဲက ပစ္စည်းတွေကို ပြထားပါတယ်။ တစ်ခုချင်း စင်ပေါ်မှာ ရှာပြီး ရှိတဲ့ အရေအတွက်ကို ရိုက်ထည့်ပါ။ ရှာမတွေ့တဲ့ ပစ္စည်းက \"မစစ်ရသေး\" အဖြစ် ကျန်နေမှာမို့ ပျောက်နေတာ မလွတ်သွားပါ။",

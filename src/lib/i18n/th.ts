@@ -2016,6 +2016,8 @@ export const TH: Record<string, string> = {
   "This device has no room left to keep the sale. Free some space or connect to the internet.": "อุปกรณ์นี้ไม่มีพื้นที่เก็บการขาย ล้างพื้นที่หรือเชื่อมต่ออินเทอร์เน็ต",
   "The sale's time is still to come; check the device's clock": "เวลาที่ระบุสำหรับการขายยังมาไม่ถึง โปรดตรวจสอบนาฬิกาของอุปกรณ์",
   "The sale's date does not match the time it was made": "วันที่ของรายการขายไม่ตรงกับเวลาที่ทำรายการ",  // Stock count.
+  "Tick IMEIs": "ติ๊ก IMEI",
+  "All there": "ครบ",
   "Stock count": "ตรวจนับสต็อก",
   "New stock count": "เริ่มตรวจนับสต็อกใหม่",
   "The list comes from the books. Find each item on the shelf and enter how many there are. Items you cannot find stay as not counted, so nothing missing is overlooked.": "รายการมาจากบัญชีสต็อก หาสินค้าแต่ละรายการบนชั้นแล้วใส่จำนวนที่พบ สินค้าที่หาไม่เจอจะค้างเป็น \"ยังไม่นับ\" จึงไม่มีของหายที่ถูกมองข้าม",
