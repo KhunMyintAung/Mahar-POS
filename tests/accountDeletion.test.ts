@@ -48,6 +48,7 @@ function fakeTx(order: string[]) {
     systemSetting: del("systemSetting"),
     numberSequence: del("numberSequence"),
     feedback: del("feedback"),
+    proPayment: del("proPayment"),
     role: del("role"),
   };
 }

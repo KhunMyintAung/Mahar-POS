@@ -2,20 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Activity, BarChart3, Bot, Building2, HeartHandshake, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { Activity, BarChart3, Bot, Building2, CreditCard, HeartHandshake, Mail, Megaphone, RefreshCw, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { Button, Card, Input, Modal, Select, Spinner } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 import { AdminShops } from "@/components/AdminShops";
+import { AdminProPayments } from "@/components/AdminProPayments";
 import { AdminEmail } from "@/components/AdminEmail";
 import { AdminOverview } from "@/components/AdminOverview";
 import { AdminAnnouncement } from "@/components/AdminAnnouncement";
 import { AdminCommunity } from "@/components/AdminCommunity";
 import { AdminAiQuestions } from "@/components/AdminAiQuestions";
 
-type Tab = "overview" | "shops" | "users" | "activity" | "email" | "announcement" | "community" | "ai";
+type Tab = "overview" | "shops" | "payments" | "users" | "activity" | "email" | "announcement" | "community" | "ai";
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "shops", label: "Shops", icon: Building2 },
+  { key: "payments", label: "Payments", icon: CreditCard },
   { key: "users", label: "Users", icon: Users },
   { key: "activity", label: "Activity", icon: Activity },
   { key: "email", label: "Email", icon: Mail },
@@ -368,6 +370,7 @@ export default function AdminPage() {
         </>}
 
         {tab === "shops" && <AdminShops />}
+        {tab === "payments" && <AdminProPayments />}
         {tab === "email" && <AdminEmail />}
         {tab === "announcement" && <AdminAnnouncement />}
         {tab === "community" && <AdminCommunity />}

@@ -69,6 +69,7 @@ export async function purgeBusiness(tx: Tx, businessId: string) {
   await run("systemSetting", () => tx.systemSetting.deleteMany({ where: { businessId } }));
   await run("numberSequence", () => tx.numberSequence.deleteMany({ where: { businessId } }));
   await run("feedback", () => tx.feedback.deleteMany({ where: { businessId } }));
+  await run("proPayment", () => tx.proPayment.deleteMany({ where: { businessId } }));
 
   // 7. Users before the roles they hold, branches after everything that referenced them.
   await run("user", () => tx.user.deleteMany({ where: { businessId } }));

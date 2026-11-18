@@ -10,9 +10,23 @@ export const TRIAL_DAYS = 60;
 /** The Pro price, in kyat per month, shown on the upgrade screen. */
 export const PRO_PRICE_MMK = 15000;
 
+/** The lengths a shop can buy at once, in months. */
+export const PRO_MONTH_OPTIONS = [1, 3, 6, 12] as const;
+
 /** The date a trial that starts now runs until. */
 export function trialUntil(from: Date = new Date()): Date {
   return new Date(from.getTime() + TRIAL_DAYS * 86_400_000);
+}
+
+/** Pro's end date after adding `months`, built on whichever is later — now or the current end —
+ *  so paying early never loses the days already in hand. Used by the admin extend and the
+ *  approval of a shop's payment, so both move the date the same way. */
+export function extendProUntil(proUntil: Date | string | null | undefined, months: number, now: Date = new Date()): Date {
+  const until = proUntil ? (proUntil instanceof Date ? proUntil : new Date(proUntil)) : null;
+  const base = until && until.getTime() > now.getTime() ? until : now;
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + months);
+  return d;
 }
 
 /** PRO while proUntil is still in the future (a paid period or the trial), else FREE. */

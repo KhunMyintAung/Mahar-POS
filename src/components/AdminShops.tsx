@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Lock, LockOpen, Search } from "lucide-react";
 import { Button, ConfirmDialog, cn } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
+import { extendProUntil } from "@/lib/plan";
 
 interface Shop {
   id: string; name: string; phone: string | null; city: string | null; address: string | null; country: string; createdAt: string;
@@ -67,15 +68,8 @@ export function AdminShops() {
     }
   }
 
-  // The date Pro would run to after adding these months — same rule as the server: build on the
-  // current Pro end when it is still in the future, otherwise from today, so paying early adds on.
-  function resultingProUntil(shop: Shop, months: number): Date {
-    const now = new Date();
-    const base = shop.proUntil && new Date(shop.proUntil) > now ? new Date(shop.proUntil) : now;
-    const d = new Date(base);
-    d.setMonth(d.getMonth() + months);
-    return d;
-  }
+  // The date Pro would run to after adding these months (same rule as the server).
+  const resultingProUntil = (shop: Shop, months: number) => extendProUntil(shop.proUntil, months);
 
   const needle = q.trim().toLowerCase();
   const shown = (shops ?? []).filter((s) => !needle || [s.name, s.owner?.email, s.owner?.username, s.owner?.name, s.phone, s.city, s.address, s.country].some((v) => v?.toLowerCase().includes(needle)));

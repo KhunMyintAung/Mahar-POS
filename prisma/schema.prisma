@@ -52,6 +52,35 @@ model Business {
   users    User[]
   roles    Role[]
   settings SystemSetting[]
+  proPayments ProPayment[]
+}
+
+/// A shop's request to pay for Pro: it picks a length, pays the operator (KBZ Pay), and uploads
+/// the slip. The operator reviews it in the admin portal and, on approval, the shop's Pro is
+/// extended by `months`. Nothing here charges a card; it only records a manual payment.
+model ProPayment {
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  /// Months of Pro this payment buys.
+  months      Int
+  /// What the shop was asked to pay, in minor units (kyat ×100): price × months.
+  amountMinor Int
+  /// How they paid; only KBZ Pay for now.
+  method      String   @default("KBZPAY")
+  /// The payment-slip screenshot, a resized data URL (same as the shop logo).
+  slipUrl     String
+  /// PENDING until the operator reviews it, then APPROVED or REJECTED.
+  status      String   @default("PENDING")
+  /// The operator's note — a reason when rejected.
+  note        String?
+  /// Who reviewed it (an admin), and when.
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([status])
 }
 
 model Branch {

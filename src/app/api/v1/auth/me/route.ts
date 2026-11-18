@@ -44,8 +44,15 @@ export const GET = withAuth(null, async ({ req, user }) => {
     proUntil: business?.proUntil ?? null,
     daysLeft: proDaysLeft(business?.proUntil),
     priceMMK: PRO_PRICE_MMK,
-    // How to pay, set by the operator in the server env; shown on the upgrade screen.
-    paymentText: process.env.PRO_PAYMENT_TEXT?.trim() || "",
+    // The operator's KBZ Pay account the shop pays into, set in the server env (never hardcoded).
+    // Empty name/phone means the operator has not set it up yet; the screen then says so.
+    pay: {
+      name: process.env.PRO_PAY_NAME?.trim() || "",
+      phone: process.env.PRO_PAY_PHONE?.trim() || "",
+      method: process.env.PRO_PAY_METHOD?.trim() || "KBZ Pay",
+      // An optional extra line (for example "send the slip here too"), shown under the account.
+      note: process.env.PRO_PAYMENT_TEXT?.trim() || "",
+    },
   };
   modules = { ...modules, features: gateProFeatures(modules.features, planName === "PRO") };
 

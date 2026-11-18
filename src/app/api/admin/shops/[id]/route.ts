@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { isAdminRequest } from "@/lib/adminAccess";
+import { extendProUntil } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -36,14 +37,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const business = await prisma.business.findUnique({ where: { id }, select: { id: true, name: true, proUntil: true } });
   if (!business) return NextResponse.json({ ok: false, error: "Shop not found" }, { status: 404 });
   const now = new Date();
-  let proUntil: Date | null;
-  if (months === 0) {
-    proUntil = now; // expired now → Free
-  } else {
-    const base = business.proUntil && business.proUntil > now ? business.proUntil : now;
-    proUntil = new Date(base);
-    proUntil.setMonth(proUntil.getMonth() + months);
-  }
+  // months 0 ends Pro now (back to Free); otherwise add on from whichever is later.
+  const proUntil: Date = months === 0 ? now : extendProUntil(business.proUntil, months, now);
   await prisma.$transaction(async (tx) => {
     await tx.business.update({ where: { id }, data: { proUntil } });
     await audit(tx, { businessId: id, action: "UPDATE", module: "admin", resourceType: "Business", resourceId: id, after: { proMonths: months, proUntil: proUntil?.toISOString() ?? null, by: "admin portal" } });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planOf, isPro, proDaysLeft, trialUntil, TRIAL_DAYS } from "@/lib/plan";
+import { planOf, isPro, proDaysLeft, trialUntil, TRIAL_DAYS, extendProUntil } from "@/lib/plan";
 
 const now = new Date("2026-11-18T00:00:00Z");
 const future = new Date("2026-12-01T00:00:00Z");
@@ -30,5 +30,17 @@ describe("freemium plan", () => {
     const until = trialUntil(now);
     expect(proDaysLeft(until, now)).toBe(TRIAL_DAYS);
     expect(planOf(until, now)).toBe("PRO");
+  });
+
+  describe("extendProUntil", () => {
+    it("adds months onto the current end when Pro is still active (paying early keeps the days)", () => {
+      // future is 2026-12-01; +1 month → 2027-01-01, not a month from today.
+      expect(extendProUntil(future, 1, now).toISOString()).toBe("2027-01-01T00:00:00.000Z");
+    });
+
+    it("adds from today when Free or expired", () => {
+      expect(extendProUntil(past, 1, now).toISOString()).toBe("2026-12-18T00:00:00.000Z");
+      expect(extendProUntil(null, 12, now).toISOString()).toBe("2027-11-18T00:00:00.000Z");
+    });
   });
 });
