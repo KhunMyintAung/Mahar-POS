@@ -28,6 +28,13 @@ export const TH_PATTERNS: Array<[RegExp, (...m: string[]) => string]> = [
   [/^(.+) — received$/, (item) => `${item} — ได้รับแล้ว`],
   [/^Send to supplier \((\d+)\)$/, (n) => `ส่งถึงผู้จำหน่าย (${n})`],
   [/^Add (\d+)$/, (n) => `เพิ่ม ${n} ชิ้น`],
+  // Stock count.
+  [/^(.+) is still open for this branch\. Finish or cancel it first\.$/, (m1) => `${m1} ของสาขานี้ยังเปิดอยู่ ปิดหรือยกเลิกก่อน`],
+  [/^(\d+) item\(s\) set to 0$/, (m1) => `ตั้ง ${m1} รายการเป็น 0 แล้ว`],
+  [/^IMEI (\S+) — already counted$/, (m1) => `IMEI ${m1} — นับแล้ว`],
+  [/^(.+) — not in this count$/, (m1) => `${m1} — ไม่อยู่ในการนับนี้`],
+  [/^IMEI (\S+) is already counted under (.+)$/, (m1, m2) => `IMEI ${m1} ถูกนับไว้ใน ${m2} แล้ว`],
+  [/^Enter how many (.+) were found \(0 or more\)$/, (m1) => `ใส่จำนวน ${m1} ที่พบ (0 ขึ้นไป)`],
   [/^(\d+) added$/, (n) => `เพิ่มแล้ว ${n} ชิ้น`],
   [/^(\d+) pcs$/, (n) => `${n} ชิ้น`],
   [/^(\d+) sales sent$/, (n) => `ส่งการขายแล้ว ${n} รายการ`],

@@ -13,6 +13,7 @@ const DEFAULT_PREFIXES: Record<string, string> = {
   PURCHASE: "PUR",
   SALE: "SAL",
   STOCK_TRANSFER: "STR",
+  STOCK_COUNT: "STC",
 };
 
 /** Get the next transaction number, e.g. "3D-000042". Must run inside a transaction.

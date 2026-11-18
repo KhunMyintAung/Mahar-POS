@@ -881,6 +881,7 @@ model Item {
   movements     StockMovement[]
   purchaseLines PurchaseLine[]
   transferLines StockTransferLine[]
+  countLines    StockCountLine[]
   saleLines     SaleLine[]
   images        ItemImage[]
 
@@ -1459,4 +1460,48 @@ model StockTransferLine {
   imeis      String?
 
   @@index([transferId])
+}
+
+/// A stock count (stocktake): the shelf counted against the books for one branch — every item,
+/// or one category. Each line keeps what the books said and what was found; finishing it
+/// corrects the stock (and the IMEIs) to what was counted. See src/services/stockCountService.ts.
+model StockCount {
+  id            String    @id @default(uuid())
+  businessId    String
+  txnNo         String
+  branchId      String
+  /// Counting one category (with its sub-categories) only; empty is every item.
+  categoryId    String?
+  categoryName  String?
+  status        String    @default("OPEN") // OPEN COMPLETED CANCELLED
+  notes         String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  completedById String?
+
+  lines StockCountLine[]
+
+  @@unique([businessId, txnNo])
+  @@index([businessId, status])
+}
+
+model StockCountLine {
+  id           String     @id @default(uuid())
+  countId      String
+  count        StockCount @relation(fields: [countId], references: [id])
+  itemId       String
+  item         Item       @relation(fields: [itemId], references: [id])
+  /// What the books said when the count began; replaced by the live figure when finished.
+  expectedQty  Int
+  /// What was found on the shelf; empty = not counted yet (left as it is when finished).
+  countedQty   Int?
+  /// IMEI-tracked phones: the numbers found on the shelf, comma-separated.
+  countedImeis String?
+  countedAt    DateTime?
+  /// Set when finished: the change made (counted − books) and the cost price per unit then.
+  adjustment   Int?
+  unitCost     BigInt     @default(0)
+
+  @@unique([countId, itemId])
 }
