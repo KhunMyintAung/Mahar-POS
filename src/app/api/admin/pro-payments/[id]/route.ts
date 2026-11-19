@@ -4,6 +4,12 @@ import { audit } from "@/lib/audit";
 import { isAdminRequest } from "@/lib/adminAccess";
 import { notifyAuditFeed } from "@/lib/telegramNotify";
 import { extendProUntil } from "@/lib/plan";
+import { addDonation, removeDonation } from "@/lib/community";
+
+/** The id a payment's entry has in the Top Donations list (max 40 characters there). */
+const donationId = (paymentId: string) => `pro-${paymentId}`;
+/** Today's date in Myanmar, as the list's YYYY-MM-DD. */
+const todayYangon = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Yangon" });
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +46,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       // The date and the level the shop had before the approval, both put back.
       await tx.business.update({ where: { id: businessId }, data: { proUntil: restored, proTier: payment.revertProTier } });
       await tx.proPayment.update({ where: { id }, data: { status: "VOIDED", note, reviewedAt: now } });
+      // No longer a payment, so it comes off the Top Donations list too.
+      await removeDonation(tx, donationId(id));
       await audit(tx, { businessId, action: "UPDATE", module: "admin", resourceType: "ProPayment", resourceId: id, after: { status: "VOIDED", note, proUntil: restored.toISOString(), by: "admin portal" } });
     });
     notifyAuditFeed(businessId,
@@ -68,6 +76,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   await prisma.$transaction(async (tx) => {
     await tx.business.update({ where: { id: businessId }, data: { proUntil, proTier: payment.tier } });
     await tx.proPayment.update({ where: { id }, data: { status: "APPROVED", note, reviewedAt: now, revertProUntil: payment.business.proUntil ?? null, revertProTier: payment.business.proTier ?? null } });
+    // An approved payment is listed among the Top Donations on the About page (the amount is the
+    // plan's price in kyat, so a baht payment ranks by what the plan is worth; the baht is in the note).
+    await addDonation(tx, {
+      id: donationId(id),
+      name: payment.business.name.trim().slice(0, 80) || "Shop",
+      amount: Math.round(payment.amountMinor / 100),
+      method: payment.method === "PROMPAY" ? "PromptPay" : "KBZ Pay",
+      date: todayYangon(),
+      note: `${payment.tier === "FULL" ? "Fully Access" : "Pro"}, ${payment.months} month${payment.months === 1 ? "" : "s"}${payment.method === "PROMPAY" && payment.amountThb != null ? ` (${payment.amountThb} THB)` : ""}`,
+    });
     await audit(tx, { businessId, action: "UPDATE", module: "admin", resourceType: "ProPayment", resourceId: id, after: { status: "APPROVED", tier: payment.tier, months: payment.months, proUntil: proUntil.toISOString(), by: "admin portal" } });
   });
   notifyAuditFeed(businessId,
