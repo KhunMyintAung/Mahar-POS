@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { PageToggles } from "@/components/ThemeToggle";
 import { SITE_URL } from "../layout";
-import { PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK, TRIAL_DAYS } from "@/lib/plan";
+import { PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK, TIER_PRICE_THB, TERM_SAVING_THB, TRIAL_DAYS } from "@/lib/plan";
 
 const PRICE = PRO_PRICE_MMK.toLocaleString("en-US");
 const FULL_PRICE = TIER_PRICE_MMK.FULL.toLocaleString("en-US");
@@ -144,6 +144,8 @@ const PLANS: { name: string; price: string; per: string; blurb: string; points: 
 ];
 
 const SAVING_NOTE = `Pay for 6 months and save ${SAVE_6} Ks; pay for a year and save ${SAVE_12} Ks. Pay by KBZ Pay in Myanmar or PromptPay in Thailand.`;
+/** Thai shops pay in baht on their own list; stated separately so each language can read it whole. */
+const THAI_NOTE = `In Thailand, pay by PromptPay in baht: Pro ${TIER_PRICE_THB.PRO} THB and Fully Access ${TIER_PRICE_THB.FULL} THB a month, saving ${TERM_SAVING_THB[6]} THB for 6 months and ${TERM_SAVING_THB[12]} THB for a year.`;
 
 export default function FeaturesPage() {
   return (
@@ -236,6 +238,7 @@ export default function FeaturesPage() {
           </div>
           {/* Constants, not JSX text with numbers, so the translator can match the whole string. */}
           <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{SAVING_NOTE}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{THAI_NOTE}</p>
         </section>
 
         <section>

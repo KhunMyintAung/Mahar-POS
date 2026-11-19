@@ -3,8 +3,7 @@ import { withAuth, json, parseBody, ApiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
 import { notifyAuditFeed } from "@/lib/telegramNotify";
-import { PRO_MONTH_OPTIONS, proTotalMMK, thbForMMK } from "@/lib/plan";
-import { mmkPerThb } from "@/lib/proPay";
+import { PRO_MONTH_OPTIONS, proTotalMMK, proTotalTHB } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +41,9 @@ export const POST = withAuth("settings.manage", async ({ req, user }) => {
 
   const totalMMK = proTotalMMK(body.tier, body.months);
   const amountMinor = totalMMK * 100;
-  // A Thai payer sends baht: the kyat total at the day's rate, which the operator checks the slip against.
-  const amountThb = body.method === "PROMPAY" ? thbForMMK(totalMMK, mmkPerThb()) : null;
-  if (body.method === "PROMPAY" && amountThb == null) throw new ApiError(409, "PromptPay is not set up yet. Please pay with KBZ Pay.");
+  // A Thai payer sends baht from the Thai price list, which the operator checks the slip against
+  // (the kyat total is kept alongside as the list price in kyat).
+  const amountThb = body.method === "PROMPAY" ? proTotalTHB(body.tier, body.months) : null;
 
   const payment = await prisma.$transaction(async (tx) => {
     const p = await tx.proPayment.create({
@@ -60,7 +59,7 @@ export const POST = withAuth("settings.manage", async ({ req, user }) => {
 
   // Let the shop's managers see it was received (the operator reviews it in the portal).
   notifyAuditFeed(user.businessId,
-    `Pro payment submitted — ${body.tier === "FULL" ? "Fully Access" : "Pro"}, ${body.months} month${body.months === 1 ? "" : "s"}, ${totalMMK} Ks. Waiting for the operator to check it.`,
+    `Pro payment submitted — ${body.tier === "FULL" ? "Fully Access" : "Pro"}, ${body.months} month${body.months === 1 ? "" : "s"}, ${amountThb != null ? `${amountThb} THB` : `${totalMMK} Ks`}. Waiting for the operator to check it.`,
     undefined, user.id, { url: "/settings?upgrade=1", perm: "settings.manage" });
 
   return json({ id: payment.id, status: payment.status }, { status: 201 });

@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AppShell";
 import { api } from "@/lib/client";
 import { resizeImage } from "@/lib/imageResize";
 import { fmtDateTime } from "@/lib/format";
-import { PRO_MONTH_OPTIONS, proTotalMMK, thbForMMK, type ProTier } from "@/lib/plan";
+import { PRO_MONTH_OPTIONS, proTotalMMK, proTotalTHB, type ProTier } from "@/lib/plan";
 import { promptPayWithAmount } from "@/lib/promptpay";
 
 /** What Pro adds over Free. */
@@ -100,6 +100,7 @@ export function ProUpgradeCard() {
         </div>
       </div>
       <p className="text-xs text-gray-500">{`Save ${Number(plan.termSavingMMK["6"]).toLocaleString("en-US")} Ks when you buy 6 months, or ${Number(plan.termSavingMMK["12"]).toLocaleString("en-US")} Ks for a year.`}</p>
+      <p className="text-xs text-gray-500">{`Thailand (PromptPay): Pro ${plan.tierPriceTHB.PRO} THB, Fully Access ${plan.tierPriceTHB.FULL} THB a month. Save ${plan.termSavingTHB["6"]} THB for 6 months, ${plan.termSavingTHB["12"]} THB for a year.`}</p>
 
       {pending ? (
         <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -121,7 +122,7 @@ export function ProUpgradeCard() {
           <div className="text-xs font-semibold uppercase text-gray-500">Your payments</div>
           {payments.slice(0, 5).map((p) => (
             <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-gray-600 dark:text-gray-300">{fmtDateTime(p.createdAt)} · {LEVEL[p.tier]} · {p.months} mo · {(p.amountMinor / 100).toLocaleString("en-US")} Ks</span>
+              <span className="text-gray-600 dark:text-gray-300">{fmtDateTime(p.createdAt)} · {LEVEL[p.tier]} · {p.months} mo · {p.method === "PROMPAY" && p.amountThb != null ? `${p.amountThb.toLocaleString("en-US")} THB` : `${(p.amountMinor / 100).toLocaleString("en-US")} Ks`}</span>
               <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", STATUS[p.status].cls)}>{STATUS[p.status].label}</span>
             </div>
           ))}
@@ -164,15 +165,18 @@ function PayModal({ open, onClose, plan, onDone }: {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const pay = plan.pay;
-  const promptPayOn = pay.mmkPerThb != null;
 
   // Fresh each time the modal opens (keeping the level the shop is already on as the first choice).
   useEffect(() => {
     if (open) { setStep(1); setTier(plan.tier); setMonths(1); setMethod("KBZPAY"); setSlip(null); setBusy(false); }
   }, [open, plan.tier]);
 
-  const total = proTotalMMK(tier, months);
-  const thb = thbForMMK(total, pay.mmkPerThb);
+  // Myanmar shops pay in kyat by KBZ Pay; Thai shops in baht by PromptPay, on their own price list.
+  const baht = method === "PROMPAY";
+  const unit = baht ? "THB" : "Ks";
+  const monthly = baht ? plan.tierPriceTHB : plan.tierPriceMMK;
+  const savings = baht ? plan.termSavingTHB : plan.termSavingMMK;
+  const total = baht ? proTotalTHB(tier, months) : proTotalMMK(tier, months);
   const copy = (text: string, what: string) => { navigator.clipboard?.writeText(text).then(() => push(`${what} copied`)).catch(() => {}); };
 
   async function pickSlip(file: File | undefined) {
@@ -200,9 +204,7 @@ function PayModal({ open, onClose, plan, onDone }: {
   }
 
   // The QR the payer scans: KBZ Pay's code, or PromptPay's with the baht amount fixed in it.
-  const qrPayload = method === "PROMPAY"
-    ? (thb ? promptPayWithAmount(pay.promptPay.payload, thb) : pay.promptPay.payload)
-    : pay.kbzPayload;
+  const qrPayload = baht ? promptPayWithAmount(pay.promptPay.payload, total) : pay.kbzPayload;
 
   return (
     <Modal open={open} onClose={onClose} title={step === 1 ? "Upgrade your plan" : "Complete payment"}
@@ -214,13 +216,24 @@ function PayModal({ open, onClose, plan, onDone }: {
           </>}>
       {step === 1 ? (
         <div className="space-y-4">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setMethod("KBZPAY")}
+              className={cn("flex-1 rounded-lg border px-3 py-2 text-sm font-medium", !baht ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 dark:border-gray-700")}>
+              KBZ Pay <span className="block text-[11px] font-normal text-gray-500">Myanmar</span>
+            </button>
+            <button type="button" onClick={() => setMethod("PROMPAY")}
+              className={cn("flex-1 rounded-lg border px-3 py-2 text-sm font-medium", baht ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 dark:border-gray-700")}>
+              PromptPay <span className="block text-[11px] font-normal text-gray-500">Thailand</span>
+            </button>
+          </div>
+
           <div className="grid gap-2 sm:grid-cols-2">
             {(["PRO", "FULL"] as const).map((t) => (
               <button key={t} type="button" onClick={() => setTier(t)}
                 className={cn("rounded-xl border p-3 text-left transition",
                   tier === t ? "border-blue-500 bg-blue-50 ring-2 ring-blue-500/20 dark:bg-blue-950/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-700")}>
                 <div className="font-semibold">{LEVEL[t]}</div>
-                <div className="text-lg font-bold">{plan.tierPriceMMK[t].toLocaleString("en-US")} <span className="text-xs font-medium text-gray-500">Ks / month</span></div>
+                <div className="text-lg font-bold">{monthly[t].toLocaleString("en-US")}{" "}<span className="text-xs font-medium text-gray-500">{baht ? "THB / month" : "Ks / month"}</span></div>
                 <div className="mt-1 text-xs text-gray-500">{t === "PRO" ? "Every Pro feature" : "Pro + unlimited data and photo input + quick support"}</div>
               </button>
             ))}
@@ -230,7 +243,7 @@ function PayModal({ open, onClose, plan, onDone }: {
             <p className="mb-2 text-sm text-gray-600 dark:text-gray-300">How long? It is added on top of any days you have left.</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PRO_MONTH_OPTIONS.map((m) => {
-                const saving = plan.termSavingMMK[String(m)];
+                const saving = savings[String(m)];
                 return (
                   <button key={m} type="button" onClick={() => setMonths(m)}
                     className={cn("rounded-xl border p-3 text-center transition",
@@ -246,34 +259,20 @@ function PayModal({ open, onClose, plan, onDone }: {
 
           <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800/60">
             <span className="text-sm text-gray-600 dark:text-gray-300">Total to pay</span>
-            <span className="text-xl font-bold">{total.toLocaleString("en-US")} Ks</span>
+            <span className="text-xl font-bold">{`${total.toLocaleString("en-US")} ${unit}`}</span>
           </div>
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setMethod("KBZPAY")}
-              className={cn("flex-1 rounded-lg border px-3 py-2 text-sm font-medium", method === "KBZPAY" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 dark:border-gray-700")}>
-              KBZ Pay <span className="block text-[11px] font-normal text-gray-500">Myanmar</span>
-            </button>
-            {promptPayOn && (
-              <button type="button" onClick={() => setMethod("PROMPAY")}
-                className={cn("flex-1 rounded-lg border px-3 py-2 text-sm font-medium", method === "PROMPAY" ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 dark:border-gray-700")}>
-                PromptPay <span className="block text-[11px] font-normal text-gray-500">Thailand</span>
-              </button>
-            )}
-          </div>
-
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-            <Qr payload={qrPayload} label={method === "PROMPAY" ? "PromptPay QR" : "KBZ Pay QR"} />
+            <Qr payload={qrPayload} label={baht ? "PromptPay QR" : "KBZ Pay QR"} />
             <div className="w-full rounded-lg border border-gray-200 dark:border-gray-700">
               <div className="border-b border-gray-100 px-3 py-2 text-sm font-semibold dark:border-gray-800">Send exactly this amount</div>
-              {method === "PROMPAY" ? (
+              {baht ? (
                 <>
                   <Row label="Method" value="PromptPay" />
                   <Row label="Account" value={pay.promptPay.name} />
-                  <Row label="Amount" value={`${(thb ?? 0).toLocaleString("en-US")} THB`} strong onCopy={() => copy(String(thb ?? ""), "Amount")} />
-                  <Row label="Equals" value={`${total.toLocaleString("en-US")} Ks`} />
+                  <Row label="Amount" value={`${total.toLocaleString("en-US")} THB`} strong onCopy={() => copy(String(total), "Amount")} />
                 </>
               ) : (
                 <>
@@ -285,7 +284,7 @@ function PayModal({ open, onClose, plan, onDone }: {
               )}
             </div>
           </div>
-          {method === "PROMPAY" && <p className="text-xs text-gray-500">Scan with your Thai banking app — the amount is already filled in.</p>}
+          {baht && <p className="text-xs text-gray-500">Scan with your Thai banking app — the amount is already filled in.</p>}
           {pay.note && <p className="whitespace-pre-wrap rounded-lg bg-blue-50 p-3 text-xs text-blue-900 dark:bg-blue-950/40 dark:text-blue-100">{pay.note}</p>}
 
           <div>

@@ -35,11 +35,14 @@ export function proTotalMMK(tier: ProTier, months: number): number {
   return TIER_PRICE_MMK[tier] * months - (TERM_SAVING_MMK[months] ?? 0);
 }
 
-/** A Thai payer's amount in baht for a kyat total, rounded up to the next 10 baht so it is a tidy
- *  figure to pay. `mmkPerThb` is how many kyat one baht is worth; null when it is not set. */
-export function thbForMMK(totalMMK: number, mmkPerThb: number | null | undefined): number | null {
-  if (!mmkPerThb || !(mmkPerThb > 0)) return null;
-  return Math.ceil(totalMMK / mmkPerThb / 10) * 10;
+/** Thai shops pay in baht by PromptPay, on a price list of their own (not a converted kyat price):
+ *  baht per month by tier, and what 6 months and a year save off the total. */
+export const TIER_PRICE_THB: Record<ProTier, number> = { PRO: 200, FULL: 300 };
+export const TERM_SAVING_THB: Record<number, number> = { 6: 50, 12: 100 };
+
+/** The total to pay, in baht, for `months` of a tier — the Thai price list, same shape as the kyat one. */
+export function proTotalTHB(tier: ProTier, months: number): number {
+  return TIER_PRICE_THB[tier] * months - (TERM_SAVING_THB[months] ?? 0);
 }
 
 /** The date a trial that starts now runs until. */

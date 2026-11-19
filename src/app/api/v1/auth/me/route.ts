@@ -1,7 +1,7 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { gateProFeatures, parseModuleAccess } from "@/lib/modules";
-import { planOf, proDaysLeft, tierOf, PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK } from "@/lib/plan";
+import { planOf, proDaysLeft, tierOf, PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK, TIER_PRICE_THB, TERM_SAVING_THB } from "@/lib/plan";
 import { proPayInfo } from "@/lib/proPay";
 import { appEdition, EDITION_COOKIE } from "@/lib/edition";
 import { cloudPrintEnabled } from "@/lib/cloudPrint";
@@ -49,6 +49,9 @@ export const GET = withAuth(null, async ({ req, user }) => {
     tier: tierOf(business?.proTier),
     tierPriceMMK: TIER_PRICE_MMK,
     termSavingMMK: TERM_SAVING_MMK,
+    // Thai shops pay in baht on their own price list.
+    tierPriceTHB: TIER_PRICE_THB,
+    termSavingTHB: TERM_SAVING_THB,
     // The operator's KBZ Pay account and PromptPay code the shop pays into, from the server (never
     // hardcoded). Empty name/phone means the operator has not set it up yet; the screen says so.
     pay: proPayInfo(),

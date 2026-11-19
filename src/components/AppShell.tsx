@@ -54,9 +54,10 @@ interface Me {
   plan?: {
     plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number; priceMMK: number;
     tier: "PRO" | "FULL"; tierPriceMMK: Record<"PRO" | "FULL", number>; termSavingMMK: Record<string, number>;
+    tierPriceTHB: Record<"PRO" | "FULL", number>; termSavingTHB: Record<string, number>;
     pay: {
       name: string; phone: string; method: string; note: string; kbzPayload: string;
-      promptPay: { name: string; payload: string }; mmkPerThb: number | null;
+      promptPay: { name: string; payload: string };
     };
   };
   /** This shop's phones send slips to its counter printer (lib/cloudPrint.ts). */

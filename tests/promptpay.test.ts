@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { crc16, promptPayWithAmount } from "@/lib/promptpay";
 import { DEFAULT_ABOUT } from "@/lib/about";
-import { proTotalMMK, thbForMMK, tierOf } from "@/lib/plan";
+import { proTotalMMK, proTotalTHB, tierOf } from "@/lib/plan";
 
 const STATIC = DEFAULT_ABOUT.promptPayPayload;
 
@@ -40,10 +40,13 @@ describe("pro pricing", () => {
     expect(tierOf("whatever")).toBe("PRO");
   });
 
-  it("rounds baht up to the next 10, and is null without a rate", () => {
-    expect(thbForMMK(15000, 60)).toBe(250);
-    expect(thbForMMK(15000, 65)).toBe(240); // 230.77 → 240
-    expect(thbForMMK(15000, null)).toBeNull();
-    expect(thbForMMK(15000, 0)).toBeNull();
+  it("has its own baht price list for Thai shops, with the same 6-month and 12-month savings shape", () => {
+    expect(proTotalTHB("PRO", 1)).toBe(200);
+    expect(proTotalTHB("PRO", 3)).toBe(600);
+    expect(proTotalTHB("PRO", 6)).toBe(1150); // 1200 − 50
+    expect(proTotalTHB("PRO", 12)).toBe(2300); // 2400 − 100
+    expect(proTotalTHB("FULL", 1)).toBe(300);
+    expect(proTotalTHB("FULL", 6)).toBe(1750); // 1800 − 50
+    expect(proTotalTHB("FULL", 12)).toBe(3500); // 3600 − 100
   });
 });
