@@ -21,7 +21,7 @@ export async function GET() {
       take: 30,
       // History does not need the heavy slip image.
       select: {
-        id: true, months: true, amountMinor: true, method: true, status: true, note: true,
+        id: true, months: true, tier: true, amountMinor: true, amountThb: true, method: true, status: true, note: true,
         reviewedAt: true, createdAt: true, business: { select: { name: true } },
       },
     }),

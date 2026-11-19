@@ -6,11 +6,11 @@ import { Button, Modal, Input, cn } from "@/components/ui";
 import { fmtDateTime } from "@/lib/format";
 
 interface Pending {
-  id: string; months: number; amountMinor: number; method: string; slipUrl: string; createdAt: string;
+  id: string; months: number; tier: string; amountMinor: number; amountThb: number | null; method: string; slipUrl: string; createdAt: string;
   business: { name: string; phone: string | null; proUntil: string | null };
 }
 interface Recent {
-  id: string; months: number; amountMinor: number; method: string; status: string; note: string | null;
+  id: string; months: number; tier: string; amountMinor: number; amountThb: number | null; method: string; status: string; note: string | null;
   reviewedAt: string | null; createdAt: string; business: { name: string };
 }
 
@@ -60,6 +60,11 @@ export function AdminProPayments() {
   }
 
   const kyat = (minor: number) => (minor / 100).toLocaleString("en-US");
+  const levelName = (tier: string) => (tier === "FULL" ? "Fully Access" : "Pro");
+  /** What the payer was asked to send: baht for PromptPay (with the kyat total beside it), kyat otherwise. */
+  const asked = (p: { method: string; amountMinor: number; amountThb: number | null }) =>
+    p.method === "PROMPAY" && p.amountThb != null ? `${p.amountThb.toLocaleString("en-US")} THB (${kyat(p.amountMinor)} Ks)` : `${kyat(p.amountMinor)} Ks`;
+  const methodName = (m: string) => (m === "PROMPAY" ? "PromptPay" : "KBZ Pay");
 
   return (
     <section className="space-y-4">
@@ -82,7 +87,7 @@ export function AdminProPayments() {
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{p.business.name}</div>
                   <div className="text-xs text-gray-500">{p.business.phone || "no phone"} · {fmtDateTime(p.createdAt)}</div>
-                  <div className="mt-1 text-sm">{p.months} month{p.months === 1 ? "" : "s"} · <b>{kyat(p.amountMinor)} Ks</b> · KBZ Pay</div>
+                  <div className="mt-1 text-sm">{levelName(p.tier)} · {p.months} month{p.months === 1 ? "" : "s"} · <b>{asked(p)}</b> · {methodName(p.method)}</div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" disabled={busy === p.id} onClick={() => review(p.id, "approve")}>
@@ -105,7 +110,7 @@ export function AdminProPayments() {
             {recent.map((r) => (
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
                 <span className="font-medium">{r.business.name}</span>
-                <span className="text-gray-500">{r.months} mo · {kyat(r.amountMinor)} Ks · {r.reviewedAt ? fmtDateTime(r.reviewedAt) : ""}</span>
+                <span className="text-gray-500">{levelName(r.tier)} · {r.months} mo · {asked(r)} · {r.reviewedAt ? fmtDateTime(r.reviewedAt) : ""}</span>
                 <span className="flex items-center gap-2">
                   <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold",
                     r.status === "APPROVED" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"

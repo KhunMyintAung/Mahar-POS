@@ -6,9 +6,12 @@ import {
 } from "lucide-react";
 import { PageToggles } from "@/components/ThemeToggle";
 import { SITE_URL } from "../layout";
-import { PRO_PRICE_MMK, TRIAL_DAYS } from "@/lib/plan";
+import { PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK, TRIAL_DAYS } from "@/lib/plan";
 
 const PRICE = PRO_PRICE_MMK.toLocaleString("en-US");
+const FULL_PRICE = TIER_PRICE_MMK.FULL.toLocaleString("en-US");
+const SAVE_6 = TERM_SAVING_MMK[6].toLocaleString("en-US");
+const SAVE_12 = TERM_SAVING_MMK[12].toLocaleString("en-US");
 
 /** This is the page search engines actually land on, so it carries the description a
  *  Myanmar shop owner would recognise — the words they would type — rather than the
@@ -44,6 +47,7 @@ const APP_SCHEMA = {
   offers: [
     { "@type": "Offer", name: "Free", price: "0", priceCurrency: "MMK" },
     { "@type": "Offer", name: "Pro", price: String(PRO_PRICE_MMK), priceCurrency: "MMK", description: "Pro, per month" },
+    { "@type": "Offer", name: "Fully Access", price: String(TIER_PRICE_MMK.FULL), priceCurrency: "MMK", description: "Fully Access, per month" },
   ],
   featureList: [
     "ပိုက်ဆံအိတ်", "ငွေလွှဲ", "အကြွေးစာရင်း", "ဝင်ငွေ ထွက်ငွေ",
@@ -130,7 +134,16 @@ const PLANS: { name: string; price: string; per: string; blurb: string; points: 
       "Offline mode and pop-up notifications",
     ],
   },
+  {
+    name: "Fully Access",
+    price: FULL_PRICE,
+    per: "Ks / month",
+    blurb: "Pro, plus no limits and a faster answer.",
+    points: ["Everything in Pro", "Unlimited data and photo input", "Quick support"],
+  },
 ];
+
+const SAVING_NOTE = `Pay for 6 months and save ${SAVE_6} Ks; pay for a year and save ${SAVE_12} Ks. Pay by KBZ Pay in Myanmar or PromptPay in Thailand.`;
 
 export default function FeaturesPage() {
   return (
@@ -194,7 +207,7 @@ export default function FeaturesPage() {
         <section>
           <h2 className="text-xl font-bold">Pricing</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Start free. Move to Pro when you want the rest — and every shop gets a {TRIAL_DAYS}-day Pro trial to try it.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
@@ -221,6 +234,8 @@ export default function FeaturesPage() {
               </div>
             ))}
           </div>
+          {/* Constants, not JSX text with numbers, so the translator can match the whole string. */}
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">{SAVING_NOTE}</p>
         </section>
 
         <section>

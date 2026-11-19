@@ -10,7 +10,7 @@ interface Shop {
   id: string; name: string; phone: string | null; city: string | null; address: string | null; country: string; createdAt: string;
   owner: { name: string; email: string | null; username: string } | null;
   users: number; locked: boolean; lastLoginAt: string | null; sales: number; repairs: number;
-  plan: "FREE" | "PRO"; proUntil: string | null; proDaysLeft: number;
+  plan: "FREE" | "PRO"; tier: "PRO" | "FULL"; proUntil: string | null; proDaysLeft: number;
 }
 
 /** Every shop on the service, for the admin: who owns it, how much it is used, and a
@@ -102,7 +102,7 @@ export function AdminShops() {
                   <div className="text-xs text-gray-500">{s.phone}</div>
                 </td>
                 <td className="px-3 py-2">
-                  <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs font-semibold", s.plan === "PRO" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>{s.plan}</span>
+                  <span className={cn("inline-block rounded-full px-2 py-0.5 text-xs font-semibold", s.plan === "PRO" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>{s.plan === "PRO" && s.tier === "FULL" ? "FULL" : s.plan}</span>
                   {s.plan === "PRO" && <div className="text-[11px] text-gray-500">{s.proDaysLeft}d left</div>}
                 </td>
                 <td className="px-3 py-2">

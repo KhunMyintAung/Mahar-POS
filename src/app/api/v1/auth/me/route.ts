@@ -1,7 +1,8 @@
 import { withAuth, json } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { gateProFeatures, parseModuleAccess } from "@/lib/modules";
-import { planOf, proDaysLeft, PRO_PRICE_MMK } from "@/lib/plan";
+import { planOf, proDaysLeft, tierOf, PRO_PRICE_MMK, TIER_PRICE_MMK, TERM_SAVING_MMK } from "@/lib/plan";
+import { proPayInfo } from "@/lib/proPay";
 import { appEdition, EDITION_COOKIE } from "@/lib/edition";
 import { cloudPrintEnabled } from "@/lib/cloudPrint";
 
@@ -11,7 +12,7 @@ export const GET = withAuth(null, async ({ req, user }) => {
   const [business, branches, moduleSetting] = await Promise.all([
     prisma.business.findUnique({
       where: { id: user.businessId },
-      select: { name: true, phone: true, address: true, city: true, currency: true, timezone: true, logoUrl: true, proUntil: true },
+      select: { name: true, phone: true, address: true, city: true, currency: true, timezone: true, logoUrl: true, proUntil: true, proTier: true },
     }),
     prisma.branch.findMany({
       where: {
@@ -44,15 +45,13 @@ export const GET = withAuth(null, async ({ req, user }) => {
     proUntil: business?.proUntil ?? null,
     daysLeft: proDaysLeft(business?.proUntil),
     priceMMK: PRO_PRICE_MMK,
-    // The operator's KBZ Pay account the shop pays into, set in the server env (never hardcoded).
-    // Empty name/phone means the operator has not set it up yet; the screen then says so.
-    pay: {
-      name: process.env.PRO_PAY_NAME?.trim() || "",
-      phone: process.env.PRO_PAY_PHONE?.trim() || "",
-      method: process.env.PRO_PAY_METHOD?.trim() || "KBZ Pay",
-      // An optional extra line (for example "send the slip here too"), shown under the account.
-      note: process.env.PRO_PAYMENT_TEXT?.trim() || "",
-    },
+    // The paid level the shop is on (Pro unless it bought Fully Access), and the price list.
+    tier: tierOf(business?.proTier),
+    tierPriceMMK: TIER_PRICE_MMK,
+    termSavingMMK: TERM_SAVING_MMK,
+    // The operator's KBZ Pay account and PromptPay code the shop pays into, from the server (never
+    // hardcoded). Empty name/phone means the operator has not set it up yet; the screen says so.
+    pay: proPayInfo(),
   };
   modules = { ...modules, features: gateProFeatures(modules.features, planName === "PRO") };
 

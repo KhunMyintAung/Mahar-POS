@@ -51,7 +51,14 @@ interface Me {
   };
   edition: "FULL" | "PLAY";
   /** Freemium: Pro while proUntil is in the future (a paid period or the free trial). */
-  plan?: { plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number; priceMMK: number; pay: { name: string; phone: string; method: string; note: string } };
+  plan?: {
+    plan: "FREE" | "PRO"; proUntil: string | null; daysLeft: number; priceMMK: number;
+    tier: "PRO" | "FULL"; tierPriceMMK: Record<"PRO" | "FULL", number>; termSavingMMK: Record<string, number>;
+    pay: {
+      name: string; phone: string; method: string; note: string; kbzPayload: string;
+      promptPay: { name: string; payload: string }; mmkPerThb: number | null;
+    };
+  };
   /** This shop's phones send slips to its counter printer (lib/cloudPrint.ts). */
   cloudPrint?: boolean;
 }

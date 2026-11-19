@@ -7,11 +7,40 @@ export type Plan = "FREE" | "PRO";
 /** How long a new shop (and every shop at launch) gets Pro for free. */
 export const TRIAL_DAYS = 60;
 
+/** The paid levels. Pro is every Pro feature; Fully Access is Pro plus the extras that are a
+ *  promise rather than a switch — unlimited data and photo input, and quick support. No feature
+ *  is turned off for Pro, so a shop's access is the same on both; the tier is billing and support. */
+export type ProTier = "PRO" | "FULL";
+
+/** Price in kyat per month, by tier. */
+export const TIER_PRICE_MMK: Record<ProTier, number> = { PRO: 15000, FULL: 50000 };
+
 /** The Pro price, in kyat per month, shown on the upgrade screen. */
-export const PRO_PRICE_MMK = 15000;
+export const PRO_PRICE_MMK = TIER_PRICE_MMK.PRO;
 
 /** The lengths a shop can buy at once, in months. */
 export const PRO_MONTH_OPTIONS = [1, 3, 6, 12] as const;
+
+/** What a longer term saves, in kyat off the total (any tier): 6 months and a year. */
+export const TERM_SAVING_MMK: Record<number, number> = { 6: 5000, 12: 10000 };
+
+/** Reads a stored tier; anything but FULL is PRO (older shops and payments have none). */
+export function tierOf(value: string | null | undefined): ProTier {
+  return value === "FULL" ? "FULL" : "PRO";
+}
+
+/** The total to pay, in kyat, for `months` of a tier — the monthly price times the months, less
+ *  the term saving. The server works this out itself; the client only shows it. */
+export function proTotalMMK(tier: ProTier, months: number): number {
+  return TIER_PRICE_MMK[tier] * months - (TERM_SAVING_MMK[months] ?? 0);
+}
+
+/** A Thai payer's amount in baht for a kyat total, rounded up to the next 10 baht so it is a tidy
+ *  figure to pay. `mmkPerThb` is how many kyat one baht is worth; null when it is not set. */
+export function thbForMMK(totalMMK: number, mmkPerThb: number | null | undefined): number | null {
+  if (!mmkPerThb || !(mmkPerThb > 0)) return null;
+  return Math.ceil(totalMMK / mmkPerThb / 10) * 10;
+}
 
 /** The date a trial that starts now runs until. */
 export function trialUntil(from: Date = new Date()): Date {

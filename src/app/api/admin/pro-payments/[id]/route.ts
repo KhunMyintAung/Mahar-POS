@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const payment = await prisma.proPayment.findUnique({
     where: { id },
-    include: { business: { select: { id: true, name: true, proUntil: true } } },
+    include: { business: { select: { id: true, name: true, proUntil: true, proTier: true } } },
   });
   if (!payment) return NextResponse.json({ ok: false, error: "Payment not found" }, { status: 404 });
 
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     const restored = payment.revertProUntil ?? now; // no stored date (older row) → end Pro now
     await prisma.$transaction(async (tx) => {
-      await tx.business.update({ where: { id: businessId }, data: { proUntil: restored } });
+      // The date and the level the shop had before the approval, both put back.
+      await tx.business.update({ where: { id: businessId }, data: { proUntil: restored, proTier: payment.revertProTier } });
       await tx.proPayment.update({ where: { id }, data: { status: "VOIDED", note, reviewedAt: now } });
       await audit(tx, { businessId, action: "UPDATE", module: "admin", resourceType: "ProPayment", resourceId: id, after: { status: "VOIDED", note, proUntil: restored.toISOString(), by: "admin portal" } });
     });
@@ -65,12 +66,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // approve — keep the Pro end date it had, so a later void can put it back exactly.
   const proUntil = extendProUntil(payment.business.proUntil, payment.months, now);
   await prisma.$transaction(async (tx) => {
-    await tx.business.update({ where: { id: businessId }, data: { proUntil } });
-    await tx.proPayment.update({ where: { id }, data: { status: "APPROVED", note, reviewedAt: now, revertProUntil: payment.business.proUntil ?? null } });
-    await audit(tx, { businessId, action: "UPDATE", module: "admin", resourceType: "ProPayment", resourceId: id, after: { status: "APPROVED", months: payment.months, proUntil: proUntil.toISOString(), by: "admin portal" } });
+    await tx.business.update({ where: { id: businessId }, data: { proUntil, proTier: payment.tier } });
+    await tx.proPayment.update({ where: { id }, data: { status: "APPROVED", note, reviewedAt: now, revertProUntil: payment.business.proUntil ?? null, revertProTier: payment.business.proTier ?? null } });
+    await audit(tx, { businessId, action: "UPDATE", module: "admin", resourceType: "ProPayment", resourceId: id, after: { status: "APPROVED", tier: payment.tier, months: payment.months, proUntil: proUntil.toISOString(), by: "admin portal" } });
   });
   notifyAuditFeed(businessId,
-    `Pro is on — ${payment.months} month${payment.months === 1 ? "" : "s"} added. Your plan runs to ${proUntil.toLocaleDateString("en-GB")}. Thank you!`,
+    `${payment.tier === "FULL" ? "Fully Access" : "Pro"} is on — ${payment.months} month${payment.months === 1 ? "" : "s"} added. Your plan runs to ${proUntil.toLocaleDateString("en-GB")}. Thank you!`,
     undefined, undefined, { url: "/settings?upgrade=1", perm: "settings.manage" });
   return NextResponse.json({ ok: true, data: { id, status: "APPROVED", proUntil } });
 }

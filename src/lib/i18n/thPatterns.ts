@@ -8,6 +8,10 @@ const side = (s: string) => (s === "Service" ? "บริการ" : "การ
 const total = (p: string) => (p === "Total" ? "รวม" : p);
 
 export const TH_PATTERNS: Array<[RegExp, (...m: string[]) => string]> = [
+  // Pro plan screen.
+  [/^You are on (Pro|Fully Access) — (\d+) days? left\.$/, (level, n) => `คุณใช้ ${level} อยู่ — เหลือ ${n} วัน`],
+  [/^Your payment for (Pro|Fully Access), (\d+) months? is being checked\. It turns on once it is confirmed\.$/, (level, n) => `กำลังตรวจสอบการชำระเงิน ${level} ${n} เดือน เมื่อยืนยันแล้วจะเปิดใช้งานทันที`],
+  [/^Save ([\d,]+)$/, (n) => `ประหยัด ${n}`],
   [/^Edit (.+)$/, (name) => `แก้ไข ${name}`],
   [/^Adjust (.+)$/, (name) => `ปรับยอด ${name}`],
   [/^Reconcile (.+)$/, (name) => `กระทบยอด ${name}`],

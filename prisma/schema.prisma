@@ -47,6 +47,8 @@ model Business {
   proUntil  DateTime?
   /// The day a Pro-expiry reminder was last sent, so it is not repeated.
   proRemindedOn DateTime?
+  /// The paid level — PRO or FULL (Fully Access). Null reads as PRO (a trial or an older shop).
+  proTier   String?
 
   branches Branch[]
   users    User[]
@@ -66,8 +68,12 @@ model ProPayment {
   months      Int
   /// What the shop was asked to pay, in minor units (kyat ×100): price × months.
   amountMinor Int
-  /// How they paid; only KBZ Pay for now.
+  /// The level bought: PRO or FULL (Fully Access).
+  tier        String   @default("PRO")
+  /// How they paid: KBZPAY (kyat) or PROMPAY (Thai PromptPay, in baht).
   method      String   @default("KBZPAY")
+  /// For PromptPay: the baht the payer was asked to send (the kyat total at the day's rate).
+  amountThb   Int?
   /// The payment-slip screenshot, a resized data URL (same as the shop logo).
   slipUrl     String
   /// PENDING until the operator reviews it, then APPROVED, REJECTED, or VOIDED (an approval
@@ -78,6 +84,8 @@ model ProPayment {
   /// The shop's Pro end date just before this payment was approved. Voiding the approval puts
   /// it back exactly, so a mistaken approval loses nothing.
   revertProUntil DateTime?
+  /// The shop's tier just before the approval, put back with it when the approval is voided.
+  revertProTier  String?
   /// Who reviewed it (an admin), and when.
   reviewedAt  DateTime?
   createdAt   DateTime @default(now())
