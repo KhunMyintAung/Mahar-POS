@@ -327,7 +327,7 @@ export default function AdminPage() {
                   type="button"
                   onClick={() => openUserAudit("all")}
                   aria-label="Show all registered user details"
-                  className="text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="cursor-pointer text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   {content}
                 </button>
@@ -341,7 +341,7 @@ export default function AdminPage() {
                   type="button"
                   onClick={() => openUserAudit("today")}
                   aria-label="Show users registered today"
-                  className="text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="cursor-pointer text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   {content}
                 </button>
@@ -355,7 +355,7 @@ export default function AdminPage() {
                   type="button"
                   onClick={openActivityAudit}
                   aria-label="Show activity audit logs"
-                  className="text-left transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="cursor-pointer text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   {content}
                 </button>

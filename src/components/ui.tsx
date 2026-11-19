@@ -37,7 +37,7 @@ export function StatCard({ label, value, sub, onClick, tone }: {
   return (
     <button
       onClick={onClick}
-      className="relative w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white p-3 pt-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.04)] transition hover:-translate-y-0.5 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 sm:p-4 sm:pt-[1.125rem]"
+      className="relative w-full overflow-hidden rounded-xl border border-gray-200/80 bg-white p-3 pt-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.04)] transition hover:border-gray-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 sm:p-4 sm:pt-[1.125rem]"
     >
       <span aria-hidden className={cn("absolute inset-x-0 top-0 h-[2px]", bars[tone ?? "default"])} />
       <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</div>
