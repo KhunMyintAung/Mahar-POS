@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit";
 import { nextNumber } from "@/lib/sequence";
 import { moveStock } from "@/services/stockService";
 import { cleanImeis, receiveSerials, removeSerials } from "@/services/serialService";
+import { countReasonLabel } from "@/lib/stockCountReasons";
 
 /** A stock count (stocktake), done the standard way: the books are the list. Every item the
  *  books hold for the branch (or one category) is a line, so an item that is in the books but
@@ -69,10 +70,12 @@ async function openCount(tx: Tx, businessId: string, id: string) {
 
 export interface CountEntry {
   itemId: string;
-  /** Null clears the line back to "not counted". */
-  countedQty: number | null;
+  /** Null clears the line back to "not counted"; left out, the count is not touched (a reason-only save). */
+  countedQty?: number | null;
   /** IMEI-tracked items: the numbers found; the count is how many there are. */
   imeis?: string[];
+  /** Why the count differs from the books; null clears it, left out keeps what is there. */
+  reason?: string | null;
 }
 
 /** Saves what was found, a few lines at a time, so several people can count one shop. */
@@ -87,10 +90,17 @@ export async function saveCountEntries(tx: Tx, opts: { businessId: string; id: s
   for (const e of opts.entries) {
     const line = lineOf.get(e.itemId);
     if (!line) throw new ApiError(404, "That item is not in this count");
-    if (e.countedQty === null) {
-      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: null, countedImeis: null, countedAt: null } });
+    // A reason on its own: the figure counted stays as it is.
+    if (e.countedQty === undefined) {
+      if (e.reason !== undefined) await tx.stockCountLine.update({ where: { id: line.id }, data: { reason: e.reason } });
       continue;
     }
+    if (e.countedQty === null) {
+      // Back to "not counted" also drops its reason: there is nothing to explain yet.
+      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null } });
+      continue;
+    }
+    const reasonPatch = e.reason !== undefined ? { reason: e.reason } : {};
     if (line.item.trackSerial) {
       const imeis = cleanImeis(e.imeis);
       // The same phone counted under another item of this count is a mistake on one of them.
@@ -106,11 +116,11 @@ export async function saveCountEntries(tx: Tx, opts: { businessId: string; id: s
       }
       await tx.stockCountLine.update({
         where: { id: line.id },
-        data: { countedQty: imeis.length, countedImeis: imeis.join(",") || null, countedAt: now },
+        data: { countedQty: imeis.length, countedImeis: imeis.join(",") || null, countedAt: now, ...reasonPatch },
       });
     } else {
       if (!Number.isInteger(e.countedQty) || e.countedQty < 0) throw new ApiError(422, `Enter how many ${line.item.name} were found (0 or more)`);
-      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: e.countedQty, countedImeis: null, countedAt: now } });
+      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: e.countedQty, countedImeis: null, countedAt: now, ...reasonPatch } });
     }
   }
 }
@@ -150,7 +160,9 @@ export async function completeStockCount(tx: Tx, opts: { businessId: string; use
     const level = await tx.stockLevel.findUnique({ where: { itemId_branchId: { itemId: line.itemId, branchId: count.branchId } }, select: { quantity: true } });
     const books = level?.quantity ?? 0;
     const counted = line.countedQty!;
-    const notes = `${count.txnNo} — counted ${counted}, books ${books}`;
+    // The reason picked while counting goes into the movement's note, so the stock list says why.
+    const why = countReasonLabel(line.reason);
+    const notes = `${count.txnNo} — counted ${counted}, books ${books}${why ? ` — ${why}` : ""}`;
 
     if (line.item.trackSerial) {
       const found = line.countedImeis ? line.countedImeis.split(",") : [];

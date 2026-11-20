@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Camera, Check, ClipboardCheck, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Camera, Check, ClipboardCheck, EyeOff, Plus, Search, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
 import { normalizeImei } from "@/lib/imeiInput";
 import { matchesWords } from "@/lib/searchWords";
-import { Badge, Button, Card, ConfirmDialog, Empty, Input, Modal, ProgressBar, Select, Spinner, cn, useToast } from "@/components/ui";
+import { COUNT_REASONS, countReasonLabel } from "@/lib/stockCountReasons";
+import { Badge, Button, Card, ConfirmDialog, Empty, Input, Modal, ProgressBar, Select, Spinner, Switch, cn, useToast } from "@/components/ui";
 import { useAuth, useCurrency } from "@/components/AppShell";
 import { BarcodeScannerModal, scanningSupported } from "@/components/BarcodeScanner";
 
@@ -26,7 +27,7 @@ interface CountRow {
 interface Line {
   itemId: string; name: string; sku: string; barcode?: string | null; category: string; trackSerial: boolean;
   expectedQty: number; countedQty: number | null; countedImeis: string[]; expectedImeis: string[];
-  adjustment: number | null; unitCost: string;
+  adjustment: number | null; unitCost: string; reason?: string | null;
 }
 interface CountDetail {
   id: string; txnNo: string; status: string; branchId: string; branch: string; categoryName?: string | null;
@@ -225,18 +226,31 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   // One box does both jobs: what is typed narrows the list, and Enter (or a scan) counts a
   // barcode or IMEI that matches.
   const [q, setQ] = useState("");
+  // Which shelf (category) of the count is on screen; "" is all of it.
+  const [cat, setCat] = useState("");
   const [imeiFor, setImeiFor] = useState<Line | null>(null);
   const [camera, setCamera] = useState(false);
   const [canCamera, setCanCamera] = useState(false);
   const [confirm, setConfirm] = useState<"finish" | "zero" | "cancel" | null>(null);
   const [busy, setBusy] = useState(false);
+  // Blind count: the books figures are hidden while counting, so every item is looked at and
+  // counted rather than agreed with. Remembered on this device; ended when it is time to review.
+  const [blindPref, setBlindPref] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The camera is offered only where the browser can read barcodes; checked after mount.
+  // Checked after mount: the camera is offered only where the browser can read barcodes, and the
+  // blind-count choice lives in this browser's storage.
   useEffect(() => {
-    const timer = window.setTimeout(() => setCanCamera(scanningSupported()), 0);
+    const timer = window.setTimeout(() => {
+      setCanCamera(scanningSupported());
+      try { if (localStorage.getItem("mp-count-blind") === "1") setBlindPref(true); } catch { /* storage unavailable */ }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+  const setBlind = (on: boolean) => {
+    setBlindPref(on);
+    try { localStorage.setItem("mp-count-blind", on ? "1" : "0"); } catch { /* storage unavailable */ }
+  };
 
   const load = useCallback(() => {
     api<CountDetail>(`/api/v1/stock-counts/${id}`).then((c) => { setCount(c); setKept(new Set()); if (c.status !== "OPEN") setFilterRaw("all"); }).catch((e) => push(e.message, "error"));
@@ -245,6 +259,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
   const open = count?.status === "OPEN";
   const editable = open && canEdit;
+  const blind = !!open && blindPref;
 
   const setLine = (itemId: string, patch: Partial<Line>) =>
     setCount((c) => (c ? { ...c, lines: c.lines.map((l) => (l.itemId === itemId ? { ...l, ...patch } : l)) } : c));
@@ -252,12 +267,25 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   async function save(itemId: string, countedQty: number | null, imeis?: string[]) {
     const before = count?.lines.find((l) => l.itemId === itemId);
     setKept((k) => (k.has(itemId) ? k : new Set(k).add(itemId)));
-    setLine(itemId, { countedQty, ...(imeis ? { countedImeis: imeis } : {}) });
+    // Back to "not counted" also drops its reason (the server does the same).
+    setLine(itemId, { countedQty, ...(imeis ? { countedImeis: imeis } : {}), ...(countedQty === null ? { reason: null } : {}) });
     try {
       await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, countedQty, imeis }] } });
     } catch (e) {
       push((e as Error).message, "error");
-      if (before) setLine(itemId, { countedQty: before.countedQty, countedImeis: before.countedImeis });
+      if (before) setLine(itemId, { countedQty: before.countedQty, countedImeis: before.countedImeis, reason: before.reason });
+    }
+  }
+
+  /** Why a counted item differs from the books; saved on its own, the figure counted untouched. */
+  async function saveReason(itemId: string, reason: string | null) {
+    const before = count?.lines.find((l) => l.itemId === itemId)?.reason ?? null;
+    setLine(itemId, { reason });
+    try {
+      await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, reason }] } });
+    } catch (e) {
+      push((e as Error).message, "error");
+      setLine(itemId, { reason: before });
     }
   }
 
@@ -329,23 +357,42 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const shortValue = shortLines.reduce((n, l) => n + BigInt(l.unitCost) * BigInt(-(diffOf(l) ?? 0)), 0n);
   const overValue = overLines.reduce((n, l) => n + BigInt(l.unitCost) * BigInt(diffOf(l) ?? 0), 0n);
 
+  // While counting blind, how the count compares with the books is not shown, so the lists that
+  // are about that (Short, Over, Matches) are not offered either.
+  const activeFilter: Filter = blind && (filter === "short" || filter === "over" || filter === "ok") ? "all" : filter;
+
+  // The shelves (categories) in this count, so a big one can be taken a shelf at a time.
+  const cats = [...new Set(lines.map((l) => l.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
   const shown = lines.filter((l) => {
     const d = diffOf(l);
+    if (cat && l.category !== cat) return false;
     if (kept.has(l.itemId)) return matchesWords(q, l.name, l.sku, l.barcode, l.category);
-    if (filter === "todo" && l.countedQty !== null) return false;
-    if (filter === "short" && !(d !== null && d < 0)) return false;
-    if (filter === "over" && !(d !== null && d > 0)) return false;
-    if (filter === "ok" && d !== 0) return false;
+    if (activeFilter === "todo" && l.countedQty !== null) return false;
+    if (activeFilter === "short" && !(d !== null && d < 0)) return false;
+    if (activeFilter === "over" && !(d !== null && d > 0)) return false;
+    if (activeFilter === "ok" && d !== 0) return false;
     return matchesWords(q, l.name, l.sku, l.barcode, l.category);
   });
 
   const filters: [Filter, string, number][] = [
     ...(open ? [["todo", "Not counted", todo] as [Filter, string, number]] : []),
-    ["short", "Short", shortLines.length],
-    ["over", "Over", overLines.length],
-    ["ok", "Matches", counted.length - shortLines.length - overLines.length],
+    ...(blind ? [] : [
+      ["short", "Short", shortLines.length] as [Filter, string, number],
+      ["over", "Over", overLines.length] as [Filter, string, number],
+      ["ok", "Matches", counted.length - shortLines.length - overLines.length] as [Filter, string, number],
+    ]),
     ["all", "All", lines.length],
   ];
+
+  // What finishing would change, item by item, for the review before the stock is corrected.
+  const variances = counted.filter((l) => (diffOf(l) ?? 0) !== 0);
+
+  /** Finishing ends a blind count: the figures come back for the review, which is the point of it. */
+  function askFinish() {
+    if (blindPref) setBlind(false);
+    setConfirm("finish");
+  }
 
   /** Enter in the box: a barcode or IMEI that matches is counted and the box cleared; text that
    *  matches nothing but still finds items is just a search; text that finds nothing is said so. */
@@ -375,7 +422,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
           </div>
           {editable && canFinish && (
             // A short word here (the bar is narrow); the confirmation that follows spells out what finishing does.
-            <Button className="shrink-0" disabled={busy || counted.length === 0} onClick={() => setConfirm("finish")}><Check size={16} className="mr-1 inline" />Finish</Button>
+            <Button className="shrink-0" disabled={busy || counted.length === 0} onClick={askFinish}><Check size={16} className="mr-1 inline" />Finish</Button>
           )}
         </div>
         <ProgressBar value={lines.length ? counted.length / lines.length : 0} label={<span className="tabular-nums">{counted.length} / {lines.length}</span>} />
@@ -414,31 +461,51 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
       <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
         {filters.map(([k, label, n]) => (
-          <button key={k} type="button" onClick={() => setFilter(k)} className={cn("shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium", filter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
+          <button key={k} type="button" onClick={() => setFilter(k)} className={cn("shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium", activeFilter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
             <span>{label}</span> <span className="tabular-nums">{n}</span>
           </button>
         ))}
       </div>
 
-      {(shortQty > 0 || overQty > 0) && (
+      {cats.length > 1 && (
+        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+          {["", ...cats].map((c) => (
+            <button key={c || "all"} type="button" onClick={() => setCat(c)} className={cn("max-w-[14rem] shrink-0 truncate whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-medium", cat === c ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300")}>
+              {c || "All items"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {editable && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 text-xs text-gray-500">{blind ? "✗ = not found" : <span className="sm:hidden">✓ = all there · ✗ = not found</span>}</p>
+          <label className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+            <EyeOff size={15} /><span>Blind count</span>
+            <Switch on={blindPref} onChange={setBlind} label="Blind count" />
+          </label>
+        </div>
+      )}
+      {blind && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Blind count is on: the books figures are hidden until you finish.</p>}
+
+      {!blind && (shortQty > 0 || overQty > 0) && (
         <p className="flex flex-wrap gap-x-4 text-sm">
           {shortQty > 0 && <span className="text-red-600"><span>Short</span> <span className="tabular-nums font-medium">{shortQty}</span>{seeCost && shortValue > 0n && <span className="tabular-nums"> ({fmtMoney(shortValue, cur)})</span>}</span>}
           {overQty > 0 && <span className="text-green-700 dark:text-green-400"><span>Over</span> <span className="tabular-nums font-medium">{overQty}</span>{seeCost && overValue > 0n && <span className="tabular-nums"> ({fmtMoney(overValue, cur)})</span>}</span>}
         </p>
       )}
-      {editable && <p className="text-xs text-gray-500 sm:hidden">✓ = all there · ✗ = not found</p>}
 
       {shown.length === 0 ? (
-        <Card><Empty message={filter === "todo" && !q ? "Every item is counted" : "Nothing here"} /></Card>
+        <Card><Empty message={activeFilter === "todo" && !q && !cat ? "Every item is counted" : "Nothing here"} /></Card>
       ) : (
         <Card className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
-          {shown.map((l) => <CountLine key={l.itemId} line={l} editable={editable} seeCost={seeCost} cur={cur} onSave={save} onImei={() => setImeiFor(l)} />)}
+          {shown.map((l) => <CountLine key={l.itemId} line={l} editable={editable} blind={blind} seeCost={seeCost} cur={cur} onSave={save} onReason={saveReason} onImei={() => setImeiFor(l)} />)}
         </Card>
       )}
 
       {editable && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {canFinish && <Button className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy || counted.length === 0} onClick={() => setConfirm("finish")}><Check size={18} className="mr-1 inline" />Finish count</Button>}
+          {canFinish && <Button className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy || counted.length === 0} onClick={askFinish}><Check size={18} className="mr-1 inline" />Finish count</Button>}
           {todo > 0 && <Button variant="secondary" className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy} onClick={() => setConfirm("zero")}>Mark the rest as not found</Button>}
           {canFinish && <Button variant="ghost" className="text-red-600 sm:ml-auto" disabled={busy} onClick={() => setConfirm("cancel")}><X size={16} className="mr-1 inline" />Cancel count</Button>}
         </div>
@@ -450,28 +517,56 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
         <ImeiCountModal
           line={count.lines.find((l) => l.itemId === imeiFor.itemId) ?? imeiFor}
           editable={!!editable}
+          blind={blind}
           onClose={() => setImeiFor(null)}
           onSave={(imeis) => { save(imeiFor.itemId, imeis.length, imeis); setImeiFor(null); }}
         />
       )}
 
-      <ConfirmDialog
+      {/* The review before the books are changed: each item that differs, the reason given, and what
+          it is worth, so nothing is corrected without being seen. */}
+      <Modal
         open={confirm === "finish"}
         onClose={() => setConfirm(null)}
-        onConfirm={() => act("finish")}
-        title="Finish count"
-        confirmLabel="Correct the stock"
-        message={
-          <div className="space-y-2">
-            <p>The stock of every counted item becomes what was counted. This cannot be undone.</p>
-            <ul className="space-y-1">
-              <li className="text-red-600"><span>Short</span> <span className="tabular-nums font-medium">{shortQty}</span>{seeCost && shortValue > 0n && <span className="tabular-nums"> ({fmtMoney(shortValue, cur)})</span>}</li>
-              <li className="text-green-700 dark:text-green-400"><span>Over</span> <span className="tabular-nums font-medium">{overQty}</span>{seeCost && overValue > 0n && <span className="tabular-nums"> ({fmtMoney(overValue, cur)})</span>}</li>
-              {todo > 0 && <li className="text-amber-600"><span>Not counted (left as they are)</span> <span className="tabular-nums font-medium">{todo}</span></li>}
+        title="Review before correcting the stock"
+        wide
+        footer={<div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setConfirm(null)}>Cancel</Button>
+          <Button disabled={busy} onClick={() => { setConfirm(null); act("finish"); }}>Correct the stock</Button>
+        </div>}
+      >
+        <div className="space-y-3 text-sm">
+          <p className="text-gray-600 dark:text-gray-300">The stock of every counted item becomes what was counted. This cannot be undone.</p>
+          {variances.length === 0 ? (
+            <p className="rounded-lg bg-green-50 px-3 py-2 text-green-800 dark:bg-green-950/40 dark:text-green-300">Nothing will change: every counted item matches the books.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
+              {variances.map((l) => {
+                const d = diffOf(l) ?? 0;
+                const why = countReasonLabel(l.reason);
+                return (
+                  <li key={l.itemId} className="space-y-0.5 px-3 py-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 font-medium">{l.name}</span>
+                      <span className={cn("shrink-0 font-bold tabular-nums", d < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>{d > 0 ? `+${d}` : d}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                      <span><span>Books</span> <b className="tabular-nums text-gray-700 dark:text-gray-200">{l.expectedQty}</b> → <span>Counted</span> <b className="tabular-nums text-gray-700 dark:text-gray-200">{l.countedQty}</b></span>
+                      {seeCost && <span className="tabular-nums">{fmtMoney(BigInt(l.unitCost) * BigInt(d), cur)}</span>}
+                      {why ? <span className="text-gray-600 dark:text-gray-300">{why}</span> : <span className="text-amber-600">No reason given</span>}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
-          </div>
-        }
-      />
+          )}
+          <ul className="space-y-1">
+            <li className="text-red-600"><span>Short</span> <span className="tabular-nums font-medium">{shortQty}</span>{seeCost && shortValue > 0n && <span className="tabular-nums"> ({fmtMoney(shortValue, cur)})</span>}</li>
+            <li className="text-green-700 dark:text-green-400"><span>Over</span> <span className="tabular-nums font-medium">{overQty}</span>{seeCost && overValue > 0n && <span className="tabular-nums"> ({fmtMoney(overValue, cur)})</span>}</li>
+            {todo > 0 && <li className="text-amber-600"><span>Not counted (left as they are)</span> <span className="tabular-nums font-medium">{todo}</span></li>}
+          </ul>
+        </div>
+      </Modal>
       <ConfirmDialog
         open={confirm === "zero"}
         onClose={() => setConfirm(null)}
@@ -496,9 +591,9 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
 
 /** One item to count. The books figure is at the right, where the eye goes to compare; below it
  *  the number found (− / + / typed) and, until it is counted, a tap for "all there" or "not found". */
-function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
-  line: Line; editable: boolean; seeCost: boolean; cur: string;
-  onSave: (itemId: string, qty: number | null) => void; onImei: () => void;
+function CountLine({ line, editable, blind, seeCost, cur, onSave, onReason, onImei }: {
+  line: Line; editable: boolean; blind: boolean; seeCost: boolean; cur: string;
+  onSave: (itemId: string, qty: number | null) => void; onReason: (itemId: string, reason: string | null) => void; onImei: () => void;
 }) {
   const [text, setText] = useState(line.countedQty === null ? "" : String(line.countedQty));
   // A scan or "Not found" changes the count from outside the box: show the new figure.
@@ -525,8 +620,11 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
   const stepBtn = "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-2xl font-bold text-gray-700 active:bg-gray-200 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-200 dark:active:bg-gray-700";
   const quick = "flex h-11 shrink-0 items-center justify-center gap-1 rounded-xl px-3 text-sm font-semibold";
 
-  /** The result: how far off the books the count is, with what that is worth. */
-  const result = d === null ? null : (
+  /** The result: how far off the books the count is, with what that is worth. A blind count says
+   *  only that it was counted, since the comparison is kept back until the review. */
+  const result = d === null ? null : blind ? (
+    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">✓ <span>Counted</span></span>
+  ) : (
     <div className="min-w-0 shrink-0 text-right">
       <div className={cn("text-xl font-bold tabular-nums leading-tight", d < 0 ? "text-red-600" : d > 0 ? "text-green-700 dark:text-green-400" : "text-gray-400")}>
         {d === 0 ? "✓" : d > 0 ? `+${d}` : d}
@@ -535,8 +633,10 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
     </div>
   );
 
+  const differs = d !== null && d !== 0;
+
   return (
-    <div className={cn("space-y-2 px-3 py-3", d !== null && d < 0 && "bg-red-50/50 dark:bg-red-950/20", d !== null && d > 0 && "bg-green-50/50 dark:bg-green-950/20")}>
+    <div className={cn("space-y-2 px-3 py-3", !blind && d !== null && d < 0 && "bg-red-50/50 dark:bg-red-950/20", !blind && d !== null && d > 0 && "bg-green-50/50 dark:bg-green-950/20")}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="font-semibold leading-snug">{line.name}</div>
@@ -544,7 +644,7 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
         </div>
         <div className="shrink-0 text-right">
           <div className="text-xs text-gray-500">Books</div>
-          <div className="text-2xl font-semibold tabular-nums leading-none">{line.expectedQty}</div>
+          <div className="text-2xl font-semibold tabular-nums leading-none">{blind ? "•••" : line.expectedQty}</div>
         </div>
       </div>
 
@@ -579,9 +679,12 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
 
         {editable && !line.trackSerial && untouched ? (
           <>
-            <button type="button" aria-label="All there" title="All there" onClick={() => onSave(line.itemId, line.expectedQty)} className={cn(quick, "bg-green-100 text-green-700 active:bg-green-200 dark:bg-green-900/40 dark:text-green-300")}>
-              <Check size={20} /><span className="hidden sm:inline">All there</span>
-            </button>
+            {/* "All there" copies the books figure, which a blind count must not do: the number is entered. */}
+            {!blind && (
+              <button type="button" aria-label="All there" title="All there" onClick={() => onSave(line.itemId, line.expectedQty)} className={cn(quick, "bg-green-100 text-green-700 active:bg-green-200 dark:bg-green-900/40 dark:text-green-300")}>
+                <Check size={20} /><span className="hidden sm:inline">All there</span>
+              </button>
+            )}
             <button type="button" aria-label="Not found" title="Not found" onClick={() => onSave(line.itemId, 0)} className={cn(quick, "bg-red-100 text-red-700 active:bg-red-200 dark:bg-red-900/40 dark:text-red-300")}>
               <X size={20} /><span className="hidden sm:inline">Not found</span>
             </button>
@@ -590,16 +693,34 @@ function CountLine({ line, editable, seeCost, cur, onSave, onImei }: {
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Not counted</span>
         ) : result}
       </div>
+
+      {/* Why it differs: optional, picked from a short list, and carried into the stock movement. */}
+      {!blind && differs && editable && (
+        <select
+          aria-label="Reason"
+          value={line.reason ?? ""}
+          onChange={(e) => onReason(line.itemId, e.target.value || null)}
+          className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        >
+          <option value="">Reason (optional)</option>
+          {COUNT_REASONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+        </select>
+      )}
+      {!editable && differs && countReasonLabel(line.reason) && (
+        <div className="text-xs text-gray-500">{countReasonLabel(line.reason)}</div>
+      )}
     </div>
   );
 }
 
 /** An IMEI phone is counted phone by phone: tick each one the books hold that is on the
  *  shelf, and add any found that the books do not have. */
-function ImeiCountModal({ line, editable, onClose, onSave }: { line: Line; editable: boolean; onClose: () => void; onSave: (imeis: string[]) => void }) {
+function ImeiCountModal({ line, editable, blind, onClose, onSave }: { line: Line; editable: boolean; blind: boolean; onClose: () => void; onSave: (imeis: string[]) => void }) {
   const [found, setFound] = useState<string[]>(line.countedImeis);
   const [extra, setExtra] = useState("");
-  const all = [...new Set([...line.expectedImeis, ...found])];
+  // A blind count does not list the phones the books hold (that would be the answer): only what has
+  // been found so far, which grows as each IMEI is entered.
+  const all = [...new Set([...(blind ? [] : line.expectedImeis), ...found])];
   const toggle = (i: string) => setFound((f) => (f.includes(i) ? f.filter((x) => x !== i) : [...f, i]));
 
   function addExtra() {
@@ -621,8 +742,8 @@ function ImeiCountModal({ line, editable, onClose, onSave }: { line: Line; edita
       ) : undefined}
     >
       <div className="space-y-3">
-        <p className="text-sm text-gray-500">Tick each phone that is on the shelf. A phone not ticked is short.</p>
-        {all.length === 0 ? <Empty message="No IMEIs in the books" /> : (
+        <p className="text-sm text-gray-500">{blind ? "Enter the IMEI of each phone you find on the shelf." : "Tick each phone that is on the shelf. A phone not ticked is short."}</p>
+        {all.length === 0 ? <Empty message={blind ? "No phones entered yet" : "No IMEIs in the books"} /> : (
           <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
             {all.map((i) => {
               const inBooks = line.expectedImeis.includes(i);
@@ -631,7 +752,7 @@ function ImeiCountModal({ line, editable, onClose, onSave }: { line: Line; edita
                   <label className="flex items-center gap-2 px-3 py-2 text-sm">
                     <input type="checkbox" className="h-4 w-4" disabled={!editable} checked={found.includes(i)} onChange={() => toggle(i)} />
                     <span className="font-mono tabular-nums">{i}</span>
-                    {!inBooks && <span className="ml-auto rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-950 dark:text-green-300">Not in books</span>}
+                    {!blind && !inBooks && <span className="ml-auto rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-950 dark:text-green-300">Not in books</span>}
                   </label>
                 </li>
               );
@@ -640,11 +761,11 @@ function ImeiCountModal({ line, editable, onClose, onSave }: { line: Line; edita
         )}
         {editable && (
           <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); addExtra(); }}>
-            <div className="flex-1"><Input label="Found a phone not in the list? Its IMEI" value={extra} onChange={(e) => setExtra(e.target.value)} /></div>
+            <div className="flex-1"><Input label={blind ? "IMEI of a phone you found" : "Found a phone not in the list? Its IMEI"} value={extra} onChange={(e) => setExtra(e.target.value)} /></div>
             <Button type="submit" variant="secondary">Add</Button>
           </form>
         )}
-        <p className="text-sm"><span className="text-gray-500">Counted</span> <span className="font-semibold tabular-nums">{found.length}</span> <span className="text-gray-500">/</span> <span className="tabular-nums">{line.expectedQty}</span></p>
+        <p className="text-sm"><span className="text-gray-500">Counted</span> <span className="font-semibold tabular-nums">{found.length}</span>{!blind && <> <span className="text-gray-500">/</span> <span className="tabular-nums">{line.expectedQty}</span></>}</p>
       </div>
     </Modal>
   );

@@ -1543,6 +1543,9 @@ model StockCountLine {
   /// Set when finished: the change made (counted − books) and the cost price per unit then.
   adjustment   Int?
   unitCost     BigInt     @default(0)
+  /// Why the count differs from the books, chosen while counting (a key from stockCountReasons.ts).
+  /// It goes into the stock movement's note when the count is finished.
+  reason       String?
 
   @@unique([countId, itemId])
 }

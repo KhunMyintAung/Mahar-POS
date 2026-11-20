@@ -17,7 +17,7 @@ import { completeStockCount, saveCountEntries, startStockCount } from "@/service
 
 const count = { id: "c1", txnNo: "STC-000001", status: "OPEN", branchId: "A", businessId: "b" };
 
-interface FakeLine { id: string; itemId: string; countedQty: number | null; countedImeis?: string | null; item: Record<string, unknown> }
+interface FakeLine { id: string; itemId: string; countedQty: number | null; countedImeis?: string | null; reason?: string | null; item: Record<string, unknown> }
 
 function fakeTx(opts: { lines?: FakeLine[]; books?: Record<string, number>; held?: string[]; heldElsewhere?: Record<string, unknown> | null; open?: Record<string, unknown> | null } = {}) {
   return {
@@ -112,6 +112,42 @@ describe("stock count", () => {
     const tx = fakeTx({ lines: [] });
     tx.stockCount.updateMany.mockResolvedValue({ count: 0 });
     await expect(completeStockCount(tx as unknown as Tx, { businessId: "b", userId: "u", id: "c1" })).rejects.toThrow(/already finished/);
+  });
+
+  it("keeps the reason picked for a difference, and writes it into the stock movement's note", async () => {
+    const tx = fakeTx({
+      lines: [{ id: "l1", itemId: "glass", countedQty: 3, reason: "DAMAGE", item: plain("glass", "Glass") }],
+      books: { glass: 4 },
+    });
+    await completeStockCount(tx as unknown as Tx, { businessId: "b", userId: "u", id: "c1" });
+    expect(moveStock.mock.calls[0][1].notes).toBe("STC-000001 — counted 3, books 4 — Damaged");
+  });
+
+  it("leaves the note plain when no reason was picked, or one it does not know", async () => {
+    const tx = fakeTx({
+      lines: [
+        { id: "l1", itemId: "glass", countedQty: 3, reason: null, item: plain("glass", "Glass") },
+        { id: "l2", itemId: "case", countedQty: 1, reason: "NOT_A_REASON", item: plain("case", "Case") },
+      ],
+      books: { glass: 4, case: 2 },
+    });
+    await completeStockCount(tx as unknown as Tx, { businessId: "b", userId: "u", id: "c1" });
+    expect(moveStock.mock.calls[0][1].notes).toBe("STC-000001 — counted 3, books 4");
+    expect(moveStock.mock.calls[1][1].notes).toBe("STC-000001 — counted 1, books 2");
+  });
+
+  it("saves a reason on its own without touching the figure counted", async () => {
+    const tx = fakeTx();
+    tx.stockCountLine.findMany.mockResolvedValue([{ id: "l1", itemId: "glass", item: { name: "Glass", trackSerial: false } }]);
+    await saveCountEntries(tx as unknown as Tx, { businessId: "b", id: "c1", entries: [{ itemId: "glass", reason: "LOST" }] });
+    expect(tx.stockCountLine.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { reason: "LOST" } });
+  });
+
+  it("drops the reason when a line goes back to not counted", async () => {
+    const tx = fakeTx();
+    tx.stockCountLine.findMany.mockResolvedValue([{ id: "l1", itemId: "glass", item: { name: "Glass", trackSerial: false } }]);
+    await saveCountEntries(tx as unknown as Tx, { businessId: "b", id: "c1", entries: [{ itemId: "glass", countedQty: null }] });
+    expect(tx.stockCountLine.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null } });
   });
 
   it("saves an IMEI phone's count as the number of phones found", async () => {

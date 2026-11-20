@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessBranch } from "@/lib/auth";
 import { canSeeCost } from "@/lib/permissions";
 import { saveCountEntries } from "@/services/stockCountService";
+import { COUNT_REASON_KEYS } from "@/lib/stockCountReasons";
 
 async function findCount(businessId: string, id: string, user: Parameters<typeof canAccessBranch>[0]) {
   const count = await prisma.stockCount.findFirst({ where: { id, businessId } });
@@ -67,6 +68,7 @@ export const GET = withAuth("stock.view", async ({ user, params }) => {
         countedImeis: l.countedImeis ? l.countedImeis.split(",") : [],
         expectedImeis: open ? heldImeis.get(l.itemId) ?? [] : [],
         adjustment: l.adjustment,
+        reason: l.reason,
         unitCost: seeCost ? (open ? l.item.costPrice : l.unitCost) : 0n,
       }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)),
@@ -76,8 +78,10 @@ export const GET = withAuth("stock.view", async ({ user, params }) => {
 const schema = z.object({
   entries: z.array(z.object({
     itemId: z.string().min(1),
-    countedQty: z.number().int().min(0).max(1_000_000).nullable(),
+    // Left out when only a reason is being saved: the figure counted stays as it is.
+    countedQty: z.number().int().min(0).max(1_000_000).nullable().optional(),
     imeis: z.array(z.string().trim().max(40)).max(500).optional(),
+    reason: z.enum(COUNT_REASON_KEYS).nullable().optional(),
   })).min(1).max(500),
 });
 
