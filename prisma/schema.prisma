@@ -1546,6 +1546,8 @@ model StockCountLine {
   /// Why the count differs from the books, chosen while counting (a key from stockCountReasons.ts).
   /// It goes into the stock movement's note when the count is finished.
   reason       String?
+  /// A short remark the counter wrote about the difference; also goes into the movement's note.
+  note         String?
 
   @@unique([countId, itemId])
 }

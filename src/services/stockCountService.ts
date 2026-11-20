@@ -76,6 +76,8 @@ export interface CountEntry {
   imeis?: string[];
   /** Why the count differs from the books; null clears it, left out keeps what is there. */
   reason?: string | null;
+  /** A short remark about the difference; null or empty clears it, left out keeps what is there. */
+  note?: string | null;
 }
 
 /** Saves what was found, a few lines at a time, so several people can count one shop. */
@@ -90,17 +92,21 @@ export async function saveCountEntries(tx: Tx, opts: { businessId: string; id: s
   for (const e of opts.entries) {
     const line = lineOf.get(e.itemId);
     if (!line) throw new ApiError(404, "That item is not in this count");
-    // A reason on its own: the figure counted stays as it is.
+    // What explains a difference (a reason, a remark); an empty remark is stored as none.
+    const why: { reason?: string | null; note?: string | null } = {};
+    if (e.reason !== undefined) why.reason = e.reason;
+    if (e.note !== undefined) why.note = e.note?.trim() || null;
+    // An explanation on its own: the figure counted stays as it is.
     if (e.countedQty === undefined) {
-      if (e.reason !== undefined) await tx.stockCountLine.update({ where: { id: line.id }, data: { reason: e.reason } });
+      if (Object.keys(why).length > 0) await tx.stockCountLine.update({ where: { id: line.id }, data: why });
       continue;
     }
     if (e.countedQty === null) {
-      // Back to "not counted" also drops its reason: there is nothing to explain yet.
-      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null } });
+      // Back to "not counted" also drops what explained it: there is nothing to explain yet.
+      await tx.stockCountLine.update({ where: { id: line.id }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null, note: null } });
       continue;
     }
-    const reasonPatch = e.reason !== undefined ? { reason: e.reason } : {};
+    const reasonPatch = why;
     if (line.item.trackSerial) {
       const imeis = cleanImeis(e.imeis);
       // The same phone counted under another item of this count is a mistake on one of them.
@@ -138,12 +144,15 @@ export async function markUncountedZero(tx: Tx, opts: { businessId: string; id: 
 /** Corrects the stock to what was counted. The difference is taken against the books as they
  *  stand now, so a sale made while counting is not counted twice; an IMEI phone's missing
  *  numbers are taken out and the ones found but not in the books are put in. */
-export async function completeStockCount(tx: Tx, opts: { businessId: string; userId: string; id: string }) {
+export async function completeStockCount(tx: Tx, opts: { businessId: string; userId: string; id: string; remarks?: string | null }) {
   const count = await openCount(tx, opts.businessId, opts.id);
+  // The person finishing may leave a remark; it joins any note the count already had.
+  const remarks = opts.remarks?.trim();
+  const notes = remarks ? [count.notes, remarks].filter(Boolean).join("\n") : undefined;
   // Lock the count, so it is finished once even if the button is pressed twice.
   const { count: claimed } = await tx.stockCount.updateMany({
     where: { id: count.id, status: "OPEN" },
-    data: { status: "COMPLETED", completedAt: new Date(), completedById: opts.userId },
+    data: { status: "COMPLETED", completedAt: new Date(), completedById: opts.userId, ...(notes !== undefined ? { notes } : {}) },
   });
   if (claimed !== 1) throw new ApiError(422, `${count.txnNo} is already finished`);
 
@@ -162,7 +171,7 @@ export async function completeStockCount(tx: Tx, opts: { businessId: string; use
     const counted = line.countedQty!;
     // The reason picked while counting goes into the movement's note, so the stock list says why.
     const why = countReasonLabel(line.reason);
-    const notes = `${count.txnNo} — counted ${counted}, books ${books}${why ? ` — ${why}` : ""}`;
+    const notes = `${count.txnNo} — counted ${counted}, books ${books}${why ? ` — ${why}` : ""}${line.note ? ` — ${line.note}` : ""}`;
 
     if (line.item.trackSerial) {
       const found = line.countedImeis ? line.countedImeis.split(",") : [];

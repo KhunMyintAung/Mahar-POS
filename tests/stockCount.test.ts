@@ -17,7 +17,7 @@ import { completeStockCount, saveCountEntries, startStockCount } from "@/service
 
 const count = { id: "c1", txnNo: "STC-000001", status: "OPEN", branchId: "A", businessId: "b" };
 
-interface FakeLine { id: string; itemId: string; countedQty: number | null; countedImeis?: string | null; reason?: string | null; item: Record<string, unknown> }
+interface FakeLine { id: string; itemId: string; countedQty: number | null; countedImeis?: string | null; reason?: string | null; note?: string | null; item: Record<string, unknown> }
 
 function fakeTx(opts: { lines?: FakeLine[]; books?: Record<string, number>; held?: string[]; heldElsewhere?: Record<string, unknown> | null; open?: Record<string, unknown> | null } = {}) {
   return {
@@ -136,6 +136,31 @@ describe("stock count", () => {
     expect(moveStock.mock.calls[1][1].notes).toBe("STC-000001 — counted 1, books 2");
   });
 
+  it("adds the counter's remark after the reason in the movement note", async () => {
+    const tx = fakeTx({
+      lines: [{ id: "l1", itemId: "glass", countedQty: 3, reason: "DAMAGE", note: "cracked on the bench", item: plain("glass", "Glass") }],
+      books: { glass: 4 },
+    });
+    await completeStockCount(tx as unknown as Tx, { businessId: "b", userId: "u", id: "c1" });
+    expect(moveStock.mock.calls[0][1].notes).toBe("STC-000001 — counted 3, books 4 — Damaged — cracked on the bench");
+  });
+
+  it("keeps the finisher's remark with the count, after any note it already had", async () => {
+    const tx = fakeTx({ lines: [{ id: "l1", itemId: "glass", countedQty: 4, item: plain("glass", "Glass") }], books: { glass: 4 } });
+    (tx.stockCount.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ ...count, notes: "Shelf B only" });
+    await completeStockCount(tx as unknown as Tx, { businessId: "b", userId: "u", id: "c1", remarks: "  Checked with the manager " });
+    expect(tx.stockCount.updateMany.mock.calls[0][0].data).toMatchObject({ status: "COMPLETED", notes: "Shelf B only\nChecked with the manager" });
+  });
+
+  it("saves a remark on its own, trimmed, and clears an empty one", async () => {
+    const tx = fakeTx();
+    tx.stockCountLine.findMany.mockResolvedValue([{ id: "l1", itemId: "glass", item: { name: "Glass", trackSerial: false } }]);
+    await saveCountEntries(tx as unknown as Tx, { businessId: "b", id: "c1", entries: [{ itemId: "glass", note: "  cracked " }] });
+    expect(tx.stockCountLine.update).toHaveBeenLastCalledWith({ where: { id: "l1" }, data: { note: "cracked" } });
+    await saveCountEntries(tx as unknown as Tx, { businessId: "b", id: "c1", entries: [{ itemId: "glass", note: "   " }] });
+    expect(tx.stockCountLine.update).toHaveBeenLastCalledWith({ where: { id: "l1" }, data: { note: null } });
+  });
+
   it("saves a reason on its own without touching the figure counted", async () => {
     const tx = fakeTx();
     tx.stockCountLine.findMany.mockResolvedValue([{ id: "l1", itemId: "glass", item: { name: "Glass", trackSerial: false } }]);
@@ -147,7 +172,7 @@ describe("stock count", () => {
     const tx = fakeTx();
     tx.stockCountLine.findMany.mockResolvedValue([{ id: "l1", itemId: "glass", item: { name: "Glass", trackSerial: false } }]);
     await saveCountEntries(tx as unknown as Tx, { businessId: "b", id: "c1", entries: [{ itemId: "glass", countedQty: null }] });
-    expect(tx.stockCountLine.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null } });
+    expect(tx.stockCountLine.update).toHaveBeenCalledWith({ where: { id: "l1" }, data: { countedQty: null, countedImeis: null, countedAt: null, reason: null, note: null } });
   });
 
   it("saves an IMEI phone's count as the number of phones found", async () => {

@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Camera, Check, ClipboardCheck, EyeOff, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Camera, Check, ClipboardCheck, Download, EyeOff, Plus, Printer, Search, X } from "lucide-react";
 import { api } from "@/lib/client";
 import { fmtMoney } from "@/lib/format";
+import { playBeep, playError } from "@/lib/sound";
+import { downloadCsv, rowsToCsv } from "@/lib/csv";
 import { normalizeImei } from "@/lib/imeiInput";
 import { matchesWords } from "@/lib/searchWords";
 import { COUNT_REASONS, countReasonLabel } from "@/lib/stockCountReasons";
@@ -27,7 +29,7 @@ interface CountRow {
 interface Line {
   itemId: string; name: string; sku: string; barcode?: string | null; category: string; trackSerial: boolean;
   expectedQty: number; countedQty: number | null; countedImeis: string[]; expectedImeis: string[];
-  adjustment: number | null; unitCost: string; reason?: string | null;
+  adjustment: number | null; unitCost: string; reason?: string | null; note?: string | null;
 }
 interface CountDetail {
   id: string; txnNo: string; status: string; branchId: string; branch: string; categoryName?: string | null;
@@ -212,7 +214,7 @@ const diffOf = (l: Line) => (l.countedQty === null ? null : l.adjustment ?? l.co
 
 function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const cur = useCurrency();
-  const { hasPerm } = useAuth();
+  const { hasPerm, me } = useAuth();
   const { push } = useToast();
   const canEdit = hasPerm("stock.adjust");
   const canFinish = hasPerm("stock.adjust") && hasPerm("item.manage");
@@ -232,6 +234,8 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const [camera, setCamera] = useState(false);
   const [canCamera, setCanCamera] = useState(false);
   const [confirm, setConfirm] = useState<"finish" | "zero" | "cancel" | null>(null);
+  // A remark the person finishing may leave with the count.
+  const [remarks, setRemarks] = useState("");
   const [busy, setBusy] = useState(false);
   // Blind count: the books figures are hidden while counting, so every item is looked at and
   // counted rather than agreed with. Remembered on this device; ended when it is time to review.
@@ -277,17 +281,41 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
     }
   }
 
-  /** Why a counted item differs from the books; saved on its own, the figure counted untouched. */
-  async function saveReason(itemId: string, reason: string | null) {
-    const before = count?.lines.find((l) => l.itemId === itemId)?.reason ?? null;
-    setLine(itemId, { reason });
+  /** What explains a difference — a reason from the list, a short remark — saved on its own, the
+   *  figure counted untouched. */
+  async function saveWhy(itemId: string, patch: { reason?: string | null; note?: string | null }) {
+    const line = count?.lines.find((l) => l.itemId === itemId);
+    const before = { reason: line?.reason ?? null, note: line?.note ?? null };
+    setLine(itemId, patch);
     try {
-      await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, reason }] } });
+      await api(`/api/v1/stock-counts/${id}`, { method: "PATCH", body: { entries: [{ itemId, ...patch }] } });
     } catch (e) {
       push((e as Error).message, "error");
-      setLine(itemId, { reason: before });
+      setLine(itemId, before);
     }
   }
+
+  /** Enter (or the arrow keys) in a count cell moves to the next or previous row's cell, as in a
+   *  spreadsheet, so a long list is counted down with the keyboard alone. */
+  const listRef = useRef<HTMLDivElement>(null);
+  function moveFrom(el: HTMLElement, by: 1 | -1) {
+    const cells = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-count-cell]") ?? [])];
+    const next = cells[cells.indexOf(el) + by];
+    next?.focus();
+  }
+
+  // "/" jumps to the scan / search box, as in the spreadsheet-style tools shop owners know.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   /** A scanned barcode adds one of that item; a scanned IMEI ticks that phone. Says what it did,
    *  so the caller knows whether to keep the text, close the camera or complain. */
@@ -312,6 +340,13 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
     return "none";
   }
 
+  /** A read from a scanner gun or the typed box answers with a sound (the camera makes its own on
+   *  every read), so a counter looking at the shelf hears whether it counted without looking at the screen. */
+  function scanSound(r: ScanResult) {
+    if (r === "counted") playBeep();
+    else if (r === "dup" || r === "none") playError();
+  }
+
   // The camera keeps running between reads, so the handler it holds must not change with every
   // count (a new one would restart the camera): it reads the latest one through a ref.
   const cameraHandler = useRef<(code: string) => boolean>(() => true);
@@ -326,7 +361,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   const onCameraScan = useCallback((code: string) => cameraHandler.current(code), []);
   const closeCamera = useCallback(() => setCamera(false), []);
 
-  async function act(kind: "finish" | "zero" | "cancel") {
+  async function act(kind: "finish" | "zero" | "cancel", remarks?: string) {
     setBusy(true);
     try {
       if (kind === "zero") {
@@ -334,7 +369,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
         push(`${r.marked} item(s) set to 0`);
         load();
       } else {
-        await api(`/api/v1/stock-counts/${id}/${kind === "finish" ? "complete" : "cancel"}`, { method: "POST" });
+        await api(`/api/v1/stock-counts/${id}/${kind === "finish" ? "complete" : "cancel"}`, { method: "POST", body: kind === "finish" && remarks ? { remarks } : undefined });
         push(kind === "finish" ? "Stock corrected to the count" : "Stock count cancelled");
         load();
       }
@@ -388,6 +423,22 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   // What finishing would change, item by item, for the review before the stock is corrected.
   const variances = counted.filter((l) => (diffOf(l) ?? 0) !== 0);
 
+  /** The whole count as a spreadsheet: every item, what the books held, what was counted, the
+   *  difference and its worth, the reason and the remark — for Excel, an accountant, or a file. */
+  function exportCsv() {
+    if (!count) return;
+    const head = ["SKU", "Item", "Category", "Books", "Counted", "Difference", ...(seeCost ? ["Unit cost", "Difference value"] : []), "Reason", "Remark"];
+    const rows = lines.map((l) => {
+      const d = diffOf(l);
+      return [
+        l.sku, l.name, l.category, l.expectedQty, l.countedQty ?? "", d ?? "",
+        ...(seeCost ? [Number(l.unitCost) / 100, d === null ? "" : Number(BigInt(l.unitCost) * BigInt(d)) / 100] : []),
+        d ? countReasonLabel(l.reason) ?? "" : "", d ? l.note ?? "" : "",
+      ];
+    });
+    downloadCsv(`${count.txnNo}-${count.branch}`.replace(/[^\w.-]+/g, "_"), rowsToCsv([head, ...rows]));
+  }
+
   /** Finishing ends a blind count: the figures come back for the review, which is the point of it. */
   function askFinish() {
     if (blindPref) setBlind(false);
@@ -404,92 +455,112 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
     const r = handleCode(text);
     if (r !== "none") setQ("");
     else if (shown.length === 0) push(`${text} — not in this count`, "error");
+    // Text that is just a search (it still finds items) makes no sound; only a read does.
+    if (r !== "none" || shown.length === 0) scanSound(r);
     inputRef.current?.focus();
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-3 pb-20 lg:pb-0">
-      {/* Stays in view while the list scrolls: where this count is, and the way to finish it. */}
-      <div className="sticky top-0 z-20 -mx-3 space-y-1 border-b border-gray-200 bg-white/95 px-3 py-2 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-4 sm:px-4">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" aria-label="Back" onClick={onBack}><ArrowLeft size={18} /></Button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap font-semibold">{count.txnNo}</span>
-              <Badge status={count.status} />
-            </div>
-            <div className="truncate text-xs text-gray-500">{count.branch} · {count.categoryName || "All items"}</div>
-          </div>
-          {editable && canFinish && (
-            // A short word here (the bar is narrow); the confirmation that follows spells out what finishing does.
-            <Button className="shrink-0" disabled={busy || counted.length === 0} onClick={askFinish}><Check size={16} className="mr-1 inline" />Finish</Button>
-          )}
+    <div className="mx-auto max-w-3xl space-y-2 pb-20 lg:pb-0">
+      {/* Only on paper: what this report is, since the screen's own header is not printed. */}
+      <div className="hidden space-y-1 border-b border-gray-300 pb-3 print:block">
+        <div className="text-lg font-bold">Stock count report</div>
+        <div className="text-sm">{me?.business?.name} · {count.txnNo} · {count.branch} · {count.categoryName || "All items"}</div>
+        {count.completedAt && <div className="text-xs text-gray-600">{dateTime(count.completedAt)}</div>}
+        <div className="text-sm">
+          <span>Counted</span> {counted.length} / {lines.length} · <span>Short</span> {shortQty}{seeCost && shortValue > 0n ? ` (${fmtMoney(shortValue, cur)})` : ""} · <span>Over</span> {overQty}{seeCost && overValue > 0n ? ` (${fmtMoney(overValue, cur)})` : ""}
         </div>
-        <ProgressBar value={lines.length ? counted.length / lines.length : 0} label={<span className="tabular-nums">{counted.length} / {lines.length}</span>} />
+        {count.notes && <div className="text-xs text-gray-600">{count.notes}</div>}
+      </div>
+
+      {/* Stays in view while the list scrolls: where this count is, the way to finish it, and the
+          column heads, as a spreadsheet keeps its top row. */}
+      <div className="no-print sticky top-0 z-20 -mx-3 border-b border-gray-200 bg-white/95 backdrop-blur dark:border-gray-800 dark:bg-gray-900/95 sm:-mx-4">
+        <div className="space-y-1 px-3 pt-1.5 sm:px-4">
+          <div className="flex items-center gap-1.5">
+            <Button size="sm" variant="ghost" aria-label="Back" onClick={onBack}><ArrowLeft size={18} /></Button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap text-sm font-semibold">{count.txnNo}</span>
+                <Badge status={count.status} />
+              </div>
+              <div className="truncate text-[11px] text-gray-500">{count.branch} · {count.categoryName || "All items"}</div>
+            </div>
+            <Button size="sm" variant="ghost" aria-label="Export to a spreadsheet" title="Export to a spreadsheet (CSV)" onClick={exportCsv}><Download size={17} /></Button>
+            {count.status === "COMPLETED" && <Button size="sm" variant="ghost" aria-label="Print the report" title="Print the report" onClick={() => window.print()}><Printer size={17} /></Button>}
+            {editable && canFinish && (
+              // A short word here (the bar is narrow); the review that follows spells out what finishing does.
+              <Button size="sm" className="shrink-0" disabled={busy || counted.length === 0} onClick={askFinish}><Check size={15} className="mr-1 inline" />Finish</Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div className="h-full bg-blue-600 transition-all" style={{ width: `${lines.length ? Math.round((counted.length / lines.length) * 100) : 0}%` }} /></div>
+            <span className="text-[11px] tabular-nums text-gray-500">{counted.length} / {lines.length}</span>
+          </div>
+        </div>
+        <div className={cn(GRID, "mt-1 border-t border-gray-100 bg-gray-50 px-[13px] py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800/60 sm:px-[29px]")}>
+          <div>Item</div><div className="text-right">Books</div><div className="text-right">Counted</div><div className="text-right">±</div>
+        </div>
       </div>
 
       {count.status === "COMPLETED" && (
-        <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800 dark:bg-green-950/40 dark:text-green-300">This count is finished. The stock was corrected to what was counted.</p>
+        <p className="no-print rounded-md bg-green-50 px-3 py-1.5 text-xs text-green-800 dark:bg-green-950/40 dark:text-green-300">This count is finished. The stock was corrected to what was counted.</p>
       )}
       {count.status === "CANCELLED" && (
-        <p className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300">This count was cancelled. No stock changed.</p>
+        <p className="no-print rounded-md bg-gray-100 px-3 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">This count was cancelled. No stock changed.</p>
       )}
 
-      <form className="flex gap-2" onSubmit={submit}>
+      <form className="no-print flex gap-2" onSubmit={submit}>
         <div className="relative min-w-0 flex-1">
-          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             enterKeyHint="done"
             placeholder={editable ? "Scan, or search name, SKU or IMEI" : "Search name, SKU or barcode…"}
-            className="h-11 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-9 text-base outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/80"
+            className="h-9 w-full rounded-md border border-gray-300 bg-white pl-8 pr-8 text-base outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800/80 sm:text-sm"
           />
           {q && (
-            <button type="button" aria-label="Clear" className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { setQ(""); inputRef.current?.focus(); }}>
-              <X size={16} />
+            <button type="button" aria-label="Clear" className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => { setQ(""); inputRef.current?.focus(); }}>
+              <X size={15} />
             </button>
           )}
         </div>
         {editable && canCamera && (
-          <Button type="button" variant="secondary" aria-label="Scan with the camera" className="min-h-11 px-3.5" onClick={() => setCamera(true)}>
-            <Camera size={20} />
+          <Button type="button" variant="secondary" aria-label="Scan with the camera" className="px-3" onClick={() => setCamera(true)}>
+            <Camera size={18} />
           </Button>
         )}
       </form>
 
-      <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
+      <div className="no-print -mx-3 flex gap-1 overflow-x-auto px-3 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
         {filters.map(([k, label, n]) => (
-          <button key={k} type="button" onClick={() => setFilter(k)} className={cn("shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium", activeFilter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
+          <button key={k} type="button" onClick={() => setFilter(k)} className={cn("shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium", activeFilter === k ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300")}>
             <span>{label}</span> <span className="tabular-nums">{n}</span>
+          </button>
+        ))}
+        {cats.length > 1 && <span className="mx-1 shrink-0 self-stretch border-l border-gray-200 dark:border-gray-700" />}
+        {cats.length > 1 && ["", ...cats].map((c) => (
+          <button key={c || "all"} type="button" onClick={() => setCat(c)} className={cn("max-w-[12rem] shrink-0 truncate whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium", cat === c ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300")}>
+            {c || "All items"}
           </button>
         ))}
       </div>
 
-      {cats.length > 1 && (
-        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0 [&::-webkit-scrollbar]:hidden">
-          {["", ...cats].map((c) => (
-            <button key={c || "all"} type="button" onClick={() => setCat(c)} className={cn("max-w-[14rem] shrink-0 truncate whitespace-nowrap rounded-lg border px-2.5 py-1 text-xs font-medium", cat === c ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300")}>
-              {c || "All items"}
-            </button>
-          ))}
-        </div>
-      )}
-
       {editable && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="min-w-0 text-xs text-gray-500">{blind ? "✗ = not found" : <span className="sm:hidden">✓ = all there · ✗ = not found</span>}</p>
-          <label className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-            <EyeOff size={15} /><span>Blind count</span>
+        <div className="no-print flex items-center justify-between gap-3">
+          <p className="min-w-0 text-[11px] leading-snug text-gray-500">{blind ? "Type how many you found, then Enter. 0 = not found." : "Type how many you found, then Enter. ✓ = all there, 0 = not found."}</p>
+          <label className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+            <EyeOff size={14} /><span>Blind count</span>
             <Switch on={blindPref} onChange={setBlind} label="Blind count" />
           </label>
         </div>
       )}
-      {blind && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Blind count is on: the books figures are hidden until you finish.</p>}
+      {blind && <p className="no-print rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Blind count is on: the books figures are hidden until you finish.</p>}
 
       {!blind && (shortQty > 0 || overQty > 0) && (
-        <p className="flex flex-wrap gap-x-4 text-sm">
+        <p className="no-print flex flex-wrap gap-x-4 text-xs">
           {shortQty > 0 && <span className="text-red-600"><span>Short</span> <span className="tabular-nums font-medium">{shortQty}</span>{seeCost && shortValue > 0n && <span className="tabular-nums"> ({fmtMoney(shortValue, cur)})</span>}</span>}
           {overQty > 0 && <span className="text-green-700 dark:text-green-400"><span>Over</span> <span className="tabular-nums font-medium">{overQty}</span>{seeCost && overValue > 0n && <span className="tabular-nums"> ({fmtMoney(overValue, cur)})</span>}</span>}
         </p>
@@ -498,16 +569,16 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
       {shown.length === 0 ? (
         <Card><Empty message={activeFilter === "todo" && !q && !cat ? "Every item is counted" : "Nothing here"} /></Card>
       ) : (
-        <Card className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
-          {shown.map((l) => <CountLine key={l.itemId} line={l} editable={editable} blind={blind} seeCost={seeCost} cur={cur} onSave={save} onReason={saveReason} onImei={() => setImeiFor(l)} />)}
-        </Card>
+        <div ref={listRef} className="overflow-hidden rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          {shown.map((l) => <CountLine key={l.itemId} line={l} editable={editable} blind={blind} onSave={save} onWhy={saveWhy} onImei={() => setImeiFor(l)} onMove={moveFrom} />)}
+        </div>
       )}
 
       {editable && (
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {canFinish && <Button className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy || counted.length === 0} onClick={askFinish}><Check size={18} className="mr-1 inline" />Finish count</Button>}
-          {todo > 0 && <Button variant="secondary" className="min-h-12 text-base sm:min-h-10 sm:text-sm" disabled={busy} onClick={() => setConfirm("zero")}>Mark the rest as not found</Button>}
-          {canFinish && <Button variant="ghost" className="text-red-600 sm:ml-auto" disabled={busy} onClick={() => setConfirm("cancel")}><X size={16} className="mr-1 inline" />Cancel count</Button>}
+        <div className="no-print flex flex-wrap gap-2">
+          {canFinish && <Button disabled={busy || counted.length === 0} onClick={askFinish}><Check size={16} className="mr-1 inline" />Finish count</Button>}
+          {todo > 0 && <Button variant="secondary" disabled={busy} onClick={() => setConfirm("zero")}>Mark the rest as not found</Button>}
+          {canFinish && <Button variant="ghost" className="ml-auto text-red-600" disabled={busy} onClick={() => setConfirm("cancel")}><X size={16} className="mr-1 inline" />Cancel count</Button>}
         </div>
       )}
 
@@ -532,7 +603,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
         wide
         footer={<div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setConfirm(null)}>Cancel</Button>
-          <Button disabled={busy} onClick={() => { setConfirm(null); act("finish"); }}>Correct the stock</Button>
+          <Button disabled={busy} onClick={() => { setConfirm(null); act("finish", remarks.trim()); }}>Correct the stock</Button>
         </div>}
       >
         <div className="space-y-3 text-sm">
@@ -565,6 +636,7 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
             <li className="text-green-700 dark:text-green-400"><span>Over</span> <span className="tabular-nums font-medium">{overQty}</span>{seeCost && overValue > 0n && <span className="tabular-nums"> ({fmtMoney(overValue, cur)})</span>}</li>
             {todo > 0 && <li className="text-amber-600"><span>Not counted (left as they are)</span> <span className="tabular-nums font-medium">{todo}</span></li>}
           </ul>
+          <Input label="Remarks (optional)" value={remarks} maxLength={300} onChange={(e) => setRemarks(e.target.value)} />
         </div>
       </Modal>
       <ConfirmDialog
@@ -589,21 +661,30 @@ function CountSheet({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
-/** One item to count. The books figure is at the right, where the eye goes to compare; below it
- *  the number found (− / + / typed) and, until it is counted, a tap for "all there" or "not found". */
-function CountLine({ line, editable, blind, seeCost, cur, onSave, onReason, onImei }: {
-  line: Line; editable: boolean; blind: boolean; seeCost: boolean; cur: string;
-  onSave: (itemId: string, qty: number | null) => void; onReason: (itemId: string, reason: string | null) => void; onImei: () => void;
+/** The columns of the counting sheet — item, books, counted, difference — shared by the heading
+ *  row and every item row so they line up like a spreadsheet's. */
+const GRID = "grid grid-cols-[minmax(5rem,1fr)_2.75rem_5.25rem_2.75rem] items-center gap-x-2";
+
+/** One item as one line of the sheet. The number found is typed straight into its cell and Enter
+ *  moves down to the next, as in Excel; "all there" is a single small tick, and 0 means not found.
+ *  A line that differs from the books opens a second line for its reason and a short remark. */
+function CountLine({ line, editable, blind, onSave, onWhy, onImei, onMove }: {
+  line: Line; editable: boolean; blind: boolean;
+  onSave: (itemId: string, qty: number | null) => void;
+  onWhy: (itemId: string, patch: { reason?: string | null; note?: string | null }) => void;
+  onImei: () => void; onMove: (el: HTMLElement, by: 1 | -1) => void;
 }) {
   const [text, setText] = useState(line.countedQty === null ? "" : String(line.countedQty));
-  // A scan or "Not found" changes the count from outside the box: show the new figure.
+  // A scan, "all there" or a count made elsewhere changes the figure from outside the cell: show it.
   const [shownQty, setShownQty] = useState(line.countedQty);
   if (shownQty !== line.countedQty) {
     setShownQty(line.countedQty);
     setText(line.countedQty === null ? "" : String(line.countedQty));
   }
+  const [remark, setRemark] = useState(line.note ?? "");
   const d = diffOf(line);
   const untouched = line.countedQty === null;
+  const differs = d !== null && d !== 0;
 
   function commit() {
     const v = text.trim();
@@ -612,102 +693,81 @@ function CountLine({ line, editable, blind, seeCost, cur, onSave, onReason, onIm
     if (qty !== line.countedQty) onSave(line.itemId, qty);
   }
 
-  const step = (by: number) => {
-    const next = Math.max(0, (line.countedQty ?? 0) + by);
-    setText(String(next));
-    onSave(line.itemId, next);
-  };
-  const stepBtn = "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-2xl font-bold text-gray-700 active:bg-gray-200 disabled:opacity-40 dark:bg-gray-800 dark:text-gray-200 dark:active:bg-gray-700";
-  const quick = "flex h-11 shrink-0 items-center justify-center gap-1 rounded-xl px-3 text-sm font-semibold";
-
-  /** The result: how far off the books the count is, with what that is worth. A blind count says
-   *  only that it was counted, since the comparison is kept back until the review. */
-  const result = d === null ? null : blind ? (
-    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">✓ <span>Counted</span></span>
-  ) : (
-    <div className="min-w-0 shrink-0 text-right">
-      <div className={cn("text-xl font-bold tabular-nums leading-tight", d < 0 ? "text-red-600" : d > 0 ? "text-green-700 dark:text-green-400" : "text-gray-400")}>
-        {d === 0 ? "✓" : d > 0 ? `+${d}` : d}
-      </div>
-      {seeCost && d !== 0 && <div className="text-xs tabular-nums text-gray-500">{fmtMoney(BigInt(line.unitCost) * BigInt(d), cur)}</div>}
-    </div>
-  );
-
-  const differs = d !== null && d !== 0;
+  /** The difference column: a tick when it matches, a signed number when it does not; while counting
+   *  blind only that it was counted. */
+  const result = d === null ? null : blind || d === 0
+    ? <span className="text-gray-400">✓</span>
+    : <span className={cn("font-bold", d < 0 ? "text-red-600" : "text-green-700 dark:text-green-400")}>{d > 0 ? `+${d}` : d}</span>;
 
   return (
-    <div className={cn("space-y-2 px-3 py-3", !blind && d !== null && d < 0 && "bg-red-50/50 dark:bg-red-950/20", !blind && d !== null && d > 0 && "bg-green-50/50 dark:bg-green-950/20")}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold leading-snug">{line.name}</div>
-          <div className="text-xs text-gray-500">{[line.sku, line.category].filter(Boolean).join(" · ")}</div>
+    <div className={cn("border-b border-gray-100 px-3 py-1 last:border-b-0 dark:border-gray-800", !blind && d !== null && d < 0 && "bg-red-50/60 dark:bg-red-950/20", !blind && d !== null && d > 0 && "bg-green-50/60 dark:bg-green-950/20")}>
+      <div className={cn(GRID, "min-h-[2.75rem]")}>
+        <div className="min-w-0">
+          {/* Two lines allowed: names differ at the end (128GB Black, 256GB Blue), so cutting them off hides which one it is. */}
+          <div className="line-clamp-2 break-words text-[13px] font-medium leading-tight">{line.name}</div>
+          <div className="truncate text-[11px] leading-tight text-gray-500">{[line.sku, line.category].filter(Boolean).join(" · ")}</div>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-xs text-gray-500">Books</div>
-          <div className="text-2xl font-semibold tabular-nums leading-none">{blind ? "•••" : line.expectedQty}</div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {line.trackSerial ? (
-          <button type="button" onClick={onImei} className="flex h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-blue-500 font-semibold text-blue-600 dark:text-blue-400">
-            <span className="text-xl tabular-nums">{line.countedQty ?? "?"}</span>
-            <span>Tick IMEIs</span>
-          </button>
-        ) : editable ? (
-          <>
-            <button type="button" aria-label="Less" className={stepBtn} disabled={!line.countedQty} onClick={() => step(-1)}>−</button>
+        <div className="text-right text-sm tabular-nums text-gray-600 dark:text-gray-300">{blind ? "•••" : line.expectedQty}</div>
+        <div className="flex items-center justify-end gap-1">
+          {/* "All there" copies the books figure, which a blind count must not do. Not part of the tab order. */}
+          {editable && !blind && !line.trackSerial && untouched && (
+            <button type="button" tabIndex={-1} aria-label="All there" title="All there" onClick={() => onSave(line.itemId, line.expectedQty)} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/40">
+              <Check size={16} />
+            </button>
+          )}
+          {line.trackSerial ? (
+            <button type="button" onClick={onImei} title="Tick IMEIs" className="h-8 w-14 rounded border border-blue-400 px-1.5 text-right text-sm font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+              {line.countedQty ?? "?"}<span className="ml-0.5 text-[10px] font-normal">▸</span>
+            </button>
+          ) : editable ? (
             <input
+              data-count-cell
               inputMode="numeric"
               aria-label="Counted"
               value={text}
               onChange={(e) => setText(e.target.value.replace(/[^\d]/g, ""))}
               onBlur={commit}
               onFocus={(e) => e.target.select()}
-              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              onKeyDown={(e) => {
+                const el = e.currentTarget;
+                if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); commit(); onMove(el, 1); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); commit(); onMove(el, -1); }
+              }}
               placeholder="?"
-              className="h-11 min-w-0 flex-1 rounded-xl border-2 border-gray-300 bg-white text-center text-2xl font-semibold tabular-nums outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800"
+              className="h-8 w-14 rounded border border-gray-300 bg-white px-1.5 text-right text-sm font-semibold tabular-nums outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
             />
-            <button type="button" aria-label="More" className={stepBtn} onClick={() => step(1)}>+</button>
-          </>
-        ) : (
-          <div className="flex-1">
-            <span className="text-xs text-gray-500">Counted</span>{" "}
-            <span className="text-xl font-semibold tabular-nums">{line.countedQty ?? "—"}</span>
-          </div>
-        )}
-
-        {editable && !line.trackSerial && untouched ? (
-          <>
-            {/* "All there" copies the books figure, which a blind count must not do: the number is entered. */}
-            {!blind && (
-              <button type="button" aria-label="All there" title="All there" onClick={() => onSave(line.itemId, line.expectedQty)} className={cn(quick, "bg-green-100 text-green-700 active:bg-green-200 dark:bg-green-900/40 dark:text-green-300")}>
-                <Check size={20} /><span className="hidden sm:inline">All there</span>
-              </button>
-            )}
-            <button type="button" aria-label="Not found" title="Not found" onClick={() => onSave(line.itemId, 0)} className={cn(quick, "bg-red-100 text-red-700 active:bg-red-200 dark:bg-red-900/40 dark:text-red-300")}>
-              <X size={20} /><span className="hidden sm:inline">Not found</span>
-            </button>
-          </>
-        ) : untouched ? (
-          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Not counted</span>
-        ) : result}
+          ) : (
+            <span className="text-sm font-semibold tabular-nums">{line.countedQty ?? "—"}</span>
+          )}
+        </div>
+        <div className="text-right text-sm tabular-nums">{result}</div>
       </div>
 
-      {/* Why it differs: optional, picked from a short list, and carried into the stock movement. */}
+      {/* Why it differs: optional, a short list and a few words, carried into the stock movement. */}
       {!blind && differs && editable && (
-        <select
-          aria-label="Reason"
-          value={line.reason ?? ""}
-          onChange={(e) => onReason(line.itemId, e.target.value || null)}
-          className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-700 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-        >
-          <option value="">Reason (optional)</option>
-          {COUNT_REASONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-        </select>
+        <div className="flex gap-1.5 pb-1 pt-0.5">
+          <select
+            aria-label="Reason"
+            value={line.reason ?? ""}
+            onChange={(e) => onWhy(line.itemId, { reason: e.target.value || null })}
+            className="h-8 w-44 shrink-0 rounded border border-gray-300 bg-white px-1.5 text-xs text-gray-700 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+          >
+            <option value="">Reason (optional)</option>
+            {COUNT_REASONS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+          <input
+            aria-label="Remark"
+            value={remark}
+            maxLength={200}
+            placeholder="Remark…"
+            onChange={(e) => setRemark(e.target.value)}
+            onBlur={() => { if (remark.trim() !== (line.note ?? "")) onWhy(line.itemId, { note: remark.trim() || null }); }}
+            className="h-8 min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 text-xs outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-800"
+          />
+        </div>
       )}
-      {!editable && differs && countReasonLabel(line.reason) && (
-        <div className="text-xs text-gray-500">{countReasonLabel(line.reason)}</div>
+      {!editable && differs && (countReasonLabel(line.reason) || line.note) && (
+        <div className="pb-1 text-[11px] text-gray-500">{[countReasonLabel(line.reason), line.note].filter(Boolean).join(" — ")}</div>
       )}
     </div>
   );

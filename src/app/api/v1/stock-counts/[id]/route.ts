@@ -69,6 +69,7 @@ export const GET = withAuth("stock.view", async ({ user, params }) => {
         expectedImeis: open ? heldImeis.get(l.itemId) ?? [] : [],
         adjustment: l.adjustment,
         reason: l.reason,
+        note: l.note,
         unitCost: seeCost ? (open ? l.item.costPrice : l.unitCost) : 0n,
       }))
       .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)),
@@ -82,6 +83,7 @@ const schema = z.object({
     countedQty: z.number().int().min(0).max(1_000_000).nullable().optional(),
     imeis: z.array(z.string().trim().max(40)).max(500).optional(),
     reason: z.enum(COUNT_REASON_KEYS).nullable().optional(),
+    note: z.string().max(200).nullable().optional(),
   })).min(1).max(500),
 });
 
